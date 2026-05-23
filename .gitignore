@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+mobile/node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native signing
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Android / iOS build outputs (keep mobile/android and mobile/ios source)
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/app/.cxx/
+mobile/ios/build/
+mobile/ios/Pods/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS / IDE
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# TypeScript
+*.tsbuildinfo

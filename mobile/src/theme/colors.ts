@@ -1,0 +1,17 @@
+export const colors = {
+  primary: '#05966A',
+  primaryBright: '#37874A',
+  yellow: '#E9C468',
+  dark: '#0F1B2A',
+  charcoal: '#5A5D68',
+  grey: '#95A3B8',
+  ash: '#F5F7FA',
+  white: '#FFFFFF',
+  buttonSecondaryBg: '#E5E7EB',
+  successBg: '#E8F5F0',
+  errorBg: '#FDECEC',
+  heart: '#E85D5D',
+  progressTrack: '#E5E7EB',
+  progressFill: '#E9C468',
+  chapterBanner: '#0F1B2A',
+} as const;
