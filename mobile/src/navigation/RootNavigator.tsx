@@ -5,12 +5,16 @@ import { SplashScreen } from '../screens/startup/SplashScreen';
 import { WelcomeScreen } from '../screens/startup/WelcomeScreen';
 import { IntroScreen } from '../screens/startup/IntroScreen';
 import { MotivationScreen } from '../screens/onboarding/MotivationScreen';
+import { ScriptScreen } from '../screens/onboarding/ScriptScreen';
 import { DailyGoalScreen } from '../screens/onboarding/DailyGoalScreen';
 import { NotificationsScreen } from '../screens/onboarding/NotificationsScreen';
 import { AccountPromptScreen } from '../screens/onboarding/AccountPromptScreen';
 import { StreakGoalScreen } from '../screens/onboarding/StreakGoalScreen';
 import { PathChooseScreen } from '../screens/path/PathChooseScreen';
 import { PlacementIntroScreen } from '../screens/path/PlacementIntroScreen';
+import { PlacementTestScreen } from '../screens/placement/PlacementTestScreen';
+import { PlacementResultsScreen } from '../screens/placement/PlacementResultsScreen';
+import { CelebrationScreen } from '../screens/placement/CelebrationScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { MainTabs } from './MainTabs';
@@ -31,12 +35,16 @@ export function RootNavigator() {
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Intro" component={IntroScreen} />
         <Stack.Screen name="OnboardingMotivation" component={MotivationScreen} />
+        <Stack.Screen name="OnboardingScript" component={ScriptScreen} />
         <Stack.Screen name="OnboardingDailyGoal" component={DailyGoalScreen} />
         <Stack.Screen name="OnboardingNotifications" component={NotificationsScreen} />
         <Stack.Screen name="OnboardingAccount" component={AccountPromptScreen} />
         <Stack.Screen name="OnboardingStreakGoal" component={StreakGoalScreen} />
         <Stack.Screen name="PathChoose" component={PathChooseScreen} />
         <Stack.Screen name="PlacementIntro" component={PlacementIntroScreen} />
+        <Stack.Screen name="PlacementTest" component={PlacementTestScreen} />
+        <Stack.Screen name="PlacementResults" component={PlacementResultsScreen} />
+        <Stack.Screen name="Celebration" component={CelebrationScreen} />
         <Stack.Screen name="AuthLogin" component={LoginScreen} />
         <Stack.Screen name="AuthRegister" component={RegisterScreen} />
         <Stack.Screen name="MainTabs" component={MainTabs} />

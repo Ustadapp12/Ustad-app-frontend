@@ -4,7 +4,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppText } from '../../components/ui/AppText';
 import { Logo } from '../../components/ui/Logo';
 import { Mascot } from '../../components/ui/Mascot';
+import { IrabBackground } from '../../components/ui/IrabBackground';
 import { copy } from '../../i18n/copy';
+import { healthCheck } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import type { RootStackParamList } from '../../navigation/types';
@@ -14,6 +16,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 export function SplashScreen({ navigation }: Props) {
   const hydrate = useAuthStore(s => s.hydrate);
   const [phase, setPhase] = useState(0);
+  const [backendOk, setBackendOk] = useState(true);
   const scale = useRef(new Animated.Value(0.3)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const progress = useRef(new Animated.Value(0)).current;
@@ -40,6 +43,8 @@ export function SplashScreen({ navigation }: Props) {
 
   useEffect(() => {
     const boot = async () => {
+      const ok = await healthCheck();
+      setBackendOk(ok);
       await hydrate();
       await new Promise<void>(r => setTimeout(r, 3000));
       const currentUser = useAuthStore.getState().user;
@@ -59,6 +64,7 @@ export function SplashScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
+      <IrabBackground />
       <Animated.View
         style={[
           styles.center,
@@ -77,6 +83,9 @@ export function SplashScreen({ navigation }: Props) {
             <Animated.View style={[styles.fill, { width: progressWidth }]} />
           </View>
           <AppText style={styles.loading}>{copy.splash.loading}</AppText>
+          {!backendOk ? (
+            <AppText style={styles.offline}>{copy.splash.offline}</AppText>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -115,5 +124,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: `${colors.yellow}99`,
+  },
+  offline: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: colors.heart,
+    textAlign: 'center',
+    marginTop: 4,
   },
 });

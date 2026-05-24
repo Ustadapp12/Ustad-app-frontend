@@ -15,8 +15,12 @@ export function MainTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.yellow,
         tabBarInactiveTintColor: colors.grey,
+        tabBarStyle: {
+          backgroundColor: colors.dark,
+          borderTopColor: 'rgba(255,255,255,0.1)',
+        },
       }}>
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: copy.tabs.home }} />
       <Tab.Screen name="Journey" component={JourneyScreen} options={{ title: copy.tabs.journey }} />

@@ -3,16 +3,20 @@ export type RootStackParamList = {
   Welcome: undefined;
   Intro: undefined;
   OnboardingMotivation: undefined;
+  OnboardingScript: undefined;
   OnboardingDailyGoal: undefined;
   OnboardingNotifications: undefined;
   OnboardingAccount: undefined;
   OnboardingStreakGoal: undefined;
   PathChoose: undefined;
   PlacementIntro: undefined;
+  PlacementTest: undefined;
+  PlacementResults: { answers: (number | null)[] };
+  Celebration: undefined;
   AuthLogin: undefined;
   AuthRegister: undefined;
   MainTabs: undefined;
-  SurahLevels: { surahNumber: number; nameEn: string };
+  SurahLevels: { surahNumber: number; nameEn: string; nameAr?: string };
   LessonStart: { groupId: string; label: string };
   LessonSession: { groupId: string };
   LessonComplete: {
@@ -20,6 +24,7 @@ export type RootStackParamList = {
     scorePct: number;
     stars: number;
     gems?: number;
+    heartsRemaining?: number;
   };
   StreakModal: { streak: number };
 };

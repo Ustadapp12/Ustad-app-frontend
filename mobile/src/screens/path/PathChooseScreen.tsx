@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
+import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
 import { copy } from '../../i18n/copy';
 import { colors } from '../../theme/colors';
@@ -23,46 +23,58 @@ export function PathChooseScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen>
+    <OnboardingLayout step={2} totalSteps={3} onBack={() => navigation.goBack()}>
       <AppText variant="h1" style={styles.title}>
         {copy.path.title}
       </AppText>
       <View style={styles.cards}>
         <Pressable style={styles.card} onPress={() => pick('fresh')}>
-          <View style={styles.icon} />
+          <View style={[styles.icon, styles.iconFresh]}>
+            <AppText style={styles.iconEmoji}>🌱</AppText>
+          </View>
           <AppText variant="h2">{copy.path.startFresh.title}</AppText>
-          <AppText>{copy.path.startFresh.subtitle}</AppText>
+          <AppText style={styles.sub}>{copy.path.startFresh.subtitle}</AppText>
+          <AppText style={styles.bonus}>+20 XP</AppText>
         </Pressable>
         <Pressable style={styles.card} onPress={() => pick('placement')}>
-          <View style={[styles.icon, styles.iconAlt]} />
+          <View style={[styles.icon, styles.iconTest]}>
+            <AppText style={styles.iconEmoji}>📖</AppText>
+          </View>
           <AppText variant="h2">{copy.path.checkLevel.title}</AppText>
-          <AppText>{copy.path.checkLevel.subtitle}</AppText>
+          <AppText style={styles.sub}>{copy.path.checkLevel.subtitle}</AppText>
+          <AppText style={styles.bonus}>+30 XP</AppText>
         </Pressable>
       </View>
-    </Screen>
+    </OnboardingLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { padding: spacing.screenHorizontal, marginTop: spacing.lg },
-  cards: { flex: 1, padding: spacing.screenHorizontal, gap: spacing.md },
+  title: { marginBottom: spacing.lg },
+  cards: { gap: spacing.md },
   card: {
     backgroundColor: colors.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.buttonSecondaryBg,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: `${colors.grey}35`,
     padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
   },
   icon: {
     width: 56,
     height: 56,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: spacing.md,
   },
-  iconAlt: { backgroundColor: colors.yellow },
+  iconFresh: { backgroundColor: colors.primary },
+  iconTest: { backgroundColor: colors.yellow },
+  iconEmoji: { fontSize: 28 },
+  sub: { color: colors.charcoal, marginTop: spacing.xs, fontWeight: '600' },
+  bonus: {
+    color: colors.yellow,
+    fontWeight: '900',
+    fontSize: 12,
+    marginTop: spacing.md,
+  },
 });

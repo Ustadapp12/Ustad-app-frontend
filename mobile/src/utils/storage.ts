@@ -1,23 +1,49 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { OnboardingAnswers, Tokens } from '../types/api';
+import {
+  getSecureTokens,
+  setSecureTokens,
+} from '../services/secureTokens';
+import type { OnboardingAnswers, ScriptPreference, Tokens, User } from '../types/api';
 
 const KEYS = {
-  tokens: '@ustadapp/tokens',
+  tokensLegacy: '@ustadapp/tokens',
+  user: '@ustadapp/user',
   onboarding: '@ustadapp/onboarding/v1',
   onboardingDone: '@ustadapp/onboarding/done',
   reciterId: '@ustadapp/reciter',
+  script: '@ustadapp/script',
 } as const;
 
 export async function getTokens(): Promise<Tokens | null> {
-  const raw = await AsyncStorage.getItem(KEYS.tokens);
-  return raw ? (JSON.parse(raw) as Tokens) : null;
+  let tokens = await getSecureTokens();
+  if (!tokens) {
+    const legacy = await AsyncStorage.getItem(KEYS.tokensLegacy);
+    if (legacy) {
+      tokens = JSON.parse(legacy) as Tokens;
+      await setSecureTokens(tokens);
+      await AsyncStorage.removeItem(KEYS.tokensLegacy);
+    }
+  }
+  return tokens;
 }
 
 export async function setTokens(tokens: Tokens | null): Promise<void> {
-  if (tokens) {
-    await AsyncStorage.setItem(KEYS.tokens, JSON.stringify(tokens));
+  await setSecureTokens(tokens);
+  if (!tokens) {
+    await AsyncStorage.removeItem(KEYS.tokensLegacy);
+  }
+}
+
+export async function getStoredUser(): Promise<User | null> {
+  const raw = await AsyncStorage.getItem(KEYS.user);
+  return raw ? (JSON.parse(raw) as User) : null;
+}
+
+export async function setStoredUser(user: User | null): Promise<void> {
+  if (user) {
+    await AsyncStorage.setItem(KEYS.user, JSON.stringify(user));
   } else {
-    await AsyncStorage.removeItem(KEYS.tokens);
+    await AsyncStorage.removeItem(KEYS.user);
   }
 }
 
@@ -49,4 +75,16 @@ export async function getReciterId(): Promise<string> {
 
 export async function setReciterId(id: string): Promise<void> {
   await AsyncStorage.setItem(KEYS.reciterId, id);
+}
+
+export async function getScriptPreference(): Promise<ScriptPreference> {
+  const raw = await AsyncStorage.getItem(KEYS.script);
+  return (raw as ScriptPreference) ?? 'uthmani';
+}
+
+export async function setScriptPreference(
+  script: ScriptPreference,
+): Promise<void> {
+  await AsyncStorage.setItem(KEYS.script, script);
+  await saveOnboarding({ script });
 }

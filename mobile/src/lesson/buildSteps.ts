@@ -21,12 +21,14 @@ export function buildLessonSteps(ayahs: AyahOut[]): ExerciseStep[] {
         .filter(a => a.id !== ayah.id && a.translation_en)
         .map(a => a.translation_en)
         .slice(0, 3);
-      const options = shuffle([
-        ayah.translation_en,
-        ...wrong,
-        'The opening',
-        'Praise be to Allah',
-      ].filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 4));
+      const options = shuffle(
+        [ayah.translation_en, ...wrong]
+          .filter((v, i, arr) => v && arr.indexOf(v) === i)
+          .slice(0, 4),
+      );
+      if (options.length < 2) {
+        return;
+      }
       steps.push({
         type: 'match_meaning',
         ayah,

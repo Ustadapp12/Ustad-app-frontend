@@ -109,14 +109,33 @@ export interface RevisionNext {
   due_at: string | null;
 }
 
+export interface ReciterOut {
+  id: string;
+  name_en: string;
+  name_ar?: string;
+  audio_base_url: string;
+}
+
+export interface JuzOut {
+  juz_number: number;
+  name_en?: string;
+  name_ar?: string;
+  surah_numbers: number[];
+}
+
 export type LearnerMode = 'child' | 'adult' | 'beginner';
+export type ScriptPreference = 'uthmani' | 'nastaliq' | 'simple';
+export type PlacementLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export interface OnboardingAnswers {
   motivation?: string;
+  script?: ScriptPreference;
   dailyGoalMinutes?: 5 | 10 | 15 | 20;
   notificationsEnabled?: boolean;
   streakGoalDays?: 3 | 7 | 14 | 30;
   learnerMode?: LearnerMode;
   pathChoice?: 'fresh' | 'placement';
+  placementLevel?: PlacementLevel;
+  startSurah?: number;
   completedAt?: string;
 }

@@ -6,7 +6,7 @@ Gamified Quran memorization app (iOS + Android) with FastAPI backend integration
 
 - Node.js 20+
 - Xcode (iOS) / Android Studio (Android)
-- Backend running at `http://127.0.0.1:8000` — see repo `docs/BACKEND_INTEGRATION.md`
+- Live API: [https://ustad-app-backend.vercel.app](https://ustad-app-backend.vercel.app) — see `docs/BACKEND_INTEGRATION.md`
 
 ## Install
 
@@ -18,18 +18,22 @@ cd ios && bundle install && bundle exec pod install && cd ..
 
 ## Run
 
+**Windows (emulator + phone):** see [SETUP_WINDOWS.md](./SETUP_WINDOWS.md).
+
+**Team APK:** `npm run build:apk` → share `dist/Ustad-App.apk` (mascot launcher + splash; app label **Ustad App**).
+
 ```bash
 # Terminal 1 — Metro
 npm start
 
-# Terminal 2 — iOS simulator
-npm run ios
+# Terminal 2 — Android (Windows: use script for JAVA_HOME + SDK)
+.\scripts\run-android.ps1
 
-# Android emulator (API at 10.0.2.2:8000)
-npm run android
+# iOS (macOS only)
+npm run ios
 ```
 
-**Physical device:** change `DEV_HOST` in `src/config.ts` to your machine LAN IP.
+**Physical device:** set `PHYSICAL_DEVICE_HOST` in `src/config.ts` to your PC LAN IP (same Wi‑Fi as phone).
 
 ## Project structure
 

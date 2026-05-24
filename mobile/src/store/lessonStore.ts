@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { lessonsApi, learningApi } from '../api';
+import { lessonsApi, learningApi, exerciseTypeForApi } from '../api';
+import { ApiError } from '../api/client';
 import { buildLessonSteps } from '../lesson/buildSteps';
 import type { ExerciseStep } from '../lesson/types';
 import type {
@@ -68,10 +69,14 @@ export const useLessonStore = create<LessonState>((set, get) => ({
         loading: false,
       });
     } catch (e) {
-      set({
-        loading: false,
-        error: e instanceof Error ? e.message : 'Could not start session',
-      });
+      const message =
+        e instanceof ApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : 'Could not start session';
+      set({ loading: false, error: message });
+      throw e;
     }
   },
 
@@ -84,7 +89,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
       set({ correctCount: correctCount + 1 });
     }
     await learningApi.attempt(sessionId, {
-      exercise_type: exerciseType,
+      exercise_type: exerciseTypeForApi(exerciseType),
       correct,
       mistake_count: mistakeCount,
     });

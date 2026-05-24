@@ -8,12 +8,12 @@ Condensed guide for the mobile team. Full OpenAPI: `http://127.0.0.1:8000/docs`.
 
 | Environment | `API_BASE` |
 |-------------|------------|
-| iOS Simulator | `http://127.0.0.1:8000` |
-| Android Emulator | `http://10.0.2.2:8000` |
-| Physical device | `http://<LAN_IP>:8000` |
+| **Default (app)** | `https://ustad-app-backend.vercel.app` |
+| Local override | Set `USE_LOCAL_API = true` in `mobile/src/config.ts` → `http://127.0.0.1:8000` or `http://10.0.2.2:8000` |
 
 All API routes: `${API_BASE}/api/v1/...`  
-Audio: full URLs in JSON (`audio_url`) — same host as `PUBLIC_AUDIO_BASE_URL`.
+**MVP surahs:** 78–87 (`mvp_only=true` on content endpoints).  
+**Audio:** Supabase — `GET /content/reciters` → `audio_base_url` + ayah `audio_assets.husary.rel_path` (mobile builds full URL if `audio_url` omitted).
 
 ---
 

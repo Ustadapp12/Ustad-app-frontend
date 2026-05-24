@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { ProgressHeader } from '../../components/ui/ProgressHeader';
-import { OptionCard } from '../../components/ui/OptionCard';
+import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
+import { GridOptionCard, GridOptions } from '../../components/ui/GridOptionCard';
 import { copy } from '../../i18n/copy';
 import { saveOnboarding } from '../../utils/storage';
+import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -16,48 +16,53 @@ type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingMotivation'>;
 export function MotivationScreen({ navigation }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
 
-  const continueNext = async () => {
-    if (!selected) return;
-    await saveOnboarding({ motivation: selected });
-    navigation.navigate('OnboardingDailyGoal');
-  };
-
   return (
-    <Screen>
-      <ProgressHeader
-        step={0}
-        total={4}
-        onBack={() => navigation.goBack()}
-      />
-      <AppText variant="h1" style={styles.title}>
-        {copy.motivation.title}
-      </AppText>
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+    <OnboardingLayout
+      step={0}
+      totalSteps={4}
+      onBack={() => navigation.goBack()}
+      footer={
+        <PrimaryButton
+          title={copy.motivation.cta}
+          onPress={async () => {
+            if (!selected) return;
+            await saveOnboarding({ motivation: selected });
+            navigation.navigate('OnboardingScript');
+          }}
+          variant={selected ? 'primary' : 'disabled'}
+          disabled={!selected}
+        />
+      }>
+      <AppText variant="h1">{copy.motivation.title}</AppText>
+      <AppText style={styles.sub}>{copy.motivation.subtitle}</AppText>
+      <AppText style={styles.xp}>{copy.motivation.xpHint}</AppText>
+      <GridOptions>
         {copy.motivation.options.map(opt => (
-          <OptionCard
+          <GridOptionCard
             key={opt.id}
             label={opt.label}
+            sub={opt.sub}
             icon={opt.icon}
             selected={selected === opt.id}
             onPress={() => setSelected(opt.id)}
           />
         ))}
-      </ScrollView>
-      <View style={styles.footer}>
-        <PrimaryButton
-          title={copy.motivation.cta}
-          onPress={continueNext}
-          variant={selected ? 'primary' : 'disabled'}
-          disabled={!selected}
-        />
-      </View>
-    </Screen>
+      </GridOptions>
+    </OnboardingLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { paddingHorizontal: spacing.screenHorizontal, marginBottom: spacing.md },
-  list: { flex: 1 },
-  listContent: { paddingHorizontal: spacing.screenHorizontal },
-  footer: { padding: spacing.screenHorizontal, paddingBottom: spacing.lg },
+  sub: {
+    color: colors.charcoal,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    fontWeight: '600',
+  },
+  xp: {
+    color: colors.yellow,
+    fontWeight: '800',
+    fontSize: 12,
+    marginBottom: spacing.md,
+  },
 });

@@ -1,5 +1,6 @@
 import { API_BASE, API_PREFIX } from '../config';
 import { getTokens, setTokens } from '../utils/storage';
+import { messageForStatus } from './formatError';
 import type { Tokens } from '../types/api';
 
 export class ApiError extends Error {
@@ -69,11 +70,7 @@ export async function api<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    const detail =
-      typeof body === 'object' && body && 'detail' in body
-        ? String((body as { detail: unknown }).detail)
-        : res.statusText;
-    throw new ApiError(detail, res.status, body);
+    throw new ApiError(messageForStatus(res.status, body), res.status, body);
   }
 
   if (res.status === 204) {

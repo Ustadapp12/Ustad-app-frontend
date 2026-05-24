@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   View,
-  Pressable,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
+import { LevelNode, nodeAlignForIndex } from '../../components/journey/LevelNode';
 import { learningApi } from '../../api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -19,17 +19,25 @@ import type { RootStackParamList } from '../../navigation/types';
 type Props = NativeStackScreenProps<RootStackParamList, 'SurahLevels'>;
 
 export function SurahLevelsScreen({ route, navigation }: Props) {
-  const { surahNumber, nameEn } = route.params;
+  const { surahNumber, nameEn, nameAr } = route.params;
   const [levels, setLevels] = useState<SurahLevel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     learningApi
       .levels(surahNumber)
       .then(setLevels)
-      .catch(() => setLevels([]))
+      .catch(() => {
+        setError(true);
+        setLevels([]);
+      })
       .finally(() => setLoading(false));
   }, [surahNumber]);
+
+  const completedCount = levels.filter(l => l.status === 'completed').length;
+  const progressPct =
+    levels.length > 0 ? (completedCount / levels.length) * 100 : 0;
 
   if (loading) {
     return (
@@ -40,90 +48,121 @@ export function SurahLevelsScreen({ route, navigation }: Props) {
   }
 
   return (
-    <Screen>
+    <Screen style={styles.screen}>
       <View style={styles.banner}>
-        <AppText style={styles.bannerText}>{nameEn}</AppText>
-      </View>
-      <ScrollView contentContainerStyle={styles.path}>
-        {levels.map((level, index) => {
-          const locked = level.status === 'locked';
-          const completed = level.status === 'completed';
-          const active =
-            level.status === 'available' || level.status === 'in_progress';
-          return (
-            <View key={level.lesson_group_id} style={styles.nodeRow}>
-              <View
-                style={[
-                  styles.node,
-                  completed && styles.nodeDone,
-                  active && styles.nodeActive,
-                  locked && styles.nodeLocked,
-                ]}>
-                <AppText style={styles.nodeText}>
-                  {completed ? '✓' : locked ? '🔒' : '★'}
-                </AppText>
+        <View style={styles.bannerRow}>
+          <View>
+            <AppText style={styles.bannerEn}>{nameEn}</AppText>
+            <AppText style={styles.bannerMeta}>
+              Surah {surahNumber} · {levels.length} levels
+            </AppText>
+            {levels.length > 0 ? (
+              <View style={styles.progressTrack}>
+                <View
+                  style={[styles.progressFill, { width: `${progressPct}%` }]}
+                />
               </View>
-              <Pressable
-                style={styles.nodeLabel}
-                disabled={locked}
+            ) : null}
+          </View>
+          {nameAr ? (
+            <AppText style={styles.bannerAr}>{nameAr}</AppText>
+          ) : null}
+        </View>
+      </View>
+
+      {error || levels.length === 0 ? (
+        <View style={styles.empty}>
+          <AppText style={styles.emptyTitle}>Lessons not available yet</AppText>
+          <AppText variant="caption" style={styles.emptyBody}>
+            Log in with demo@ustadh.local and ensure the backend is running.
+            MVP includes surahs 78–87 only. Start a lesson after completing
+            previous levels.
+          </AppText>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.path}>
+          {levels.map((level, index) => {
+            const locked = level.status === 'locked';
+            const canOpen =
+              level.status === 'available' ||
+              level.status === 'in_progress' ||
+              level.status === 'completed';
+
+            return (
+              <LevelNode
+                key={level.lesson_group_id}
+                level={level}
+                index={index}
+                align={nodeAlignForIndex(index)}
                 onPress={() => {
-                  if (active || completed) {
-                    navigation.navigate('LessonStart', {
-                      groupId: level.lesson_group_id,
-                      label: `Ayah ${level.start_ayah}–${level.end_ayah}`,
-                    });
+                  if (!canOpen || locked) {
+                    return;
                   }
-                }}>
-                <AppText variant="h2">
-                  Level {index + 1}: Ayah {level.start_ayah}–{level.end_ayah}
-                </AppText>
-                {level.stars != null ? (
-                  <AppText variant="caption">{'★'.repeat(level.stars)}</AppText>
-                ) : null}
-                {active ? (
-                  <AppText style={styles.start}>{copy.journey.start}</AppText>
-                ) : null}
-                {locked ? (
-                  <AppText variant="caption">{copy.journey.locked}</AppText>
-                ) : null}
-              </Pressable>
-            </View>
-          );
-        })}
-      </ScrollView>
+                  navigation.navigate('LessonStart', {
+                    groupId: level.lesson_group_id,
+                    label: `Ayah ${level.start_ayah}–${level.end_ayah}`,
+                  });
+                }}
+              />
+            );
+          })}
+        </ScrollView>
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { backgroundColor: colors.dark },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   banner: {
-    backgroundColor: colors.chapterBanner,
+    backgroundColor: colors.primary,
     padding: spacing.lg,
     marginHorizontal: spacing.screenHorizontal,
     marginTop: spacing.md,
-    borderRadius: 12,
+    borderRadius: 20,
   },
-  bannerText: { color: colors.white, fontWeight: '800', fontSize: 18 },
-  path: { padding: spacing.screenHorizontal, paddingTop: spacing.xl },
-  nodeRow: {
+  bannerRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.lg,
-    gap: spacing.md,
   },
-  node: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.buttonSecondaryBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+  bannerEn: { color: colors.white, fontWeight: '800', fontSize: 18 },
+  bannerMeta: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 11,
+    marginTop: 4,
+    fontWeight: '600',
   },
-  nodeDone: { backgroundColor: colors.yellow },
-  nodeActive: { backgroundColor: colors.primary, transform: [{ scale: 1.1 }] },
-  nodeLocked: { opacity: 0.6 },
-  nodeText: { fontSize: 18 },
-  nodeLabel: { flex: 1, paddingTop: 4 },
-  start: { color: colors.primary, fontWeight: '800', marginTop: 4 },
+  bannerAr: {
+    fontSize: 24,
+    color: colors.yellow,
+    fontWeight: '700',
+    writingDirection: 'rtl',
+  },
+  progressTrack: {
+    height: 6,
+    width: 140,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    marginTop: spacing.sm,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.yellow,
+    borderRadius: 3,
+  },
+  path: { paddingTop: spacing.lg, paddingBottom: spacing.xl },
+  empty: {
+    padding: spacing.xl,
+    marginHorizontal: spacing.screenHorizontal,
+  },
+  emptyTitle: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 16,
+    marginBottom: spacing.sm,
+  },
+  emptyBody: { color: colors.grey, lineHeight: 20 },
 });

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import { authApi } from '../api';
-import { setTokens, getTokens } from '../utils/storage';
+import { authApi, learningApi } from '../api';
+import { getTokens, setTokens, getStoredUser, setStoredUser } from '../utils/storage';
+import { loadReciters } from '../services/reciters';
 import type { LearningMe, User } from '../types/api';
-import { learningApi } from '../api';
 
 interface AuthState {
   user: User | null;
@@ -31,18 +31,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
     try {
-      const learning = await learningApi.me();
-      set({
-        isHydrated: true,
-        user: {
+      const [learning, storedUser] = await Promise.all([
+        learningApi.me(),
+        getStoredUser(),
+      ]);
+      const user: User =
+        storedUser ??
+        ({
           id: learning.user_id,
           email: 'learner',
           role: 'learner',
-        },
-        learning,
-      });
+        } as User);
+      await loadReciters();
+      set({ isHydrated: true, user, learning });
     } catch {
       await setTokens(null);
+      await setStoredUser(null);
       set({ isHydrated: true, user: null, learning: null });
     }
   },
@@ -50,7 +54,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email, password) => {
     const res = await authApi.login({ email, password });
     await setTokens(res.tokens);
+    await setStoredUser(res.user);
     const learning = await learningApi.me();
+    await loadReciters();
     set({ user: res.user, learning });
   },
 
@@ -61,18 +67,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       display_name: displayName,
     });
     await setTokens(res.tokens);
+    await setStoredUser(res.user);
     const learning = await learningApi.me();
+    await loadReciters();
     set({ user: res.user, learning });
   },
 
   logout: async () => {
     await setTokens(null);
+    await setStoredUser(null);
     set({ user: null, learning: null });
   },
 
   refreshLearning: async () => {
-    if (!get().user) return;
-    const learning = await learningApi.me();
-    set({ learning });
+    const tokens = await getTokens();
+    if (!tokens) {
+      return;
+    }
+    try {
+      const learning = await learningApi.me();
+      set({ learning });
+    } catch {
+      /* ignore when offline */
+    }
   },
 }));

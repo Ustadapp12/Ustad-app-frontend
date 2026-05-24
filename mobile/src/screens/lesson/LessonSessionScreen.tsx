@@ -66,6 +66,7 @@ export function LessonSessionScreen({ navigation }: Props) {
           scorePct,
           stars: result.stars,
           gems: result.completion_saved ? 5 : 0,
+          heartsRemaining: result.hearts_remaining,
         });
         reset();
       } catch (e) {

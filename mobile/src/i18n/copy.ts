@@ -3,6 +3,7 @@ export const copy = {
   tagline: 'The gamified way to memorise the Holy Quran',
   splash: {
     loading: 'Preparing your journey…',
+    offline: 'Cannot reach API — check your connection',
   },
   welcome: {
     getStarted: "Get Started — it's free",
@@ -21,15 +22,42 @@ export const copy = {
   },
   motivation: {
     title: 'Why do you want to memorize the Quran?',
+    subtitle: 'This helps us personalise your learning journey',
+    xpHint: '+10 XP when you choose',
     options: [
-      { id: 'faith', label: 'Spiritual growth', icon: '🕌' },
-      { id: 'prayer', label: 'Learn for salah', icon: '🤲' },
-      { id: 'child', label: 'Help my child learn', icon: '👶' },
-      { id: 'revision', label: 'Hifz revision', icon: '📖' },
-      { id: 'beginner', label: 'New to Arabic', icon: '✨' },
-      { id: 'routine', label: 'Build a daily habit', icon: '⏰' },
+      { id: 'faith', label: 'Spiritual growth', sub: 'Deepen my connection', icon: '🕌' },
+      { id: 'prayer', label: 'Learn for salah', sub: 'Memorise for prayer', icon: '🤲' },
+      { id: 'child', label: 'Help my child', sub: 'Guide their Hifz', icon: '👶' },
+      { id: 'revision', label: 'Hifz revision', sub: 'Refresh what I know', icon: '📖' },
+      { id: 'school', label: 'School / class', sub: 'Structured learning', icon: '🏫' },
+      { id: 'other', label: 'Other', sub: 'Personal journey', icon: '✨' },
     ],
     cta: 'Continue',
+  },
+  script: {
+    title: 'Choose your Mushaf script',
+    subtitle: 'You can change this later in settings',
+    cta: 'Continue',
+    options: [
+      {
+        id: 'uthmani' as const,
+        nameAr: 'الخط العثماني',
+        nameEn: 'Uthmani · Standard Mushaf',
+        sample: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+      },
+      {
+        id: 'nastaliq' as const,
+        nameAr: 'خط نستعليق',
+        nameEn: 'Nastaliq · Indo-Pakistani',
+        sample: 'بِسۡمِ اللّٰہِ الرَّحۡمٰنِ الرَّحِیۡمِ',
+      },
+      {
+        id: 'simple' as const,
+        nameAr: 'الخط البسيط',
+        nameEn: 'Simple · Beginner friendly',
+        sample: 'بسم الله الرحمن الرحيم',
+      },
+    ],
   },
   dailyGoal: {
     title: 'Great. Now choose a daily goal.',
@@ -67,8 +95,49 @@ export const copy = {
   },
   placement: {
     title: "Let's find your starting point",
-    body: 'This short check helps you begin at the right ayah group.',
+    body: 'A short check with your Ustad teachers — about 2 minutes.',
     cta: 'Start the test',
+    teacherHint: 'Pick the best answer. Take your time!',
+    resultsTitle: 'Great work!',
+    correctLabel: 'correct',
+    levelBeginner: 'Beginner path',
+    levelIntermediate: 'Growing memoriser',
+    levelAdvanced: 'Strong foundation',
+    startAtSurah: (n: number) => `We'll start you near Surah ${n}`,
+    resultsCta: 'Continue',
+    introTeachers: 'Meet your teachers',
+    introExpect: [
+      '4 quick questions from Juz Amma',
+      'Arabic prompts with English hints',
+      'Find the right starting surah',
+    ],
+  },
+  celebration: {
+    title: "You're all set!",
+    body: 'Your personalised Hifz journey begins now. May Allah make it easy.',
+    badge: 'Journey Beginner',
+    cta: 'Pick my streak goal',
+  },
+  home: {
+    greeting: 'Assalamu alaikum',
+    continue: 'Continue Journey',
+    revisionDue: 'Revision due',
+    dailyGoal: 'Daily goal',
+    juzProgress: 'Juz 30 progress',
+  },
+  revision: {
+    title: 'Revision',
+    empty: 'No ayahs due right now. Keep learning on your journey!',
+    markReviewed: 'Mark reviewed',
+    listen: 'Listen',
+  },
+  profile: {
+    title: 'Profile',
+    signedIn: 'Signed in',
+    guest: 'Guest mode',
+    settings: 'Settings',
+    logout: 'Log out',
+    login: 'Log in',
   },
   streakGoal: {
     title: 'Pick your streak goal!',
@@ -83,6 +152,7 @@ export const copy = {
     cta: 'I can do it!',
   },
   auth: {
+    demoHint: 'Demo: demo@ustadh.local / DemoPass123!',
     loginTitle: 'Welcome back',
     registerTitle: 'Create your account',
     email: 'Email',
@@ -95,6 +165,7 @@ export const copy = {
     hasAccount: 'Already have an account? Log in',
   },
   lesson: {
+    playAudio: 'Tap to play',
     check: 'Check',
     continue: 'Continue',
     correct: 'Excellent!',
@@ -105,10 +176,16 @@ export const copy = {
   },
   complete: {
     title: 'Lesson complete!',
-    xpLabel: 'Total XP',
-    accuracyLabel: 'Accuracy',
-    gemsLabel: 'Gems',
-    cta: 'Continue',
+    xpLabel: 'TOTAL XP',
+    accuracyLabel: 'ACCURACY',
+    gemsLabel: 'Gems earned',
+    heartsLabel: 'Hearts left',
+    cta: 'CONTINUE',
+  },
+  lessonStart: {
+    title: 'Ready to memorise?',
+    cta: 'Start lesson',
+    back: 'Back',
   },
   streak: {
     title: (n: number) => `${n} day streak!`,
@@ -118,6 +195,7 @@ export const copy = {
     start: 'START',
     locked: 'Complete the previous level to unlock',
     juzTitle: 'Juz 30 — Amma',
+    mvpSubtitle: (n: number) => `MVP surahs 78–87 · ${n} chapters`,
   },
   tabs: {
     home: 'Home',

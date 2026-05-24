@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Pressable,
@@ -11,6 +11,9 @@ import { LessonShell } from './LessonShell';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { copy } from '../../i18n/copy';
+import { AudioPlayButton } from '../ui/AudioPlayButton';
+import { resolveAyahAudioUrl } from '../../services/reciters';
+import { getReciterId } from '../../utils/storage';
 import type { ExerciseStep } from '../../lesson/types';
 interface Props {
   step: ExerciseStep;
@@ -35,9 +38,20 @@ export function ExerciseRenderer({
   const [filledWord, setFilledWord] = useState<string | null>(null);
   const [order, setOrder] = useState<string[]>([]);
 
-  const reciterUrl = useMemo(() => {
-    const id = step.ayah.default_reciter_id || 'husary';
-    return step.ayah.audio_assets?.[id]?.audio_url;
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const reciterId = await getReciterId();
+      const url = await resolveAyahAudioUrl(step.ayah, reciterId);
+      if (!cancelled) {
+        setAudioUrl(url);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [step.ayah]);
 
   const resetLocal = () => {
@@ -131,12 +145,7 @@ export function ExerciseRenderer({
         </AppText>
 
         {(step.type === 'listen' || step.type === 'listen_repeat') && (
-          <Pressable style={styles.audioBtn}>
-            <AppText style={styles.audioIcon}>▶</AppText>
-            <AppText style={styles.audioHint}>
-              {reciterUrl ? 'Tap to play (wire expo-av)' : 'Audio'}
-            </AppText>
-          </Pressable>
+          <AudioPlayButton url={audioUrl} label={copy.lesson.playAudio} />
         )}
 
         <AppText variant="arabic" style={styles.ayah}>
@@ -250,17 +259,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   centerText: { textAlign: 'center', marginTop: spacing.lg },
   ayah: { marginVertical: spacing.lg },
-  audioBtn: {
-    width: 72,
-    height: 72,
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  audioIcon: { color: colors.white, fontSize: 28 },
-  audioHint: { color: colors.grey, fontSize: 12, marginTop: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     paddingHorizontal: spacing.md,
