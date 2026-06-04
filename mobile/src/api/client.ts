@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { API_BASE, API_PREFIX } from '../config';
 import { getTokens, setTokens } from '../utils/storage';
 import { messageForStatus } from './formatError';
@@ -70,7 +71,15 @@ export async function api<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(messageForStatus(res.status, body), res.status, body);
+    const message = messageForStatus(res.status, body);
+    // Report API errors to Sentry with full context
+    Sentry.addBreadcrumb({
+      category: 'api',
+      message: `${options.method ?? 'GET'} ${path} → ${res.status}`,
+      level: res.status >= 500 ? 'error' : 'warning',
+      data: { status: res.status, path },
+    });
+    throw new ApiError(message, res.status, body);
   }
 
   if (res.status === 204) {

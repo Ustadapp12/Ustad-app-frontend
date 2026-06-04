@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import * as Sentry from '@sentry/react-native';
 import { authApi, learningApi } from '../api';
 import { getTokens, setTokens, getStoredUser, setStoredUser } from '../utils/storage';
 import { loadReciters } from '../services/reciters';
@@ -57,6 +58,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setStoredUser(res.user);
     const learning = await learningApi.me();
     await loadReciters();
+    // Tag all future crash reports with this user
+    Sentry.setUser({ id: res.user.id, email: res.user.email });
     set({ user: res.user, learning });
   },
 
@@ -70,12 +73,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setStoredUser(res.user);
     const learning = await learningApi.me();
     await loadReciters();
+    Sentry.setUser({ id: res.user.id, email: res.user.email });
     set({ user: res.user, learning });
   },
 
   logout: async () => {
     await setTokens(null);
     await setStoredUser(null);
+    Sentry.setUser(null); // Clear user from crash reports on logout
     set({ user: null, learning: null });
   },
 
