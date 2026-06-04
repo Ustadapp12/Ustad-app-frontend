@@ -12,7 +12,7 @@ export const USE_LOCAL_API = false;
 /** Override when USE_LOCAL_API and testing on a physical device (same Wi‑Fi). */
 export const PHYSICAL_DEVICE_HOST: string | null = null;
 
-/** MVP: only surahs 78–87 from API (`mvp_only=true`). */
+/** MVP: last 10 surahs 105–114 from API (`mvp_only=true`). Set true for full Juz 30. */
 export const FULL_JUZ_AMMA = false;
 
 function localApiBase(): string {

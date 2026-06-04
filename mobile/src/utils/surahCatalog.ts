@@ -4,7 +4,7 @@ import type { SurahBrief } from '../types/api';
 
 const MVP_CATALOG = JUZ30_SURAHS.filter(s => isMvpSurah(s.surah_number));
 
-/** Merge API surahs with local MVP catalog (78–87). API fields win when present. */
+/** Merge API surahs with local MVP catalog (105–114). API fields win when present. */
 export function mergeMvpCatalog(apiSurahs: SurahBrief[]): SurahBrief[] {
   const byNumber = new Map(apiSurahs.map(s => [s.surah_number, s]));
   return MVP_CATALOG.map(meta => {

@@ -17,14 +17,14 @@ export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
     id: 'p1',
     teacher: 'sheikh',
     teacherIntro:
-      "As-salamu alaykum! Let's begin with Surah Al-Fatiha. Can you complete this verse?",
+      "As-salamu alaykum! Let's begin with Surah An-Nas. Can you complete this verse?",
     promptLabel: 'Complete the Ayah',
-    promptAr: 'ٱلْحَمْدُ لِلَّهِ _____',
+    promptAr: 'قُلْ أَعُوذُ بِرَبِّ ٱلنَّاسِ _____',
     options: [
-      'ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
-      'رَبِّ ٱلْعَـٰلَمِينَ',
-      'مَـٰلِكِ يَوْمِ ٱلدِّينِ',
-      'إِيَّاكَ نَعْبُدُ',
+      'إِلَٰهِ ٱلنَّاسِ',
+      'مَلِكِ ٱلنَّاسِ',
+      'مِن شَرِّ ٱلْوَسْوَاسِ',
+      'مِنَ ٱلْجِنَّةِ وَٱلنَّاسِ',
     ],
     correctIndex: 1,
     layout: 'column',
@@ -34,14 +34,14 @@ export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
     id: 'p2',
     teacher: 'sheikha',
     teacherIntro:
-      "Excellent! Now let's test your knowledge of Surah Al-Ikhlas. Which verse follows?",
+      "Excellent! Now Surah Al-Ikhlas — one of the most beloved surahs. Which verse follows this one?",
     promptLabel: 'What comes next?',
-    promptAr: 'ٱللَّهُ ٱلصَّمَدُ',
+    promptAr: 'قُلْ هُوَ ٱللَّهُ أَحَدٌ',
     options: [
-      'قُلْ هُوَ ٱللَّهُ أَحَدٌ',
-      'ٱللَّهُ ٱلصَّمَدُ',
       'لَمْ يَلِدْ وَلَمْ يُولَدْ',
       'وَلَمْ يَكُن لَّهُۥ كُفُوًا أَحَدٌ',
+      'ٱللَّهُ ٱلصَّمَدُ',
+      'قُلْ أَعُوذُ بِرَبِّ ٱلْفَلَقِ',
     ],
     correctIndex: 2,
     layout: 'column',
@@ -51,10 +51,10 @@ export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
     id: 'p3',
     teacher: 'sheikh',
     teacherIntro:
-      "Masha'Allah! You're doing great. Back to Al-Fatiha — can you fill in the missing word?",
+      "Masha'Allah! You're doing great. Now Surah Al-Falaq — can you fill in the missing word?",
     promptLabel: 'Fill in the blank',
-    promptAr: 'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ ____',
-    options: ['نَعْبُدُ', 'نَسْتَعِينُ', 'ٱهْدِنَا', 'صِرَٰطَ'],
+    promptAr: 'مِن شَرِّ مَا ____',
+    options: ['غَسَقَ', 'خَلَقَ', 'نَفَثَ', 'حَسَدَ'],
     correctIndex: 1,
     layout: 'grid',
     optionAr: true,
@@ -63,7 +63,7 @@ export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
     id: 'p4',
     teacher: 'sheikha',
     teacherIntro:
-      'Almost done! One final question about Tajweed. Show me what you know! 📖',
+      'Almost done! One final question about Tajweed — show me what you know! 📖',
     promptLabel: 'Match the symbol',
     promptAr: 'ّ',
     promptIsSymbol: true,
@@ -93,10 +93,13 @@ export function scorePlacement(answers: (number | null)[]): {
   });
   const pct = correct / total;
   if (pct >= 0.75) {
-    return { correct, total, level: 'advanced', startSurah: 80 };
+    // Advanced — start from the harder end (Al-Fil 105)
+    return { correct, total, level: 'advanced', startSurah: 105 };
   }
   if (pct >= 0.5) {
-    return { correct, total, level: 'intermediate', startSurah: 85 };
+    // Intermediate — start from the middle (Al-Kafirun 109)
+    return { correct, total, level: 'intermediate', startSurah: 109 };
   }
-  return { correct, total, level: 'beginner', startSurah: 87 };
+  // Beginner — start from the very end (An-Nas 114)
+  return { correct, total, level: 'beginner', startSurah: 114 };
 }
