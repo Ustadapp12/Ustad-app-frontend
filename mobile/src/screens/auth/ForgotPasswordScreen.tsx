@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
+import { IconBadge } from '../../components/ui/IconBadge';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { BackButton } from '../../components/ui/BackButton';
 import { IrabBackground } from '../../components/ui/IrabBackground';
@@ -36,16 +37,15 @@ export function ForgotPasswordScreen({ navigation }: Props) {
 
   return (
     <Screen style={styles.screen}>
-      <IrabBackground color={colors.primary} />
+      <IrabBackground color={colors.charcoal} opacityBase={0.09} />
       <View style={styles.topBar}>
         <BackButton onPress={() => navigation.goBack()} />
       </View>
 
-      <View style={styles.content}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={[styles.content, { flexGrow: 1 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Icon */}
-        <View style={styles.iconWrap}>
-          <AppText style={styles.iconEmoji}>🔐</AppText>
-        </View>
+        <IconBadge emoji="🔐" size={80} style={styles.iconWrap} />
 
         <AppText variant="h1" style={styles.title}>Forgot password?</AppText>
         <AppText style={styles.sub}>
@@ -84,7 +84,8 @@ export function ForgotPasswordScreen({ navigation }: Props) {
           Code expires in 15 minutes.{'\n'}
           Check your spam folder if you don't see it.
         </AppText>
-      </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -101,20 +102,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.screenHorizontal,
-    gap: spacing.lg,
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
     zIndex: 1,
   },
   iconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
     backgroundColor: `${colors.primary}20`,
     borderWidth: 3,
     borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  iconEmoji: { fontSize: 40 },
   title: { color: colors.dark, textAlign: 'center' },
   sub: {
     color: colors.charcoal,

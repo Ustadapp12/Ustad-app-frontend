@@ -36,6 +36,8 @@ export type RootStackParamList = {
     heartsRemaining?: number;
   };
   StreakModal: { streak: number };
+  Terms: undefined;
+  Privacy: undefined;
 };
 
 export type MainTabParamList = {

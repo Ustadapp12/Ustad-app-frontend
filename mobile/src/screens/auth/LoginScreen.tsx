@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TextInput, View, StyleSheet, Alert, Pressable } from 'react-native';
+import { TextInput, View, StyleSheet, Alert, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppText } from '../../components/ui/AppText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
@@ -34,6 +34,7 @@ export function LoginScreen({ navigation }: Props) {
   };
 
   return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
     <OnboardingLayout onBack={() => navigation.goBack()}>
       <View style={styles.hero}>
         <Mascot size={80} />
@@ -41,29 +42,32 @@ export function LoginScreen({ navigation }: Props) {
         <AppText variant="h1" style={styles.title}>
           {copy.auth.loginTitle}
         </AppText>
-        <AppText style={styles.demo}>{copy.auth.demoHint}</AppText>
       </View>
       <View style={styles.fields}>
         <AppText style={styles.label}>{copy.auth.email}</AppText>
         <TextInput
-          style={[styles.input, focused === 'email' && styles.inputFocused]}
+          style={[styles.input, styles.inputText, focused === 'email' && styles.inputFocused]}
           placeholder="you@email.com"
+          placeholderTextColor={colors.grey}
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
           onFocus={() => setFocused('email')}
           onBlur={() => setFocused(null)}
+          selectionColor={colors.primary}
         />
         <AppText style={styles.label}>{copy.auth.password}</AppText>
         <TextInput
-          style={[styles.input, focused === 'pw' && styles.inputFocused]}
+          style={[styles.input, focused === 'pw' && styles.inputFocused, styles.inputText]}
           placeholder="••••••••"
+          placeholderTextColor={colors.grey}
           secureTextEntry
           value={password}
           onChangeText={setPassword}
           onFocus={() => setFocused('pw')}
           onBlur={() => setFocused(null)}
+          selectionColor={colors.primary}
         />
         <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
           <AppText style={styles.forgot}>{copy.auth.forgot}</AppText>
@@ -77,19 +81,13 @@ export function LoginScreen({ navigation }: Props) {
         style={styles.gap}
       />
     </OnboardingLayout>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   hero: { alignItems: 'center', marginBottom: spacing.xl },
   title: { marginTop: spacing.md, textAlign: 'center' },
-  demo: {
-    marginTop: spacing.sm,
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
   fields: { marginBottom: spacing.lg },
   label: {
     fontSize: 10,
@@ -107,6 +105,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     backgroundColor: colors.white,
+  },
+  inputText: {
+    color: colors.dark,
   },
   inputFocused: {
     borderColor: colors.primary,

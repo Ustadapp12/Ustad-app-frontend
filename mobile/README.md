@@ -20,7 +20,7 @@ cd ios && bundle install && bundle exec pod install && cd ..
 
 **Windows (emulator + phone):** see [SETUP_WINDOWS.md](./SETUP_WINDOWS.md).
 
-**Team APK:** `npm run build:apk` → share `dist/Ustad-App.apk` (mascot launcher + splash; app label **Ustad App**).
+**Team APK:** `npm run build:apk` → `android/app/build/outputs/apk/release/app-release.apk` (Gradle bundles JS at build time — do not commit `index.android.bundle` or other `*.bundle` files).
 
 ```bash
 # Terminal 1 — Metro
@@ -57,9 +57,17 @@ src/
 - Surah level map → Lesson (listen, fill-blank, reorder, MCQ, repeat) → Complete → Streak
 - API: auth, content, lessons, learning sessions, revision
 
-## Next enhancements
+## Fonts
 
-- Link **Nunito** fonts in `ios/` and `android/`
+Custom fonts (Nunito, Amiri, Noto) live in `assets/fonts/`. Before building, run:
+
+```bash
+npm run link:fonts
+```
+
+This copies fonts into the Android APK and iOS bundle (`build:apk` runs it automatically).
+
+## Next enhancements
 - `react-native-track-player` or `react-native-sound` for `audio_url`
 - `expo-notifications` or `@react-native-community/push-notification-ios` for real reminders
 - OAuth when backend supports it

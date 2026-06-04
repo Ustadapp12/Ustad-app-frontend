@@ -25,7 +25,8 @@ import {
   sortSurahsForJourney,
   filterToMvpSurahs,
 } from '../../utils/surahCatalog';
-import { loadReciters } from '../../services/reciters';
+import { warmAudioUrlCache } from '../../services/audioUrls';
+import { displaySurahNameAr } from '../../utils/surahDisplay';
 import type { SurahBrief, SurahLevel } from '../../types/api';
 import type { MainTabParamList, RootStackParamList } from '../../navigation/types';
 
@@ -54,7 +55,7 @@ export function HomeScreen({ navigation }: Props) {
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     try {
-      await loadReciters();
+      await warmAudioUrlCache();
 
       // 1. Fetch surah list
       let rawSurahs: SurahBrief[] = [];
@@ -159,16 +160,18 @@ export function HomeScreen({ navigation }: Props) {
           onPress={() =>
             navigation.navigate('LessonStart', {
               groupId: recommended.lesson_group_id,
-              label: `${recommended.surah_name_en} · Level ${recommended.level_number}`,
+              label: `${recommended.surah_name_ar} · Level ${recommended.level_number}`,
             })
           }>
           <View style={styles.continueBannerLeft}>
             <AppText style={styles.continueBannerLabel}>Continue</AppText>
             <AppText style={styles.continueBannerTitle}>
-              {recommended.surah_name_en} · Level {recommended.level_number}
+              {recommended.surah_name_ar} · Level {recommended.level_number}
             </AppText>
           </View>
-          <AppText style={styles.continueBannerAr}>{recommended.surah_name_ar}</AppText>
+          <AppText variant="arabic" style={styles.continueBannerAr}>
+            {displaySurahNameAr(recommended.surah_number, recommended.surah_name_ar)}
+          </AppText>
           <AppText style={styles.continueBannerArrow}>▶</AppText>
         </Pressable>
       )}
@@ -190,7 +193,7 @@ export function HomeScreen({ navigation }: Props) {
             onLevelPress={groupId => {
               navigation.navigate('LessonStart', {
                 groupId,
-                label: `Surah ${ch.surah.name_en}`,
+                label: ch.surah.name_ar,
               });
             }}
           />
@@ -224,9 +227,11 @@ function ChapterSection({
         )}
         <View style={styles.bannerInner}>
           <View style={styles.bannerLeft}>
-            <AppText style={styles.bannerEn}>{surah.name_en}</AppText>
+            <AppText variant="arabic" style={styles.bannerArabicName}>
+              {displaySurahNameAr(surah.surah_number, surah.name_ar)}
+            </AppText>
             <AppText style={styles.bannerMeta}>
-              {surah.ayah_count} Ayahs
+              {surah.transliteration} · {surah.ayah_count} Ayahs
             </AppText>
             {isLocked && (
               <View style={styles.bannerLockRow}>
@@ -248,8 +253,8 @@ function ChapterSection({
               <AppText style={styles.completeText}>✓ Complete!</AppText>
             )}
           </View>
-          <AppText style={[styles.bannerAr, isLocked && styles.bannerArLocked]}>
-            {surah.name_ar}
+          <AppText style={[styles.bannerEn, isLocked && styles.bannerArLocked]}>
+            {surah.name_en}
           </AppText>
         </View>
       </View>
@@ -262,6 +267,7 @@ function ChapterSection({
           index={index}
           totalInChapter={levels.length}
           align={nodeAlignForIndex(index)}
+          nextAlign={index < levels.length - 1 ? nodeAlignForIndex(index + 1) : undefined}
           onPress={() => {
             if (level.status !== 'locked') {
               onLevelPress(level.lesson_group_id);
@@ -361,7 +367,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   bannerLocked: {
-    backgroundColor: 'rgba(90,93,104,0.35)',
+    backgroundColor: `${colors.charcoal}55`,
     borderWidth: 1,
     borderColor: `${colors.grey}25`,
   },
@@ -384,13 +390,20 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bannerLeft: { flex: 1 },
-  bannerEn: {
+  bannerArabicName: {
     color: colors.white,
     fontWeight: '900',
-    fontSize: 15,
+    fontSize: 20,
+    writingDirection: 'rtl',
+  },
+  bannerEn: {
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '600',
+    fontSize: 11,
+    marginTop: 2,
   },
   bannerMeta: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.65)',
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
@@ -407,20 +420,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  bannerAr: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.yellow,
-    writingDirection: 'rtl',
-    marginLeft: spacing.sm,
-  },
-  bannerArLocked: { color: colors.grey },
+  bannerArLocked: { color: colors.grey, opacity: 0.5 },
   progressWrap: { marginTop: 6 },
   progressTrack: {
     height: 6,
     width: 112,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     overflow: 'hidden',
   },
   progressFill: {
@@ -445,13 +451,13 @@ const styles = StyleSheet.create({
   placeholderRow: {
     height: 88,
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.screenHorizontal,
   },
   placeholderCircle: {
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: 'rgba(26,45,61,0.9)',
+    backgroundColor: `${colors.dark}e8`,
     borderWidth: 2,
     borderColor: `${colors.grey}20`,
     alignItems: 'center',

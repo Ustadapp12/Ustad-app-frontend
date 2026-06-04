@@ -6,13 +6,18 @@ import {
   Alert,
   Pressable,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppText } from '../../components/ui/AppText';
+import { EmojiText } from '../../components/ui/EmojiText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { Logo } from '../../components/ui/Logo';
 import { BackButton } from '../../components/ui/BackButton';
 import { IrabBackground } from '../../components/ui/IrabBackground';
+import { GoogleIcon, AppleIcon, EyeIcon } from '../../components/ui/Icons';
 import { Screen } from '../../components/ui/Screen';
 import { copy } from '../../i18n/copy';
 import { useAuthStore } from '../../store/authStore';
@@ -35,6 +40,7 @@ const STRENGTH_COLORS = ['transparent', colors.heart, colors.yellow, colors.prim
 const STRENGTH_LABELS = ['', 'Weak', 'Good', '💪 Strong'];
 
 export function RegisterScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const register = useAuthStore(s => s.register);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -81,11 +87,15 @@ export function RegisterScreen({ navigation }: Props) {
 
   return (
     <Screen style={styles.screen}>
-      <IrabBackground color={colors.primary} />
-      <View style={styles.topBar}>
+      <IrabBackground color={colors.charcoal} opacityBase={0.09} />
+      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, spacing.sm) }]}>
         <BackButton onPress={() => navigation.goBack()} />
       </View>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -100,7 +110,7 @@ export function RegisterScreen({ navigation }: Props) {
         {/* Bonus chip */}
         <View style={styles.bonus}>
           <View style={styles.bonusIcon}>
-            <AppText style={styles.bonusIconText}>⭐</AppText>
+            <EmojiText size={20}>⭐</EmojiText>
           </View>
           <View style={{ flex: 1 }}>
             <AppText style={styles.bonusTitle}>Sign-up bonus</AppText>
@@ -114,20 +124,18 @@ export function RegisterScreen({ navigation }: Props) {
 
         {/* Social login stubs */}
         <View style={styles.socialRow}>
-          {[
-            { label: 'Google', icon: 'G' },
-            { label: 'Apple', icon: '🍎' },
-          ].map(s => (
-            <Pressable
-              key={s.label}
-              style={styles.socialBtn}
-              onPress={() => Alert.alert('Coming soon', `${s.label} login is coming soon!`)}>
-              <AppText style={[styles.socialIcon, s.label === 'Google' && styles.googleIcon]}>
-                {s.icon}
-              </AppText>
-              <AppText style={styles.socialLabel}>{s.label}</AppText>
-            </Pressable>
-          ))}
+          <Pressable
+            style={styles.socialBtn}
+            onPress={() => Alert.alert('Coming soon', 'Google login is coming soon!')}>
+            <GoogleIcon size={24} />
+            <AppText style={styles.socialLabel}>Google</AppText>
+          </Pressable>
+          <Pressable
+            style={styles.socialBtn}
+            onPress={() => Alert.alert('Coming soon', 'Apple login is coming soon!')}>
+            <AppleIcon size={24} color={colors.dark} />
+            <AppText style={styles.socialLabel}>Apple</AppText>
+          </Pressable>
         </View>
 
         {/* Divider */}
@@ -147,7 +155,7 @@ export function RegisterScreen({ navigation }: Props) {
               {f.label}
             </AppText>
             <TextInput
-              style={[styles.input, focused === f.key && styles.inputFocused]}
+              style={[styles.input, styles.inputText, focused === f.key && styles.inputFocused]}
               value={f.value}
               onChangeText={f.set}
               onFocus={() => setFocused(f.key)}
@@ -167,7 +175,7 @@ export function RegisterScreen({ navigation }: Props) {
           </AppText>
           <View style={styles.pwWrap}>
             <TextInput
-              style={[styles.input, styles.pwInput, focused === 'pw' && styles.inputFocused]}
+              style={[styles.input, styles.inputText, styles.pwInput, focused === 'pw' && styles.inputFocused]}
               secureTextEntry={!showPw}
               value={password}
               onChangeText={setPassword}
@@ -177,7 +185,7 @@ export function RegisterScreen({ navigation }: Props) {
               placeholderTextColor={`${colors.grey}80`}
             />
             <Pressable style={styles.eyeBtn} onPress={() => setShowPw(v => !v)}>
-              <AppText style={styles.eyeIcon}>{showPw ? '🙈' : '👁'}</AppText>
+              <EyeIcon open={showPw} size={20} color={colors.grey} />
             </Pressable>
           </View>
           {password.length > 0 && (
@@ -201,9 +209,9 @@ export function RegisterScreen({ navigation }: Props) {
         {/* Terms */}
         <AppText style={styles.terms}>
           By continuing you agree to our{' '}
-          <AppText style={styles.termsLink}>Terms</AppText>
+          <AppText style={styles.termsLink} onPress={() => navigation.navigate('Terms')}>Terms</AppText>
           {' & '}
-          <AppText style={styles.termsLink}>Privacy</AppText>
+          <AppText style={styles.termsLink} onPress={() => navigation.navigate('Privacy')}>Privacy</AppText>
         </AppText>
 
         <PrimaryButton
@@ -221,6 +229,7 @@ export function RegisterScreen({ navigation }: Props) {
           </AppText>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -229,7 +238,6 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.ash },
   topBar: {
     paddingHorizontal: spacing.screenHorizontal,
-    paddingTop: spacing.md,
     zIndex: 1,
   },
   scroll: {
@@ -311,6 +319,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     backgroundColor: colors.white,
+  },
+  inputText: {
     color: colors.dark,
   },
   inputFocused: { borderColor: colors.primary },

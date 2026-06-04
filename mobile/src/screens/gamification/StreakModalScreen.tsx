@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
+import { EmojiText } from '../../components/ui/EmojiText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { Mascot } from '../../components/ui/Mascot';
 import { IrabBackground } from '../../components/ui/IrabBackground';
@@ -23,7 +24,7 @@ export function StreakModalScreen({ route, navigation }: Props) {
     <Screen style={styles.screen}>
       <IrabBackground />
       <View style={styles.content}>
-        <AppText style={styles.flame}>🔥</AppText>
+        <EmojiText size={56}>🔥</EmojiText>
         <AppText style={styles.count}>{streak}</AppText>
         <AppText style={styles.title}>{copy.streak.title(streak)}</AppText>
         <Mascot size={72} />

@@ -8,6 +8,8 @@ import { IrabBackground } from '../../components/ui/IrabBackground';
 import { copy } from '../../i18n/copy';
 import { healthCheck } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
+import { abandonPendingLessonSessionFromStorage } from '../../services/lessonSession';
+import { hydrateScriptPreference } from '../../utils/storage';
 import { colors } from '../../theme/colors';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -45,7 +47,8 @@ export function SplashScreen({ navigation }: Props) {
     const boot = async () => {
       const ok = await healthCheck();
       setBackendOk(ok);
-      await hydrate();
+      await Promise.all([hydrate(), hydrateScriptPreference()]);
+      await abandonPendingLessonSessionFromStorage();
       await new Promise<void>(r => setTimeout(r, 3000));
       const currentUser = useAuthStore.getState().user;
       if (currentUser) {

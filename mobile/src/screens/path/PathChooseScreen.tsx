@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppText } from '../../components/ui/AppText';
+import { EmojiText } from '../../components/ui/EmojiText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
+import { usersApi } from '../../api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation/types';
@@ -37,11 +39,16 @@ export function PathChooseScreen({ navigation }: Props) {
 
   const confirm = async () => {
     if (!selected) return;
-    await saveOnboarding({
-      pathChoice: selected,
-      // Set learnerMode now so profile sync at registration includes it
-      learnerMode: selected === 'fresh' ? 'beginner' : undefined,
-    });
+    const learnerMode =
+      selected === 'fresh'
+        ? 'beginner'
+        : selected === 'placement'
+          ? 'placement_pending'
+          : undefined;
+    await saveOnboarding({ pathChoice: selected, learnerMode });
+    if (learnerMode) {
+      usersApi.updateProfile({ learner_mode: learnerMode }).catch(() => null);
+    }
     if (selected === 'placement') {
       navigation.navigate('PlacementIntro');
     } else {
@@ -98,7 +105,7 @@ export function PathChooseScreen({ navigation }: Props) {
               <View style={styles.cardInner}>
                 {/* Icon box */}
                 <View style={[styles.iconBox, { backgroundColor: `${p.color}20` }]}>
-                  <AppText style={styles.iconEmoji}>{p.emoji}</AppText>
+                  <EmojiText size={34}>{p.emoji}</EmojiText>
                 </View>
 
                 {/* Text block */}
@@ -158,8 +165,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    overflow: 'visible',
   },
-  iconEmoji: { fontSize: 32 },
   textBlock: { flex: 1 },
   cardTitle: {
     fontWeight: '900',

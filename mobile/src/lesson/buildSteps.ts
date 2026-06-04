@@ -1,11 +1,16 @@
-import type { AyahOut } from '../types/api';
-import type { ExerciseStep } from './types';
+import type { AyahOut, ExerciseOut, WordOut } from '../types/api';
+import type { ExerciseStep, ExerciseType } from './types';
 
 export function buildLessonSteps(ayahs: AyahOut[]): ExerciseStep[] {
   const steps: ExerciseStep[] = [];
   ayahs.forEach((ayah, index) => {
     if (index === 0) {
-      steps.push({ type: 'listen', ayah });
+      steps.push({
+        type: 'listen',
+        ayah,
+        ayahAudioUrl: ayah.audio_url ?? null,
+        metadataWords: ayah.words?.length ? ayah.words : undefined,
+      });
     }
     const words = ayah.words ?? [];
     if (words.length >= 2) {
@@ -19,12 +24,12 @@ export function buildLessonSteps(ayahs: AyahOut[]): ExerciseStep[] {
     if (ayah.translation_en) {
       const wrong = ayahs
         .filter(a => a.id !== ayah.id && a.translation_en)
-        .map(a => a.translation_en)
+        .map(a => a.translation_en as string)
         .slice(0, 3);
       const options = shuffle(
-        [ayah.translation_en, ...wrong]
-          .filter((v, i, arr) => v && arr.indexOf(v) === i)
-          .slice(0, 4),
+        [ayah.translation_en, ...wrong].filter(
+          (v, i, arr): v is string => !!v && arr.indexOf(v) === i,
+        ).slice(0, 4),
       );
       if (options.length < 2) {
         return;
@@ -36,11 +41,122 @@ export function buildLessonSteps(ayahs: AyahOut[]): ExerciseStep[] {
         correctIndex: options.indexOf(ayah.translation_en),
       });
     }
-    steps.push({ type: 'listen_repeat', ayah });
+    steps.push({
+      type: 'listen_repeat',
+      ayah,
+      ayahAudioUrl: ayah.audio_url ?? null,
+      metadataWords: ayah.words?.length ? ayah.words : undefined,
+    });
     if (index === 1) {
       steps.push({ type: 'interstitial', ayah });
     }
   });
+  return steps;
+}
+
+/** Converts backend ExerciseOut[] into ExerciseStep[] for the renderer. */
+export function buildStepsFromExerciseOut(
+  exercises: ExerciseOut[],
+  ayahs: AyahOut[],
+): ExerciseStep[] {
+  const ayahMap = new Map<string, AyahOut>();
+  for (const a of ayahs) {
+    ayahMap.set(`${a.surah_number}:${a.ayah_number}`, a);
+  }
+  const fallback = ayahs[0];
+  const steps: ExerciseStep[] = [];
+
+  for (const ex of exercises) {
+    const ayah = ayahMap.get(`${ex.surah_no}:${ex.ayah_no}`) ?? fallback;
+    if (!ayah) continue;
+
+    const meta = (ex.metadata ?? {}) as Record<string, unknown>;
+    const opts = ex.options?.map(o => o.text);
+    const base = {
+      exercise_id: ex.id,
+      ayah,
+      options: opts,
+      correctIndex: ex.correct_idx ?? undefined,
+    };
+
+    const type = ex.type as ExerciseType;
+
+    switch (ex.type) {
+      case 'listen':
+        steps.push({
+          ...base,
+          type: 'listen',
+          ayahAudioUrl:
+            (meta.ayah_audio_url as string | null | undefined) ??
+            ayah.audio_url ??
+            null,
+          metadataWords:
+            (meta.words as WordOut[] | undefined) ??
+            (ayah.words?.length ? ayah.words : undefined),
+        });
+        break;
+      case 'listen_repeat':
+        steps.push({
+          ...base,
+          type: 'listen_repeat',
+          ayahAudioUrl:
+            (meta.ayah_audio_url as string | null | undefined) ??
+            ayah.audio_url ??
+            null,
+          metadataWords:
+            (meta.words as WordOut[] | undefined) ??
+            (ayah.words?.length ? ayah.words : undefined),
+        });
+        break;
+      case 'match_meaning':
+      case 'mcq':
+        steps.push({ ...base, type: 'match_meaning' });
+        break;
+      case 'word_meaning':
+        steps.push({
+          ...base,
+          type: 'word_meaning',
+          wordAr: meta.word_ar as string ?? undefined,
+          blankPosition: meta.word_position as number ?? undefined,
+        });
+        break;
+      case 'fill_blank':
+        steps.push({
+          ...base,
+          type: 'fill_blank',
+          blankPosition: meta.word_position as number ?? undefined,
+          blankDisplay: meta.blank_display as string ?? undefined,
+        });
+        break;
+      case 'reorder':
+        steps.push({
+          ...base,
+          type: 'reorder',
+          scrambledWords: meta.scrambled_words as string[] ?? undefined,
+          correctOrder: meta.correct_order as string[] ?? undefined,
+        });
+        break;
+      case 'continue_ayah':
+        steps.push({
+          ...base,
+          type: 'continue_ayah',
+          shownAyahAr: meta.shown_ayah_ar as string ?? undefined,
+        });
+        break;
+      case 'sequence_order':
+        steps.push({
+          ...base,
+          type: 'sequence_order',
+          sequenceAyahs: meta.ayahs as { ar: string; number: number }[] ?? undefined,
+        });
+        break;
+      default:
+        if (type) {
+          steps.push({ ...base, type });
+        }
+    }
+  }
+
   return steps;
 }
 

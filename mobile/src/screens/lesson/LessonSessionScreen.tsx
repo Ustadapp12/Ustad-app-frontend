@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Alert, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { ExerciseRenderer } from '../../components/lesson/ExerciseRenderer';
+import { useAbandonLessonOnBackground } from '../../hooks/useAbandonLessonOnBackground';
 import { useLessonStore } from '../../store/lessonStore';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
@@ -22,9 +23,41 @@ export function LessonSessionScreen({ navigation }: Props) {
     recordAttempt,
     nextStep,
     completeSession,
+    abandonSession,
     reset,
   } = useLessonStore();
   const refreshLearning = useAuthStore(s => s.refreshLearning);
+
+  useAbandonLessonOnBackground();
+
+  const leaveLesson = useCallback(async () => {
+    await abandonSession({ silent: true });
+    reset();
+    navigation.goBack();
+  }, [abandonSession, reset, navigation]);
+
+  useEffect(() => {
+    const unsub = navigation.addListener('beforeRemove', e => {
+      const { sessionId: sid, result: res } = useLessonStore.getState();
+      if (!sid || res) return;
+      e.preventDefault();
+      Alert.alert(copy.lesson.exitTitle, copy.lesson.exitBody, [
+        { text: 'Stay', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              await abandonSession({ silent: true });
+              reset();
+              navigation.dispatch(e.data.action);
+            })();
+          },
+        },
+      ]);
+    });
+    return unsub;
+  }, [navigation, abandonSession, reset]);
 
   const hearts = Math.max(0, heartsAtStart - mistakes);
   const step = steps[stepIndex];
@@ -44,8 +77,7 @@ export function LessonSessionScreen({ navigation }: Props) {
         text: 'Leave',
         style: 'destructive',
         onPress: () => {
-          reset();
-          navigation.goBack();
+          void leaveLesson();
         },
       },
     ]);
@@ -78,7 +110,7 @@ export function LessonSessionScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen>
       <ExerciseRenderer
         step={step}
         stepIndex={stepIndex}

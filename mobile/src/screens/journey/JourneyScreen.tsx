@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ScrollView,
   View,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -23,7 +24,8 @@ import {
   sortSurahsForJourney,
   filterToMvpSurahs,
 } from '../../utils/surahCatalog';
-import { loadReciters } from '../../services/reciters';
+import { displaySurahNameAr } from '../../utils/surahDisplay';
+import { warmAudioUrlCache } from '../../services/audioUrls';
 import { useAuthStore } from '../../store/authStore';
 import type { SurahBrief } from '../../types/api';
 import type { RootStackParamList } from '../../navigation/types';
@@ -39,11 +41,15 @@ export function JourneyScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SurahBrief[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     setApiError(false);
     try {
-      await loadReciters();
+      await warmAudioUrlCache();
       const fromApi = await contentApi.surahs(30, true);
       const merged = mergeMvpCatalog(fromApi);
       const mvp = filterToMvpSurahs(
@@ -71,6 +77,40 @@ export function JourneyScreen({ navigation }: Props) {
     }, []),
   );
 
+  useEffect(() => {
+    return () => {
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+        searchTimeout.current = null;
+      }
+    };
+  }, []);
+
+  const handleSearchChange = (text: string) => {
+    setQuery(text);
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+    if (!text.trim()) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const results = await contentApi.search(text.trim());
+        setSearchResults(results);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 350);
+  };
+
+  const displayedSurahs = searchResults !== null ? searchResults : surahs;
+
   if (loading) {
     return (
       <Screen style={styles.center}>
@@ -94,6 +134,21 @@ export function JourneyScreen({ navigation }: Props) {
         {copy.journey.mvpSubtitle(surahs.length)}
       </AppText>
 
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.searchInput}
+          value={query}
+          onChangeText={handleSearchChange}
+          placeholder="Search surahs..."
+          placeholderTextColor={colors.grey}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        {searching ? (
+          <ActivityIndicator color={colors.yellow} style={styles.searchSpinner} />
+        ) : null}
+      </View>
+
       {apiError ? (
         <Pressable style={styles.apiBanner} onPress={load}>
           <AppText style={styles.apiBannerText}>
@@ -104,6 +159,7 @@ export function JourneyScreen({ navigation }: Props) {
 
       <ScrollView
         contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -114,14 +170,19 @@ export function JourneyScreen({ navigation }: Props) {
             tintColor={colors.yellow}
           />
         }>
-        {surahs.map(s => (
+        {displayedSurahs.length === 0 && query.trim() ? (
+          <View style={styles.noResults}>
+            <AppText style={styles.noResultsText}>No surahs found for "{query}"</AppText>
+          </View>
+        ) : null}
+        {displayedSurahs.map(s => (
           <Pressable
             key={s.surah_number}
             onPress={() =>
               navigation.navigate('SurahLevels', {
                 surahNumber: s.surah_number,
                 nameEn: s.name_en,
-                nameAr: s.name_ar,
+                nameAr: displaySurahNameAr(s.surah_number, s.name_ar),
               })
             }>
             <SurahBanner surah={s} />
@@ -163,5 +224,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.screenHorizontal,
+    marginBottom: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+    paddingVertical: spacing.sm,
+  },
+  searchSpinner: { marginLeft: spacing.sm },
   scroll: { paddingBottom: spacing.xl },
+  noResults: { padding: spacing.lg, alignItems: 'center' },
+  noResultsText: { color: colors.grey, fontWeight: '600', fontSize: 14 },
 });

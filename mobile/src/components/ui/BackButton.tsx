@@ -13,8 +13,8 @@ export function BackButton({ onPress, light }: Props) {
     <Pressable
       onPress={onPress}
       style={[styles.btn, light && styles.btnLight]}
-      hitSlop={8}>
-      <AppText style={styles.icon}>‹</AppText>
+      hitSlop={10}>
+      <AppText style={[styles.arrow, light && styles.arrowLight]}>←</AppText>
     </Pressable>
   );
 }
@@ -23,22 +23,29 @@ const styles = StyleSheet.create({
   btn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: colors.white,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: `${colors.grey}30`,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
   },
   btnLight: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.22)',
   },
-  icon: {
-    fontSize: 28,
-    fontWeight: '700',
+  arrow: {
+    fontSize: 20,
     color: colors.charcoal,
-    marginTop: -4,
-    marginLeft: -2,
+    fontWeight: '600',
+    lineHeight: 24,
+  },
+  arrowLight: {
+    color: 'rgba(255,255,255,0.92)',
   },
 });

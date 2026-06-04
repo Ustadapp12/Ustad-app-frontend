@@ -3,6 +3,7 @@ import { View, StyleSheet, Animated } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
+import { EmojiText } from '../../components/ui/EmojiText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { Mascot } from '../../components/ui/Mascot';
 import { IrabBackground } from '../../components/ui/IrabBackground';
@@ -112,7 +113,7 @@ export function CelebrationScreen({ route, navigation }: Props) {
 
       <View style={styles.content}>
         <Mascot size={145} bounce />
-        <AppText style={styles.emoji}>🎉</AppText>
+        <EmojiText size={40}>🎉</EmojiText>
         <AppText variant="h1" style={styles.title}>{copy.celebration.title}</AppText>
         <AppText style={styles.body}>{copy.celebration.body}</AppText>
 

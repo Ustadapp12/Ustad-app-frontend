@@ -4,6 +4,7 @@ import { AppText } from '../ui/AppText';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { SurahBrief } from '../../types/api';
+import { displaySurahNameAr } from '../../utils/surahDisplay';
 
 type Props = {
   surah: SurahBrief;
@@ -49,8 +50,10 @@ export function SurahBanner({ surah, progressPct = 0, locked = false }: Props) {
             <AppText style={styles.completeLabel}>Complete</AppText>
           ) : null}
         </View>
-        <AppText style={[styles.nameAr, locked && styles.nameArLocked]}>
-          {surah.name_ar}
+        <AppText
+          variant="arabic"
+          style={[styles.nameAr, locked && styles.nameArLocked]}>
+          {displaySurahNameAr(surah.surah_number, surah.name_ar)}
         </AppText>
       </View>
     </View>
@@ -123,8 +126,8 @@ const styles = StyleSheet.create({
   nameAr: {
     fontSize: 22,
     color: colors.yellow,
-    fontWeight: '700',
-    writingDirection: 'rtl',
+    lineHeight: 34,
+    textAlign: 'right',
   },
   nameArLocked: {
     color: colors.grey,

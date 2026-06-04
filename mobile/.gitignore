@@ -53,8 +53,9 @@ yarn-error.log
 **/fastlane/screenshots
 **/fastlane/test_output
 
-# Bundle artifact
+# Metro / Gradle JS bundles (produced at build:apk / assembleRelease — do not commit)
 *.jsbundle
+*.bundle
 
 # Ruby / CocoaPods
 **/Pods/

@@ -3,6 +3,8 @@ import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 
 import { useFocusEffect } from '@react-navigation/native';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
+import { EmojiText } from '../../components/ui/EmojiText';
+import { JourneyTopBar } from '../../components/ui/JourneyTopBar';
 import { IrabBackground } from '../../components/ui/IrabBackground';
 import { learningApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
@@ -36,6 +38,12 @@ export function StatsScreen() {
     return (
       <Screen style={styles.screen}>
         <IrabBackground color={colors.yellow} />
+        <JourneyTopBar
+          streak={learning?.current_streak}
+          xp={learning?.xp_total}
+          hearts={learning?.hearts_remaining}
+          gems={learning?.gem_balance}
+        />
         <View style={styles.center}>
           <ActivityIndicator color={colors.yellow} />
         </View>
@@ -53,12 +61,19 @@ export function StatsScreen() {
   return (
     <Screen style={styles.screen}>
       <IrabBackground color={colors.yellow} />
+      <JourneyTopBar
+        streak={learning?.current_streak}
+        xp={learning?.xp_total}
+        hearts={learning?.hearts_remaining}
+        gems={learning?.gem_balance}
+      />
       <ScrollView
         contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.yellow} />
         }>
-        <AppText style={styles.icon}>📊</AppText>
+        <EmojiText size={36}>📊</EmojiText>
         <AppText variant="h1" style={styles.title}>Your Stats</AppText>
 
         {/* Summary cards row */}
@@ -140,7 +155,7 @@ export function StatsScreen() {
 function MiniCard({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) {
   return (
     <View style={[styles.mini, { borderColor: `${color}30` }]}>
-      <AppText style={styles.miniIcon}>{icon}</AppText>
+      <EmojiText size={22}>{icon}</EmojiText>
       <AppText style={[styles.miniValue, { color }]}>{value}</AppText>
       <AppText style={styles.miniLabel}>{label}</AppText>
     </View>
@@ -150,7 +165,7 @@ function MiniCard({ icon, label, value, color }: { icon: string; label: string; 
 function StatRow({ icon, label, value, last }: { icon: string; label: string; value: string; last?: boolean }) {
   return (
     <View style={[styles.statRow, !last && styles.statRowBorder]}>
-      <AppText style={styles.statRowIcon}>{icon}</AppText>
+      <EmojiText size={18}>{icon}</EmojiText>
       <AppText style={styles.statRowLabel}>{label}</AppText>
       <AppText style={styles.statRowValue}>{value}</AppText>
     </View>
@@ -184,7 +199,7 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 20,
+    borderRadius: 16,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',

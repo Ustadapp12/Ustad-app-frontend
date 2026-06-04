@@ -6,16 +6,20 @@ import { colors } from '../../theme/colors';
 interface Props {
   large?: boolean;
   light?: boolean;
+  /** Compact wordmark for JourneyTopBar — avoids overlapping stat pills. */
+  compact?: boolean;
 }
 
 /** Matches team design: أُسْتَاذ + USTAD · HIFZ */
-export function Logo({ large, light }: Props) {
+export function Logo({ large, light, compact }: Props) {
   return (
     <View style={styles.wrap}>
       <AppText
+        variant="arabic"
         style={[
           styles.arabic,
           large && styles.arabicLg,
+          compact && styles.arabicCompact,
           light ? styles.arabicLight : styles.arabicDark,
         ]}>
         أُسْتَاذ
@@ -24,6 +28,7 @@ export function Logo({ large, light }: Props) {
         style={[
           styles.sub,
           large && styles.subLg,
+          compact && styles.subCompact,
           light ? styles.subLight : styles.subDark,
         ]}>
         USTAD · HIFZ
@@ -36,11 +41,12 @@ const styles = StyleSheet.create({
   wrap: { alignItems: 'center' },
   arabic: {
     fontSize: 32,
-    fontWeight: '700',
     color: colors.yellow,
-    letterSpacing: 1,
+    textAlign: 'center',
+    lineHeight: 40,
   },
   arabicLg: { fontSize: 50, lineHeight: 58 },
+  arabicCompact: { fontSize: 22, lineHeight: 30 },
   arabicDark: { color: colors.yellow },
   arabicLight: { color: colors.yellow },
   sub: {
@@ -51,6 +57,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   subLg: { fontSize: 10, letterSpacing: 5 },
+  subCompact: { fontSize: 7, letterSpacing: 2, marginTop: 2 },
   subDark: { color: colors.grey },
   subLight: { color: 'rgba(255,255,255,0.35)' },
 });

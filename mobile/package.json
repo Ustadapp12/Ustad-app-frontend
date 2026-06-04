@@ -6,7 +6,8 @@
     "postinstall": "powershell -ExecutionPolicy Bypass -File scripts/patch-foojay.ps1",
     "android": "react-native run-android",
     "generate:icons": "node scripts/generate-android-icons.mjs",
-    "build:apk": "npm run generate:icons && cd android && gradlew.bat assembleRelease",
+    "link:fonts": "node scripts/link-fonts.mjs",
+    "build:apk": "npm run link:fonts && npm run generate:icons && node scripts/build-apk.mjs",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
@@ -14,6 +15,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.0.2",
+    "@react-native-community/push-notification-ios": "^1.12.0",
     "@react-native/new-app-screen": "0.85.3",
     "@react-navigation/bottom-tabs": "^7.16.1",
     "@react-navigation/native": "^7.2.4",
@@ -26,6 +28,7 @@
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.25.1",
     "react-native-sound": "^0.13.0",
+    "react-native-svg": "^15.15.5",
     "zustand": "^5.0.13"
   },
   "devDependencies": {

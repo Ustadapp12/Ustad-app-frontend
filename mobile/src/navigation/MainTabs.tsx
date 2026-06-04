@@ -4,24 +4,28 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { StatsScreen } from '../screens/profile/StatsScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
-import { AppText } from '../components/ui/AppText';
+import {
+  TabHomeIcon,
+  TabStatsIcon,
+  TabProfileIcon,
+} from '../components/ui/Icons';
 import { colors } from '../theme/colors';
 import type { MainTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-const TAB_ICONS: Record<string, string> = {
-  Home: '⌂',
-  Stats: '↗',
-  Profile: '◯',
-};
-
 function TabIcon({ name, color }: { name: string; color: string }) {
+  const icon =
+    name === 'Home' ? (
+      <TabHomeIcon color={color} />
+    ) : name === 'Stats' ? (
+      <TabStatsIcon color={color} />
+    ) : (
+      <TabProfileIcon color={color} />
+    );
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', height: 24 }}>
-      <AppText style={{ color, fontSize: 20, lineHeight: 24 }}>
-        {TAB_ICONS[name] ?? '·'}
-      </AppText>
+    <View style={{ alignItems: 'center', justifyContent: 'center', height: 26 }}>
+      {icon}
     </View>
   );
 }

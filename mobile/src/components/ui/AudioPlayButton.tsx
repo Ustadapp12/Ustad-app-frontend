@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { Pressable, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { AppText } from './AppText';
+import { SpeakerIcon } from './Icons';
 import { playAudioUrl } from '../../services/audioPlayer';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -14,39 +15,37 @@ export function AudioPlayButton({ url, label = 'Tap to play' }: Props) {
   const [loading, setLoading] = useState(false);
 
   const onPress = useCallback(async () => {
-    if (!url) {
-      Alert.alert('Audio', 'No audio available for this ayah.');
-      return;
-    }
+    if (!url) return;
     setLoading(true);
     try {
       await playAudioUrl(url);
-    } catch (e) {
-      Alert.alert(
-        'Audio',
-        e instanceof Error ? e.message : 'Could not play audio',
-      );
     } finally {
       setLoading(false);
     }
   }, [url]);
 
   return (
-    <Pressable
-      style={[styles.btn, !url && styles.btnDisabled]}
-      onPress={onPress}
-      disabled={loading || !url}>
-      {loading ? (
-        <ActivityIndicator color={colors.white} />
-      ) : (
-        <AppText style={styles.icon}>▶</AppText>
-      )}
-      <AppText style={styles.hint}>{url ? label : 'No audio'}</AppText>
-    </Pressable>
+    <View style={styles.wrap}>
+      <Pressable
+        style={[styles.btn, !url && styles.btnDisabled]}
+        onPress={onPress}
+        disabled={loading || !url}>
+        {loading ? (
+          <ActivityIndicator color={colors.white} />
+        ) : (
+          <SpeakerIcon size={28} color={colors.white} />
+        )}
+      </Pressable>
+      <AppText style={styles.hint}>{url ? label : 'No audio available'}</AppText>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
   btn: {
     width: 72,
     height: 72,
@@ -54,9 +53,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
   },
   btnDisabled: { opacity: 0.5 },
-  icon: { color: colors.white, fontSize: 28 },
-  hint: { color: colors.grey, fontSize: 11, marginTop: 4, textAlign: 'center' },
+  hint: {
+    color: colors.charcoal,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
 });

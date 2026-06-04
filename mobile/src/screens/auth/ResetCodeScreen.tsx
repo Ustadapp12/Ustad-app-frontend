@@ -9,6 +9,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
+import { IconBadge } from '../../components/ui/IconBadge';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { BackButton } from '../../components/ui/BackButton';
 import { IrabBackground } from '../../components/ui/IrabBackground';
@@ -65,15 +66,13 @@ export function ResetCodeScreen({ route, navigation }: Props) {
 
   return (
     <Screen style={styles.screen}>
-      <IrabBackground color={colors.primary} />
+      <IrabBackground color={colors.charcoal} opacityBase={0.09} />
       <View style={styles.topBar}>
         <BackButton onPress={() => navigation.goBack()} />
       </View>
 
       <View style={styles.content}>
-        <View style={styles.iconWrap}>
-          <AppText style={styles.iconEmoji}>📬</AppText>
-        </View>
+        <IconBadge emoji="📬" size={88} style={styles.iconWrap} />
 
         <AppText variant="h1" style={styles.title}>Enter reset code</AppText>
         <AppText style={styles.sub}>
@@ -143,16 +142,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   iconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
     backgroundColor: `${colors.primary}20`,
     borderWidth: 3,
     borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  iconEmoji: { fontSize: 40 },
   title: { color: colors.dark, textAlign: 'center' },
   sub: {
     color: colors.charcoal,

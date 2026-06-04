@@ -11,6 +11,12 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		C356D0B158B477118BDDA832 /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7E190A811ABDB1D928FDC20A /* Nunito-Regular.ttf */; };
+		8A7C1528BF2C56346E655299 /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5700E93174867D050DF841B7 /* Nunito-Bold.ttf */; };
+		61B82A41C588B00A108729C6 /* Amiri-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3A851339A247B4468917FC78 /* Amiri-Regular.ttf */; };
+		A9268A410B221F7B9383684A /* AmiriQuran.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 419411F824406AA2C10B7AF8 /* AmiriQuran.ttf */; };
+		45AB66FCC0D4FBAF5395D62E /* NotoNaskhArabic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C7C434C831E75ED24940B1C6 /* NotoNaskhArabic.ttf */; };
+		F6D2DE8882DD672A7DF17C14 /* NotoNastaliqUrdu.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 07ACEC82197F1148EE0CC2D6 /* NotoNastaliqUrdu.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +30,12 @@
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = UstadApp/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = UstadApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		7E190A811ABDB1D928FDC20A /* Nunito-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Nunito-Regular.ttf"; path = "Fonts/Nunito-Regular.ttf"; sourceTree = "<group>"; };
+		5700E93174867D050DF841B7 /* Nunito-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Nunito-Bold.ttf"; path = "Fonts/Nunito-Bold.ttf"; sourceTree = "<group>"; };
+		3A851339A247B4468917FC78 /* Amiri-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Amiri-Regular.ttf"; path = "Fonts/Amiri-Regular.ttf"; sourceTree = "<group>"; };
+		419411F824406AA2C10B7AF8 /* AmiriQuran.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "AmiriQuran.ttf"; path = "Fonts/AmiriQuran.ttf"; sourceTree = "<group>"; };
+		C7C434C831E75ED24940B1C6 /* NotoNaskhArabic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "NotoNaskhArabic.ttf"; path = "Fonts/NotoNaskhArabic.ttf"; sourceTree = "<group>"; };
+		07ACEC82197F1148EE0CC2D6 /* NotoNastaliqUrdu.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "NotoNastaliqUrdu.ttf"; path = "Fonts/NotoNastaliqUrdu.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -41,6 +53,7 @@
 		13B07FAE1A68108700A75B9A /* UstadApp */ = {
 			isa = PBXGroup;
 			children = (
+				51EAA09B791DF8EE6718883C /* Fonts */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -95,6 +108,20 @@
 				5709B34CF0A7D63546082F79 /* Pods-UstadApp.release.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		51EAA09B791DF8EE6718883C /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				7E190A811ABDB1D928FDC20A /* Nunito-Regular.ttf */,
+				5700E93174867D050DF841B7 /* Nunito-Bold.ttf */,
+				3A851339A247B4468917FC78 /* Amiri-Regular.ttf */,
+				419411F824406AA2C10B7AF8 /* AmiriQuran.ttf */,
+				C7C434C831E75ED24940B1C6 /* NotoNaskhArabic.ttf */,
+				07ACEC82197F1148EE0CC2D6 /* NotoNastaliqUrdu.ttf */,
+			);
+			name = Fonts;
+			path = UstadApp/Fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -159,6 +186,12 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				C356D0B158B477118BDDA832 /* Nunito-Regular.ttf in Resources */,
+				8A7C1528BF2C56346E655299 /* Nunito-Bold.ttf in Resources */,
+				61B82A41C588B00A108729C6 /* Amiri-Regular.ttf in Resources */,
+				A9268A410B221F7B9383684A /* AmiriQuran.ttf in Resources */,
+				45AB66FCC0D4FBAF5395D62E /* NotoNaskhArabic.ttf in Resources */,
+				F6D2DE8882DD672A7DF17C14 /* NotoNastaliqUrdu.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

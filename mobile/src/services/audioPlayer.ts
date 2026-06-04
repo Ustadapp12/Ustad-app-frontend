@@ -1,41 +1,71 @@
-import { Linking } from 'react-native';
+import * as Sentry from '@sentry/react-native';
+
+let activeSound: { stop: () => void; release: () => void } | null = null;
+
+function stopActiveSound() {
+  if (!activeSound) return;
+  try {
+    activeSound.stop();
+    activeSound.release();
+  } catch {
+    // ignore
+  }
+  activeSound = null;
+}
 
 /**
- * Play remote MP3. Tries react-native-sound if installed; otherwise opens system handler.
- * Optional: npm install react-native-sound && rebuild for in-app playback.
+ * Play remote MP3 using react-native-sound.
+ * Silently ignores errors so the UI never shows an audio error alert.
  */
-export async function playAudioUrl(url: string): Promise<void> {
-  if (!url) {
-    throw new Error('No audio URL');
+function logAudioIssue(
+  phase: 'load' | 'play' | 'setup',
+  url: string,
+  error?: Error | unknown,
+) {
+  const detail =
+    error instanceof Error ? error.message : error != null ? String(error) : phase;
+  if (__DEV__) {
+    console.warn(`[audioPlayer] ${phase} failed:`, detail, url);
+  } else if (error instanceof Error) {
+    Sentry.captureException(error, { extra: { url, phase } });
+  } else {
+    Sentry.captureMessage(`audioPlayer ${phase} failed`, {
+      level: 'warning',
+      extra: { url, detail },
+    });
   }
+}
+
+export async function playAudioUrl(url: string): Promise<void> {
+  if (!url) return;
 
   try {
     const SoundModule = require('react-native-sound');
     const Sound = SoundModule.default ?? SoundModule;
     Sound.setCategory('Playback');
+    stopActiveSound();
 
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve) => {
       const sound = new Sound(url, '', (err: Error | null) => {
         if (err) {
-          reject(err);
+          logAudioIssue('load', url, err);
+          resolve();
           return;
         }
+        activeSound = sound;
         sound.play((success: boolean) => {
-          sound.release();
-          if (success) {
-            resolve();
-          } else {
-            reject(new Error('Playback failed'));
+          if (!success) {
+            logAudioIssue('play', url);
           }
+          sound.release();
+          if (activeSound === sound) {
+            activeSound = null;
+          }
+          resolve();
         });
       });
     });
-    return;
-  } catch {
-    const can = await Linking.canOpenURL(url);
-    if (!can) {
-      throw new Error('Audio URL is not supported on this device');
-    }
-    await Linking.openURL(url);
+  } catch (err) {
+    logAudioIssue('setup', url, err);
   }
 }

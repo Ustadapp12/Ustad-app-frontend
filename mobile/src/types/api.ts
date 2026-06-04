@@ -39,15 +39,16 @@ export interface SurahBrief {
 export interface WordOut {
   position: number;
   arabic: string;
-  transliteration: string;
-  audio_rel_path: string;
-  audio_url: string;
+  transliteration?: string | null;
+  meaning?: string | null;
+  audio_rel_path?: string | null;
+  audio_url?: string | null;
 }
 
 export interface AudioAsset {
-  rel_path: string;
-  audio_url: string;
-  duration_s: number | null;
+  rel_path?: string | null;
+  duration_s?: number | null;
+  audio_url?: string | null;
 }
 
 export interface AyahOut {
@@ -55,11 +56,12 @@ export interface AyahOut {
   surah_number: number;
   ayah_number: number;
   arabic: string;
-  transliteration: string;
-  translation_en: string;
+  transliteration?: string | null;
+  translation_en?: string | null;
+  audio_url?: string | null;
   words: WordOut[];
-  audio_assets: Record<string, AudioAsset>;
-  default_reciter_id: string;
+  audio_assets?: Record<string, AudioAsset>;
+  default_reciter_id?: string | null;
 }
 
 export interface LessonGroupSummary {
@@ -95,6 +97,13 @@ export interface LessonSessionStart {
   hearts_at_start: number;
 }
 
+/** GET /learning/sessions/active — null when no in-progress session. */
+export interface ActiveLessonSession {
+  session_id: string;
+  lesson_group_id: string;
+  hearts_at_start?: number;
+}
+
 export interface SessionCompleteOut {
   session_id: string;
   passed: boolean;
@@ -123,7 +132,7 @@ export interface JuzOut {
   surah_numbers: number[];
 }
 
-export type LearnerMode = 'child' | 'adult' | 'beginner';
+export type LearnerMode = 'child' | 'adult' | 'beginner' | 'placement_pending';
 export type ScriptPreference = 'uthmani' | 'nastaliq' | 'simple';
 export type PlacementLevel = 'beginner' | 'intermediate' | 'advanced';
 
@@ -182,6 +191,60 @@ export interface VoiceAttemptResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────
+
+export interface SurahStage {
+  stage_num: number;
+  stage_type: 'listening' | 'recognition' | 'building' | 'recall' | 'mastery';
+  title_en: string;
+  status: 'completed' | 'available' | 'in_progress' | 'locked';
+  stars: number | null;
+  lesson_group_ids: string[];
+  xp_reward: number;
+  min_pass_pct: number;
+}
+
+export interface SurahPath {
+  surah_number: number;
+  surah_name_en: string;
+  surah_name_ar: string;
+  ayah_count: number;
+  stages: SurahStage[];
+}
+
+export interface ExerciseOption {
+  text: string;
+  is_correct: boolean;
+}
+
+export interface ExerciseOut {
+  id: string | null;
+  surah_no: number;
+  ayah_no: number;
+  type: string;
+  stage: number;
+  seq: number;
+  prompt_en: string | null;
+  prompt_ar: string | null;
+  options: ExerciseOption[] | null;
+  correct_idx: number | null;
+  difficulty: number;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface ExerciseAttemptResponse {
+  id: string;
+  next_review_at: string;
+}
+
+export interface LessonGroupExercises {
+  lesson_group_id: string;
+  surah_number: number;
+  stage: number;
+  stage_type: string;
+  estimated_minutes: number;
+  needs_generation: boolean;
+  exercises: ExerciseOut[];
+}
 
 export interface OnboardingAnswers {
   motivation?: string;

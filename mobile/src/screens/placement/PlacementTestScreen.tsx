@@ -78,7 +78,7 @@ export function PlacementTestScreen({ navigation }: Props) {
 
   return (
     <Screen style={styles.screen}>
-      <IrabBackground color={colors.primary} />
+      <IrabBackground color={colors.charcoal} opacityBase={0.09} />
 
       {/* Progress bar */}
       <View style={styles.progressWrap}>

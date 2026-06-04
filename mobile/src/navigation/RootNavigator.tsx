@@ -27,6 +27,8 @@ import { LessonStartScreen } from '../screens/lesson/LessonStartScreen';
 import { LessonSessionScreen } from '../screens/lesson/LessonSessionScreen';
 import { LessonCompleteScreen } from '../screens/lesson/LessonCompleteScreen';
 import { StreakModalScreen } from '../screens/gamification/StreakModalScreen';
+import { TermsScreen } from '../screens/legal/TermsScreen';
+import { PrivacyScreen } from '../screens/legal/PrivacyScreen';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -69,6 +71,8 @@ export function RootNavigator() {
           component={StreakModalScreen}
           options={{ presentation: 'modal' }}
         />
+        <Stack.Screen name="Terms" component={TermsScreen} />
+        <Stack.Screen name="Privacy" component={PrivacyScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

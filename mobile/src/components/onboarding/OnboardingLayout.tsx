@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../ui/Screen';
 import { BackButton } from '../ui/BackButton';
 import { StepDots } from '../ui/StepDots';
@@ -26,10 +27,14 @@ export function OnboardingLayout({
   dark = false,
   contentStyle,
 }: Props) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Screen style={dark ? styles.dark : undefined}>
-      {dark ? <IrabBackground /> : <IrabBackground color={colors.primary} />}
-      <View style={styles.header}>
+      {dark
+        ? <IrabBackground />
+        : <IrabBackground color={colors.charcoal} opacityBase={0.09} />}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing.sm) }]}>
         {onBack ? <BackButton onPress={onBack} light={dark} /> : <View style={styles.spacer} />}
         {step != null ? (
           <StepDots total={totalSteps} current={step} />
@@ -56,7 +61,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.screenHorizontal,
-    paddingTop: spacing.md,
     zIndex: 1,
   },
   spacer: { width: 40 },

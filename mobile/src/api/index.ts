@@ -3,11 +3,15 @@ import type {
   AuthMeResponse,
   AuthResponse,
   AyahOut,
+  ExerciseAttemptResponse,
+  ExerciseOut,
   JuzOut,
   LearningMe,
   LearningStats,
   LessonGroupDetail,
+  LessonGroupExercises,
   LessonGroupSummary,
+  ActiveLessonSession,
   LessonSessionStart,
   PlacementSubmitResponse,
   ReciterOut,
@@ -16,6 +20,7 @@ import type {
   SessionCompleteOut,
   SurahBrief,
   SurahLevel,
+  SurahPath,
   UserProfile,
   VerifyEmailResponse,
   VoiceAttemptResponse,
@@ -123,6 +128,12 @@ export const lessonsApi = {
 
   group: (groupId: string) =>
     api<LessonGroupDetail>(`/lessons/groups/${groupId}`, {}, false),
+
+  surahPath: (surahNumber: number) =>
+    api<SurahPath>(`/lessons/surahs/${surahNumber}/path`),
+
+  exercises: (groupId: string) =>
+    api<LessonGroupExercises>(`/lessons/groups/${groupId}/exercises`, {}, false),
 };
 
 // ── Learning ─────────────────────────────────────────────────────
@@ -142,6 +153,21 @@ export const learningApi = {
     api<LessonSessionStart>('/learning/sessions', {
       method: 'POST',
       body: JSON.stringify({ lesson_group_id }),
+    }),
+
+  activeSession: () =>
+    api<ActiveLessonSession | null>('/learning/sessions/active'),
+
+  abandonActive: () =>
+    api<{ ok?: boolean }>('/learning/sessions/abandon-active', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+
+  abandonSession: (sessionId: string) =>
+    api<{ ok?: boolean }>(`/learning/sessions/${sessionId}/abandon`, {
+      method: 'POST',
+      body: JSON.stringify({}),
     }),
 
   attempt: (
@@ -174,6 +200,21 @@ export const learningApi = {
     start_surah: number;
   }) =>
     api<PlacementSubmitResponse>('/learning/placement', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  weakExercises: (limit = 20) =>
+    api<ExerciseOut[]>(`/learning/weak-exercises?limit=${limit}`),
+
+  exerciseAttempt: (body: {
+    exercise_id: string;
+    session_id: string;
+    correct: boolean;
+    response_ms: number;
+    mistake_count: number;
+  }) =>
+    api<ExerciseAttemptResponse>('/learning/exercise-attempts', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

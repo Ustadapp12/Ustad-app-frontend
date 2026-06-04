@@ -6,6 +6,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { copy } from '../../i18n/copy';
 import { setScriptPreference } from '../../utils/storage';
+import { usersApi } from '../../api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation/types';
@@ -27,6 +28,7 @@ export function ScriptScreen({ navigation }: Props) {
           onPress={async () => {
             if (!selected) return;
             await setScriptPreference(selected);
+            usersApi.updateProfile({ script_preference: selected }).catch(() => null);
             navigation.navigate('OnboardingDailyGoal');
           }}
           variant={selected ? 'primary' : 'disabled'}

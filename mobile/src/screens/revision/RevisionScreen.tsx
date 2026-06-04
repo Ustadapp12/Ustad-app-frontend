@@ -1,49 +1,45 @@
-import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, ActivityIndicator, Alert, Pressable } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
+import { EmojiText } from '../../components/ui/EmojiText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { AudioPlayButton } from '../../components/ui/AudioPlayButton';
 import { JourneyTopBar } from '../../components/ui/JourneyTopBar';
 import { useAuthStore } from '../../store/authStore';
-import { revisionApi, contentApi } from '../../api';
-import { resolveAyahAudioUrl } from '../../services/reciters';
-import { getReciterId } from '../../utils/storage';
+import { learningApi } from '../../api';
 import { copy } from '../../i18n/copy';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import type { AyahOut } from '../../types/api';
+import type { ExerciseOut } from '../../types/api';
+
+const EXERCISE_LABELS: Record<string, string> = {
+  listen: 'Listening',
+  match_meaning: 'Match Meaning',
+  word_meaning: 'Word Meaning',
+  fill_blank: 'Fill Blank',
+  reorder: 'Reorder',
+  continue_ayah: 'Continue Ayah',
+  sequence_order: 'Sequence Order',
+  listen_repeat: 'Listen & Repeat',
+};
 
 export function RevisionScreen() {
   const learning = useAuthStore(s => s.learning);
-  const [ayah, setAyah] = useState<AyahOut | null>(null);
-  const [dueAt, setDueAt] = useState<string | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [exercises, setExercises] = useState<ExerciseOut[]>([]);
+  const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [scheduling, setScheduling] = useState(false);
-  const [empty, setEmpty] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const exerciseStartedAtRef = useRef(Date.now());
 
   const load = useCallback(async () => {
     setLoading(true);
+    setIndex(0);
     try {
-      const next = await revisionApi.next();
-      if (!next.ayah_id) {
-        setEmpty(true);
-        setAyah(null);
-        setDueAt(null);
-        return;
-      }
-      const [surah, ayahNum] = next.ayah_id.split('_').map(Number);
-      const a = await contentApi.ayah(surah, ayahNum);
-      const reciterId = await getReciterId();
-      const url = await resolveAyahAudioUrl(a, reciterId);
-      setAyah(a);
-      setDueAt(next.due_at);
-      setAudioUrl(url);
-      setEmpty(false);
+      const data = await learningApi.weakExercises(20);
+      setExercises(data);
     } catch {
-      setEmpty(true);
+      setExercises([]);
     } finally {
       setLoading(false);
     }
@@ -55,24 +51,37 @@ export function RevisionScreen() {
     }, [load]),
   );
 
-  const markReviewed = async () => {
-    if (!ayah) {
-      return;
+  const exercise = exercises[index] ?? null;
+  const empty = !loading && exercises.length === 0;
+  const done = !loading && index >= exercises.length && exercises.length > 0;
+
+  useEffect(() => {
+    if (exercise?.id) {
+      exerciseStartedAtRef.current = Date.now();
     }
-    setScheduling(true);
+  }, [index, exercise?.id]);
+
+  const logAttempt = async (correct: boolean) => {
+    if (!exercise?.id) return;
+    setSubmitting(true);
     try {
-      const due = new Date();
-      due.setDate(due.getDate() + 3);
-      await revisionApi.schedule(ayah.id, due.toISOString());
-      await load();
-    } catch (e) {
-      Alert.alert(
-        'Revision',
-        e instanceof Error ? e.message : 'Could not schedule revision',
-      );
+      await learningApi.exerciseAttempt({
+        exercise_id: exercise.id,
+        session_id: `revision_${Date.now()}`,
+        correct,
+        response_ms: Date.now() - exerciseStartedAtRef.current,
+        mistake_count: correct ? 0 : 1,
+      });
+    } catch {
+      // non-fatal — still advance
     } finally {
-      setScheduling(false);
+      setSubmitting(false);
     }
+  };
+
+  const handleAnswer = async (correct: boolean) => {
+    await logAttempt(correct);
+    setIndex(i => i + 1);
   };
 
   if (loading) {
@@ -94,34 +103,84 @@ export function RevisionScreen() {
         <AppText variant="h1" style={styles.title}>
           {copy.revision.title}
         </AppText>
+
         {empty ? (
           <View style={styles.emptyCard}>
-            <AppText style={styles.emptyEmoji}>📖</AppText>
+            <EmojiText size={48}>📖</EmojiText>
             <AppText style={styles.empty}>{copy.revision.empty}</AppText>
           </View>
-        ) : ayah ? (
-          <View style={styles.ayahCard}>
-            <AppText style={styles.meta}>
-              Surah {ayah.surah_number} · Ayah {ayah.ayah_number}
-            </AppText>
-            {dueAt ? (
-              <AppText style={styles.due}>Due: {new Date(dueAt).toLocaleString()}</AppText>
-            ) : null}
-            <AudioPlayButton url={audioUrl} label={copy.revision.listen} />
-            <AppText variant="arabic" style={styles.ayah}>
-              {ayah.arabic}
-            </AppText>
-            <AppText style={styles.trans}>{ayah.translation_en}</AppText>
+        ) : done ? (
+          <View style={styles.emptyCard}>
+            <EmojiText size={48}>🎉</EmojiText>
+            <AppText style={styles.empty}>All caught up! You reviewed {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}.</AppText>
           </View>
+        ) : exercise ? (
+          <>
+            <View style={styles.progressRow}>
+              <AppText style={styles.progressText}>{index + 1} / {exercises.length}</AppText>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${((index + 1) / exercises.length) * 100}%` }]} />
+              </View>
+            </View>
+
+            <View style={styles.exerciseCard}>
+              <View style={styles.typeBadge}>
+                <AppText style={styles.typeBadgeText}>
+                  {EXERCISE_LABELS[exercise.type] ?? exercise.type}
+                </AppText>
+              </View>
+
+              <AppText style={styles.surahRef}>
+                Surah {exercise.surah_no} · Ayah {exercise.ayah_no}
+              </AppText>
+
+              {exercise.prompt_ar ? (
+                <AppText variant="arabic" style={styles.arabicText}>
+                  {exercise.prompt_ar}
+                </AppText>
+              ) : null}
+
+              {exercise.prompt_en ? (
+                <AppText style={styles.promptEn}>{exercise.prompt_en}</AppText>
+              ) : null}
+
+              {exercise.options && exercise.options.length > 0 ? (
+                <View style={styles.optionsPreview}>
+                  {exercise.options.slice(0, 2).map((opt, i) => (
+                    <View key={i} style={styles.optionPill}>
+                      <AppText style={styles.optionText} numberOfLines={1}>{opt.text}</AppText>
+                    </View>
+                  ))}
+                  {exercise.options.length > 2 ? (
+                    <AppText style={styles.moreOptions}>+{exercise.options.length - 2} more</AppText>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          </>
         ) : null}
       </View>
-      {!empty && ayah ? (
+
+      {!empty && !done && exercise ? (
         <View style={styles.footer}>
-          <PrimaryButton
-            title={copy.revision.markReviewed}
-            onPress={markReviewed}
-            loading={scheduling}
-          />
+          <View style={styles.answerRow}>
+            <Pressable
+              style={[styles.answerBtn, styles.wrongBtn]}
+              onPress={() => handleAnswer(false)}
+              disabled={submitting}>
+              <AppText style={styles.answerBtnText}>✗  Missed it</AppText>
+            </Pressable>
+            <Pressable
+              style={[styles.answerBtn, styles.correctBtn]}
+              onPress={() => handleAnswer(true)}
+              disabled={submitting}>
+              <AppText style={styles.answerBtnText}>✓  Knew it</AppText>
+            </Pressable>
+          </View>
+        </View>
+      ) : done ? (
+        <View style={styles.footer}>
+          <PrimaryButton title="Review again" onPress={load} />
         </View>
       ) : null}
     </Screen>
@@ -137,29 +196,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: { flex: 1, padding: spacing.screenHorizontal },
-  title: { color: colors.white, marginBottom: spacing.lg },
+  title: { color: colors.white, marginBottom: spacing.md },
+
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  progressText: { color: colors.grey, fontSize: 12, fontWeight: '700', width: 48 },
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+  },
+  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 3 },
+
   emptyCard: {
     alignItems: 'center',
     padding: spacing.xl,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 20,
+    backgroundColor: `${colors.white}10`,
+    borderRadius: 16,
   },
   emptyEmoji: { fontSize: 48, marginBottom: spacing.md },
   empty: { color: colors.grey, textAlign: 'center', fontWeight: '600', lineHeight: 22 },
-  ayahCard: {
+
+  exerciseCard: {
     backgroundColor: colors.white,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: spacing.lg,
-    alignItems: 'center',
   },
-  meta: { color: colors.charcoal, fontWeight: '700', fontSize: 12, alignSelf: 'flex-start' },
-  due: { color: colors.grey, fontSize: 11, marginBottom: spacing.sm, alignSelf: 'flex-start' },
-  ayah: {
-    marginVertical: spacing.lg,
-    fontSize: 28,
+  typeBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: `${colors.primary}20`,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: spacing.sm,
+  },
+  typeBadgeText: { color: colors.primary, fontWeight: '800', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
+  surahRef: { color: colors.charcoal, fontWeight: '700', fontSize: 12, marginBottom: spacing.sm },
+  arabicText: {
+    fontSize: 26,
     textAlign: 'center',
     color: colors.dark,
+    marginVertical: spacing.md,
+    lineHeight: 42,
   },
-  trans: { color: colors.charcoal, lineHeight: 22, fontWeight: '600' },
+  promptEn: { color: colors.charcoal, lineHeight: 22, fontWeight: '500', marginTop: spacing.xs },
+  optionsPreview: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.md },
+  optionPill: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    maxWidth: '48%',
+  },
+  optionText: { color: colors.charcoal, fontSize: 12, fontWeight: '600' },
+  moreOptions: { color: colors.grey, fontSize: 11, fontWeight: '600', alignSelf: 'center' },
+
   footer: { padding: spacing.screenHorizontal, paddingBottom: spacing.xl },
+  answerRow: { flexDirection: 'row', gap: spacing.sm },
+  answerBtn: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wrongBtn: { backgroundColor: `${colors.heart}20`, borderWidth: 1, borderColor: `${colors.heart}40` },
+  correctBtn: { backgroundColor: `${colors.primary}25`, borderWidth: 1, borderColor: `${colors.primary}50` },
+  answerBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
 });

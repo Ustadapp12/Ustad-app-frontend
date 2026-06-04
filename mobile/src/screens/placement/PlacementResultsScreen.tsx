@@ -45,7 +45,7 @@ export function PlacementResultsScreen({ route, navigation }: Props) {
 
   return (
     <Screen style={styles.screen}>
-      <IrabBackground color={colors.primary} />
+      <IrabBackground color={colors.charcoal} opacityBase={0.09} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Teacher avatars celebrating */}

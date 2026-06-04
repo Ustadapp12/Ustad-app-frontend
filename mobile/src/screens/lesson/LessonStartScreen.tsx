@@ -41,13 +41,13 @@ export function LessonStartScreen({ route, navigation }: Props) {
 
   return (
     <Screen style={styles.screen}>
-      <IrabBackground color={colors.primary} />
+      <IrabBackground color={colors.yellow} opacityBase={0.05} />
       <View style={styles.content}>
         <Mascot size={100} bounce />
         <AppText variant="h1" style={styles.title}>
           {copy.lessonStart.title}
         </AppText>
-        <AppText style={styles.label}>{label}</AppText>
+        <AppText variant="arabic" style={styles.label}>{label}</AppText>
         {group ? (
           <View style={styles.metaCard}>
             <AppText style={styles.meta}>

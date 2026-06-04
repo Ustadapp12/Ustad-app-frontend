@@ -1,21 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Pressable,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { AppText } from '../ui/AppText';
+import { EmojiText } from '../ui/EmojiText';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { LessonShell } from './LessonShell';
+import { AudioPlayButton } from '../ui/AudioPlayButton';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { copy } from '../../i18n/copy';
-import { AudioPlayButton } from '../ui/AudioPlayButton';
-import { resolveAyahAudioUrl } from '../../services/reciters';
 import { getReciterId } from '../../utils/storage';
 import { progressApi } from '../../api';
+import { playAudioUrl } from '../../services/audioPlayer';
+import { resolveAyahPlayUrl, resolveWordPlayUrl, warmAudioUrlCache } from '../../services/audioUrls';
+import { SpeakerIcon } from '../ui/Icons';
 import type { ExerciseStep } from '../../lesson/types';
+import { wordsInAyahOrder } from '../../lesson/wordOrder';
+import type { WordOut } from '../../types/api';
+
 interface Props {
   step: ExerciseStep;
   stepIndex: number;
@@ -26,44 +34,81 @@ interface Props {
   onComplete: (correct: boolean) => void;
 }
 
-export function ExerciseRenderer({
-  step,
-  stepIndex,
-  total,
-  hearts,
-  sessionId,
-  onClose,
-  onComplete,
-}: Props) {
+export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, onClose, onComplete }: Props) {
+  // answer state
   const [selected, setSelected] = useState<number | null>(null);
-  const [checked, setChecked] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
   const [filledWord, setFilledWord] = useState<string | null>(null);
   const [order, setOrder] = useState<string[]>([]);
-
+  const [seqOrder, setSeqOrder] = useState<number[]>([]);
+  const [selectedWordPos, setSelectedWordPos] = useState<number | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  // listen_repeat
+  const recordStartRef = useRef<number | null>(null);
+  const [recordedMs, setRecordedMs] = useState<number | null>(null);
+  const [recording, setRecording] = useState(false);
+  // feedback
+  const [checked, setChecked] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  // animations
+  const feedbackSlide = useRef(new Animated.Value(200)).current;
+  const correctScale  = useRef(new Animated.Value(1)).current;
+  const wrongShake    = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const reciterId = await getReciterId();
-      const url = await resolveAyahAudioUrl(step.ayah, reciterId);
-      if (!cancelled) {
-        setAudioUrl(url);
-      }
+      await warmAudioUrlCache();
+      const id = await getReciterId();
+      const url = await resolveAyahPlayUrl(step.ayah, step.ayahAudioUrl, id);
+      if (!cancelled) setAudioUrl(url);
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [step.ayah]);
+    return () => { cancelled = true; };
+  }, [step.ayah, step.ayahAudioUrl]);
 
   const resetLocal = () => {
     setSelected(null);
-    setChecked(false);
     setFilledWord(null);
     setOrder([]);
+    setSeqOrder([]);
+    setSelectedWordPos(null);
+    setRecordedMs(null);
+    setRecording(false);
+    setChecked(false);
+    feedbackSlide.setValue(200);
+    correctScale.setValue(1);
   };
 
+  // ── Animations ────────────────────────────────────────────────
+  const animateCorrect = () => {
+    Animated.sequence([
+      Animated.spring(correctScale, { toValue: 1.12, useNativeDriver: true, tension: 200, friction: 5 }),
+      Animated.spring(correctScale, { toValue: 1,    useNativeDriver: true, tension: 200, friction: 5 }),
+    ]).start();
+  };
+
+  const animateWrong = () => {
+    Animated.sequence([
+      Animated.timing(wrongShake, { toValue: 10,  duration: 50,  useNativeDriver: true }),
+      Animated.timing(wrongShake, { toValue: -10, duration: 50,  useNativeDriver: true }),
+      Animated.timing(wrongShake, { toValue: 6,   duration: 40,  useNativeDriver: true }),
+      Animated.timing(wrongShake, { toValue: -6,  duration: 40,  useNativeDriver: true }),
+      Animated.timing(wrongShake, { toValue: 0,   duration: 30,  useNativeDriver: true }),
+    ]).start();
+  };
+
+  const showFeedbackPanel = (correct: boolean) => {
+    if (correct) animateCorrect(); else animateWrong();
+    Animated.spring(feedbackSlide, { toValue: 0, useNativeDriver: true, tension: 90, friction: 10 }).start();
+  };
+
+  const handleContinue = useCallback(() => {
+    Animated.timing(feedbackSlide, { toValue: 200, duration: 180, useNativeDriver: true }).start(() => {
+      onComplete(isCorrect);
+      resetLocal();
+    });
+  }, [isCorrect, onComplete]);
+
+  // ── Correctness logic ─────────────────────────────────────────
   const handleCheck = async () => {
     let correct = false;
     switch (step.type) {
@@ -72,249 +117,593 @@ export function ExerciseRenderer({
         correct = true;
         break;
       case 'fill_blank': {
-        const pos = step.blankPosition ?? 0;
-        const word = step.ayah.words[pos]?.arabic;
-        correct = filledWord === word;
+        const correctWord = step.options?.[step.correctIndex ?? 0]
+          ?? step.ayah.words[step.blankPosition ?? 0]?.arabic ?? '';
+        correct = filledWord === correctWord;
         break;
       }
       case 'reorder':
-        correct =
-          order.join('|') ===
-          step.ayah.words.map(w => w.arabic).join('|');
+        correct = step.correctOrder
+          ? order.join('|') === step.correctOrder.join('|')
+          : order.join('|') === step.ayah.words.map(w => w.arabic).join('|');
         break;
       case 'match_meaning':
       case 'mcq':
-        correct = selected === step.correctIndex;
+      case 'word_meaning':
+      case 'continue_ayah':
+        correct = selected === (step.correctIndex ?? -1);
+        break;
+      case 'sequence_order':
+        correct = seqOrder.join(',') === (step.sequenceAyahs?.map(a => a.number) ?? []).join(',');
         break;
       case 'listen_repeat': {
-        // Call voice attempt API with simulated 3.5s duration (always passes: >=2000ms)
-        // Real mic recording wired when STT is available
-        const STUB_DURATION_MS = 3500;
+        const dur = recordedMs ?? 0;
         if (sessionId) {
           try {
-            const res = await progressApi.voiceAttempt({
-              session_id: sessionId,
-              ayah_id: step.ayah.id,
-              duration_ms: STUB_DURATION_MS,
-              self_rated: null,
-            });
+            const res = await progressApi.voiceAttempt({ session_id: sessionId, ayah_id: step.ayah.id, duration_ms: dur, self_rated: null });
             correct = res.passed;
-          } catch {
-            correct = true; // fallback if API unavailable
-          }
-        } else {
-          correct = true;
-        }
+          } catch { correct = dur >= 2000; }
+        } else { correct = dur >= 2000; }
         break;
       }
-      default:
-        correct = true;
+      default: correct = true;
     }
     setIsCorrect(correct);
     setChecked(true);
+    showFeedbackPanel(correct);
   };
 
-  const handleContinue = () => {
-    onComplete(isCorrect);
-    resetLocal();
-  };
-
-  const prompt = () => {
+  // ── Can-submit guard ──────────────────────────────────────────
+  const canCheck = (): boolean => {
     switch (step.type) {
-      case 'listen':
-        return 'Listen to the recitation';
-      case 'fill_blank':
-        return copy.lesson.check.replace('Check', 'Complete the ayah');
-      case 'reorder':
-        return 'Put the words in order';
-      case 'match_meaning':
-        return 'Choose the correct meaning';
-      case 'listen_repeat':
-        return 'Listen and repeat aloud';
-      case 'interstitial':
-        return copy.streakGoal.tip;
-      default:
-        return 'Choose the correct answer';
+      case 'listen': case 'interstitial': return true;
+      case 'listen_repeat': return (recordedMs ?? 0) > 0;
+      case 'fill_blank':     return filledWord != null;
+      case 'reorder':        return order.length === (step.scrambledWords?.length ?? step.ayah.words.length);
+      case 'sequence_order': return seqOrder.length === (step.sequenceAyahs?.length ?? 0);
+      default:               return selected != null;
     }
   };
 
-  const canCheck = () => {
-    if (step.type === 'listen' || step.type === 'interstitial' || step.type === 'listen_repeat') {
-      return true;
+  // ── Prompt labels ─────────────────────────────────────────────
+  const promptLabel = (): string => {
+    switch (step.type) {
+      case 'listen':         return 'Listen to the recitation';
+      case 'listen_repeat':  return 'Listen, then repeat aloud';
+      case 'fill_blank':     return 'Fill in the missing word';
+      case 'reorder':        return 'Build the ayah — tap words in order';
+      case 'match_meaning':  return 'What does this ayah mean?';
+      case 'word_meaning':   return 'What does this word mean?';
+      case 'continue_ayah':  return 'What comes next?';
+      case 'sequence_order': return 'Put the ayahs in the correct order';
+      case 'interstitial':   return copy.streakGoal.tip;
+      default:               return 'Choose the correct answer';
     }
-    if (step.type === 'fill_blank') return filledWord != null;
-    if (step.type === 'reorder') return order.length === step.ayah.words.length;
-    return selected != null;
   };
 
+  // ── Body ─────────────────────────────────────────────────────
   const renderBody = () => {
     if (step.type === 'interstitial') {
       return (
         <View style={styles.center}>
-          <LogoSmall />
-          <AppText variant="h2" style={styles.centerText}>
-            {copy.streakGoal.tip}
-          </AppText>
+          <EmojiText size={48}>💡</EmojiText>
+          <AppText variant="h2" style={styles.centerText}>{copy.streakGoal.tip}</AppText>
         </View>
       );
     }
 
     return (
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <AppText variant="h2" style={styles.prompt}>
-          {prompt()}
-        </AppText>
+      <Animated.View style={{ flex: 1, transform: [{ translateX: wrongShake }] }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-        {(step.type === 'listen' || step.type === 'listen_repeat') && (
-          <AudioPlayButton url={audioUrl} label={copy.lesson.playAudio} />
-        )}
+          {/* ── Prompt ─ */}
+          <AppText style={styles.prompt}>{promptLabel()}</AppText>
 
-        <AppText variant="arabic" style={styles.ayah}>
-          {step.ayah.arabic}
-        </AppText>
-
-        {step.type === 'fill_blank' && (
-          <View style={styles.chips}>
-            {step.ayah.words.map(w => (
-              <Pressable
-                key={w.position}
-                onPress={() => setFilledWord(w.arabic)}
-                style={[
-                  styles.chip,
-                  filledWord === w.arabic && styles.chipSelected,
-                ]}>
-                <AppText variant="arabic">{w.arabic}</AppText>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        {step.type === 'reorder' && (
-          <>
-            <View style={styles.answerRow}>
-              {order.map((w, i) => (
-                <Pressable
-                  key={`${w}-${i}`}
-                  onPress={() => setOrder(order.filter((_, j) => j !== i))}
-                  style={styles.chip}>
-                  <AppText variant="arabic">{w}</AppText>
+          {/* ══ LISTEN ═══════════════════════════════════════════ */}
+          {(step.type === 'listen' || step.type === 'listen_repeat') && (() => {
+            const listenWords = step.metadataWords ?? step.ayah.words;
+            const hasWords = (listenWords?.length ?? 0) > 0;
+            return (
+            <View style={styles.listenBlock}>
+              <AudioPlayButton url={audioUrl} label="Play full ayah" />
+              {step.ayah.arabic ? (
+                <View style={styles.ayahCard}>
+                  <AppText variant="arabic" style={styles.ayahCardText}>
+                    {step.ayah.arabic}
+                  </AppText>
+                </View>
+              ) : null}
+              {hasWords ? (
+                <>
+                  <AppText style={styles.tapHint}>
+                    Listen above, then tap each word
+                  </AppText>
+                  <View style={styles.wordRow}>
+                    {wordsInAyahOrder(listenWords).map(w => (
+                      <WordChip key={w.position} word={w}
+                        selected={selectedWordPos === w.position}
+                        onPress={() => setSelectedWordPos(w.position)} />
+                    ))}
+                  </View>
+                  {selectedWordPos !== null && (() => {
+                    const w = listenWords.find(x => x.position === selectedWordPos);
+                    return w ? (
+                      <View style={styles.wordInfoCard}>
+                        <AppText style={styles.wordTrans}>{w.transliteration}</AppText>
+                        {w.meaning ? <AppText style={styles.wordMeaning}>{w.meaning}</AppText> : null}
+                      </View>
+                    ) : null;
+                  })()}
+                </>
+              ) : null}
+              {step.type === 'listen_repeat' && !checked && (
+                <Pressable onPressIn={() => { recordStartRef.current = Date.now(); setRecording(true); }}
+                  onPressOut={() => { if (recordStartRef.current) setRecordedMs(Date.now() - recordStartRef.current); setRecording(false); }}
+                  style={[styles.recordBtn, recording && styles.recordBtnActive]}>
+                  <AppText style={styles.recordBtnText}>
+                    {recording ? '🎙  Recording…' : recordedMs ? '✓  Recorded — tap Check' : '🎙  Hold to repeat aloud'}
+                  </AppText>
                 </Pressable>
-              ))}
+              )}
             </View>
-            <View style={styles.chips}>
-              {step.ayah.words
-                .map(w => w.arabic)
-                .filter(w => !order.includes(w) || order.filter(x => x === w).length < step.ayah.words.filter(y => y.arabic === w).length)
-                .map((w, i) => (
-                  <Pressable
-                    key={`${w}-${i}`}
-                    onPress={() => setOrder([...order, w])}
-                    style={styles.chip}>
-                    <AppText variant="arabic">{w}</AppText>
+            );
+          })()}
+
+          {/* ══ FILL BLANK ═══════════════════════════════════════ */}
+          {step.type === 'fill_blank' && (
+            <View style={styles.fillBlankBlock}>
+              {/* Show blank-display WITHOUT full ayah */}
+              <View style={styles.blankAyahCard}>
+                <AppText variant="arabic" style={styles.blankAyahText}>
+                  {step.blankDisplay ?? step.ayah.arabic}
+                </AppText>
+                <View style={styles.blankUnderline} />
+              </View>
+              <AppText style={styles.tileHint}>Choose the missing word</AppText>
+              <View style={styles.tileRow}>
+                {(step.options ?? step.ayah.words.map(w => w.arabic)).map((w, i) => {
+                  const isSelected = filledWord === w;
+                  const isRight = checked && i === step.correctIndex;
+                  const isWrong = checked && isSelected && i !== step.correctIndex;
+                  return (
+                    <Pressable key={`${w}-${i}`} disabled={checked}
+                      onPress={() => setFilledWord(w)}
+                      style={[styles.tile, isSelected && styles.tileSelected, isRight && styles.tileCorrect, isWrong && styles.tileWrong]}>
+                      {isRight  && <AppText style={styles.tileCheck}>✓</AppText>}
+                      {isWrong  && <AppText style={styles.tileX}>✗</AppText>}
+                      <AppText variant="arabic" style={styles.tileText}>{w}</AppText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* ══ REORDER ══════════════════════════════════════════ */}
+          {step.type === 'reorder' && (
+            <View style={styles.reorderBlock}>
+              {/* Drop zone — no full ayah shown */}
+              <View style={[styles.dropZone, order.length > 0 && styles.dropZoneActive]}>
+                {order.length === 0
+                  ? <AppText style={styles.dropZonePlaceholder}>Tap words below to build the ayah →</AppText>
+                  : order.map((w, i) => (
+                      <Pressable key={`${w}-${i}`} disabled={checked}
+                        onPress={() => setOrder(order.filter((_, j) => j !== i))}
+                        style={styles.tile}>
+                        <AppText variant="arabic" style={styles.tileText}>{w}</AppText>
+                      </Pressable>
+                    ))
+                }
+              </View>
+              <View style={styles.tileRow}>
+                {(step.scrambledWords ?? step.ayah.words.map(w => w.arabic))
+                  .filter(w => order.filter(x => x === w).length < (step.scrambledWords ?? step.ayah.words.map(x => x.arabic)).filter(x => x === w).length)
+                  .map((w, i) => (
+                    <Pressable key={`${w}-${i}`} disabled={checked}
+                      onPress={() => setOrder([...order, w])} style={styles.tile}>
+                      <AppText variant="arabic" style={styles.tileText}>{w}</AppText>
+                    </Pressable>
+                  ))}
+              </View>
+            </View>
+          )}
+
+          {/* ══ CONTINUE AYAH ════════════════════════════════════ */}
+          {step.type === 'continue_ayah' && (
+            <View style={styles.continueBlock}>
+              <View style={styles.shownAyahCard}>
+                <AppText style={styles.shownLabel}>COMPLETE THIS →</AppText>
+                <AppText variant="arabic" style={styles.shownAyah}>
+                  {step.shownAyahAr ?? step.ayah.arabic}
+                </AppText>
+              </View>
+              <View style={styles.optionList}>
+                {step.options?.map((opt, i) => {
+                  const isSel   = selected === i;
+                  const isRight = checked && i === step.correctIndex;
+                  const isWrong = checked && isSel && i !== step.correctIndex;
+                  return (
+                    <Pressable key={`${opt}-${i}`} disabled={checked}
+                      onPress={() => setSelected(i)}
+                      style={[styles.optionCard, isSel && styles.optionSel, isRight && styles.optionOk, isWrong && styles.optionErr]}>
+                      <View style={styles.optionIndicator}>
+                        {isRight && <AppText style={styles.indicatorOk}>✓</AppText>}
+                        {isWrong && <AppText style={styles.indicatorErr}>✗</AppText>}
+                        {!checked && isSel && <View style={styles.indicatorDot} />}
+                      </View>
+                      <AppText variant="arabic" style={styles.optionArabic}>{opt}</AppText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* ══ MATCH MEANING / WORD MEANING ═════════════════════ */}
+          {(step.type === 'match_meaning' || step.type === 'mcq') && (
+            <View style={styles.matchBlock}>
+              <View style={styles.ayahCard}>
+                <AppText variant="arabic" style={styles.ayahCardText}>{step.ayah.arabic}</AppText>
+              </View>
+              <OptionList options={step.options ?? []} selected={selected} correctIndex={step.correctIndex ?? -1}
+                checked={checked} onSelect={i => setSelected(i)} />
+            </View>
+          )}
+
+          {step.type === 'word_meaning' && (
+            <View style={styles.matchBlock}>
+              <View style={styles.ayahCard}>
+                <AppText variant="arabic" style={styles.ayahCardText}>{step.ayah.arabic}</AppText>
+              </View>
+              {step.wordAr ? (
+                <View style={styles.wordHighlight}>
+                  <AppText style={styles.highlightLabel}>This word ↓</AppText>
+                  <AppText variant="arabic" style={styles.highlightWord}>{step.wordAr}</AppText>
+                </View>
+              ) : null}
+              <OptionList options={step.options ?? []} selected={selected} correctIndex={step.correctIndex ?? -1}
+                checked={checked} onSelect={i => setSelected(i)} />
+            </View>
+          )}
+
+          {/* ══ SEQUENCE ORDER ═══════════════════════════════════ */}
+          {step.type === 'sequence_order' && (
+            <View style={styles.seqBlock}>
+              <View style={[styles.seqZone, seqOrder.length > 0 && styles.seqZoneActive]}>
+                {seqOrder.length === 0
+                  ? <AppText style={styles.dropZonePlaceholder}>Tap ayahs below in order</AppText>
+                  : seqOrder.map((num, i) => {
+                      const a = step.sequenceAyahs?.find(x => x.number === num);
+                      return (
+                        <Pressable key={`${num}-${i}`} disabled={checked}
+                          onPress={() => setSeqOrder(seqOrder.filter((_, j) => j !== i))}
+                          style={styles.seqCard}>
+                          <AppText style={styles.seqNum}>{i + 1}</AppText>
+                          <AppText variant="arabic" style={styles.seqAyah} numberOfLines={2}>{a?.ar ?? ''}</AppText>
+                        </Pressable>
+                      );
+                    })
+                }
+              </View>
+              <View style={styles.seqPool}>
+                {step.sequenceAyahs?.filter(a => !seqOrder.includes(a.number)).map(a => (
+                  <Pressable key={a.number} disabled={checked}
+                    onPress={() => setSeqOrder([...seqOrder, a.number])} style={styles.seqCard}>
+                    <AppText variant="arabic" style={styles.seqAyah} numberOfLines={2}>{a.ar}</AppText>
                   </Pressable>
                 ))}
+              </View>
             </View>
-          </>
-        )}
+          )}
 
-        {(step.type === 'match_meaning' || step.type === 'mcq') &&
-          step.options?.map((opt, i) => (
-            <Pressable
-              key={opt}
-              onPress={() => !checked && setSelected(i)}
-              style={[
-                styles.option,
-                selected === i && styles.optionSelected,
-                checked && i === step.correctIndex && styles.optionCorrect,
-                checked && selected === i && i !== step.correctIndex && styles.optionWrong,
-              ]}>
-              <AppText>{opt}</AppText>
-            </Pressable>
-          ))}
-      </ScrollView>
+        </ScrollView>
+      </Animated.View>
     );
   };
 
+  // ── Duolingo-style slide-up feedback panel ────────────────────
+  const FeedbackPanel = () => (
+    <Animated.View style={[
+      styles.feedbackPanel,
+      isCorrect ? styles.feedbackPanelOk : styles.feedbackPanelBad,
+      { transform: [{ translateY: feedbackSlide }] },
+    ]}>
+      <View style={styles.feedbackTop}>
+        <View style={[styles.feedbackIcon, isCorrect ? styles.feedbackIconOk : styles.feedbackIconBad]}>
+          <AppText style={styles.feedbackIconText}>{isCorrect ? '✓' : '✗'}</AppText>
+        </View>
+        <View style={styles.feedbackTexts}>
+          <AppText style={[styles.feedbackTitle, isCorrect ? styles.feedbackTitleOk : styles.feedbackTitleBad]}>
+            {isCorrect ? 'Excellent! 🎉' : 'Not quite!'}
+          </AppText>
+          <AppText style={styles.feedbackSub}>
+            {isCorrect ? 'Keep going — you\'re doing great!' : 'Review the answer and keep practising'}
+          </AppText>
+        </View>
+      </View>
+      <Animated.View style={{ transform: [{ scale: correctScale }] }}>
+        <PrimaryButton
+          title={isCorrect ? 'Continue ›' : 'Got it'}
+          onPress={handleContinue}
+          style={isCorrect ? styles.feedbackBtnOk : styles.feedbackBtnBad}
+        />
+      </Animated.View>
+    </Animated.View>
+  );
+
   return (
-    <LessonShell
-      step={stepIndex}
-      total={total}
-      hearts={hearts}
-      onClose={onClose}
-      feedback={
-        checked ? (
-          <View
-            style={[
-              styles.feedback,
-              isCorrect ? styles.feedbackOk : styles.feedbackBad,
-            ]}>
-            <AppText variant="h2" style={{ color: colors.primary }}>
-              {isCorrect ? copy.lesson.correct : copy.lesson.incorrect}
-            </AppText>
-          </View>
-        ) : null
-      }
-      footer={
-        checked ? (
-          <PrimaryButton title={copy.lesson.continue} onPress={handleContinue} />
-        ) : (
+    <LessonShell step={stepIndex} total={total} hearts={hearts} onClose={onClose}>
+      {renderBody()}
+
+      {/* Bottom action area */}
+      <View style={styles.bottomArea}>
+        {!checked ? (
           <PrimaryButton
-            title={step.type === 'listen' ? copy.lesson.continue : copy.lesson.check}
+            title={step.type === 'listen' ? 'Continue →' : 'Check'}
             onPress={handleCheck}
             variant={canCheck() ? 'primary' : 'disabled'}
             disabled={!canCheck()}
           />
-        )
-      }>
-      {renderBody()}
+        ) : null}
+      </View>
+
+      {/* Slide-up feedback */}
+      {checked ? <FeedbackPanel /> : null}
     </LessonShell>
   );
 }
 
-function LogoSmall() {
-  return <View style={styles.logo} />;
+// ── Reusable MCQ option list ───────────────────────────────────
+function OptionList({ options, selected, correctIndex, checked, onSelect }: {
+  options: string[]; selected: number | null; correctIndex: number; checked: boolean; onSelect: (i: number) => void;
+}) {
+  return (
+    <View style={styles.optionList}>
+      {options.map((opt, i) => {
+        const isSel   = selected === i;
+        const isRight = checked && i === correctIndex;
+        const isWrong = checked && isSel && i !== correctIndex;
+        return (
+          <Pressable key={`${opt}-${i}`} disabled={checked} onPress={() => onSelect(i)}
+            style={[styles.optionCard, isSel && styles.optionSel, isRight && styles.optionOk, isWrong && styles.optionErr]}>
+            <View style={styles.optionIndicator}>
+              {isRight && <AppText style={styles.indicatorOk}>✓</AppText>}
+              {isWrong && <AppText style={styles.indicatorErr}>✗</AppText>}
+              {!checked && isSel && <View style={styles.indicatorDot} />}
+            </View>
+            <AppText style={[styles.optionText, isRight && styles.optionTextOk, isWrong && styles.optionTextErr]}>{opt}</AppText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }
 
+// ── Word chip ──────────────────────────────────────────────────
+function WordChip({ word, selected, onPress }: { word: WordOut; selected: boolean; onPress: () => void }) {
+  const [playing, setPlaying] = useState(false);
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePress = async () => {
+    Animated.sequence([
+      Animated.spring(scale, { toValue: 0.92, useNativeDriver: true, tension: 300 }),
+      Animated.spring(scale, { toValue: 1,    useNativeDriver: true, tension: 200 }),
+    ]).start();
+    onPress();
+    const url = await resolveWordPlayUrl(word);
+    if (!url) return;
+    setPlaying(true);
+    try {
+      await playAudioUrl(url);
+    } catch {
+      // audio is optional
+    }
+    setPlaying(false);
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable onPress={handlePress}
+        style={[styles.wordChip, selected && styles.wordChipSelected]}>
+        <AppText variant="arabic" style={styles.wordChipText}>{word.arabic}</AppText>
+        {playing ? <ActivityIndicator size="small" color={colors.primary} />
+          : (word.audio_url || word.audio_rel_path) ? (
+            <SpeakerIcon size={12} color={selected ? colors.primary : colors.grey} />
+          ) : null}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+const TILE_RADIUS = 14;
+const CARD_RADIUS = 16;
+
 const styles = StyleSheet.create({
-  prompt: { marginBottom: spacing.lg },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  centerText: { textAlign: 'center', marginTop: spacing.lg },
-  ayah: { marginVertical: spacing.lg },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
+  scrollContent: { flexGrow: 1, paddingBottom: spacing.sm },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.lg },
+  interstitialEmoji: { fontSize: 48 },
+  centerText: { textAlign: 'center', color: colors.charcoal },
+
+  prompt: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.charcoal,
+    marginBottom: spacing.md,
+    letterSpacing: 0.2,
+  },
+
+  // ── Listen ─────────────────────────────────────────────────
+  listenBlock: { gap: spacing.md },
+  ayahCard: {
+    backgroundColor: colors.ash,
+    borderRadius: CARD_RADIUS,
+    padding: spacing.lg,
+    alignItems: 'flex-end',
+    borderWidth: 1,
+    borderColor: `${colors.grey}20`,
+  },
+  ayahCardText: { fontSize: 26, lineHeight: 44, textAlign: 'right' },
+
+  tapHint: { fontSize: 11, fontWeight: '700', color: colors.grey, textAlign: 'center', letterSpacing: 0.3 },
+  /** First word of ayah at bottom; later words stack upward (recitation order). */
+  wordRow: {
+    flexDirection: 'column-reverse',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  wordChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: colors.white,
+    borderRadius: 12,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.ash,
-    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: `${colors.grey}30`,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2, elevation: 1,
   },
-  chipSelected: { borderWidth: 2, borderColor: colors.primary },
-  answerRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    minHeight: 48,
-    borderBottomWidth: 2,
-    borderColor: colors.grey,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-    paddingBottom: spacing.sm,
+  wordChipSelected: { borderColor: colors.primary, backgroundColor: colors.successBg },
+  wordChipText: { fontSize: 18 },
+  wordInfoCard: {
+    backgroundColor: colors.white, borderRadius: 12, borderWidth: 1.5,
+    borderColor: `${colors.primary}30`, paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md, alignItems: 'center',
+    shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
   },
-  option: {
-    padding: spacing.md,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.buttonSecondaryBg,
-    marginBottom: spacing.sm,
+  wordTrans:   { color: colors.charcoal, fontWeight: '700', fontSize: 14, fontStyle: 'italic' },
+  wordMeaning: { color: colors.primary, fontWeight: '900', fontSize: 18, marginTop: 2 },
+
+  recordBtn: {
+    marginTop: spacing.sm, backgroundColor: `${colors.primary}12`,
+    borderWidth: 2, borderColor: `${colors.primary}40`,
+    borderRadius: CARD_RADIUS, paddingVertical: spacing.lg, alignItems: 'center',
   },
-  optionSelected: { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.ash },
-  optionCorrect: { borderColor: colors.primary, backgroundColor: colors.successBg },
-  optionWrong: { borderColor: colors.heart, backgroundColor: colors.errorBg },
-  feedback: { padding: spacing.md },
-  feedbackOk: { backgroundColor: colors.successBg },
-  feedbackBad: { backgroundColor: colors.errorBg },
-  logo: {
-    width: 80,
-    height: 80,
-    backgroundColor: colors.primary,
-    borderRadius: 16,
+  recordBtnActive: { backgroundColor: `${colors.heart}15`, borderColor: colors.heart },
+  recordBtnText: { color: colors.dark, fontWeight: '800', fontSize: 15 },
+
+  // ── Fill blank ─────────────────────────────────────────────
+  fillBlankBlock: { gap: spacing.md },
+  blankAyahCard: {
+    backgroundColor: colors.ash, borderRadius: CARD_RADIUS, padding: spacing.lg,
+    alignItems: 'flex-end', borderWidth: 1, borderColor: `${colors.grey}20`,
   },
+  blankAyahText: { fontSize: 24, lineHeight: 42, textAlign: 'right', color: colors.dark },
+  blankUnderline: { height: 2, width: 60, backgroundColor: colors.primary, marginTop: spacing.xs, alignSelf: 'center', borderRadius: 1 },
+  tileHint: { fontSize: 11, fontWeight: '700', color: colors.grey, textAlign: 'center' },
+  tileRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
+  tile: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
+    backgroundColor: colors.white, borderRadius: TILE_RADIUS,
+    borderWidth: 1.5, borderColor: `${colors.grey}30`,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 2, elevation: 1,
+  },
+  tileSelected: { borderColor: colors.primary, backgroundColor: `${colors.primary}10` },
+  tileCorrect:  { borderColor: colors.primary, backgroundColor: colors.successBg },
+  tileWrong:    { borderColor: colors.heart,   backgroundColor: colors.errorBg },
+  tileText: { fontSize: 20 },
+  tileCheck: { color: colors.primary, fontWeight: '900', fontSize: 14 },
+  tileX:     { color: colors.heart,   fontWeight: '900', fontSize: 14 },
+
+  // ── Reorder ────────────────────────────────────────────────
+  reorderBlock: { gap: spacing.md },
+  dropZone: {
+    minHeight: 64, borderRadius: CARD_RADIUS, borderWidth: 2,
+    borderColor: `${colors.grey}30`, borderStyle: 'dashed',
+    backgroundColor: `${colors.grey}08`, flexDirection: 'row',
+    flexWrap: 'wrap', gap: spacing.sm, padding: spacing.sm,
+    alignItems: 'center',
+  },
+  dropZoneActive: { borderColor: colors.primary, backgroundColor: `${colors.primary}06` },
+  dropZonePlaceholder: { color: colors.grey, fontWeight: '600', fontSize: 13, flex: 1, textAlign: 'center' },
+
+  // ── Continue ayah ──────────────────────────────────────────
+  continueBlock: { gap: spacing.md },
+  shownAyahCard: {
+    backgroundColor: `${colors.dark}08`, borderRadius: CARD_RADIUS,
+    padding: spacing.md, borderLeftWidth: 3, borderLeftColor: colors.primary,
+  },
+  shownLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1, color: colors.grey, marginBottom: spacing.xs, textTransform: 'uppercase' },
+  shownAyah: { fontSize: 22, lineHeight: 38, textAlign: 'right' },
+
+  // ── Match / word meaning ───────────────────────────────────
+  matchBlock: { gap: spacing.md },
+  wordHighlight: {
+    backgroundColor: `${colors.yellow}15`, borderRadius: CARD_RADIUS,
+    padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: `${colors.yellow}35`,
+  },
+  highlightLabel: { fontSize: 10, fontWeight: '800', color: colors.charcoal, marginBottom: 4, letterSpacing: 0.5 },
+  highlightWord: { fontSize: 30, color: colors.dark },
+
+  // ── Options (shared) ───────────────────────────────────────
+  optionList: { gap: spacing.sm },
+  optionCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    padding: spacing.md, borderRadius: TILE_RADIUS,
+    borderWidth: 1.5, borderColor: `${colors.grey}25`,
+    backgroundColor: colors.white,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
+  },
+  optionSel: { borderColor: colors.primary, borderWidth: 2, backgroundColor: `${colors.primary}08` },
+  optionOk:  { borderColor: colors.primary, backgroundColor: colors.successBg },
+  optionErr: { borderColor: colors.heart,   backgroundColor: colors.errorBg },
+  optionIndicator: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
+  indicatorOk:  { color: colors.primary, fontWeight: '900', fontSize: 15 },
+  indicatorErr: { color: colors.heart,   fontWeight: '900', fontSize: 15 },
+  indicatorDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  optionText:    { flex: 1, color: colors.dark, fontWeight: '600', fontSize: 14 },
+  optionTextOk:  { color: colors.primary, fontWeight: '700' },
+  optionTextErr: { color: colors.heart,   fontWeight: '700' },
+  optionArabic:  { flex: 1, fontSize: 17, textAlign: 'right' },
+
+  // ── Sequence ───────────────────────────────────────────────
+  seqBlock: { gap: spacing.md },
+  seqZone: {
+    minHeight: 64, borderRadius: CARD_RADIUS, borderWidth: 2,
+    borderColor: `${colors.grey}30`, borderStyle: 'dashed',
+    backgroundColor: `${colors.grey}06`, gap: spacing.sm, padding: spacing.sm,
+  },
+  seqZoneActive: { borderColor: colors.primary, backgroundColor: `${colors.primary}05` },
+  seqPool: { gap: spacing.sm },
+  seqCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: colors.white, borderRadius: 12, padding: spacing.sm,
+    borderWidth: 1, borderColor: `${colors.grey}20`,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
+  },
+  seqNum: { color: colors.primary, fontSize: 12, fontWeight: '900', width: 20, textAlign: 'center' },
+  seqAyah: { flex: 1, fontSize: 17, textAlign: 'right' },
+
+  // ── Bottom action area ─────────────────────────────────────
+  bottomArea: {
+    paddingHorizontal: spacing.screenHorizontal,
+    paddingBottom: spacing.xl,
+    paddingTop: spacing.sm,
+  },
+
+  // ── Duolingo feedback panel ────────────────────────────────
+  feedbackPanel: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingHorizontal: spacing.screenHorizontal,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    gap: spacing.md,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 10,
+  },
+  feedbackPanelOk:  { backgroundColor: colors.successBg, borderTopWidth: 2, borderTopColor: `${colors.primary}40` },
+  feedbackPanelBad: { backgroundColor: colors.errorBg,   borderTopWidth: 2, borderTopColor: `${colors.heart}40` },
+  feedbackTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  feedbackIcon: {
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+  },
+  feedbackIconOk:  { backgroundColor: colors.primary },
+  feedbackIconBad: { backgroundColor: colors.heart },
+  feedbackIconText: { color: colors.white, fontWeight: '900', fontSize: 20 },
+  feedbackTexts: { flex: 1 },
+  feedbackTitle:    { fontWeight: '900', fontSize: 17 },
+  feedbackTitleOk:  { color: colors.primary },
+  feedbackTitleBad: { color: colors.heart },
+  feedbackSub: { color: colors.charcoal, fontWeight: '600', fontSize: 13, marginTop: 2 },
+  feedbackBtnOk:  { backgroundColor: colors.primary },
+  feedbackBtnBad: { backgroundColor: colors.heart },
 });

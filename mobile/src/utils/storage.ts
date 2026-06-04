@@ -77,14 +77,27 @@ export async function setReciterId(id: string): Promise<void> {
   await AsyncStorage.setItem(KEYS.reciterId, id);
 }
 
-export async function getScriptPreference(): Promise<ScriptPreference> {
+/** In-memory cache — AsyncStorage has no sync API; hydrate at app start. */
+let scriptPreferenceCache: ScriptPreference = 'uthmani';
+
+export function getScriptPreferenceSync(): ScriptPreference {
+  return scriptPreferenceCache;
+}
+
+export async function hydrateScriptPreference(): Promise<ScriptPreference> {
   const raw = await AsyncStorage.getItem(KEYS.script);
-  return (raw as ScriptPreference) ?? 'uthmani';
+  scriptPreferenceCache = (raw as ScriptPreference) ?? 'uthmani';
+  return scriptPreferenceCache;
+}
+
+export async function getScriptPreference(): Promise<ScriptPreference> {
+  return hydrateScriptPreference();
 }
 
 export async function setScriptPreference(
   script: ScriptPreference,
 ): Promise<void> {
+  scriptPreferenceCache = script;
   await AsyncStorage.setItem(KEYS.script, script);
   await saveOnboarding({ script });
 }

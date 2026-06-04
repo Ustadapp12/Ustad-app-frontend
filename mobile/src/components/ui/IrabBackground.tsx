@@ -12,11 +12,14 @@ const CHARS = [
 type Props = {
   color?: string;
   count?: number;
+  /** Base opacity — ~0.04 for dark backgrounds, ~0.09 for white/light */
+  opacityBase?: number;
 };
 
 export function IrabBackground({
   color = colors.yellow,
   count = 48,
+  opacityBase = 0.04,
 }: Props) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -24,7 +27,7 @@ export function IrabBackground({
         const x = ((i * 1618) % 9400) / 100;
         const y = ((i * 2347) % 9700) / 100;
         const size = 11 + (i % 6) * 4;
-        const opacity = 0.04 + (i % 4) * 0.012;
+        const opacity = opacityBase + (i % 4) * (opacityBase * 0.3);
         return (
           <AppText
             key={i}

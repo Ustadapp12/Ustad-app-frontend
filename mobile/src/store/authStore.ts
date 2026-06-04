@@ -2,7 +2,12 @@ import { create } from 'zustand';
 import * as Sentry from '@sentry/react-native';
 import { authApi, learningApi } from '../api';
 import { getTokens, setTokens, getStoredUser, setStoredUser } from '../utils/storage';
-import { loadReciters } from '../services/reciters';
+import { warmAudioUrlCache } from '../services/audioUrls';
+import {
+  abandonActiveLessonSession,
+  abandonPendingLessonSessionFromStorage,
+} from '../services/lessonSession';
+import { useLessonStore } from './lessonStore';
 import type { LearningMe, User } from '../types/api';
 
 interface AuthState {
@@ -43,7 +48,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           email: 'learner',
           role: 'learner',
         } as User);
-      await loadReciters();
+      await warmAudioUrlCache();
       set({ isHydrated: true, user, learning });
     } catch {
       await setTokens(null);
@@ -57,7 +62,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setTokens(res.tokens);
     await setStoredUser(res.user);
     const learning = await learningApi.me();
-    await loadReciters();
+    await warmAudioUrlCache();
     // Tag all future crash reports with this user
     Sentry.setUser({ id: res.user.id, email: res.user.email });
     set({ user: res.user, learning });
@@ -72,12 +77,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setTokens(res.tokens);
     await setStoredUser(res.user);
     const learning = await learningApi.me();
-    await loadReciters();
+    await warmAudioUrlCache();
     Sentry.setUser({ id: res.user.id, email: res.user.email });
     set({ user: res.user, learning });
   },
 
   logout: async () => {
+    await useLessonStore.getState().abandonSession({ silent: true }).catch(() => null);
+    useLessonStore.getState().reset();
+    await abandonActiveLessonSession().catch(() => null);
+    await abandonPendingLessonSessionFromStorage();
     await setTokens(null);
     await setStoredUser(null);
     Sentry.setUser(null); // Clear user from crash reports on logout

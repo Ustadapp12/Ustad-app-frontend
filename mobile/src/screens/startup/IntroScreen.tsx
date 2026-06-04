@@ -39,6 +39,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: spacing.screenHorizontal,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl,
   },
 });

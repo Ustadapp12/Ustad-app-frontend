@@ -55,5 +55,14 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Nunito-Regular.ttf</string>
+		<string>Nunito-Bold.ttf</string>
+		<string>Amiri-Regular.ttf</string>
+		<string>AmiriQuran.ttf</string>
+		<string>NotoNaskhArabic.ttf</string>
+		<string>NotoNastaliqUrdu.ttf</string>
+	</array>
 </dict>
 </plist>
