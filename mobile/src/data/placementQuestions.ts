@@ -1,40 +1,82 @@
 export type PlacementQuestion = {
   id: string;
+  teacher: 'sheikh' | 'sheikha';
+  teacherIntro: string;
+  promptLabel: string;
   promptAr: string;
-  promptEn: string;
+  promptIsSymbol?: boolean;
+  promptNote?: string;
   options: string[];
   correctIndex: number;
+  layout: 'column' | 'grid';
+  optionAr: boolean;
 };
 
-/** Client-side placement quiz (Juz Amma sample) until backend placement API exists. */
 export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
   {
     id: 'p1',
-    promptAr: 'قُلْ هُوَ ٱللَّهُ أَحَدٌ',
-    promptEn: 'Which surah begins with this ayah?',
-    options: ['Al-Ikhlas', 'Al-Falaq', 'An-Nas', 'Al-Fatiha'],
-    correctIndex: 0,
+    teacher: 'sheikh',
+    teacherIntro:
+      "As-salamu alaykum! Let's begin with Surah Al-Fatiha. Can you complete this verse?",
+    promptLabel: 'Complete the Ayah',
+    promptAr: 'ٱلْحَمْدُ لِلَّهِ _____',
+    options: [
+      'ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+      'رَبِّ ٱلْعَـٰلَمِينَ',
+      'مَـٰلِكِ يَوْمِ ٱلدِّينِ',
+      'إِيَّاكَ نَعْبُدُ',
+    ],
+    correctIndex: 1,
+    layout: 'column',
+    optionAr: true,
   },
   {
     id: 'p2',
-    promptAr: 'إِذَا زُلْزِلَتِ ٱلْأَرْضُ',
-    promptEn: 'Name this surah opening:',
-    options: ['Az-Zalzalah', 'Al-Qadr', 'Al-Asr', 'Al-Kawthar'],
-    correctIndex: 0,
+    teacher: 'sheikha',
+    teacherIntro:
+      "Excellent! Now let's test your knowledge of Surah Al-Ikhlas. Which verse follows?",
+    promptLabel: 'What comes next?',
+    promptAr: 'ٱللَّهُ ٱلصَّمَدُ',
+    options: [
+      'قُلْ هُوَ ٱللَّهُ أَحَدٌ',
+      'ٱللَّهُ ٱلصَّمَدُ',
+      'لَمْ يَلِدْ وَلَمْ يُولَدْ',
+      'وَلَمْ يَكُن لَّهُۥ كُفُوًا أَحَدٌ',
+    ],
+    correctIndex: 2,
+    layout: 'column',
+    optionAr: true,
   },
   {
     id: 'p3',
-    promptAr: 'وَٱلْعَصْرِ',
-    promptEn: 'This is the beginning of:',
-    options: ["Al-'Asr", 'Al-Humazah', 'Al-Fil', 'An-Nasr'],
-    correctIndex: 0,
+    teacher: 'sheikh',
+    teacherIntro:
+      "Masha'Allah! You're doing great. Back to Al-Fatiha — can you fill in the missing word?",
+    promptLabel: 'Fill in the blank',
+    promptAr: 'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ ____',
+    options: ['نَعْبُدُ', 'نَسْتَعِينُ', 'ٱهْدِنَا', 'صِرَٰطَ'],
+    correctIndex: 1,
+    layout: 'grid',
+    optionAr: true,
   },
   {
     id: 'p4',
-    promptAr: 'قُلْ أَعُوذُ بِرَبِّ ٱلنَّاسِ',
-    promptEn: 'Which surah is this from?',
-    options: ['An-Nas', 'Al-Falaq', 'Al-Ikhlas', 'Al-Masad'],
-    correctIndex: 0,
+    teacher: 'sheikha',
+    teacherIntro:
+      'Almost done! One final question about Tajweed. Show me what you know! 📖',
+    promptLabel: 'Match the symbol',
+    promptAr: 'ّ',
+    promptIsSymbol: true,
+    promptNote: 'This symbol appears above letters',
+    options: [
+      'Madd — Prolongation',
+      'Sukoon — No vowel',
+      'Shaddah — Emphasis',
+      'Tanween — Nunation',
+    ],
+    correctIndex: 2,
+    layout: 'column',
+    optionAr: false,
   },
 ];
 

@@ -127,6 +127,62 @@ export type LearnerMode = 'child' | 'adult' | 'beginner';
 export type ScriptPreference = 'uthmani' | 'nastaliq' | 'simple';
 export type PlacementLevel = 'beginner' | 'intermediate' | 'advanced';
 
+// ── New backend APIs (June 2025) ──────────────────────────────────
+
+export interface UserProfile {
+  display_name: string | null;
+  avatar_url: string | null;
+  learner_mode: LearnerMode | null;
+  script_preference: ScriptPreference | null;
+  daily_goal_minutes: number | null;
+  streak_goal_days: number | null;
+  motivation: string | null;
+}
+
+export interface AuthMeResponse {
+  user: User;
+  profile: UserProfile;
+}
+
+export interface VerifyEmailResponse {
+  verified: boolean;
+  xp_awarded: number;
+}
+
+export interface LearningStats {
+  total_sessions: number;
+  total_correct: number;
+  total_attempts: number;
+  accuracy_pct: number;
+  total_time_minutes: number;
+  surahs_started: number;
+  surahs_completed: number;
+  weekly_xp: number[];
+  best_streak: number;
+  current_streak: number;
+}
+
+export interface RecommendedNext {
+  surah_number: number;
+  lesson_group_id: string;
+  surah_name_en: string;
+  surah_name_ar: string;
+  level_number: number;
+  status: string;
+}
+
+export interface PlacementSubmitResponse {
+  placement_saved: boolean;
+  xp_awarded: number;
+}
+
+export interface VoiceAttemptResponse {
+  passed: boolean;
+  score_pct: number;
+}
+
+// ─────────────────────────────────────────────────────────────────
+
 export interface OnboardingAnswers {
   motivation?: string;
   script?: ScriptPreference;

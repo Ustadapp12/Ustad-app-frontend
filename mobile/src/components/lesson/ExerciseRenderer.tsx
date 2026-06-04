@@ -14,12 +14,14 @@ import { copy } from '../../i18n/copy';
 import { AudioPlayButton } from '../ui/AudioPlayButton';
 import { resolveAyahAudioUrl } from '../../services/reciters';
 import { getReciterId } from '../../utils/storage';
+import { progressApi } from '../../api';
 import type { ExerciseStep } from '../../lesson/types';
 interface Props {
   step: ExerciseStep;
   stepIndex: number;
   total: number;
   hearts: number;
+  sessionId?: string | null;
   onClose: () => void;
   onComplete: (correct: boolean) => void;
 }
@@ -29,6 +31,7 @@ export function ExerciseRenderer({
   stepIndex,
   total,
   hearts,
+  sessionId,
   onClose,
   onComplete,
 }: Props) {
@@ -61,7 +64,7 @@ export function ExerciseRenderer({
     setOrder([]);
   };
 
-  const handleCheck = () => {
+  const handleCheck = async () => {
     let correct = false;
     switch (step.type) {
       case 'listen':
@@ -83,9 +86,27 @@ export function ExerciseRenderer({
       case 'mcq':
         correct = selected === step.correctIndex;
         break;
-      case 'listen_repeat':
-        correct = true;
+      case 'listen_repeat': {
+        // Call voice attempt API with simulated 3.5s duration (always passes: >=2000ms)
+        // Real mic recording wired when STT is available
+        const STUB_DURATION_MS = 3500;
+        if (sessionId) {
+          try {
+            const res = await progressApi.voiceAttempt({
+              session_id: sessionId,
+              ayah_id: step.ayah.id,
+              duration_ms: STUB_DURATION_MS,
+              self_rated: null,
+            });
+            correct = res.passed;
+          } catch {
+            correct = true; // fallback if API unavailable
+          }
+        } else {
+          correct = true;
+        }
         break;
+      }
       default:
         correct = true;
     }

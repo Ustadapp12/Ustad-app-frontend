@@ -65,7 +65,7 @@ export function LoginScreen({ navigation }: Props) {
           onFocus={() => setFocused('pw')}
           onBlur={() => setFocused(null)}
         />
-        <Pressable>
+        <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
           <AppText style={styles.forgot}>{copy.auth.forgot}</AppText>
         </Pressable>
       </View>

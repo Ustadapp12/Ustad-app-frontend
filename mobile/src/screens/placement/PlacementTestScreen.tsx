@@ -1,18 +1,25 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Animated,
+  ScrollView,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppText } from '../../components/ui/AppText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { ProgressHeader } from '../../components/ui/ProgressHeader';
-import { Mascot } from '../../components/ui/Mascot';
 import { Screen } from '../../components/ui/Screen';
+import { IrabBackground } from '../../components/ui/IrabBackground';
 import { PLACEMENT_QUESTIONS } from '../../data/placementQuestions';
-import { copy } from '../../i18n/copy';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PlacementTest'>;
+
+const SHEIKH = { emoji: '🧔🏽‍♂️', name: 'Sheikh Ahmad', color: colors.primary };
+const SHEIKHA = { emoji: '🧕🏽', name: 'Sheikha Fatima', color: colors.yellow };
 
 export function PlacementTestScreen({ navigation }: Props) {
   const [index, setIndex] = useState(0);
@@ -21,168 +28,363 @@ export function PlacementTestScreen({ navigation }: Props) {
   const [answers, setAnswers] = useState<(number | null)[]>(
     Array(PLACEMENT_QUESTIONS.length).fill(null),
   );
+  const slideAnim = useRef(new Animated.Value(300)).current;
 
   const q = PLACEMENT_QUESTIONS[index];
   const isCorrect = selected === q.correctIndex;
+  const teacher = q.teacher === 'sheikh' ? SHEIKH : SHEIKHA;
+  const progress = ((index + (checked && isCorrect ? 1 : 0)) / PLACEMENT_QUESTIONS.length) * 100;
+
+  useEffect(() => {
+    slideAnim.setValue(300);
+  }, [index, slideAnim]);
 
   const onCheck = () => {
     if (selected == null) return;
-    setChecked(true);
     const next = [...answers];
     next[index] = selected;
     setAnswers(next);
-  };
+    setChecked(true);
 
-  const onContinue = () => {
-    if (index < PLACEMENT_QUESTIONS.length - 1) {
-      setIndex(index + 1);
-      setSelected(null);
-      setChecked(false);
+    if (!isCorrect) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        damping: 25,
+        stiffness: 300,
+      }).start();
     } else {
-      navigation.replace('PlacementResults', { answers: nextAnswers() });
+      setTimeout(() => advance(next), 1200);
     }
   };
 
-  const nextAnswers = () => {
-    const next = [...answers];
-    next[index] = selected;
-    return next;
+  const advance = (savedAnswers: (number | null)[]) => {
+    if (index < PLACEMENT_QUESTIONS.length - 1) {
+      setIndex(i => i + 1);
+      setSelected(null);
+      setChecked(false);
+    } else {
+      navigation.replace('PlacementResults', { answers: savedAnswers });
+    }
+  };
+
+  const onGotIt = () => {
+    const saved = [...answers];
+    setSelected(null);
+    setChecked(false);
+    slideAnim.setValue(300);
+    setTimeout(() => advance(saved), 50);
   };
 
   return (
     <Screen style={styles.screen}>
-      <ProgressHeader
-        step={index}
-        total={PLACEMENT_QUESTIONS.length}
-        onBack={() => (index > 0 ? setIndex(index - 1) : navigation.goBack())}
-      />
-      <View style={styles.progressTrack}>
-        <View
-          style={[
-            styles.progressFill,
-            {
-              width: `${((index + (checked ? 1 : 0)) / PLACEMENT_QUESTIONS.length) * 100}%`,
-            },
-          ]}
-        />
-      </View>
+      <IrabBackground color={colors.primary} />
 
-      <View style={styles.teacherRow}>
-        <Mascot size={56} />
-        <View style={styles.bubble}>
-          <AppText style={styles.bubbleText}>{copy.placement.teacherHint}</AppText>
+      {/* Progress bar */}
+      <View style={styles.progressWrap}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
       </View>
 
-      <AppText variant="caption" style={styles.promptEn}>
-        {q.promptEn}
-      </AppText>
-      <AppText style={styles.promptAr}>{q.promptAr}</AppText>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}>
 
-      <View style={styles.options}>
-        {q.options.map((opt, i) => {
-          const picked = selected === i;
-          const showResult = checked && picked;
-          const showCorrect = checked && i === q.correctIndex;
-          return (
-            <Pressable
-              key={opt}
-              disabled={checked}
-              onPress={() => setSelected(i)}
-              style={[
-                styles.option,
-                picked && !checked && styles.optionPicked,
-                showCorrect && styles.optionCorrect,
-                showResult && !isCorrect && styles.optionWrong,
-              ]}>
-              <AppText style={styles.optionText}>{opt}</AppText>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View style={styles.footer}>
-        {checked ? (
-          <View
-            style={[
-              styles.feedback,
-              isCorrect ? styles.feedbackOk : styles.feedbackBad,
-            ]}>
-            <AppText style={styles.feedbackText}>
-              {isCorrect ? copy.lesson.correct : copy.lesson.incorrect}
-            </AppText>
+        {/* Teacher avatar + speech bubble */}
+        <View style={styles.teacherRow}>
+          <View style={[styles.avatar, { backgroundColor: `${teacher.color}20`, borderColor: teacher.color }]}>
+            <AppText style={styles.avatarEmoji}>{teacher.emoji}</AppText>
           </View>
-        ) : null}
-        <PrimaryButton
-          title={checked ? copy.lesson.continue : copy.lesson.check}
-          onPress={checked ? onContinue : onCheck}
-          variant={selected != null ? 'primary' : 'disabled'}
-          disabled={selected == null}
-        />
-      </View>
+          <View style={styles.bubble}>
+            <AppText style={[styles.bubbleName, { color: teacher.color }]}>
+              {teacher.name} asks:
+            </AppText>
+            <AppText style={styles.bubbleText}>{q.teacherIntro}</AppText>
+            <View style={styles.bubbleTail} />
+          </View>
+        </View>
+
+        {/* Prompt label */}
+        <AppText style={styles.promptLabel}>{q.promptLabel}</AppText>
+
+        {/* Prompt card */}
+        <View style={styles.promptCard}>
+          <View style={styles.promptGlow} />
+          {q.promptIsSymbol ? (
+            <>
+              <AppText style={styles.symbolText}>{q.promptAr}</AppText>
+              {q.promptNote ? (
+                <AppText style={styles.promptNote}>{q.promptNote}</AppText>
+              ) : null}
+            </>
+          ) : (
+            <AppText style={styles.promptAr}>{q.promptAr}</AppText>
+          )}
+        </View>
+
+        {/* Options */}
+        {q.layout === 'grid' ? (
+          <View style={styles.grid}>
+            {q.options.map((opt, i) => (
+              <OptionButton
+                key={opt}
+                label={opt}
+                isAr={q.optionAr}
+                picked={selected === i}
+                checked={checked}
+                correct={i === q.correctIndex}
+                disabled={checked}
+                onPress={() => setSelected(i)}
+              />
+            ))}
+          </View>
+        ) : (
+          <View style={styles.column}>
+            {q.options.map((opt, i) => (
+              <OptionButton
+                key={opt}
+                label={opt}
+                isAr={q.optionAr}
+                picked={selected === i}
+                checked={checked}
+                correct={i === q.correctIndex}
+                disabled={checked}
+                onPress={() => setSelected(i)}
+              />
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Check button */}
+      {!checked && (
+        <View style={styles.footer}>
+          <PrimaryButton
+            title="Check"
+            onPress={onCheck}
+            variant={selected != null ? 'primary' : 'disabled'}
+            disabled={selected == null}
+          />
+        </View>
+      )}
+
+      {/* Red error panel sliding up */}
+      <Animated.View
+        style={[styles.errorPanel, { transform: [{ translateY: slideAnim }] }]}
+        pointerEvents={checked && !isCorrect ? 'auto' : 'none'}>
+        <View style={styles.errorHeader}>
+          <View style={styles.errorIcon}>
+            <AppText style={styles.errorX}>✕</AppText>
+          </View>
+          <AppText style={styles.errorTitle}>Incorrect</AppText>
+        </View>
+        <AppText style={styles.correctLabel}>Correct Answer:</AppText>
+        <AppText
+          style={[
+            styles.correctAnswer,
+            q.optionAr && styles.correctAnswerAr,
+          ]}>
+          {q.options[q.correctIndex]}
+        </AppText>
+        <Pressable style={styles.gotItBtn} onPress={onGotIt}>
+          <AppText style={styles.gotItText}>GOT IT</AppText>
+        </Pressable>
+      </Animated.View>
     </Screen>
+  );
+}
+
+function OptionButton({
+  label,
+  isAr,
+  picked,
+  checked,
+  correct,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  isAr: boolean;
+  picked: boolean;
+  checked: boolean;
+  correct: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const showGreen = checked && correct;
+  const showRed = checked && picked && !correct;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={[
+        styles.option,
+        picked && !checked && styles.optionPicked,
+        showGreen && styles.optionCorrect,
+        showRed && styles.optionWrong,
+      ]}>
+      <AppText
+        style={[
+          styles.optionText,
+          isAr && styles.optionTextAr,
+          showGreen && styles.optionTextGreen,
+          showRed && styles.optionTextRed,
+        ]}>
+        {label}
+      </AppText>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.ash },
+  progressWrap: {
+    paddingHorizontal: spacing.screenHorizontal,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    zIndex: 1,
+  },
   progressTrack: {
-    height: 4,
-    backgroundColor: colors.progressTrack,
-    marginHorizontal: spacing.screenHorizontal,
-    borderRadius: 2,
+    height: 16,
+    backgroundColor: `${colors.grey}30`,
+    borderRadius: 99,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.progressFill,
+    backgroundColor: colors.yellow,
+    borderRadius: 99,
   },
+  scroll: {
+    paddingHorizontal: spacing.screenHorizontal,
+    paddingBottom: spacing.xl + 80,
+  },
+
+  // Teacher
   teacherRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.screenHorizontal,
-    marginTop: spacing.lg,
+    alignItems: 'flex-start',
     gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarEmoji: { fontSize: 28, lineHeight: 34 },
   bubble: {
     flex: 1,
     backgroundColor: colors.white,
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 2,
-    borderColor: `${colors.primary}30`,
+    borderColor: `${colors.grey}25`,
+    position: 'relative',
   },
-  bubbleText: { fontWeight: '600', color: colors.charcoal, fontSize: 13 },
-  promptEn: {
-    paddingHorizontal: spacing.screenHorizontal,
-    marginTop: spacing.lg,
-    color: colors.charcoal,
+  bubbleTail: {
+    position: 'absolute',
+    left: -8,
+    top: 14,
+    width: 0,
+    height: 0,
+    borderTopWidth: 6,
+    borderBottomWidth: 6,
+    borderRightWidth: 8,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: `${colors.grey}25`,
+  },
+  bubbleName: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  bubbleText: { fontWeight: '700', color: colors.dark, fontSize: 13, lineHeight: 19 },
+
+  // Prompt
+  promptLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.primary,
+    marginBottom: spacing.sm,
+  },
+  promptCard: {
+    borderRadius: 24,
+    padding: spacing.lg,
+    alignItems: 'center',
+    backgroundColor: `${colors.yellow}15`,
+    borderWidth: 3,
+    borderColor: colors.yellow,
+    marginBottom: spacing.lg,
+    overflow: 'hidden',
+  },
+  promptGlow: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${colors.yellow}15`,
   },
   promptAr: {
-    fontSize: 28,
-    textAlign: 'center',
-    color: colors.dark,
-    paddingHorizontal: spacing.screenHorizontal,
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
+    fontSize: 30,
     fontWeight: '700',
+    color: colors.dark,
+    textAlign: 'center',
     writingDirection: 'rtl',
+    lineHeight: 52,
   },
-  options: {
-    paddingHorizontal: spacing.screenHorizontal,
+  symbolText: {
+    fontSize: 72,
+    color: colors.dark,
+    fontWeight: '700',
+    lineHeight: 96,
+  },
+  promptNote: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.charcoal,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+
+  // Options
+  column: { gap: spacing.sm },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
-    flex: 1,
   },
   option: {
     backgroundColor: colors.white,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: spacing.md,
     borderWidth: 2,
-    borderColor: `${colors.grey}35`,
+    borderColor: `${colors.grey}25`,
+    // grid items take ~50% minus gap
+    minWidth: '47%',
+    flex: 1,
+    alignItems: 'center',
   },
   optionPicked: {
-    borderColor: colors.primary,
-    backgroundColor: colors.successBg,
+    borderColor: colors.yellow,
+    backgroundColor: `${colors.yellow}12`,
+    shadowColor: colors.yellow,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
   optionCorrect: {
     borderColor: colors.primary,
@@ -192,18 +394,83 @@ const styles = StyleSheet.create({
     borderColor: colors.heart,
     backgroundColor: colors.errorBg,
   },
-  optionText: { fontWeight: '700', fontSize: 15, color: colors.dark },
+  optionText: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: colors.dark,
+    textAlign: 'center',
+  },
+  optionTextAr: {
+    fontSize: 18,
+    lineHeight: 32,
+    writingDirection: 'rtl',
+  },
+  optionTextGreen: { color: colors.primary },
+  optionTextRed: { color: colors.heart },
+
+  // Footer
   footer: {
-    padding: spacing.screenHorizontal,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.screenHorizontal,
     paddingBottom: spacing.xl,
-    gap: spacing.sm,
+    paddingTop: spacing.md,
+    backgroundColor: colors.ash,
   },
-  feedback: {
-    borderRadius: 12,
-    padding: spacing.md,
+
+  // Error panel
+  errorPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#ef4444',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl + 8,
+  },
+  errorHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
-  feedbackOk: { backgroundColor: colors.successBg },
-  feedbackBad: { backgroundColor: colors.errorBg },
-  feedbackText: { fontWeight: '800', color: colors.primary },
+  errorIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorX: { color: colors.white, fontWeight: '900', fontSize: 18 },
+  errorTitle: { color: colors.white, fontWeight: '900', fontSize: 20 },
+  correctLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '700',
+    fontSize: 13,
+    marginBottom: spacing.xs,
+  },
+  correctAnswer: {
+    color: colors.white,
+    fontWeight: '900',
+    fontSize: 20,
+    marginBottom: spacing.lg,
+  },
+  correctAnswerAr: {
+    fontSize: 24,
+    writingDirection: 'rtl',
+    textAlign: 'right',
+  },
+  gotItBtn: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 14,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gotItText: { color: colors.white, fontWeight: '900', fontSize: 16 },
 });

@@ -17,6 +17,10 @@ import { PlacementResultsScreen } from '../screens/placement/PlacementResultsScr
 import { CelebrationScreen } from '../screens/placement/CelebrationScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
+import { VerifyEmailScreen } from '../screens/auth/VerifyEmailScreen';
+import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
+import { ResetCodeScreen } from '../screens/auth/ResetCodeScreen';
+import { NewPasswordScreen } from '../screens/auth/NewPasswordScreen';
 import { MainTabs } from './MainTabs';
 import { SurahLevelsScreen } from '../screens/journey/SurahLevelsScreen';
 import { LessonStartScreen } from '../screens/lesson/LessonStartScreen';
@@ -47,6 +51,10 @@ export function RootNavigator() {
         <Stack.Screen name="Celebration" component={CelebrationScreen} />
         <Stack.Screen name="AuthLogin" component={LoginScreen} />
         <Stack.Screen name="AuthRegister" component={RegisterScreen} />
+        <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="ResetCode" component={ResetCodeScreen} />
+        <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="SurahLevels" component={SurahLevelsScreen} />
         <Stack.Screen name="LessonStart" component={LessonStartScreen} />

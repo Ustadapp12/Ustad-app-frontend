@@ -84,6 +84,7 @@ export function LessonSessionScreen({ navigation }: Props) {
         stepIndex={stepIndex}
         total={steps.length}
         hearts={hearts}
+        sessionId={sessionId}
         onClose={onClose}
         onComplete={onComplete}
       />

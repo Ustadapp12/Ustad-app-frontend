@@ -12,7 +12,16 @@ export type RootStackParamList = {
   PlacementIntro: undefined;
   PlacementTest: undefined;
   PlacementResults: { answers: (number | null)[] };
-  Celebration: undefined;
+  VerifyEmail: { email: string };
+  ForgotPassword: undefined;
+  ResetCode: { email: string };
+  NewPassword: { email: string; code: string };
+  Celebration: {
+    answers?: (number | null)[];
+    scorePct?: number;
+    level?: string;
+    startSurah?: number;
+  };
   AuthLogin: undefined;
   AuthRegister: undefined;
   MainTabs: undefined;
@@ -31,7 +40,6 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
-  Journey: undefined;
-  Revision: undefined;
+  Stats: undefined;
   Profile: undefined;
 };

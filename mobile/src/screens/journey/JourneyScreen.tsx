@@ -7,8 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { CompositeScreenProps, useFocusEffect } from '@react-navigation/native';
-import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
@@ -27,12 +26,12 @@ import {
 import { loadReciters } from '../../services/reciters';
 import { useAuthStore } from '../../store/authStore';
 import type { SurahBrief } from '../../types/api';
-import type { MainTabParamList, RootStackParamList } from '../../navigation/types';
+import type { RootStackParamList } from '../../navigation/types';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<MainTabParamList, 'Journey'>,
-  NativeStackScreenProps<RootStackParamList>
->;
+// JourneyScreen is no longer a tab — kept for reference. HomeScreen now owns the level path map.
+type Props = {
+  navigation: NativeStackScreenProps<RootStackParamList>['navigation'];
+};
 
 export function JourneyScreen({ navigation }: Props) {
   const learning = useAuthStore(s => s.learning);
