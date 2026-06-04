@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import * as Sentry from '@sentry/react-native';
 import { authApi, learningApi } from '../api';
 import { getTokens, setTokens, getStoredUser, setStoredUser } from '../utils/storage';
+import {
+  AnalyticsEvents,
+  logAnalyticsEvent,
+  setAnalyticsUserId,
+} from '../services/analytics';
 import { warmAudioUrlCache } from '../services/audioUrls';
 import {
   abandonActiveLessonSession,
@@ -49,6 +54,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: 'learner',
         } as User);
       await warmAudioUrlCache();
+      await setAnalyticsUserId(user.id);
       set({ isHydrated: true, user, learning });
     } catch {
       await setTokens(null);
@@ -65,6 +71,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await warmAudioUrlCache();
     // Tag all future crash reports with this user
     Sentry.setUser({ id: res.user.id, email: res.user.email });
+    await setAnalyticsUserId(res.user.id);
+    void logAnalyticsEvent(AnalyticsEvents.LOGIN, { method: 'email' });
     set({ user: res.user, learning });
   },
 
@@ -79,6 +87,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const learning = await learningApi.me();
     await warmAudioUrlCache();
     Sentry.setUser({ id: res.user.id, email: res.user.email });
+    await setAnalyticsUserId(res.user.id);
+    void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'email' });
     set({ user: res.user, learning });
   },
 
@@ -90,6 +100,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setTokens(null);
     await setStoredUser(null);
     Sentry.setUser(null); // Clear user from crash reports on logout
+    await setAnalyticsUserId(null);
     set({ user: null, learning: null });
   },
 

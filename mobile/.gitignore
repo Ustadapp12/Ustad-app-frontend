@@ -53,6 +53,11 @@ yarn-error.log
 **/fastlane/screenshots
 **/fastlane/test_output
 
+# Firebase — download from Firebase Console per app (never commit production secrets in public repos)
+android/app/google-services.json
+ios/GoogleService-Info.plist
+ios/UstadApp/GoogleService-Info.plist
+
 # Metro / Gradle JS bundles (produced at build:apk / assembleRelease — do not commit)
 *.jsbundle
 *.bundle

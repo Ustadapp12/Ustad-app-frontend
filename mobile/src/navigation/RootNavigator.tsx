@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import type { NavigationContainerRef } from '@react-navigation/native';
+import { logScreenView } from '../services/analytics';
+import type { RootStackParamList } from './types';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SplashScreen } from '../screens/startup/SplashScreen';
 import { WelcomeScreen } from '../screens/startup/WelcomeScreen';
@@ -29,13 +32,32 @@ import { LessonCompleteScreen } from '../screens/lesson/LessonCompleteScreen';
 import { StreakModalScreen } from '../screens/gamification/StreakModalScreen';
 import { TermsScreen } from '../screens/legal/TermsScreen';
 import { PrivacyScreen } from '../screens/legal/PrivacyScreen';
-import type { RootStackParamList } from './types';
-
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
+  const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
+  const routeNameRef = useRef<string | undefined>(undefined);
+
+  const onNavReady = () => {
+    const name = navigationRef.current?.getCurrentRoute()?.name;
+    routeNameRef.current = name;
+    if (name) void logScreenView(name);
+  };
+
+  const onNavStateChange = () => {
+    const previous = routeNameRef.current;
+    const current = navigationRef.current?.getCurrentRoute()?.name;
+    if (current && current !== previous) {
+      void logScreenView(current);
+    }
+    routeNameRef.current = current;
+  };
+
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={onNavReady}
+      onStateChange={onNavStateChange}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Welcome" component={WelcomeScreen} />

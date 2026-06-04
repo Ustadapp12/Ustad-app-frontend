@@ -3,6 +3,7 @@ import { lessonsApi, learningApi, exerciseTypeForApi } from '../api';
 import { ApiError } from '../api/client';
 import { buildLessonSteps, buildStepsFromExerciseOut } from '../lesson/buildSteps';
 import { isListenOnlyLesson } from '../lesson/mergeSteps';
+import { AnalyticsEvents, logAnalyticsEvent } from '../services/analytics';
 import {
   abandonActiveLessonSession,
   abandonLessonSessionById,
@@ -115,6 +116,10 @@ export const useLessonStore = create<LessonState>((set, get) => ({
         correctCount: 0,
         result: null,
       });
+      void logAnalyticsEvent(AnalyticsEvents.LESSON_START, {
+        lesson_group_id: group.id,
+        surah_number: group.surah_number,
+      });
     } catch (e) {
       const message =
         e instanceof ApiError
@@ -175,11 +180,16 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     });
     await clearPendingLessonSession();
     set({ result, sessionId: null });
+    void logAnalyticsEvent(AnalyticsEvents.LESSON_COMPLETE, {
+      passed: passed ? 1 : 0,
+      score_pct,
+      mistakes,
+    });
     return result;
   },
 
   abandonSession: async ({ silent } = {}) => {
-    const { sessionId, result } = get();
+    const { sessionId, result, group } = get();
     if (result) {
       await clearPendingLessonSession();
       return;
@@ -192,6 +202,10 @@ export const useLessonStore = create<LessonState>((set, get) => ({
         await abandonLessonSessionById(id);
       }
       await abandonActiveLessonSession();
+      void logAnalyticsEvent(AnalyticsEvents.LESSON_ABANDON, {
+        lesson_group_id: group?.id ?? '',
+        session_id: id ?? '',
+      });
     } catch (e) {
       if (!silent) {
         throw e;

@@ -35,6 +35,14 @@ npm run ios
 
 **Physical device:** set `PHYSICAL_DEVICE_HOST` in `src/config.ts` to your PC LAN IP (same Wi‑Fi as phone).
 
+## Firebase Analytics
+
+1. Add Android/iOS apps in [Firebase Console](https://console.firebase.google.com/) (package `com.ustadapp`).
+2. Place `google-services.json` → `android/app/` and `GoogleService-Info.plist` → `ios/UstadApp/`.
+3. Rebuild the app.
+
+Full steps: [docs/FIREBASE_ANALYTICS.md](./docs/FIREBASE_ANALYTICS.md).
+
 ## Project structure
 
 ```
