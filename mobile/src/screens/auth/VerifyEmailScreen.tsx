@@ -14,6 +14,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { BackButton } from '../../components/ui/BackButton';
 import { IrabBackground } from '../../components/ui/IrabBackground';
 import { authApi } from '../../api';
+import { ApiError } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -53,18 +54,23 @@ export function VerifyEmailScreen({ route, navigation }: Props) {
   };
 
   const verify = async () => {
-    if (!complete) return;
+    if (!complete || loading || xpEarned !== null) return;
     setLoading(true);
     try {
       const result = await authApi.verifyEmail(email, code);
       if (result.verified) {
         setXpEarned(result.xp_awarded);
-        await refreshLearning();
+        await refreshLearning({ force: true });
         setTimeout(() => navigation.replace('MainTabs'), 1000);
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Invalid or expired code';
-      Alert.alert('Verification failed', msg);
+      const friendly =
+        e instanceof ApiError && e.status >= 500
+          ? 'Our server had a problem. Try again in a moment or use Skip for now.'
+          : e instanceof Error
+            ? e.message
+            : 'Invalid or expired code';
+      Alert.alert('Verification failed', friendly);
     } finally {
       setLoading(false);
     }

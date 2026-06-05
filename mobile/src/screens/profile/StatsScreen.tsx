@@ -1,6 +1,5 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
 import { EmojiText } from '../../components/ui/EmojiText';
@@ -30,7 +29,9 @@ export function StatsScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const onRefresh = () => { setRefreshing(true); load(); };
 

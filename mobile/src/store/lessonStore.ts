@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { lessonsApi, learningApi, exerciseTypeForApi } from '../api';
+import { loadLessonGroup } from '../services/cachedContent';
 import { ApiError } from '../api/client';
 import { buildLessonSteps, buildStepsFromExerciseOut } from '../lesson/buildSteps';
 import { isListenOnlyLesson } from '../lesson/mergeSteps';
@@ -17,6 +18,18 @@ import type {
   LessonGroupDetail,
   SessionCompleteOut,
 } from '../types/api';
+
+/** Prevents concurrent POST /learning/sessions (double-tap → 409). */
+let startSessionInFlight: Promise<void> | null = null;
+
+function isEndedSessionError(e: unknown): boolean {
+  if (!(e instanceof ApiError)) return false;
+  if (e.status === 404) return true;
+  if (e.status === 400) {
+    return /session.*end|already ended|not active/i.test(e.message);
+  }
+  return false;
+}
 
 interface LessonState {
   group: LessonGroupDetail | null;
@@ -60,7 +73,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const [group, exercisesData] = await Promise.all([
-        lessonsApi.group(groupId),
+        loadLessonGroup(groupId),
         lessonsApi.exercises(groupId).catch(() => null),
       ]);
       let steps;
@@ -82,70 +95,88 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   },
 
   startSession: async () => {
-    const { group } = get();
+    const { group, sessionId, result } = get();
     if (!group) return;
-    set({ loading: true, error: null });
-    try {
-      await abandonPendingLessonSessionFromStorage();
-      await abandonActiveLessonSession().catch(() => null);
+    if (sessionId && !result) return;
 
-      const startOnce = () => learningApi.startSession(group.id);
-      let session;
-      try {
-        session = await startOnce();
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 409) {
-          await abandonActiveLessonSession().catch(() => null);
-          session = await startOnce();
-        } else {
-          throw e;
-        }
-      }
-
-      await setPendingLessonSession({
-        sessionId: session.session_id,
-        groupId: group.id,
-        mistakes: 0,
-      });
-      set({
-        sessionId: session.session_id,
-        heartsAtStart: session.hearts_at_start,
-        loading: false,
-        stepStartedAt: Date.now(),
-        mistakes: 0,
-        correctCount: 0,
-        result: null,
-      });
-      void logAnalyticsEvent(AnalyticsEvents.LESSON_START, {
-        lesson_group_id: group.id,
-        surah_number: group.surah_number,
-      });
-    } catch (e) {
-      const message =
-        e instanceof ApiError
-          ? e.message
-          : e instanceof Error
-            ? e.message
-            : 'Could not start session';
-      set({ loading: false, error: message });
-      throw e;
+    if (startSessionInFlight) {
+      return startSessionInFlight;
     }
+
+    startSessionInFlight = (async () => {
+      set({ loading: true, error: null });
+      try {
+        await abandonPendingLessonSessionFromStorage();
+        await abandonActiveLessonSession().catch(() => null);
+
+        const startOnce = () => learningApi.startSession(group.id);
+        let session;
+        try {
+          session = await startOnce();
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 409) {
+            await abandonActiveLessonSession().catch(() => null);
+            session = await startOnce();
+          } else {
+            throw e;
+          }
+        }
+
+        await setPendingLessonSession({
+          sessionId: session.session_id,
+          groupId: group.id,
+          mistakes: 0,
+        });
+        set({
+          sessionId: session.session_id,
+          heartsAtStart: session.hearts_at_start,
+          loading: false,
+          stepStartedAt: Date.now(),
+          mistakes: 0,
+          correctCount: 0,
+          result: null,
+        });
+        void logAnalyticsEvent(AnalyticsEvents.LESSON_START, {
+          lesson_group_id: group.id,
+          surah_number: group.surah_number,
+        });
+      } catch (e) {
+        const message =
+          e instanceof ApiError
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : 'Could not start session';
+        set({ loading: false, error: message });
+        throw e;
+      } finally {
+        startSessionInFlight = null;
+      }
+    })();
+
+    return startSessionInFlight;
   },
 
   recordAttempt: async (exerciseType, correct, mistakeCount = 0) => {
-    const { sessionId, mistakes, correctCount, steps, stepIndex, stepStartedAt } = get();
-    if (!sessionId) return;
+    const { sessionId, mistakes, correctCount, steps, stepIndex, stepStartedAt, result } =
+      get();
+    if (!sessionId || result) return;
     const response_ms = Date.now() - stepStartedAt;
     if (!correct) {
       set({ mistakes: mistakes + (mistakeCount || 1) });
     } else {
       set({ correctCount: correctCount + 1 });
     }
-    const sessionAttempt = learningApi.attempt(sessionId, {
-      exercise_type: exerciseTypeForApi(exerciseType),
-      correct,
-      mistake_count: mistakeCount,
-    });
+    const sessionAttempt = learningApi
+      .attempt(sessionId, {
+        exercise_type: exerciseTypeForApi(exerciseType),
+        correct,
+        mistake_count: mistakeCount,
+      })
+      .catch(e => {
+        if (isEndedSessionError(e)) return null;
+        throw e;
+      });
     const step = steps[stepIndex];
     const exercise_id = step?.exercise_id ?? null;
     const srsAttempt = exercise_id
@@ -169,7 +200,8 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   },
 
   completeSession: async () => {
-    const { sessionId, steps, correctCount, mistakes } = get();
+    const { sessionId, steps, correctCount, mistakes, result } = get();
+    if (result) return result;
     if (!sessionId) throw new Error('No session');
     const score_pct = Math.round((correctCount / Math.max(steps.length, 1)) * 100);
     const passed = score_pct >= 70;

@@ -53,8 +53,10 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
   const feedbackSlide = useRef(new Animated.Value(200)).current;
   const correctScale  = useRef(new Animated.Value(1)).current;
   const wrongShake    = useRef(new Animated.Value(0)).current;
+  const advancingRef  = useRef(false);
 
   useEffect(() => {
+    advancingRef.current = false;
     let cancelled = false;
     (async () => {
       await warmAudioUrlCache();
@@ -63,7 +65,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
       if (!cancelled) setAudioUrl(url);
     })();
     return () => { cancelled = true; };
-  }, [step.ayah, step.ayahAudioUrl]);
+  }, [step.ayah, step.ayahAudioUrl, stepIndex, step.type]);
 
   const resetLocal = () => {
     setSelected(null);
@@ -102,6 +104,8 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
   };
 
   const handleContinue = useCallback(() => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
     Animated.timing(feedbackSlide, { toValue: 200, duration: 180, useNativeDriver: true }).start(() => {
       onComplete(isCorrect);
       resetLocal();
@@ -110,6 +114,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
 
   // ── Correctness logic ─────────────────────────────────────────
   const handleCheck = async () => {
+    if (checked || advancingRef.current) return;
     let correct = false;
     switch (step.type) {
       case 'listen':

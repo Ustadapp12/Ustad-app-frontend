@@ -16,7 +16,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'LessonStart'>;
 
 export function LessonStartScreen({ route, navigation }: Props) {
   const { groupId, label } = route.params;
-  const { group, loading, error, loadGroup, startSession } = useLessonStore();
+  const { group, loading, error, sessionId, loadGroup, startSession } =
+    useLessonStore();
+  const starting = loading && !!group && !sessionId;
 
   useEffect(() => {
     loadGroup(groupId);
@@ -64,7 +66,8 @@ export function LessonStartScreen({ route, navigation }: Props) {
         <PrimaryButton
           title={copy.lessonStart.cta}
           onPress={begin}
-          disabled={!group}
+          disabled={!group || starting}
+          loading={starting}
         />
         <PrimaryButton
           title={copy.lessonStart.back}

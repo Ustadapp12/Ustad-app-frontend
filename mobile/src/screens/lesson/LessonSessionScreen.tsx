@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Alert, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
@@ -27,6 +27,7 @@ export function LessonSessionScreen({ navigation }: Props) {
     reset,
   } = useLessonStore();
   const refreshLearning = useAuthStore(s => s.refreshLearning);
+  const completingRef = useRef(false);
 
   useAbandonLessonOnBackground();
 
@@ -84,11 +85,16 @@ export function LessonSessionScreen({ navigation }: Props) {
   };
 
   const onComplete = async (correct: boolean) => {
-    await recordAttempt(step.type, correct, correct ? 0 : 1);
-    if (stepIndex + 1 >= steps.length) {
-      try {
+    if (completingRef.current) return;
+
+    const isLast = stepIndex + 1 >= steps.length;
+    if (isLast) completingRef.current = true;
+
+    try {
+      await recordAttempt(step.type, correct, correct ? 0 : 1);
+      if (isLast) {
         const result = await completeSession();
-        await refreshLearning();
+        await refreshLearning({ force: true });
         const scorePct = Math.round(
           (useLessonStore.getState().correctCount / Math.max(steps.length, 1)) *
             100,
@@ -101,11 +107,12 @@ export function LessonSessionScreen({ navigation }: Props) {
           heartsRemaining: result.hearts_remaining,
         });
         reset();
-      } catch (e) {
-        Alert.alert('Error', e instanceof Error ? e.message : 'Could not complete');
+      } else {
+        nextStep();
       }
-    } else {
-      nextStep();
+    } catch (e) {
+      if (isLast) completingRef.current = false;
+      Alert.alert('Error', e instanceof Error ? e.message : 'Could not complete');
     }
   };
 

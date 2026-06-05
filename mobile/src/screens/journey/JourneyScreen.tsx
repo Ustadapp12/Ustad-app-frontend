@@ -8,7 +8,6 @@ import {
   RefreshControl,
   TextInput,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
@@ -16,6 +15,7 @@ import { SurahBanner } from '../../components/journey/SurahBanner';
 import { JourneyTopBar } from '../../components/ui/JourneyTopBar';
 import { IrabBackground } from '../../components/ui/IrabBackground';
 import { contentApi } from '../../api';
+import { loadSurahs } from '../../services/cachedContent';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { copy } from '../../i18n/copy';
@@ -46,11 +46,13 @@ export function JourneyScreen({ navigation }: Props) {
   const [searching, setSearching] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     setApiError(false);
     try {
-      await warmAudioUrlCache();
-      const fromApi = await contentApi.surahs(30, true);
+      const [fromApi] = await Promise.all([
+        loadSurahs(30, true, { force }),
+        warmAudioUrlCache(),
+      ]);
       const merged = mergeMvpCatalog(fromApi);
       const mvp = filterToMvpSurahs(
         merged,
@@ -70,12 +72,6 @@ export function JourneyScreen({ navigation }: Props) {
   useEffect(() => {
     load();
   }, [load]);
-
-  useFocusEffect(
-    useCallback(() => {
-      useAuthStore.getState().refreshLearning();
-    }, []),
-  );
 
   useEffect(() => {
     return () => {
@@ -150,7 +146,7 @@ export function JourneyScreen({ navigation }: Props) {
       </View>
 
       {apiError ? (
-        <Pressable style={styles.apiBanner} onPress={load}>
+        <Pressable style={styles.apiBanner} onPress={() => load(true)}>
           <AppText style={styles.apiBannerText}>
             Cannot reach the API — showing offline surah list. Tap to retry.
           </AppText>
@@ -165,7 +161,7 @@ export function JourneyScreen({ navigation }: Props) {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              load();
+              load(true);
             }}
             tintColor={colors.yellow}
           />

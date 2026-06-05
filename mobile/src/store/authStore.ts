@@ -27,8 +27,11 @@ interface AuthState {
     displayName?: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
-  refreshLearning: () => Promise<void>;
+  refreshLearning: (opts?: { force?: boolean }) => Promise<void>;
 }
+
+const LEARNING_ME_INTERVAL_MS = 60_000;
+let lastLearningMeFetchAt = 0;
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -55,6 +58,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } as User);
       await warmAudioUrlCache();
       await setAnalyticsUserId(user.id);
+      lastLearningMeFetchAt = Date.now();
       set({ isHydrated: true, user, learning });
     } catch {
       await setTokens(null);
@@ -73,6 +77,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     Sentry.setUser({ id: res.user.id, email: res.user.email });
     await setAnalyticsUserId(res.user.id);
     void logAnalyticsEvent(AnalyticsEvents.LOGIN, { method: 'email' });
+    lastLearningMeFetchAt = Date.now();
     set({ user: res.user, learning });
   },
 
@@ -89,6 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     Sentry.setUser({ id: res.user.id, email: res.user.email });
     await setAnalyticsUserId(res.user.id);
     void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'email' });
+    lastLearningMeFetchAt = Date.now();
     set({ user: res.user, learning });
   },
 
@@ -101,16 +107,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setStoredUser(null);
     Sentry.setUser(null); // Clear user from crash reports on logout
     await setAnalyticsUserId(null);
+    lastLearningMeFetchAt = 0;
     set({ user: null, learning: null });
   },
 
-  refreshLearning: async () => {
+  refreshLearning: async ({ force = false } = {}) => {
     const tokens = await getTokens();
     if (!tokens) {
       return;
     }
+    const now = Date.now();
+    if (!force && now - lastLearningMeFetchAt < LEARNING_ME_INTERVAL_MS) {
+      return;
+    }
     try {
       const learning = await learningApi.me();
+      lastLearningMeFetchAt = now;
       set({ learning });
     } catch {
       /* ignore when offline */

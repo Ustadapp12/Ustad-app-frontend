@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { CompositeScreenProps, useFocusEffect } from '@react-navigation/native';
+import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
@@ -15,7 +15,8 @@ import { AppText } from '../../components/ui/AppText';
 import { JourneyTopBar } from '../../components/ui/JourneyTopBar';
 import { IrabBackground } from '../../components/ui/IrabBackground';
 import { LevelNode, nodeAlignForIndex } from '../../components/journey/LevelNode';
-import { contentApi, learningApi } from '../../api';
+import { learningApi } from '../../api';
+import { loadSurahs } from '../../services/cachedContent';
 import type { RecommendedNext } from '../../types/api';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
@@ -55,54 +56,44 @@ export function HomeScreen({ navigation }: Props) {
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     try {
-      await warmAudioUrlCache();
+      const mvpNumbers = useAuthStore.getState().learning?.mvp_surah_numbers;
 
-      // 1. Fetch surah list
-      let rawSurahs: SurahBrief[] = [];
-      try {
-        rawSurahs = await contentApi.surahs(30, true);
-      } catch {
-        rawSurahs = [];
-      }
+      const [rawSurahs, recommendedResult] = await Promise.all([
+        loadSurahs(30, true, { force: isRefresh }).catch(() => [] as SurahBrief[]),
+        learningApi.recommendedNext().catch(() => null),
+        warmAudioUrlCache(),
+      ]);
+
       const surahs = sortSurahsForJourney(
-        filterToMvpSurahs(
-          mergeMvpCatalog(rawSurahs),
-          useAuthStore.getState().learning?.mvp_surah_numbers,
-        ),
+        filterToMvpSurahs(mergeMvpCatalog(rawSurahs), mvpNumbers),
       );
 
-      // 2. Fetch levels for all surahs in parallel (requires auth)
-      const levelResults = await Promise.allSettled(
+      const levels = await Promise.allSettled(
         surahs.map(s => learningApi.levels(s.surah_number)),
       );
 
-      // 3. Combine surah + levels
       const progress: SurahProgress[] = surahs.map((surah, i) => {
-        const res = levelResults[i];
-        const levels = res.status === 'fulfilled' ? res.value : [];
-        const completedCount = levels.filter(l => l.status === 'completed').length;
+        const res = levels[i];
+        const surahLevels = res.status === 'fulfilled' ? res.value : [];
+        const completedCount = surahLevels.filter(l => l.status === 'completed').length;
         const progressPct =
-          levels.length > 0 ? (completedCount / levels.length) * 100 : 0;
+          surahLevels.length > 0 ? (completedCount / surahLevels.length) * 100 : 0;
         return {
           surah,
-          levels,
+          levels: surahLevels,
           completedCount,
           progressPct,
-          isLocked: levels.length === 0 || levels.every(l => l.status === 'locked'),
+          isLocked:
+            surahLevels.length === 0 ||
+            surahLevels.every(l => l.status === 'locked'),
           isComplete:
-            levels.length > 0 && levels.every(l => l.status === 'completed'),
+            surahLevels.length > 0 &&
+            surahLevels.every(l => l.status === 'completed'),
         };
       });
 
       setChapters(progress);
-
-      // Fetch recommended next lesson (graceful degradation)
-      try {
-        const rec = await learningApi.recommendedNext();
-        setRecommended(rec);
-      } catch {
-        setRecommended(null);
-      }
+      setRecommended(recommendedResult);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -113,15 +104,9 @@ export function HomeScreen({ navigation }: Props) {
     load();
   }, [load]);
 
-  useFocusEffect(
-    useCallback(() => {
-      refreshLearning();
-    }, [refreshLearning]),
-  );
-
   const onRefresh = () => {
     setRefreshing(true);
-    refreshLearning();
+    void refreshLearning({ force: true });
     load(true);
   };
 
