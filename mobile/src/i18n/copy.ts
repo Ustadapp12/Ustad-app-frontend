@@ -195,7 +195,7 @@ export const copy = {
     start: 'START',
     locked: 'Complete the previous level to unlock',
     juzTitle: 'Juz 30 — Amma',
-    mvpSubtitle: (n: number) => `MVP surahs 78–87 · ${n} chapters`,
+    mvpSubtitle: (n: number) => `MVP surahs 105–114 · ${n} chapters`,
   },
   tabs: {
     home: 'Home',

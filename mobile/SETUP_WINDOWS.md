@@ -48,11 +48,10 @@ To test against **local** FastAPI instead, set `USE_LOCAL_API = true` in `mobile
 - Email: `demo@ustadh.local`
 - Password: `DemoPass123!`
 
-**MVP surahs:** 78–87 only (`mvp_only=true`).
+**MVP surahs:** 105–114 only (`mvp_only=true`).
 
-- Journey lists all **Juz 30 surahs 78–114** in the app (offline catalog).
-- **Lessons** need backend seed data (`lesson groups`, ayahs, audio).
-- MVP backend may only include surahs **78–86** until you expand `MVP_SURAH_NUMBERS` and seed 87–114.
+- Journey lists the **last 10 surahs (105–114)** in the app (offline catalog + API).
+- **Lessons** need backend seed data (`lesson groups`, ayahs, audio) for surahs 105–114.
 
 ## 4. Full Juz 30 (78–114)
 

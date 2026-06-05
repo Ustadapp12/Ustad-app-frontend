@@ -1,3 +1,5 @@
+import { JUZ30_SURAHS } from '../data/juz30Surahs';
+
 /** Tashkeel-rich surah titles for Juz 30 (78–114) — used when API names lack harakat. */
 const SURAH_AR_TASHKEEL: Record<number, string> = {
   78: 'النَّبَأ',
@@ -41,4 +43,9 @@ const SURAH_AR_TASHKEEL: Record<number, string> = {
 
 export function displaySurahNameAr(surahNumber: number, fallback: string): string {
   return SURAH_AR_TASHKEEL[surahNumber] ?? fallback;
+}
+
+export function displaySurahNameEn(surahNumber: number): string {
+  const meta = JUZ30_SURAHS.find(s => s.surah_number === surahNumber);
+  return meta ? `Surah ${meta.name_en}` : `Surah ${surahNumber}`;
 }

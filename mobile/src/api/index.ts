@@ -239,7 +239,6 @@ export const progressApi = {
     session_id: string;
     ayah_id: string;
     duration_ms: number;
-    self_rated?: boolean | null;
   }) =>
     api<VoiceAttemptResponse>('/progress/voice-attempt', {
       method: 'POST',

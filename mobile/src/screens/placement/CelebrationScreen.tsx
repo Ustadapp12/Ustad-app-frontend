@@ -29,7 +29,7 @@ const CONFETTI = [
 ];
 
 export function CelebrationScreen({ route, navigation }: Props) {
-  const { answers, scorePct = 0, level = 'beginner', startSurah = 87 } =
+  const { answers, scorePct = 0, level = 'beginner', startSurah = 114 } =
     route.params ?? {};
 
   const [xp, setXp] = useState(0);

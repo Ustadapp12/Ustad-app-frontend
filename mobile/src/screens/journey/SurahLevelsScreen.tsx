@@ -88,7 +88,7 @@ export function SurahLevelsScreen({ route, navigation }: Props) {
         <View style={styles.empty}>
           <AppText style={styles.emptyTitle}>Path not available yet</AppText>
           <AppText variant="caption" style={styles.emptyBody}>
-            This surah's learning path has not been generated. MVP includes surahs 78–87 only.
+            This surah's learning path has not been generated. MVP includes surahs 105–114 only.
           </AppText>
         </View>
       ) : (

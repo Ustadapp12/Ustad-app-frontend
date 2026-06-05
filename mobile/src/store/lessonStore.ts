@@ -205,19 +205,19 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     if (!sessionId) throw new Error('No session');
     const score_pct = Math.round((correctCount / Math.max(steps.length, 1)) * 100);
     const passed = score_pct >= 70;
-    const result = await learningApi.complete(sessionId, {
+    const completed = await learningApi.complete(sessionId, {
       passed,
       score_pct,
       mistakes,
     });
     await clearPendingLessonSession();
-    set({ result, sessionId: null });
+    set({ result: completed, sessionId: null });
     void logAnalyticsEvent(AnalyticsEvents.LESSON_COMPLETE, {
       passed: passed ? 1 : 0,
       score_pct,
       mistakes,
     });
-    return result;
+    return completed;
   },
 
   abandonSession: async ({ silent } = {}) => {

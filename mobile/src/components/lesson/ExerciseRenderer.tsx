@@ -22,6 +22,7 @@ import { resolveAyahPlayUrl, resolveWordPlayUrl, warmAudioUrlCache } from '../..
 import { SpeakerIcon } from '../ui/Icons';
 import type { ExerciseStep } from '../../lesson/types';
 import { wordsInAyahOrder } from '../../lesson/wordOrder';
+import { ayahIdForApi } from '../../utils/ayahId';
 import type { WordOut } from '../../types/api';
 
 interface Props {
@@ -145,7 +146,11 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
         const dur = recordedMs ?? 0;
         if (sessionId) {
           try {
-            const res = await progressApi.voiceAttempt({ session_id: sessionId, ayah_id: step.ayah.id, duration_ms: dur, self_rated: null });
+            const res = await progressApi.voiceAttempt({
+              session_id: sessionId,
+              ayah_id: ayahIdForApi(step.ayah),
+              duration_ms: dur,
+            });
             correct = res.passed;
           } catch { correct = dur >= 2000; }
         } else { correct = dur >= 2000; }

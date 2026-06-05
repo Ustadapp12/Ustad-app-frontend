@@ -10,6 +10,7 @@ import { copy } from '../../i18n/copy';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { saveOnboarding } from '../../utils/storage';
+import { displaySurahNameEn } from '../../utils/surahDisplay';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PlacementResults'>;
@@ -36,12 +37,7 @@ export function PlacementResultsScreen({ route, navigation }: Props) {
         ? copy.placement.levelIntermediate
         : copy.placement.levelBeginner;
 
-  const startSurahName =
-    result.startSurah <= 80
-      ? "Surah An-Naba'"
-      : result.startSurah <= 85
-        ? 'Surah Al-Buruj'
-        : "Surah Al-A'la";
+  const startSurahName = displaySurahNameEn(result.startSurah);
 
   return (
     <Screen style={styles.screen}>
