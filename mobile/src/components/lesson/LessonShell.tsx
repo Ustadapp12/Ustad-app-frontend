@@ -77,7 +77,6 @@ const styles = StyleSheet.create({
 
   body: {
     flex: 1,
-    paddingHorizontal: spacing.screenHorizontal,
     paddingTop: spacing.sm,
   },
 });

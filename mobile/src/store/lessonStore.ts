@@ -44,7 +44,7 @@ interface LessonState {
   result: SessionCompleteOut | null;
   stepStartedAt: number;
   loadGroup: (groupId: string) => Promise<void>;
-  startSession: () => Promise<void>;
+  startSession: (initialStepIndex?: number) => Promise<void>;
   recordAttempt: (
     exerciseType: string,
     correct: boolean,
@@ -94,7 +94,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     }
   },
 
-  startSession: async () => {
+  startSession: async (initialStepIndex = 0) => {
     const { group, sessionId, result } = get();
     if (!group) return;
     if (sessionId && !result) return;
@@ -126,6 +126,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
           sessionId: session.session_id,
           groupId: group.id,
           mistakes: 0,
+          stepIndex: initialStepIndex,
         });
         set({
           sessionId: session.session_id,
@@ -135,6 +136,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
           mistakes: 0,
           correctCount: 0,
           result: null,
+          stepIndex: initialStepIndex,
         });
         void logAnalyticsEvent(AnalyticsEvents.LESSON_START, {
           lesson_group_id: group.id,
@@ -196,7 +198,12 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   },
 
   nextStep: () => {
-    set({ stepIndex: get().stepIndex + 1, stepStartedAt: Date.now() });
+    const newIndex = get().stepIndex + 1;
+    set({ stepIndex: newIndex, stepStartedAt: Date.now() });
+    const { sessionId, group, mistakes } = get();
+    if (sessionId && group) {
+      void setPendingLessonSession({ sessionId, groupId: group.id, mistakes, stepIndex: newIndex });
+    }
   },
 
   completeSession: async () => {

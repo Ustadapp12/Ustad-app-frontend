@@ -197,6 +197,26 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
     }
   };
 
+  // ── Compact audio chip shown on exercises that aren't dedicated listen steps ──
+  const AudioChip = () => {
+    const [playing, setPlaying] = useState(false);
+    if (!audioUrl) return null;
+    return (
+      <Pressable
+        style={[styles.audioChip, playing && styles.audioChipPlaying]}
+        disabled={playing}
+        onPress={async () => {
+          setPlaying(true);
+          try { await playAudioUrl(audioUrl); } finally { setPlaying(false); }
+        }}>
+        <SpeakerIcon size={13} color={playing ? colors.white : colors.primary} />
+        <AppText style={[styles.audioChipLabel, playing && styles.audioChipLabelPlaying]}>
+          {playing ? 'Playing…' : 'Play ayah'}
+        </AppText>
+      </Pressable>
+    );
+  };
+
   // ── Body ─────────────────────────────────────────────────────
   const renderBody = () => {
     if (step.type === 'interstitial') {
@@ -272,6 +292,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
             const options = step.options ?? step.ayah.words.map(w => w.arabic);
             return (
             <View style={styles.fillBlankBlock}>
+              <AudioChip />
               <View style={styles.blankAyahCard}>
                 <AppText variant="arabic" style={styles.blankAyahText}>
                   {resolveBlankDisplay(step)}
@@ -304,7 +325,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
               {/* Drop zone — no full ayah shown */}
               <View style={[styles.dropZone, order.length > 0 && styles.dropZoneActive]}>
                 {order.length === 0
-                  ? <AppText style={styles.dropZonePlaceholder}>Tap words below to build the ayah →</AppText>
+                  ? <AppText style={styles.dropZonePlaceholder}>Tap words below to build the ayah</AppText>
                   : order.map((w, i) => (
                       <Pressable key={`${w}-${i}`} disabled={checked}
                         onPress={() => setOrder(order.filter((_, j) => j !== i))}
@@ -330,8 +351,9 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
           {/* ══ CONTINUE AYAH ════════════════════════════════════ */}
           {step.type === 'continue_ayah' && (
             <View style={styles.continueBlock}>
+              <AudioChip />
               <View style={styles.shownAyahCard}>
-                <AppText style={styles.shownLabel}>COMPLETE THIS →</AppText>
+                <AppText style={styles.shownLabel}>COMPLETE THIS</AppText>
                 <AppText variant="arabic" style={styles.shownAyah}>
                   {step.shownAyahAr ?? step.ayah.arabic}
                 </AppText>
@@ -361,6 +383,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
           {/* ══ MATCH MEANING / WORD MEANING ═════════════════════ */}
           {(step.type === 'match_meaning' || step.type === 'mcq') && (
             <View style={styles.matchBlock}>
+              <AudioChip />
               <View style={styles.ayahCard}>
                 <AppText variant="arabic" style={styles.ayahCardText}>{step.ayah.arabic}</AppText>
               </View>
@@ -371,6 +394,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
 
           {step.type === 'word_meaning' && (
             <View style={styles.matchBlock}>
+              <AudioChip />
               <View style={styles.ayahCard}>
                 <AppText variant="arabic" style={styles.ayahCardText}>{step.ayah.arabic}</AppText>
               </View>
@@ -538,7 +562,7 @@ const TILE_RADIUS = 14;
 const CARD_RADIUS = 16;
 
 const styles = StyleSheet.create({
-  scrollContent: { flexGrow: 1, paddingBottom: spacing.sm },
+  scrollContent: { flexGrow: 1, paddingBottom: spacing.sm, paddingHorizontal: spacing.screenHorizontal },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.lg },
   interstitialEmoji: { fontSize: 48 },
   centerText: { textAlign: 'center', color: colors.charcoal },
@@ -607,7 +631,7 @@ const styles = StyleSheet.create({
   },
   blankAyahText: { fontSize: 24, lineHeight: 42, textAlign: 'right', color: colors.dark },
   tileHint: { fontSize: 11, fontWeight: '700', color: colors.grey, textAlign: 'center' },
-  tileRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
+  tileRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
   tile: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
@@ -627,7 +651,7 @@ const styles = StyleSheet.create({
   dropZone: {
     minHeight: 64, borderRadius: CARD_RADIUS, borderWidth: 2,
     borderColor: `${colors.grey}30`, borderStyle: 'dashed',
-    backgroundColor: `${colors.grey}08`, flexDirection: 'row',
+    backgroundColor: `${colors.grey}08`, flexDirection: 'row-reverse',
     flexWrap: 'wrap', gap: spacing.sm, padding: spacing.sm,
     alignItems: 'center',
   },
@@ -724,4 +748,17 @@ const styles = StyleSheet.create({
   feedbackSub: { color: colors.charcoal, fontWeight: '600', fontSize: 13, marginTop: 2 },
   feedbackBtnOk:  { backgroundColor: colors.primary },
   feedbackBtnBad: { backgroundColor: colors.heart },
+
+  // ── Compact audio chip (non-listen exercise types) ─────────
+  audioChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    alignSelf: 'center',
+    backgroundColor: `${colors.primary}12`,
+    borderRadius: 20, paddingHorizontal: spacing.md, paddingVertical: 6,
+    borderWidth: 1, borderColor: `${colors.primary}30`,
+    marginBottom: spacing.xs,
+  },
+  audioChipPlaying: { backgroundColor: colors.primary },
+  audioChipLabel: { color: colors.primary, fontWeight: '700', fontSize: 12 },
+  audioChipLabelPlaying: { color: colors.white },
 });

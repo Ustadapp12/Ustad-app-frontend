@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
@@ -7,6 +7,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { Mascot } from '../../components/ui/Mascot';
 import { IrabBackground } from '../../components/ui/IrabBackground';
 import { useLessonStore } from '../../store/lessonStore';
+import { getPendingLessonSession } from '../../services/lessonSession';
 import { copy } from '../../i18n/copy';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -20,13 +21,25 @@ export function LessonStartScreen({ route, navigation }: Props) {
     useLessonStore();
   const starting = loading && !!group && !sessionId;
 
+  const [resumeStep, setResumeStep] = useState<number | null>(null);
+  const [checkingResume, setCheckingResume] = useState(true);
+
   useEffect(() => {
     loadGroup(groupId);
   }, [groupId, loadGroup]);
 
-  const begin = async () => {
+  useEffect(() => {
+    getPendingLessonSession().then(pending => {
+      if (pending?.groupId === groupId && (pending.stepIndex ?? 0) > 0) {
+        setResumeStep(pending.stepIndex ?? 0);
+      }
+      setCheckingResume(false);
+    }).catch(() => setCheckingResume(false));
+  }, [groupId]);
+
+  const begin = async (fromStep = 0) => {
     try {
-      await startSession();
+      await startSession(fromStep);
       navigation.replace('LessonSession', { groupId });
     } catch {
       /* error shown via store */
@@ -40,6 +53,11 @@ export function LessonStartScreen({ route, navigation }: Props) {
       </Screen>
     );
   }
+
+  const totalSteps = group?.ayahs?.length ?? 0;
+  const resumePct = resumeStep && totalSteps > 0
+    ? Math.round((resumeStep / totalSteps) * 100)
+    : 0;
 
   return (
     <Screen style={styles.screen}>
@@ -60,21 +78,49 @@ export function LessonStartScreen({ route, navigation }: Props) {
             </AppText>
           </View>
         ) : null}
+        {resumeStep !== null && !checkingResume && (
+          <View style={styles.resumeBanner}>
+            <AppText style={styles.resumeTitle}>You left off at {resumePct}%</AppText>
+            <AppText style={styles.resumeSub}>
+              Step {resumeStep} of {totalSteps} completed
+            </AppText>
+          </View>
+        )}
         {error ? <AppText style={styles.error}>{error}</AppText> : null}
       </View>
       <View style={styles.footer}>
-        <PrimaryButton
-          title={copy.lessonStart.cta}
-          onPress={begin}
-          disabled={!group || starting}
-          loading={starting}
-        />
-        <PrimaryButton
-          title={copy.lessonStart.back}
-          variant="secondaryOnDark"
-          onPress={() => navigation.goBack()}
-          style={styles.gap}
-        />
+        {resumeStep !== null && !checkingResume ? (
+          <>
+            <PrimaryButton
+              title="Resume ›"
+              onPress={() => begin(resumeStep)}
+              disabled={!group || starting}
+              loading={starting}
+            />
+            <PrimaryButton
+              title="Start Over"
+              variant="secondaryOnDark"
+              onPress={() => begin(0)}
+              disabled={starting}
+              style={styles.gap}
+            />
+          </>
+        ) : (
+          <>
+            <PrimaryButton
+              title={copy.lessonStart.cta}
+              onPress={() => begin(0)}
+              disabled={!group || starting}
+              loading={starting}
+            />
+            <PrimaryButton
+              title={copy.lessonStart.back}
+              variant="secondaryOnDark"
+              onPress={() => navigation.goBack()}
+              style={styles.gap}
+            />
+          </>
+        )}
       </View>
     </Screen>
   );
@@ -88,7 +134,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  center: { justifyContent: 'center', alignItems: 'center' },
   content: {
     flex: 1,
     alignItems: 'center',
@@ -114,6 +159,28 @@ const styles = StyleSheet.create({
   },
   meta: { color: colors.white, fontWeight: '800' },
   metaSub: { color: 'rgba(255,255,255,0.65)', marginTop: 4, fontSize: 12 },
+  resumeBanner: {
+    marginTop: spacing.md,
+    backgroundColor: `${colors.yellow}22`,
+    borderWidth: 1.5,
+    borderColor: `${colors.yellow}55`,
+    borderRadius: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    width: '100%',
+    alignItems: 'center',
+  },
+  resumeTitle: {
+    color: colors.yellow,
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  resumeSub: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
   error: { color: colors.heart, marginTop: spacing.md },
   footer: {
     padding: spacing.screenHorizontal,

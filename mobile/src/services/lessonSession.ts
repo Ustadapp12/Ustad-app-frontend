@@ -9,6 +9,7 @@ export type PendingLessonSession = {
   sessionId: string;
   groupId: string;
   mistakes: number;
+  stepIndex: number;
 };
 
 export async function setPendingLessonSession(

@@ -44,7 +44,6 @@ export function AudioPlayButton({ url, label = 'Tap to play' }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
-    marginBottom: spacing.md,
   },
   btn: {
     width: 72,
