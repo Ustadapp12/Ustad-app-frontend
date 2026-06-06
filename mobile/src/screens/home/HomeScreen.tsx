@@ -112,7 +112,7 @@ export function HomeScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <Screen style={styles.screen}>
+      <Screen style={styles.screen} edges={['top']}>
         <IrabBackground color={colors.yellow} />
         <JourneyTopBar
           streak={learning?.current_streak}
@@ -128,7 +128,7 @@ export function HomeScreen({ navigation }: Props) {
   }
 
   return (
-    <Screen style={styles.screen}>
+    <Screen style={styles.screen} edges={['top']}>
       <IrabBackground color={colors.yellow} />
 
       <JourneyTopBar

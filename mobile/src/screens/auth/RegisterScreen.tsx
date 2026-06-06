@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   TextInput,
   View,
@@ -31,13 +31,18 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AuthRegister'>;
 
 function pwStrength(pw: string): 0 | 1 | 2 | 3 {
   if (pw.length === 0) return 0;
-  if (pw.length < 4) return 1;
-  if (pw.length < 8) return 2;
-  return 3;
+  if (pw.length < 8) return 1; // Risky — too short
+  const hasUpper   = /[A-Z]/.test(pw);
+  const hasDigit   = /[0-9]/.test(pw);
+  const hasSpecial = /[^A-Za-z0-9]/.test(pw);
+  const score = [hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+  if (score >= 2) return 3; // Strong
+  if (score >= 1) return 2; // Medium
+  return 1;                 // Risky — all lowercase, no complexity
 }
 
 const STRENGTH_COLORS = ['transparent', colors.heart, colors.yellow, colors.primary];
-const STRENGTH_LABELS = ['', 'Weak', 'Good', '💪 Strong'];
+const STRENGTH_LABELS = ['', 'Risky', 'Medium', '💪 Strong'];
 
 export function RegisterScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -49,8 +54,11 @@ export function RegisterScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
 
+  const emailRef    = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+
   const strength = pwStrength(password);
-  const valid = displayName.length > 1 && email.includes('@') && password.length >= 6;
+  const valid = displayName.length > 1 && email.includes('@') && password.length >= 8;
 
   const submit = async () => {
     setLoading(true);
@@ -95,140 +103,169 @@ export function RegisterScreen({ navigation }: Props) {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled">
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
 
-        {/* Header */}
-        <View style={styles.hero}>
-          <Logo />
-          <AppText style={styles.heroSub}>Create your account</AppText>
-        </View>
-
-        {/* Bonus chip */}
-        <View style={styles.bonus}>
-          <View style={styles.bonusIcon}>
-            <EmojiText size={20}>⭐</EmojiText>
+          {/* Header */}
+          <View style={styles.hero}>
+            <Logo />
+            <AppText style={styles.heroSub}>Create your account</AppText>
           </View>
-          <View style={{ flex: 1 }}>
-            <AppText style={styles.bonusTitle}>Sign-up bonus</AppText>
-            <AppText style={styles.bonusSub}>
-              Earn{' '}
-              <AppText style={styles.bonusXp}>+50 XP</AppText>
-              {' '}when you create your account!
-            </AppText>
-          </View>
-        </View>
 
-        {/* Social login stubs */}
-        <View style={styles.socialRow}>
-          <Pressable
-            style={styles.socialBtn}
-            onPress={() => Alert.alert('Coming soon', 'Google login is coming soon!')}>
-            <GoogleIcon size={24} />
-            <AppText style={styles.socialLabel}>Google</AppText>
-          </Pressable>
-          <Pressable
-            style={styles.socialBtn}
-            onPress={() => Alert.alert('Coming soon', 'Apple login is coming soon!')}>
-            <AppleIcon size={24} color={colors.dark} />
-            <AppText style={styles.socialLabel}>Apple</AppText>
-          </Pressable>
-        </View>
-
-        {/* Divider */}
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <AppText style={styles.dividerText}>or with email</AppText>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Fields */}
-        {[
-          { key: 'name', label: copy.auth.displayName, value: displayName, set: setDisplayName, type: 'default', cap: 'words' as const },
-          { key: 'email', label: copy.auth.email, value: email, set: setEmail, type: 'email-address', cap: 'none' as const },
-        ].map(f => (
-          <View key={f.key} style={styles.fieldWrap}>
-            <AppText style={[styles.label, focused === f.key && styles.labelFocused]}>
-              {f.label}
-            </AppText>
-            <TextInput
-              style={[styles.input, styles.inputText, focused === f.key && styles.inputFocused]}
-              value={f.value}
-              onChangeText={f.set}
-              onFocus={() => setFocused(f.key)}
-              onBlur={() => setFocused(null)}
-              autoCapitalize={f.cap}
-              keyboardType={f.type as any}
-              placeholder={f.key === 'email' ? 'ahmad@email.com' : 'Ahmad Al-Rashid'}
-              placeholderTextColor={`${colors.grey}80`}
-            />
-          </View>
-        ))}
-
-        {/* Password */}
-        <View style={styles.fieldWrap}>
-          <AppText style={[styles.label, focused === 'pw' && styles.labelFocused]}>
-            {copy.auth.password}
-          </AppText>
-          <View style={styles.pwWrap}>
-            <TextInput
-              style={[styles.input, styles.inputText, styles.pwInput, focused === 'pw' && styles.inputFocused]}
-              secureTextEntry={!showPw}
-              value={password}
-              onChangeText={setPassword}
-              onFocus={() => setFocused('pw')}
-              onBlur={() => setFocused(null)}
-              placeholder="Min. 6 characters"
-              placeholderTextColor={`${colors.grey}80`}
-            />
-            <Pressable style={styles.eyeBtn} onPress={() => setShowPw(v => !v)}>
-              <EyeIcon open={showPw} size={20} color={colors.grey} />
-            </Pressable>
-          </View>
-          {password.length > 0 && (
-            <View style={styles.strengthRow}>
-              {[1, 2, 3].map(i => (
-                <View
-                  key={i}
-                  style={[
-                    styles.strengthSeg,
-                    { backgroundColor: strength >= i ? STRENGTH_COLORS[strength] : `${colors.grey}30` },
-                  ]}
-                />
-              ))}
-              <AppText style={[styles.strengthLabel, { color: STRENGTH_COLORS[strength] }]}>
-                {STRENGTH_LABELS[strength]}
+          {/* Bonus chip */}
+          <View style={styles.bonus}>
+            <View style={styles.bonusIcon}>
+              <EmojiText size={20}>⭐</EmojiText>
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppText style={styles.bonusTitle}>Sign-up bonus</AppText>
+              <AppText style={styles.bonusSub}>
+                Earn{' '}
+                <AppText style={styles.bonusXp}>+50 XP</AppText>
+                {' '}when you create your account!
               </AppText>
             </View>
-          )}
-        </View>
+          </View>
 
-        {/* Terms */}
-        <AppText style={styles.terms}>
-          By continuing you agree to our{' '}
-          <AppText style={styles.termsLink} onPress={() => navigation.navigate('Terms')}>Terms</AppText>
-          {' & '}
-          <AppText style={styles.termsLink} onPress={() => navigation.navigate('Privacy')}>Privacy</AppText>
-        </AppText>
+          {/* Social login stubs */}
+          <View style={styles.socialRow}>
+            <Pressable
+              style={styles.socialBtn}
+              onPress={() => Alert.alert('Coming soon', 'Google login is coming soon!')}>
+              <GoogleIcon size={24} />
+              <AppText style={styles.socialLabel}>Google</AppText>
+            </Pressable>
+            <Pressable
+              style={styles.socialBtn}
+              onPress={() => Alert.alert('Coming soon', 'Apple login is coming soon!')}>
+              <AppleIcon size={24} color={colors.dark} />
+              <AppText style={styles.socialLabel}>Apple</AppText>
+            </Pressable>
+          </View>
 
-        <PrimaryButton
-          title="Create Account ✦"
-          onPress={submit}
-          loading={loading}
-          disabled={!valid}
-          variant={valid ? 'primary' : 'disabled'}
-          style={styles.cta}
-        />
-        <Pressable onPress={() => navigation.navigate('AuthLogin')}>
-          <AppText style={styles.switchLink}>
-            Have an account?{' '}
-            <AppText style={styles.switchLinkBold}>Sign in</AppText>
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <AppText style={styles.dividerText}>or with email</AppText>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Name */}
+          <View style={styles.fieldWrap}>
+            <AppText style={[styles.label, focused === 'name' && styles.labelFocused]}>
+              {copy.auth.displayName}
+            </AppText>
+            <TextInput
+              style={[styles.input, styles.inputText, focused === 'name' && styles.inputFocused]}
+              value={displayName}
+              onChangeText={setDisplayName}
+              onFocus={() => setFocused('name')}
+              onBlur={() => setFocused(null)}
+              autoCapitalize="words"
+              keyboardType="default"
+              placeholder="Ahmad Al-Rashid"
+              placeholderTextColor={`${colors.grey}80`}
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
+              blurOnSubmit={false}
+            />
+          </View>
+
+          {/* Email */}
+          <View style={styles.fieldWrap}>
+            <AppText style={[styles.label, focused === 'email' && styles.labelFocused]}>
+              {copy.auth.email}
+            </AppText>
+            <TextInput
+              ref={emailRef}
+              style={[styles.input, styles.inputText, focused === 'email' && styles.inputFocused]}
+              value={email}
+              onChangeText={setEmail}
+              onFocus={() => setFocused('email')}
+              onBlur={() => setFocused(null)}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              textContentType="emailAddress"
+              placeholder="ahmad@email.com"
+              placeholderTextColor={`${colors.grey}80`}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              blurOnSubmit={false}
+            />
+          </View>
+
+          {/* Password */}
+          <View style={styles.fieldWrap}>
+            <AppText style={[styles.label, focused === 'pw' && styles.labelFocused]}>
+              {copy.auth.password}
+            </AppText>
+            <View style={styles.pwWrap}>
+              <TextInput
+                ref={passwordRef}
+                style={[styles.input, styles.inputText, styles.pwInput, focused === 'pw' && styles.inputFocused]}
+                secureTextEntry={!showPw}
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setFocused('pw')}
+                onBlur={() => setFocused(null)}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="new-password"
+                textContentType="newPassword"
+                placeholder="Min. 8 characters"
+                placeholderTextColor={`${colors.grey}80`}
+                returnKeyType="done"
+                onSubmitEditing={valid ? submit : undefined}
+              />
+              <Pressable style={styles.eyeBtn} onPress={() => setShowPw(v => !v)}>
+                <EyeIcon open={showPw} size={20} color={colors.grey} />
+              </Pressable>
+            </View>
+            {password.length > 0 && (
+              <View style={styles.strengthRow}>
+                {[1, 2, 3].map(i => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.strengthSeg,
+                      { backgroundColor: strength >= i ? STRENGTH_COLORS[strength] : `${colors.grey}30` },
+                    ]}
+                  />
+                ))}
+                <AppText style={[styles.strengthLabel, { color: STRENGTH_COLORS[strength] }]}>
+                  {STRENGTH_LABELS[strength]}
+                </AppText>
+              </View>
+            )}
+          </View>
+
+          {/* Terms */}
+          <AppText style={styles.terms}>
+            By continuing you agree to our{' '}
+            <AppText style={styles.termsLink} onPress={() => navigation.navigate('Terms')}>Terms</AppText>
+            {' & '}
+            <AppText style={styles.termsLink} onPress={() => navigation.navigate('Privacy')}>Privacy</AppText>
           </AppText>
-        </Pressable>
-      </ScrollView>
+
+          <PrimaryButton
+            title="Create Account ✦"
+            onPress={submit}
+            loading={loading}
+            disabled={!valid}
+            variant={valid ? 'primary' : 'disabled'}
+            style={styles.cta}
+          />
+          <Pressable onPress={() => navigation.navigate('AuthLogin')}>
+            <AppText style={styles.switchLink}>
+              Have an account?{' '}
+              <AppText style={styles.switchLinkBold}>Sign in</AppText>
+            </AppText>
+          </Pressable>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );

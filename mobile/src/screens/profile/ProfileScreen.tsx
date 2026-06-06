@@ -65,7 +65,7 @@ export function ProfileScreen() {
   };
 
   return (
-    <Screen style={styles.screen}>
+    <Screen style={styles.screen} edges={['top']}>
       <JourneyTopBar
         streak={learning?.current_streak}
         xp={learning?.xp_total}

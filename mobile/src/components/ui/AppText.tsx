@@ -1,6 +1,6 @@
 import React from 'react';
-import { Text, TextProps } from 'react-native';
-import { typography, arabicFontForScript, androidSafeFont } from '../../theme/typography';
+import { Platform, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
+import { typography, arabicFontForScript, androidSafeFont, fontFamily } from '../../theme/typography';
 import { getScriptPreferenceSync } from '../../utils/storage';
 
 type Variant = keyof typeof typography;
@@ -9,13 +9,31 @@ interface Props extends TextProps {
   variant?: Variant;
 }
 
+function isBoldWeight(weight: TextStyle['fontWeight']): boolean {
+  if (weight == null) return false;
+  if (weight === 'bold') return true;
+  const n = typeof weight === 'number' ? weight : parseInt(String(weight), 10);
+  return !Number.isNaN(n) && n >= 700;
+}
+
 export function AppText({ variant = 'body', style, ...rest }: Props) {
-  const base = androidSafeFont(typography[variant]);
-  // For arabic variant, apply the user's chosen script font
   const fontOverride =
     variant === 'arabic'
       ? { fontFamily: arabicFontForScript(getScriptPreferenceSync()) }
       : undefined;
 
-  return <Text style={[base, fontOverride, style]} {...rest} />;
+  const merged = StyleSheet.flatten([typography[variant], fontOverride, style]) as TextStyle;
+  const safe = androidSafeFont(merged);
+
+  if (Platform.OS === 'android') {
+    if (!fontOverride && isBoldWeight(merged.fontWeight)) {
+      // Only apply Nunito-Bold when no explicit Arabic font was set; otherwise
+      // the bold check would replace the Arabic font family with Nunito-Bold.
+      safe.fontFamily = fontFamily.bold;
+    } else if (!safe.fontFamily) {
+      safe.fontFamily = fontFamily.regular;
+    }
+  }
+
+  return <Text style={safe} {...rest} />;
 }

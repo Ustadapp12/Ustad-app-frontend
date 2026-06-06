@@ -1,5 +1,14 @@
-import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, Alert, Pressable } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  Alert,
+  Pressable,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
@@ -17,13 +26,18 @@ type Props = NativeStackScreenProps<RootStackParamList, 'NewPassword'>;
 
 function pwStrength(pw: string): 0 | 1 | 2 | 3 {
   if (pw.length === 0) return 0;
-  if (pw.length < 4) return 1;
-  if (pw.length < 8) return 2;
-  return 3;
+  if (pw.length < 8) return 1; // Risky — too short
+  const hasUpper   = /[A-Z]/.test(pw);
+  const hasDigit   = /[0-9]/.test(pw);
+  const hasSpecial = /[^A-Za-z0-9]/.test(pw);
+  const score = [hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+  if (score >= 2) return 3; // Strong
+  if (score >= 1) return 2; // Medium
+  return 1;                 // Risky — all lowercase, no complexity
 }
 
 const STRENGTH_COLORS = ['transparent', colors.heart, colors.yellow, colors.primary];
-const STRENGTH_LABELS = ['', 'Too short', 'Good', '💪 Strong'];
+const STRENGTH_LABELS = ['', 'Risky', 'Medium', '💪 Strong'];
 
 export function NewPasswordScreen({ route, navigation }: Props) {
   const { email, code } = route.params;
@@ -34,6 +48,8 @@ export function NewPasswordScreen({ route, navigation }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
+
+  const confirmRef = useRef<TextInput>(null);
 
   const strength = pwStrength(password);
   const passwordsMatch = password === confirm && confirm.length > 0;
@@ -75,97 +91,122 @@ export function NewPasswordScreen({ route, navigation }: Props) {
         <BackButton onPress={() => navigation.goBack()} />
       </View>
 
-      <View style={styles.content}>
-        <IconBadge emoji="🔑" size={88} style={styles.iconWrap} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
 
-        <AppText variant="h1" style={styles.title}>Set new password</AppText>
-        <AppText style={styles.sub}>
-          Choose a strong password with at least 8 characters.
-        </AppText>
+          <View style={styles.content}>
+            <IconBadge emoji="🔑" size={88} style={styles.iconWrap} />
 
-        {/* New password */}
-        <View style={styles.fieldWrap}>
-          <AppText style={[styles.label, focused === 'pw' && styles.labelFocused]}>
-            NEW PASSWORD
-          </AppText>
-          <View style={styles.pwWrap}>
-            <TextInput
-              style={[
-                styles.input,
-                styles.pwInput,
-                focused === 'pw' && styles.inputFocused,
-              ]}
-              secureTextEntry={!showPw}
-              value={password}
-              onChangeText={setPassword}
-              onFocus={() => setFocused('pw')}
-              onBlur={() => setFocused(null)}
-              placeholder="Min. 8 characters"
-              placeholderTextColor={`${colors.grey}80`}
-            />
-            <Pressable style={styles.eyeBtn} onPress={() => setShowPw(v => !v)}>
-              <EyeIcon open={showPw} size={20} color={colors.grey} />
-            </Pressable>
-          </View>
-          {password.length > 0 && (
-            <View style={styles.strengthRow}>
-              {[1, 2, 3].map(i => (
-                <View
-                  key={i}
-                  style={[
-                    styles.strengthSeg,
-                    { backgroundColor: strength >= i ? STRENGTH_COLORS[strength] : `${colors.grey}30` },
-                  ]}
-                />
-              ))}
-              <AppText style={[styles.strengthLabel, { color: STRENGTH_COLORS[strength] }]}>
-                {STRENGTH_LABELS[strength]}
-              </AppText>
-            </View>
-          )}
-        </View>
-
-        {/* Confirm password */}
-        <View style={styles.fieldWrap}>
-          <AppText style={[styles.label, focused === 'confirm' && styles.labelFocused]}>
-            CONFIRM PASSWORD
-          </AppText>
-          <View style={styles.pwWrap}>
-            <TextInput
-              style={[
-                styles.input,
-                styles.pwInput,
-                focused === 'confirm' && styles.inputFocused,
-                confirm.length > 0 && !passwordsMatch && styles.inputError,
-              ]}
-              secureTextEntry={!showConfirm}
-              value={confirm}
-              onChangeText={setConfirm}
-              onFocus={() => setFocused('confirm')}
-              onBlur={() => setFocused(null)}
-              placeholder="Repeat password"
-              placeholderTextColor={`${colors.grey}80`}
-            />
-            <Pressable style={styles.eyeBtn} onPress={() => setShowConfirm(v => !v)}>
-              <EyeIcon open={showConfirm} size={20} color={colors.grey} />
-            </Pressable>
-          </View>
-          {confirm.length > 0 && (
-            <AppText style={[styles.matchLabel, passwordsMatch && styles.matchLabelOk]}>
-              {passwordsMatch ? '✓ Passwords match' : 'Passwords do not match'}
+            <AppText variant="h1" style={styles.title}>Set new password</AppText>
+            <AppText style={styles.sub}>
+              Use 8+ characters with a mix of uppercase, numbers, and symbols.
             </AppText>
-          )}
-        </View>
 
-        <PrimaryButton
-          title="Update Password ✦"
-          onPress={submit}
-          loading={loading}
-          disabled={!valid}
-          variant={valid ? 'primary' : 'disabled'}
-          style={styles.cta}
-        />
-      </View>
+            {/* New password */}
+            <View style={styles.fieldWrap}>
+              <AppText style={[styles.label, focused === 'pw' && styles.labelFocused]}>
+                NEW PASSWORD
+              </AppText>
+              <View style={styles.pwWrap}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.pwInput,
+                    focused === 'pw' && styles.inputFocused,
+                  ]}
+                  secureTextEntry={!showPw}
+                  value={password}
+                  onChangeText={setPassword}
+                  onFocus={() => setFocused('pw')}
+                  onBlur={() => setFocused(null)}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  placeholder="Min. 8 characters"
+                  placeholderTextColor={`${colors.grey}80`}
+                  returnKeyType="next"
+                  onSubmitEditing={() => confirmRef.current?.focus()}
+                  blurOnSubmit={false}
+                />
+                <Pressable style={styles.eyeBtn} onPress={() => setShowPw(v => !v)}>
+                  <EyeIcon open={showPw} size={20} color={colors.grey} />
+                </Pressable>
+              </View>
+              {password.length > 0 && (
+                <View style={styles.strengthRow}>
+                  {[1, 2, 3].map(i => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.strengthSeg,
+                        { backgroundColor: strength >= i ? STRENGTH_COLORS[strength] : `${colors.grey}30` },
+                      ]}
+                    />
+                  ))}
+                  <AppText style={[styles.strengthLabel, { color: STRENGTH_COLORS[strength] }]}>
+                    {STRENGTH_LABELS[strength]}
+                  </AppText>
+                </View>
+              )}
+            </View>
+
+            {/* Confirm password */}
+            <View style={styles.fieldWrap}>
+              <AppText style={[styles.label, focused === 'confirm' && styles.labelFocused]}>
+                CONFIRM PASSWORD
+              </AppText>
+              <View style={styles.pwWrap}>
+                <TextInput
+                  ref={confirmRef}
+                  style={[
+                    styles.input,
+                    styles.pwInput,
+                    focused === 'confirm' && styles.inputFocused,
+                    confirm.length > 0 && !passwordsMatch && styles.inputError,
+                  ]}
+                  secureTextEntry={!showConfirm}
+                  value={confirm}
+                  onChangeText={setConfirm}
+                  onFocus={() => setFocused('confirm')}
+                  onBlur={() => setFocused(null)}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  placeholder="Repeat password"
+                  placeholderTextColor={`${colors.grey}80`}
+                  returnKeyType="done"
+                  onSubmitEditing={valid ? submit : undefined}
+                />
+                <Pressable style={styles.eyeBtn} onPress={() => setShowConfirm(v => !v)}>
+                  <EyeIcon open={showConfirm} size={20} color={colors.grey} />
+                </Pressable>
+              </View>
+              {confirm.length > 0 && (
+                <AppText style={[styles.matchLabel, passwordsMatch && styles.matchLabelOk]}>
+                  {passwordsMatch ? '✓ Passwords match' : 'Passwords do not match'}
+                </AppText>
+              )}
+            </View>
+
+            <PrimaryButton
+              title="Update Password ✦"
+              onPress={submit}
+              loading={loading}
+              disabled={!valid}
+              variant={valid ? 'primary' : 'disabled'}
+              style={styles.cta}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -177,11 +218,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     zIndex: 1,
   },
+  scroll: {
+    flexGrow: 1,
+  },
   content: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.screenHorizontal,
+    paddingVertical: spacing.xl,
     gap: spacing.md,
     zIndex: 1,
   },
@@ -229,7 +274,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
   },
-  eyeIcon: { fontSize: 18 },
   strengthRow: {
     flexDirection: 'row',
     alignItems: 'center',

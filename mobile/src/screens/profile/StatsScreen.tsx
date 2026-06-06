@@ -37,7 +37,7 @@ export function StatsScreen() {
 
   if (loading) {
     return (
-      <Screen style={styles.screen}>
+      <Screen style={styles.screen} edges={['top']}>
         <IrabBackground color={colors.yellow} />
         <JourneyTopBar
           streak={learning?.current_streak}
@@ -60,7 +60,7 @@ export function StatsScreen() {
   const gems = learning?.gem_balance ?? 0;
 
   return (
-    <Screen style={styles.screen}>
+    <Screen style={styles.screen} edges={['top']}>
       <IrabBackground color={colors.yellow} />
       <JourneyTopBar
         streak={learning?.current_streak}

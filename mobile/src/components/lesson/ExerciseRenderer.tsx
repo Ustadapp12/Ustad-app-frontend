@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '../ui/AppText';
 import { EmojiText } from '../ui/EmojiText';
 import { PrimaryButton } from '../ui/PrimaryButton';
@@ -22,6 +23,11 @@ import { resolveAyahPlayUrl, resolveWordPlayUrl, warmAudioUrlCache } from '../..
 import { SpeakerIcon } from '../ui/Icons';
 import type { ExerciseStep } from '../../lesson/types';
 import { wordsInAyahOrder } from '../../lesson/wordOrder';
+import {
+  getFillBlankCorrectAnswer,
+  resolveBlankDisplay,
+  resolveFullAyahArabic,
+} from '../../lesson/exerciseHelpers';
 import { ayahIdForApi } from '../../utils/ayahId';
 import type { WordOut } from '../../types/api';
 
@@ -36,6 +42,9 @@ interface Props {
 }
 
 export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, onClose, onComplete }: Props) {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, spacing.sm);
+
   // answer state
   const [selected, setSelected] = useState<number | null>(null);
   const [filledWord, setFilledWord] = useState<string | null>(null);
@@ -122,12 +131,9 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
       case 'interstitial':
         correct = true;
         break;
-      case 'fill_blank': {
-        const correctWord = step.options?.[step.correctIndex ?? 0]
-          ?? step.ayah.words[step.blankPosition ?? 0]?.arabic ?? '';
-        correct = filledWord === correctWord;
+      case 'fill_blank':
+        correct = filledWord === getFillBlankCorrectAnswer(step);
         break;
-      }
       case 'reorder':
         correct = step.correctOrder
           ? order.join('|') === step.correctOrder.join('|')
@@ -211,15 +217,16 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
 
           {/* ══ LISTEN ═══════════════════════════════════════════ */}
           {(step.type === 'listen' || step.type === 'listen_repeat') && (() => {
-            const listenWords = step.metadataWords ?? step.ayah.words;
-            const hasWords = (listenWords?.length ?? 0) > 0;
+            const listenWords = step.metadataWords ?? step.ayah.words ?? [];
+            const hasWords = listenWords.length > 0;
+            const fullAyah = resolveFullAyahArabic(step.ayah.arabic, listenWords);
             return (
             <View style={styles.listenBlock}>
               <AudioPlayButton url={audioUrl} label="Play full ayah" />
-              {step.ayah.arabic ? (
+              {fullAyah ? (
                 <View style={styles.ayahCard}>
                   <AppText variant="arabic" style={styles.ayahCardText}>
-                    {step.ayah.arabic}
+                    {fullAyah}
                   </AppText>
                 </View>
               ) : null}
@@ -260,21 +267,22 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
           })()}
 
           {/* ══ FILL BLANK ═══════════════════════════════════════ */}
-          {step.type === 'fill_blank' && (
+          {step.type === 'fill_blank' && (() => {
+            const correctAnswer = getFillBlankCorrectAnswer(step);
+            const options = step.options ?? step.ayah.words.map(w => w.arabic);
+            return (
             <View style={styles.fillBlankBlock}>
-              {/* Show blank-display WITHOUT full ayah */}
               <View style={styles.blankAyahCard}>
                 <AppText variant="arabic" style={styles.blankAyahText}>
-                  {step.blankDisplay ?? step.ayah.arabic}
+                  {resolveBlankDisplay(step)}
                 </AppText>
-                <View style={styles.blankUnderline} />
               </View>
               <AppText style={styles.tileHint}>Choose the missing word</AppText>
               <View style={styles.tileRow}>
-                {(step.options ?? step.ayah.words.map(w => w.arabic)).map((w, i) => {
+                {options.map((w, i) => {
                   const isSelected = filledWord === w;
-                  const isRight = checked && i === step.correctIndex;
-                  const isWrong = checked && isSelected && i !== step.correctIndex;
+                  const isRight = checked && w === correctAnswer;
+                  const isWrong = checked && isSelected && w !== correctAnswer;
                   return (
                     <Pressable key={`${w}-${i}`} disabled={checked}
                       onPress={() => setFilledWord(w)}
@@ -287,7 +295,8 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
                 })}
               </View>
             </View>
-          )}
+            );
+          })()}
 
           {/* ══ REORDER ══════════════════════════════════════════ */}
           {step.type === 'reorder' && (
@@ -416,7 +425,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
     <Animated.View style={[
       styles.feedbackPanel,
       isCorrect ? styles.feedbackPanelOk : styles.feedbackPanelBad,
-      { transform: [{ translateY: feedbackSlide }] },
+      { transform: [{ translateY: feedbackSlide }], paddingBottom: bottomInset + spacing.lg },
     ]}>
       <View style={styles.feedbackTop}>
         <View style={[styles.feedbackIcon, isCorrect ? styles.feedbackIconOk : styles.feedbackIconBad]}>
@@ -446,7 +455,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
       {renderBody()}
 
       {/* Bottom action area */}
-      <View style={styles.bottomArea}>
+      <View style={[styles.bottomArea, { paddingBottom: bottomInset + spacing.md }]}>
         {!checked ? (
           <PrimaryButton
             title={step.type === 'listen' ? 'Continue →' : 'Check'}
@@ -597,7 +606,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end', borderWidth: 1, borderColor: `${colors.grey}20`,
   },
   blankAyahText: { fontSize: 24, lineHeight: 42, textAlign: 'right', color: colors.dark },
-  blankUnderline: { height: 2, width: 60, backgroundColor: colors.primary, marginTop: spacing.xs, alignSelf: 'center', borderRadius: 1 },
   tileHint: { fontSize: 11, fontWeight: '700', color: colors.grey, textAlign: 'center' },
   tileRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
   tile: {

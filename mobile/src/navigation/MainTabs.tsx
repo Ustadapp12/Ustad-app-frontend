@@ -1,6 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { StatsScreen } from '../screens/profile/StatsScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
@@ -10,6 +11,7 @@ import {
   TabProfileIcon,
 } from '../components/ui/Icons';
 import { colors } from '../theme/colors';
+import { fontFamily } from '../theme/typography';
 import type { MainTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -31,6 +33,9 @@ function TabIcon({ name, color }: { name: string; color: string }) {
 }
 
 export function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = 52 + insets.bottom;
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -40,13 +45,13 @@ export function MainTabs() {
         tabBarStyle: {
           backgroundColor: 'rgba(8,14,22,0.97)',
           borderTopColor: `${colors.grey}18`,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 4,
+          height: tabBarHeight,
+          paddingBottom: Math.max(insets.bottom, 8),
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '700',
+          fontFamily: fontFamily.bold,
         },
       }}>
       <Tab.Screen

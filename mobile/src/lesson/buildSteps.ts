@@ -1,5 +1,7 @@
 import type { AyahOut, ExerciseOut, WordOut } from '../types/api';
 import type { ExerciseStep, ExerciseType } from './types';
+import { wordsInAyahOrder } from './wordOrder';
+import { BLANK_PLACEHOLDER } from './exerciseHelpers';
 
 export function buildLessonSteps(ayahs: AyahOut[]): ExerciseStep[] {
   const steps: ExerciseStep[] = [];
@@ -14,10 +16,23 @@ export function buildLessonSteps(ayahs: AyahOut[]): ExerciseStep[] {
     }
     const words = ayah.words ?? [];
     if (words.length >= 2) {
+      const ordered = wordsInAyahOrder(words);
+      const blankIdx = Math.min(1, ordered.length - 1);
+      const blankWord = ordered[blankIdx];
+      const distractors = ordered
+        .filter((_, i) => i !== blankIdx)
+        .map(w => w.arabic)
+        .slice(0, 3);
+      const options = shuffle([blankWord.arabic, ...distractors]);
       steps.push({
         type: 'fill_blank',
         ayah,
-        blankPosition: Math.min(1, words.length - 1),
+        blankPosition: blankWord.position,
+        options,
+        correctIndex: options.indexOf(blankWord.arabic),
+        blankDisplay: ordered
+          .map((w, i) => (i === blankIdx ? BLANK_PLACEHOLDER : w.arabic))
+          .join(' '),
       });
       steps.push({ type: 'reorder', ayah });
     }
