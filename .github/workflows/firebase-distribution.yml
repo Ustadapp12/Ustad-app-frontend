@@ -117,16 +117,3 @@ jobs:
             Ref: ${{ github.ref_name }}
             Triggered by: ${{ github.actor }}
             Sentry release: com.ustadapp@0.0.1+${{ github.run_number }}
-
-      - name: Register Sentry release
-        if: ${{ secrets.SENTRY_AUTH_TOKEN != '' && vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' }}
-        uses: getsentry/action-release@v1
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-        with:
-          environment: production
-          version: com.ustadapp@0.0.1+${{ github.run_number }}
-          ignore_missing: true
-          ignore_empty: true
