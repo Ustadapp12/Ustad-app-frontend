@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { learningApi } from '../api';
 import { ApiError } from '../api/client';
+import { getTokens } from '../utils/storage';
 
 const PENDING_KEY = '@ustadapp/pending-lesson-session/v1';
 
@@ -33,14 +34,20 @@ export async function clearPendingLessonSession(): Promise<void> {
 function isBenignAbandonError(e: unknown): boolean {
   return (
     e instanceof ApiError &&
-    (e.status === 400 || e.status === 404 || e.status === 409)
+    (e.status === 401 || e.status === 400 || e.status === 404 || e.status === 409)
   );
+}
+
+async function hasAuthToken(): Promise<boolean> {
+  const tokens = await getTokens();
+  return !!tokens?.access_token;
 }
 
 /**
  * POST /learning/sessions/abandon-active — use on background, app close, leave lesson.
  */
 export async function abandonActiveLessonSession(): Promise<void> {
+  if (!(await hasAuthToken())) return;
   try {
     await learningApi.abandonActive();
   } catch (e) {
@@ -52,6 +59,7 @@ export async function abandonActiveLessonSession(): Promise<void> {
 
 /** POST /learning/sessions/{id}/abandon when a specific session id is known. */
 export async function abandonLessonSessionById(sessionId: string): Promise<void> {
+  if (!(await hasAuthToken())) return;
   try {
     await learningApi.abandonSession(sessionId);
   } catch (e) {

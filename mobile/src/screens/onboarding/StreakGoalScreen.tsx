@@ -6,7 +6,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { Mascot } from '../../components/ui/Mascot';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
-import { usersApi } from '../../api';
+import { updateProfileIfAuthed } from '../../api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation/types';
@@ -49,7 +49,7 @@ export function StreakGoalScreen({ navigation }: Props) {
 
   const finish = async () => {
     await saveOnboarding({ streakGoalDays: days });
-    usersApi.updateProfile({ streak_goal_days: days }).catch(() => null);
+    updateProfileIfAuthed({ streak_goal_days: days });
     await setOnboardingDone(true);
     navigation.navigate('AuthRegister');
   };

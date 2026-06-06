@@ -53,6 +53,9 @@ yarn-error.log
 **/fastlane/screenshots
 **/fastlane/test_output
 
+# Release signing (never commit)
+android/keystore.properties
+
 # Firebase — download from Firebase Console per app (never commit production secrets in public repos)
 android/app/google-services.json
 ios/GoogleService-Info.plist

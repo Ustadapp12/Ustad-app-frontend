@@ -6,7 +6,7 @@ import { EmojiText } from '../../components/ui/EmojiText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
-import { usersApi } from '../../api';
+import { updateProfileIfAuthed } from '../../api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation/types';
@@ -47,7 +47,7 @@ export function PathChooseScreen({ navigation }: Props) {
           : undefined;
     await saveOnboarding({ pathChoice: selected, learnerMode });
     if (learnerMode) {
-      usersApi.updateProfile({ learner_mode: learnerMode }).catch(() => null);
+      updateProfileIfAuthed({ learner_mode: learnerMode });
     }
     if (selected === 'placement') {
       navigation.navigate('PlacementIntro');

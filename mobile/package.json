@@ -3,11 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "postinstall": "powershell -ExecutionPolicy Bypass -File scripts/patch-foojay.ps1",
+    "postinstall": "node scripts/patch-foojay.mjs",
     "android": "react-native run-android",
     "generate:icons": "node scripts/generate-android-icons.mjs",
     "link:fonts": "node scripts/link-fonts.mjs",
     "build:apk": "npm run link:fonts && npm run generate:icons && node scripts/build-apk.mjs",
+    "keystore:generate": "bash scripts/generate-release-keystore.sh",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",

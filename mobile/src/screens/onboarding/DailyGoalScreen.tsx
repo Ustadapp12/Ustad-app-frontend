@@ -7,7 +7,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ProgressHeader } from '../../components/ui/ProgressHeader';
 import { copy } from '../../i18n/copy';
 import { saveOnboarding } from '../../utils/storage';
-import { usersApi } from '../../api';
+import { updateProfileIfAuthed } from '../../api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation/types';
@@ -43,7 +43,7 @@ export function DailyGoalScreen({ navigation }: Props) {
           title={copy.dailyGoal.cta}
           onPress={async () => {
             await saveOnboarding({ dailyGoalMinutes: selected as 5 | 10 | 15 | 20 });
-            usersApi.updateProfile({ daily_goal_minutes: selected }).catch(() => null);
+            updateProfileIfAuthed({ daily_goal_minutes: selected });
             navigation.navigate('OnboardingNotifications');
           }}
         />

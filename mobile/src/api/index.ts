@@ -1,4 +1,5 @@
 import { api } from './client';
+import { getTokens } from '../utils/storage';
 import type {
   AuthMeResponse,
   AuthResponse,
@@ -80,13 +81,22 @@ export const authApi = {
 
 // ── Users / Profile ──────────────────────────────────────────────
 
+type ProfilePatch = Partial<Omit<UserProfile, 'avatar_url'> & { display_name?: string }>;
+
 export const usersApi = {
-  updateProfile: (body: Partial<Omit<UserProfile, 'avatar_url'> & { display_name?: string }>) =>
+  updateProfile: (body: ProfilePatch) =>
     api<AuthMeResponse>('/users/me/profile', {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
 };
+
+/** PATCH profile only when logged in — safe during pre-auth onboarding. */
+export async function updateProfileIfAuthed(body: ProfilePatch): Promise<void> {
+  const tokens = await getTokens();
+  if (!tokens?.access_token) return;
+  await usersApi.updateProfile(body).catch(() => undefined);
+}
 
 // ── Content ──────────────────────────────────────────────────────
 
