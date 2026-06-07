@@ -219,7 +219,8 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     const { sessionId, steps, correctCount, mistakes, result } = get();
     if (result) return result;
     if (!sessionId) throw new Error('No session');
-    const score_pct = Math.round((correctCount / Math.max(steps.length, 1)) * 100);
+    const answerableSteps = steps.filter(s => s.type !== 'listen' && s.type !== 'interstitial').length;
+    const score_pct = Math.round((correctCount / Math.max(answerableSteps, 1)) * 100);
     const passed = score_pct >= 70;
     const completed = await learningApi.complete(sessionId, {
       passed,

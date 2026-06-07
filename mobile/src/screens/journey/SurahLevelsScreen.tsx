@@ -121,10 +121,22 @@ export function SurahLevelsScreen({ route, navigation }: Props) {
                 style={[styles.stageCard, !canOpen && styles.stageCardLocked]}
                 onPress={() => {
                   if (!canOpen || !groupId) return;
-                  navigation.navigate('LessonStart', {
-                    groupId,
-                    label: stage.title_en,
-                  });
+                  // Show stage intro only the first time (status === 'available')
+                  if (stage.status === 'available') {
+                    navigation.navigate('StageIntro', {
+                      groupId,
+                      stageType: stage.stage_type,
+                      stageTitle: stage.title_en,
+                      surahNameEn: nameEn,
+                      surahNumber,
+                      xpReward: stage.xp_reward,
+                    });
+                  } else {
+                    navigation.navigate('LessonStart', {
+                      groupId,
+                      label: stage.title_en,
+                    });
+                  }
                 }}>
                 <View style={[styles.stageIcon, { backgroundColor: `${STATUS_COLOR[stage.status]}20` }]}>
                   <AppText style={styles.stageEmoji}>
@@ -155,7 +167,10 @@ export function SurahLevelsScreen({ route, navigation }: Props) {
                   ) : canOpen && stage.status === 'available' ? (
                     <AppText style={[styles.badgeText, { color: colors.yellow }]}>Start</AppText>
                   ) : (
-                    <AppText style={styles.lockIcon}>🔒</AppText>
+                    <View style={styles.lockBadge}>
+                      <AppText style={styles.lockIcon}>🔒</AppText>
+                      <AppText style={styles.lockHint}>70%+ to unlock</AppText>
+                    </View>
                   )}
                 </View>
               </Pressable>
@@ -242,7 +257,14 @@ const styles = StyleSheet.create({
   stageStars: { color: colors.yellow, fontSize: 13, marginTop: 3 },
   stageBadge: { alignItems: 'flex-end' },
   badgeText: { fontWeight: '800', fontSize: 12 },
+  lockBadge: { alignItems: 'center', gap: 2 },
   lockIcon: { fontSize: 16 },
+  lockHint: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.35)',
+    textAlign: 'center',
+  },
   empty: { padding: spacing.xl, marginHorizontal: spacing.screenHorizontal, alignItems: 'center' },
   emptyTitle: { color: colors.white, fontWeight: '800', fontSize: 16, marginBottom: spacing.sm, textAlign: 'center' },
   emptyBody: { color: colors.grey, lineHeight: 20, textAlign: 'center' },

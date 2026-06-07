@@ -245,15 +245,39 @@ export const revisionApi = {
 // ── Progress ─────────────────────────────────────────────────────
 
 export const progressApi = {
+  /**
+   * Submit a recitation attempt.
+   * When audioUri is provided, sends multipart/form-data with the audio file.
+   * Falls back to JSON-only (duration_ms) when no recording is available.
+   */
   voiceAttempt: (body: {
     session_id: string;
     ayah_id: string;
-    duration_ms: number;
-  }) =>
-    api<VoiceAttemptResponse>('/progress/voice-attempt', {
+    duration_ms?: number;
+    audioUri?: string;
+    audioType?: string;
+  }) => {
+    const { session_id, ayah_id, audioUri, audioType = 'audio/m4a' } = body;
+    if (audioUri) {
+      const form = new FormData();
+      form.append('ayah_id', ayah_id);
+      form.append('session_id', session_id);
+      form.append('audio', {
+        uri: audioUri,
+        name: 'recitation.m4a',
+        type: audioType,
+      } as unknown as Blob);
+      return api<VoiceAttemptResponse>('/progress/voice-attempt', {
+        method: 'POST',
+        body: form,
+      });
+    }
+    // Legacy fallback (no recording library available)
+    return api<VoiceAttemptResponse>('/progress/voice-attempt', {
       method: 'POST',
-      body: JSON.stringify(body),
-    }),
+      body: JSON.stringify({ session_id, ayah_id, duration_ms: body.duration_ms ?? 0 }),
+    });
+  },
 };
 
 // ── Helpers ──────────────────────────────────────────────────────

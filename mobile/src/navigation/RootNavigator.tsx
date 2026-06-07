@@ -27,6 +27,7 @@ import { NewPasswordScreen } from '../screens/auth/NewPasswordScreen';
 import { MainTabs } from './MainTabs';
 import { SurahLevelsScreen } from '../screens/journey/SurahLevelsScreen';
 import { LessonStartScreen } from '../screens/lesson/LessonStartScreen';
+import { StageIntroScreen } from '../screens/lesson/StageIntroScreen';
 import { LessonSessionScreen } from '../screens/lesson/LessonSessionScreen';
 import { LessonCompleteScreen } from '../screens/lesson/LessonCompleteScreen';
 import { StreakModalScreen } from '../screens/gamification/StreakModalScreen';
@@ -81,6 +82,7 @@ export function RootNavigator() {
         <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="SurahLevels" component={SurahLevelsScreen} />
+        <Stack.Screen name="StageIntro" component={StageIntroScreen} />
         <Stack.Screen name="LessonStart" component={LessonStartScreen} />
         <Stack.Screen name="LessonSession" component={LessonSessionScreen} />
         <Stack.Screen

@@ -21,6 +21,7 @@ import {
   allLevelsCached,
   getCachedLevels,
   getCachedRecommended,
+  getCachedWeakSurahs,
 } from '../../services/bootCache';
 import type { RecommendedNext } from '../../types/api';
 import { useAuthStore } from '../../store/authStore';
@@ -48,6 +49,7 @@ type SurahProgress = {
   progressPct: number;
   isLocked: boolean;
   isComplete: boolean;
+  hasWeak: boolean;
 };
 
 export function HomeScreen({ navigation }: Props) {
@@ -89,6 +91,7 @@ export function HomeScreen({ navigation }: Props) {
         levelsList = levelResults.map(r => r.status === 'fulfilled' ? r.value : []);
       }
 
+      const weakSurahs = getCachedWeakSurahs();
       const progress: SurahProgress[] = surahs.map((surah, i) => {
         const surahLevels = levelsList[i];
         const completedCount = surahLevels.filter(l => l.status === 'completed').length;
@@ -105,6 +108,7 @@ export function HomeScreen({ navigation }: Props) {
           isComplete:
             surahLevels.length > 0 &&
             surahLevels.every(l => l.status === 'completed'),
+          hasWeak: weakSurahs?.has(surah.surah_number) ?? false,
         };
       });
 
@@ -204,6 +208,13 @@ export function HomeScreen({ navigation }: Props) {
           <ChapterSection
             key={ch.surah.surah_number}
             chapter={ch}
+            onBannerPress={ch.isLocked ? undefined : () => {
+              navigation.navigate('SurahLevels', {
+                surahNumber: ch.surah.surah_number,
+                nameEn: ch.surah.name_en,
+                nameAr: ch.surah.name_ar,
+              });
+            }}
             onLevelPress={groupId => {
               navigation.navigate('LessonStart', {
                 groupId,
@@ -220,17 +231,21 @@ export function HomeScreen({ navigation }: Props) {
 
 function ChapterSection({
   chapter,
+  onBannerPress,
   onLevelPress,
 }: {
   chapter: SurahProgress;
+  onBannerPress?: () => void;
   onLevelPress: (groupId: string) => void;
 }) {
-  const { surah, levels, progressPct, isLocked, isComplete } = chapter;
+  const { surah, levels, progressPct, isLocked, isComplete, hasWeak } = chapter;
 
   return (
     <View>
-      {/* Chapter banner */}
-      <View
+      {/* Chapter banner — tappable when unlocked to see stage breakdown */}
+      <Pressable
+        onPress={onBannerPress}
+        disabled={!onBannerPress}
         style={[
           styles.banner,
           isLocked && styles.bannerLocked,
@@ -266,12 +281,22 @@ function ChapterSection({
             {isComplete && (
               <AppText style={styles.completeText}>✓ Complete!</AppText>
             )}
+            {hasWeak && !isLocked && (
+              <View style={styles.weakBadge}>
+                <AppText style={styles.weakBadgeText}>⚠ Needs revision</AppText>
+              </View>
+            )}
           </View>
-          <AppText style={[styles.bannerEn, isLocked && styles.bannerArLocked]}>
-            {surah.name_en}
-          </AppText>
+          <View style={styles.bannerRight}>
+            <AppText style={[styles.bannerEn, isLocked && styles.bannerArLocked]}>
+              {surah.name_en}
+            </AppText>
+            {!isLocked && (
+              <AppText style={styles.bannerChevron}>›</AppText>
+            )}
+          </View>
         </View>
-      </View>
+      </Pressable>
 
       {/* Level nodes */}
       {levels.map((level, index) => (
@@ -423,11 +448,18 @@ const styles = StyleSheet.create({
     fontSize: 20,
     writingDirection: 'rtl',
   },
+  bannerRight: { alignItems: 'flex-end', gap: 4 },
   bannerEn: {
     color: 'rgba(255,255,255,0.55)',
     fontWeight: '600',
     fontSize: 11,
     marginTop: 2,
+  },
+  bannerChevron: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 20,
+    fontWeight: '300',
+    lineHeight: 22,
   },
   bannerMeta: {
     color: 'rgba(255,255,255,0.65)',
@@ -472,6 +504,21 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: colors.white,
     marginTop: 2,
+  },
+  weakBadge: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: `${colors.yellow}22`,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: `${colors.yellow}50`,
+  },
+  weakBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.yellow,
   },
 
   // Locked placeholder nodes

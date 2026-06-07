@@ -3,10 +3,12 @@ import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreen } from '../screens/home/HomeScreen';
+import { RevisionScreen } from '../screens/revision/RevisionScreen';
 import { StatsScreen } from '../screens/profile/StatsScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import {
   TabHomeIcon,
+  TabRevisionIcon,
   TabStatsIcon,
   TabProfileIcon,
 } from '../components/ui/Icons';
@@ -20,6 +22,8 @@ function TabIcon({ name, color }: { name: string; color: string }) {
   const icon =
     name === 'Home' ? (
       <TabHomeIcon color={color} />
+    ) : name === 'Revision' ? (
+      <TabRevisionIcon color={color} />
     ) : name === 'Stats' ? (
       <TabStatsIcon color={color} />
     ) : (
@@ -60,6 +64,14 @@ export function MainTabs() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color }) => <TabIcon name="Home" color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Revision"
+        component={RevisionScreen}
+        options={{
+          title: 'Revise',
+          tabBarIcon: ({ color }) => <TabIcon name="Revision" color={color} />,
         }}
       />
       <Tab.Screen

@@ -39,8 +39,10 @@ export async function api<T>(
   options: RequestInit = {},
   auth = true,
 ): Promise<T> {
+  // Don't set Content-Type for FormData — fetch will add the correct multipart boundary
+  const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
   };
 

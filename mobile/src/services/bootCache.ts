@@ -12,6 +12,7 @@
 
 import { authApi, learningApi } from '../api';
 import type {
+  ExerciseOut,
   LearningStats,
   RecommendedNext,
   SurahLevel,
@@ -28,6 +29,8 @@ let _recommended: Stamped<RecommendedNext | null> | null = null;
 let _stats: Stamped<LearningStats> | null = null;
 let _profile: Stamped<UserProfile> | null = null;
 const _levels = new Map<number, Stamped<SurahLevel[]>>();
+// Set of surah numbers that have at least one weak exercise due
+let _weakSurahs: Stamped<Set<number>> | null = null;
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -58,6 +61,11 @@ export function getCachedLevels(surahNumber: number): SurahLevel[] | null {
   return alive(e) ? e.data : null;
 }
 
+/** Returns the set of surah numbers with at least one weak exercise due. */
+export function getCachedWeakSurahs(): Set<number> | null {
+  return alive(_weakSurahs) ? _weakSurahs.data : null;
+}
+
 /** True when every surah in the list has a live cache entry. */
 export function allLevelsCached(surahNumbers: number[]): boolean {
   return surahNumbers.length > 0 && surahNumbers.every(n => alive(_levels.get(n)));
@@ -82,6 +90,7 @@ export function invalidateAll(): void {
   _stats = null;
   _profile = null;
   _levels.clear();
+  _weakSurahs = null;
 }
 
 // ── Prefetch ──────────────────────────────────────────────────────
@@ -107,5 +116,12 @@ export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
       learningApi.levels(n)
         .then(d => { _levels.set(n, stamp(d)); }),
     ),
+
+    // Fetch weak exercises and derive a set of surah numbers for badge display
+    learningApi.weakExercises(50)
+      .then((exercises: ExerciseOut[]) => {
+        const surahSet = new Set(exercises.map(e => e.surah_no));
+        _weakSurahs = stamp(surahSet);
+      }),
   ]);
 }

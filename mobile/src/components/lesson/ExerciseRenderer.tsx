@@ -7,6 +7,14 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
+import { getAudioDuration, playAudioUrl as playUrl } from '../../services/audioPlayer';
+import {
+  requestMicPermission,
+  startRecording,
+  stopRecording,
+  playRecording,
+  stopPlayback,
+} from '../../services/audioRecorder';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '../ui/AppText';
 import { EmojiText } from '../ui/EmojiText';
@@ -52,10 +60,17 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
   const [seqOrder, setSeqOrder] = useState<number[]>([]);
   const [selectedWordPos, setSelectedWordPos] = useState<number | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  // listen_repeat
+  // listen_repeat — real recording
   const recordStartRef = useRef<number | null>(null);
   const [recordedMs, setRecordedMs] = useState<number | null>(null);
   const [recording, setRecording] = useState(false);
+  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [playingBack, setPlayingBack] = useState(false);
+  const [playbackPos, setPlaybackPos] = useState(0); // seconds
+  const [playbackDur, setPlaybackDur] = useState(0); // seconds
+  const [wordTimings, setWordTimings] = useState<import('../../types/api').WordTiming[] | null>(null);
+  const [highlightTimingPos, setHighlightTimingPos] = useState<string | null>(null); // word string
+  const playbackCleanup = useRef<(() => void) | null>(null);
   // feedback
   const [checked, setChecked] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -64,6 +79,20 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
   const correctScale  = useRef(new Animated.Value(1)).current;
   const wrongShake    = useRef(new Animated.Value(0)).current;
   const advancingRef  = useRef(false);
+  // word-by-word highlight (listen step)
+  const [audioDurationSec, setAudioDurationSec] = useState(0);
+  const [highlightWordPos, setHighlightWordPos] = useState<number | null>(null);
+  const highlightTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // sequence_order drag-to-reorder
+  const [seqDragIndex, setSeqDragIndex] = useState<number | null>(null);
+  const seqDragFromIndex = useRef<number | null>(null);
+  const seqDragStartY = useRef(0);
+  const seqOrderRef = useRef<number[]>(seqOrder);
+  const checkedRef = useRef(checked);
+
+  // Keep refs in sync so drag handlers see current values
+  seqOrderRef.current = seqOrder;
+  checkedRef.current = checked;
 
   useEffect(() => {
     advancingRef.current = false;
@@ -77,6 +106,17 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
     return () => { cancelled = true; };
   }, [step.ayah, step.ayahAudioUrl, stepIndex, step.type]);
 
+  // Pre-fetch audio duration for timer-based word highlighting
+  useEffect(() => {
+    let cancelled = false;
+    if (audioUrl && step.type === 'listen') {
+      getAudioDuration(audioUrl).then(dur => {
+        if (!cancelled) setAudioDurationSec(dur);
+      });
+    }
+    return () => { cancelled = true; };
+  }, [audioUrl, step.type]);
+
   const resetLocal = () => {
     setSelected(null);
     setFilledWord(null);
@@ -88,6 +128,26 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
     setChecked(false);
     feedbackSlide.setValue(200);
     correctScale.setValue(1);
+    // Clear word highlight timers
+    highlightTimers.current.forEach(clearTimeout);
+    highlightTimers.current = [];
+    setHighlightWordPos(null);
+    setAudioDurationSec(0);
+    // Clear drag state
+    setSeqDragIndex(null);
+    seqDragFromIndex.current = null;
+    // Clear recording state
+    setRecordingUri(null);
+    setRecordedMs(null);
+    setWordTimings(null);
+    setHighlightTimingPos(null);
+    setPlaybackPos(0);
+    setPlaybackDur(0);
+    setPlayingBack(false);
+    if (playbackCleanup.current) {
+      playbackCleanup.current();
+      playbackCleanup.current = null;
+    }
   };
 
   // ── Animations ────────────────────────────────────────────────
@@ -137,7 +197,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
       case 'reorder':
         correct = step.correctOrder
           ? order.join('|') === step.correctOrder.join('|')
-          : order.join('|') === step.ayah.words.map(w => w.arabic).join('|');
+          : order.join('|') === wordsInAyahOrder(step.ayah.words).map(w => w.arabic).join('|');
         break;
       case 'match_meaning':
       case 'mcq':
@@ -149,17 +209,25 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
         correct = seqOrder.join(',') === (step.sequenceAyahs?.map(a => a.number) ?? []).join(',');
         break;
       case 'listen_repeat': {
-        const dur = recordedMs ?? 0;
         if (sessionId) {
           try {
             const res = await progressApi.voiceAttempt({
               session_id: sessionId,
               ayah_id: ayahIdForApi(step.ayah),
-              duration_ms: dur,
+              audioUri: recordingUri ?? undefined,
+              duration_ms: recordedMs ?? 0,
             });
             correct = res.passed;
-          } catch { correct = dur >= 2000; }
-        } else { correct = dur >= 2000; }
+            // Store word timings for playback highlight
+            if (res.word_timings?.length) {
+              setWordTimings(res.word_timings);
+            }
+          } catch {
+            correct = (recordedMs ?? 0) >= 2000;
+          }
+        } else {
+          correct = (recordedMs ?? 0) >= 2000;
+        }
         break;
       }
       default: correct = true;
@@ -217,6 +285,34 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
     );
   };
 
+  // ── Word highlight helpers (listen step) ─────────────────────
+  const startWordHighlight = useCallback(() => {
+    highlightTimers.current.forEach(clearTimeout);
+    highlightTimers.current = [];
+    if (audioDurationSec <= 0) return;
+    const words = wordsInAyahOrder(step.metadataWords ?? step.ayah.words ?? []);
+    if (!words.length) return;
+    const msPerWord = (audioDurationSec * 1000) / words.length;
+    words.forEach((w, i) => {
+      const t = setTimeout(
+        () => setHighlightWordPos(w.position),
+        Math.round(i * msPerWord),
+      );
+      highlightTimers.current.push(t);
+    });
+    const end = setTimeout(
+      () => setHighlightWordPos(null),
+      Math.round(audioDurationSec * 1000) + 400,
+    );
+    highlightTimers.current.push(end);
+  }, [audioDurationSec, step]);
+
+  const stopWordHighlight = useCallback(() => {
+    highlightTimers.current.forEach(clearTimeout);
+    highlightTimers.current = [];
+    setHighlightWordPos(null);
+  }, []);
+
   // ── Body ─────────────────────────────────────────────────────
   const renderBody = () => {
     if (step.type === 'interstitial') {
@@ -261,9 +357,16 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
             const listenWords = step.metadataWords ?? step.ayah.words ?? [];
             const hasWords = listenWords.length > 0;
             const fullAyah = resolveFullAyahArabic(step.ayah.arabic, listenWords);
+            const isListenStep = step.type === 'listen';
             return (
             <View style={styles.listenBlock}>
-              <AudioPlayButton url={audioUrl} label="Play full ayah" />
+              <AudioPlayButton
+                url={audioUrl}
+                label="Play full ayah"
+                showSpeedControl={isListenStep}
+                onPlayStart={isListenStep ? startWordHighlight : undefined}
+                onPlayEnd={isListenStep ? stopWordHighlight : undefined}
+              />
               {fullAyah ? (
                 <View style={styles.ayahCard}>
                   <AppText variant="arabic" style={styles.ayahCardText}>
@@ -274,12 +377,15 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
               {hasWords ? (
                 <>
                   <AppText style={styles.tapHint}>
-                    Listen above, then tap each word
+                    {isListenStep
+                      ? 'Words highlight as audio plays — tap any word to see its meaning'
+                      : 'Listen above, then tap each word'}
                   </AppText>
                   <View style={styles.wordRow}>
                     {wordsInAyahOrder(listenWords).map(w => (
                       <WordChip key={w.position} word={w}
                         selected={selectedWordPos === w.position}
+                        highlighted={highlightWordPos === w.position}
                         onPress={() => setSelectedWordPos(w.position)} />
                     ))}
                   </View>
@@ -295,13 +401,104 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
                 </>
               ) : null}
               {step.type === 'listen_repeat' && !checked && (
-                <Pressable onPressIn={() => { recordStartRef.current = Date.now(); setRecording(true); }}
-                  onPressOut={() => { if (recordStartRef.current) setRecordedMs(Date.now() - recordStartRef.current); setRecording(false); }}
-                  style={[styles.recordBtn, recording && styles.recordBtnActive]}>
-                  <AppText style={styles.recordBtnText}>
-                    {recording ? '🎙  Recording…' : recordedMs ? '✓  Recorded — tap Check' : '🎙  Hold to repeat aloud'}
-                  </AppText>
-                </Pressable>
+                <>
+                  {/* Record button */}
+                  <Pressable
+                    onPressIn={async () => {
+                      const ok = await requestMicPermission();
+                      if (!ok) return;
+                      recordStartRef.current = Date.now();
+                      setRecording(true);
+                      setRecordingUri(null);
+                      await startRecording();
+                    }}
+                    onPressOut={async () => {
+                      if (!recording) return;
+                      const ms = recordStartRef.current ? Date.now() - recordStartRef.current : 0;
+                      setRecordedMs(ms);
+                      setRecording(false);
+                      const uri = await stopRecording();
+                      setRecordingUri(uri);
+                    }}
+                    style={[styles.recordBtn, recording && styles.recordBtnActive]}>
+                    <AppText style={styles.recordBtnText}>
+                      {recording
+                        ? '🎙  Recording…'
+                        : recordingUri
+                        ? '✓  Recorded — tap Check'
+                        : '🎙  Hold to recite aloud'}
+                    </AppText>
+                  </Pressable>
+
+                  {/* Playback button — appears after recording */}
+                  {recordingUri && !recording ? (
+                    <Pressable
+                      style={styles.playbackBtn}
+                      onPress={() => {
+                        if (playingBack) {
+                          playbackCleanup.current?.();
+                          playbackCleanup.current = null;
+                          setPlayingBack(false);
+                          return;
+                        }
+                        setPlayingBack(true);
+                        setHighlightTimingPos(null);
+                        const cleanup = playRecording(
+                          recordingUri,
+                          (pos, dur) => {
+                            setPlaybackPos(pos);
+                            setPlaybackDur(dur);
+                            // Highlight word whose window contains current position
+                            if (wordTimings?.length) {
+                              const current = wordTimings.find(
+                                w => pos >= w.start && pos <= w.end,
+                              );
+                              setHighlightTimingPos(current?.word ?? null);
+                            }
+                          },
+                          () => {
+                            setPlayingBack(false);
+                            setHighlightTimingPos(null);
+                          },
+                        );
+                        playbackCleanup.current = cleanup;
+                      }}>
+                      <AppText style={styles.playbackBtnText}>
+                        {playingBack ? '⏹  Stop' : '▶  Play back recording'}
+                      </AppText>
+                    </Pressable>
+                  ) : null}
+
+                  {/* Word highlight row during playback — shown when timings are available */}
+                  {wordTimings && wordTimings.length > 0 && (
+                    <View style={styles.timingRow}>
+                      {wordTimings.map((wt, i) => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.timingChip,
+                            highlightTimingPos === wt.word && styles.timingChipActive,
+                          ]}>
+                          <AppText variant="arabic" style={styles.timingWord}>
+                            {wt.word}
+                          </AppText>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Playback progress bar */}
+                  {playingBack && playbackDur > 0 ? (
+                    <View style={styles.playbackTrack}>
+                      <View
+                        style={[
+                          styles.playbackFill,
+                          { width: `${Math.min((playbackPos / playbackDur) * 100, 100)}%` },
+                        ]}
+                      />
+                    </View>
+                  ) : null}
+                </>
               )}
             </View>
             );
@@ -444,29 +641,97 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
           {/* ══ SEQUENCE ORDER ═══════════════════════════════════ */}
           {step.type === 'sequence_order' && (
             <View style={styles.seqBlock}>
+              {/* Ordered zone — items placed here can be dragged to reorder */}
               <View style={[styles.seqZone, seqOrder.length > 0 && styles.seqZoneActive]}>
-                {seqOrder.length === 0
-                  ? <AppText style={styles.dropZonePlaceholder}>Tap ayahs below in order</AppText>
-                  : seqOrder.map((num, i) => {
-                      const a = step.sequenceAyahs?.find(x => x.number === num);
-                      return (
-                        <Pressable key={`${num}-${i}`} disabled={checked}
-                          onPress={() => setSeqOrder(seqOrder.filter((_, j) => j !== i))}
-                          style={styles.seqCard}>
-                          <AppText style={styles.seqNum}>{i + 1}</AppText>
-                          <AppText variant="arabic" style={styles.seqAyah} numberOfLines={2}>{a?.ar ?? ''}</AppText>
+                {seqOrder.length === 0 ? (
+                  <AppText style={styles.dropZonePlaceholder}>
+                    Tap ayahs below to add them in order
+                  </AppText>
+                ) : (
+                  seqOrder.map((num, i) => {
+                    const a = step.sequenceAyahs?.find(x => x.number === num);
+                    const isDragging = seqDragIndex === i;
+                    return (
+                      <View
+                        key={`${num}-${i}`}
+                        style={[styles.seqCard, isDragging && styles.seqCardDragging]}>
+                        {/* Drag handle */}
+                        <View
+                          style={styles.seqDragHandle}
+                          onStartShouldSetResponder={() => !checkedRef.current}
+                          onMoveShouldSetResponder={() => !checkedRef.current}
+                          onResponderGrant={e => {
+                            seqDragFromIndex.current = i;
+                            seqDragStartY.current = e.nativeEvent.pageY;
+                            setSeqDragIndex(i);
+                          }}
+                          onResponderMove={() => {
+                            // keep drag active; position calculated on release
+                          }}
+                          onResponderRelease={e => {
+                            const from = seqDragFromIndex.current;
+                            if (from !== null) {
+                              const dy = e.nativeEvent.pageY - seqDragStartY.current;
+                              const to = Math.max(
+                                0,
+                                Math.min(
+                                  seqOrderRef.current.length - 1,
+                                  from + Math.round(dy / 68),
+                                ),
+                              );
+                              if (to !== from) {
+                                const next = [...seqOrderRef.current];
+                                const [item] = next.splice(from, 1);
+                                next.splice(to, 0, item);
+                                setSeqOrder(next);
+                              }
+                            }
+                            seqDragFromIndex.current = null;
+                            setSeqDragIndex(null);
+                          }}>
+                          <AppText style={styles.seqDragIcon}>☰</AppText>
+                        </View>
+                        <AppText style={styles.seqNum}>{i + 1}</AppText>
+                        <AppText
+                          variant="arabic"
+                          style={styles.seqAyah}
+                          numberOfLines={2}>
+                          {a?.ar ?? ''}
+                        </AppText>
+                        {/* Remove button */}
+                        <Pressable
+                          disabled={checked}
+                          onPress={() =>
+                            setSeqOrder(seqOrder.filter((_, j) => j !== i))
+                          }
+                          style={styles.seqRemoveBtn}>
+                          <AppText style={styles.seqRemoveText}>✕</AppText>
                         </Pressable>
-                      );
-                    })
-                }
+                      </View>
+                    );
+                  })
+                )}
               </View>
+
+              {/* Pool — tap to add */}
               <View style={styles.seqPool}>
-                {step.sequenceAyahs?.filter(a => !seqOrder.includes(a.number)).map(a => (
-                  <Pressable key={a.number} disabled={checked}
-                    onPress={() => setSeqOrder([...seqOrder, a.number])} style={styles.seqCard}>
-                    <AppText variant="arabic" style={styles.seqAyah} numberOfLines={2}>{a.ar}</AppText>
-                  </Pressable>
-                ))}
+                {step.sequenceAyahs
+                  ?.filter(a => !seqOrder.includes(a.number))
+                  .map(a => (
+                    <Pressable
+                      key={a.number}
+                      disabled={checked}
+                      onPress={() => setSeqOrder([...seqOrder, a.number])}
+                      style={styles.seqCard}>
+                      <AppText style={styles.seqPoolHint}>TAP TO ADD</AppText>
+                      <AppText
+                        variant="arabic"
+                        style={styles.seqAyah}
+                        numberOfLines={2}>
+                        {a.ar}
+                      </AppText>
+                    </Pressable>
+                  ))}
               </View>
             </View>
           )}
@@ -573,7 +838,7 @@ function WordAudioButton({ word }: { word: WordOut }) {
 }
 
 // ── Word chip ──────────────────────────────────────────────────
-function WordChip({ word, selected, onPress }: { word: WordOut; selected: boolean; onPress: () => void }) {
+function WordChip({ word, selected, highlighted = false, onPress }: { word: WordOut; selected: boolean; highlighted?: boolean; onPress: () => void }) {
   const [playing, setPlaying] = useState(false);
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -597,7 +862,7 @@ function WordChip({ word, selected, onPress }: { word: WordOut; selected: boolea
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable onPress={handlePress}
-        style={[styles.wordChip, selected && styles.wordChipSelected]}>
+        style={[styles.wordChip, selected && styles.wordChipSelected, highlighted && styles.wordChipHighlighted]}>
         <AppText variant="arabic" style={styles.wordChipText}>{word.arabic}</AppText>
         {playing ? <ActivityIndicator size="small" color={colors.primary} />
           : (word.audio_url || word.audio_rel_path) ? (
@@ -691,6 +956,14 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2, elevation: 1,
   },
   wordChipSelected: { borderColor: colors.primary, backgroundColor: colors.successBg },
+  wordChipHighlighted: {
+    borderColor: colors.yellow,
+    backgroundColor: `${colors.yellow}20`,
+    shadowColor: colors.yellow,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   wordChipText: { fontSize: 18 },
   wordInfoCard: {
     backgroundColor: colors.white, borderRadius: 12, borderWidth: 1.5,
@@ -708,6 +981,51 @@ const styles = StyleSheet.create({
   },
   recordBtnActive: { backgroundColor: `${colors.heart}15`, borderColor: colors.heart },
   recordBtnText: { color: colors.dark, fontWeight: '800', fontSize: 15 },
+  playbackBtn: {
+    marginTop: spacing.xs,
+    backgroundColor: `${colors.yellow}15`,
+    borderWidth: 1.5,
+    borderColor: `${colors.yellow}40`,
+    borderRadius: 14,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  playbackBtnText: { color: colors.dark, fontWeight: '800', fontSize: 14 },
+  playbackTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: `${colors.grey}30`,
+    overflow: 'hidden',
+  },
+  playbackFill: {
+    height: '100%',
+    backgroundColor: colors.yellow,
+    borderRadius: 2,
+  },
+  timingRow: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  timingChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: `${colors.grey}25`,
+    backgroundColor: colors.white,
+  },
+  timingChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.successBg,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  timingWord: { fontSize: 16 },
 
   // ── Fill blank ─────────────────────────────────────────────
   fillBlankBlock: { gap: spacing.md },
@@ -803,9 +1121,46 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white, borderRadius: 12, padding: spacing.sm,
     borderWidth: 1, borderColor: `${colors.grey}20`,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
+    minHeight: 68,
+  },
+  seqCardDragging: {
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 8,
+    opacity: 0.8,
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+  },
+  seqDragHandle: {
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seqDragIcon: {
+    fontSize: 16,
+    color: colors.grey,
   },
   seqNum: { color: colors.primary, fontSize: 12, fontWeight: '900', width: 20, textAlign: 'center' },
   seqAyah: { flex: 1, fontSize: 17, textAlign: 'right' },
+  seqRemoveBtn: {
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seqRemoveText: {
+    color: colors.grey,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  seqPoolHint: {
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    color: colors.grey,
+    width: 52,
+    textAlign: 'center',
+  },
 
   // ── Bottom action area ─────────────────────────────────────
   bottomArea: {

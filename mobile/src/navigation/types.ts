@@ -36,12 +36,21 @@ export type RootStackParamList = {
     heartsRemaining?: number;
   };
   StreakModal: { streak: number };
+  StageIntro: {
+    groupId: string;
+    stageType: 'listening' | 'recognition' | 'building' | 'recall' | 'mastery';
+    stageTitle: string;
+    surahNameEn: string;
+    surahNumber: number;
+    xpReward: number;
+  };
   Terms: undefined;
   Privacy: undefined;
 };
 
 export type MainTabParamList = {
   Home: undefined;
+  Revision: undefined;
   Stats: undefined;
   Profile: undefined;
 };

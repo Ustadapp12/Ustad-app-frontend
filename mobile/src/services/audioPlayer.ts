@@ -3,13 +3,28 @@ import * as Sentry from '@sentry/react-native';
 // Sounds pre-loaded for the active lesson — not released between steps
 const preloadedSounds = new Map<string, unknown>();
 let activeSoundIsPreloaded = false;
-let activeSound: { stop: () => void; release: () => void; play: (cb: (s: boolean) => void) => void; setCurrentTime: (t: number) => void } | null = null;
+let currentSpeed = 1;
+
+type SoundLike = {
+  stop: () => void;
+  release: () => void;
+  play: (cb: (s: boolean) => void) => void;
+  setCurrentTime: (t: number) => void;
+  setSpeed: (speed: number) => void;
+  getDuration: () => number;
+};
+
+let activeSound: SoundLike | null = null;
+
+/** Set the playback speed for all subsequent play() calls. 0.75 / 1 / 1.25. */
+export function setPlaybackSpeed(speed: number): void {
+  currentSpeed = speed;
+}
 
 function stopActiveSound() {
   if (!activeSound) return;
   try {
     activeSound.stop();
-    // Don't release pre-loaded sounds — they're reused across steps
     if (!activeSoundIsPreloaded) {
       activeSound.release();
     }
@@ -87,14 +102,13 @@ export function clearPreloadedAudio(): void {
 export async function playAudioUrl(url: string): Promise<void> {
   if (!url) return;
 
-  const preloaded = preloadedSounds.get(url) as
-    | { stop: () => void; release: () => void; play: (cb: (s: boolean) => void) => void; setCurrentTime: (t: number) => void }
-    | undefined;
+  const preloaded = preloadedSounds.get(url) as SoundLike | undefined;
 
   if (preloaded) {
     stopActiveSound();
     try {
-      preloaded.setCurrentTime(0); // rewind to start in case it was played before
+      preloaded.setCurrentTime(0);
+      preloaded.setSpeed(currentSpeed);
       activeSound = preloaded;
       activeSoundIsPreloaded = true;
       await new Promise<void>(resolve => {
@@ -127,14 +141,16 @@ export async function playAudioUrl(url: string): Promise<void> {
           resolve();
           return;
         }
-        activeSound = sound;
+        const s = sound as unknown as SoundLike;
+        s.setSpeed(currentSpeed);
+        activeSound = s;
         activeSoundIsPreloaded = false;
-        sound.play((success: boolean) => {
+        s.play((success: boolean) => {
           if (!success) {
             logAudioIssue('play', url);
           }
-          sound.release();
-          if (activeSound === sound) {
+          s.release();
+          if (activeSound === s) {
             activeSound = null;
           }
           resolve();
@@ -144,4 +160,31 @@ export async function playAudioUrl(url: string): Promise<void> {
   } catch (err) {
     logAudioIssue('setup', url, err);
   }
+}
+
+/**
+ * Returns the duration (seconds) of a URL.
+ * Reads from preloaded cache if available; otherwise loads briefly to inspect.
+ * Returns 0 on any error.
+ */
+export async function getAudioDuration(url: string): Promise<number> {
+  if (!url) return 0;
+  const preloaded = preloadedSounds.get(url) as SoundLike | undefined;
+  if (preloaded) {
+    return preloaded.getDuration();
+  }
+  return new Promise<number>(resolve => {
+    try {
+      const SoundModule = require('react-native-sound');
+      const Sound = SoundModule.default ?? SoundModule;
+      const s = new Sound(url, '', (err: Error | null) => {
+        if (err) { resolve(0); return; }
+        const dur = (s as SoundLike).getDuration();
+        s.release();
+        resolve(dur > 0 ? dur : 0);
+      });
+    } catch {
+      resolve(0);
+    }
+  });
 }

@@ -31,6 +31,7 @@ export function RevisionScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
   const exerciseStartedAtRef = useRef(Date.now());
 
   const load = useCallback(async () => {
@@ -40,6 +41,7 @@ export function RevisionScreen() {
     try {
       const data = await learningApi.weakExercises(20);
       setExercises(data);
+      setSessionLoaded(true);
     } catch {
       setExercises([]);
       setLoadError(true);
@@ -48,10 +50,13 @@ export function RevisionScreen() {
     }
   }, []);
 
+  // Only load once per session — don't restart if user briefly switches tabs
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      if (!sessionLoaded) {
+        void load();
+      }
+    }, [load, sessionLoaded]),
   );
 
   const exercise = exercises[index] ?? null;
@@ -191,7 +196,7 @@ export function RevisionScreen() {
         </View>
       ) : done ? (
         <View style={styles.footer}>
-          <PrimaryButton title="Review again" onPress={load} />
+          <PrimaryButton title="Review again" onPress={() => { setSessionLoaded(false); void load(); }} />
         </View>
       ) : null}
     </Screen>

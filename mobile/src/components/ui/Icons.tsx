@@ -73,6 +73,17 @@ export function TabProfileIcon({ size = 24, color }: { size?: number; color: str
   );
 }
 
+export function TabRevisionIcon({ size = 24, color }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 4V1L8 5l4 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
 // ── Speaker icon ─────────────────────────────────────────────────
 export function SpeakerIcon({ size = 16, color = '#05966A', muted = false }: {
   size?: number;

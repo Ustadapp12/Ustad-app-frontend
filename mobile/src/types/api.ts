@@ -185,9 +185,18 @@ export interface PlacementSubmitResponse {
   xp_awarded: number;
 }
 
+export interface WordTiming {
+  word: string;
+  start: number; // seconds
+  end: number;   // seconds
+  confidence: number;
+}
+
 export interface VoiceAttemptResponse {
   passed: boolean;
   score_pct: number;
+  transcript?: string | null;
+  word_timings?: WordTiming[] | null;
 }
 
 // ─────────────────────────────────────────────────────────────────
