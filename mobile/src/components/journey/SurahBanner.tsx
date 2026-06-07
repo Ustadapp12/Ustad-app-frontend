@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   progressWrap: { marginTop: spacing.sm },
   progressTrack: {
     height: 6,
-    width: 112,
+    alignSelf: 'stretch',
     borderRadius: 3,
     backgroundColor: 'rgba(255,255,255,0.25)',
     overflow: 'hidden',

@@ -211,12 +211,12 @@ const styles = StyleSheet.create({
   },
   circleDone: {
     backgroundColor: colors.yellow,
-    borderColor: '#f0d080',
+    borderColor: `${colors.yellow}aa`,
     borderWidth: 3,
   },
   circleActive: {
     backgroundColor: colors.primary,
-    borderColor: '#06c489',
+    borderColor: colors.primaryBright,
     borderWidth: 3,
   },
   circleLocked: {

@@ -181,37 +181,39 @@ export function LessonSessionScreen({ navigation }: Props) {
       ayah_id: ayahKey, step_index: stepIndex,
     });
 
+    if (!isLast) {
+      // Fire-and-forget — don't await the API so the next exercise is immediate
+      void recordAttempt(step.type, correct, correct ? 0 : 1).catch(() => {});
+      nextStep();
+      return;
+    }
+
     try {
       await recordAttempt(step.type, correct, correct ? 0 : 1);
-      if (isLast) {
-        const result = await completeSession();
-        invalidateLevels();
-        await refreshLearning({ force: true });
-        // Use answerable-steps count so listen/interstitial don't deflate score
-        const state = useLessonStore.getState();
-        const answerableCount = steps.filter(
-          s => s.type !== 'listen' && s.type !== 'interstitial',
-        ).length;
-        const scorePct = Math.round(
-          (state.correctCount / Math.max(answerableCount, 1)) * 100,
-        );
-        clearCrashContext();
-        navigation.replace('LessonComplete', {
-          xp: result.xp_awarded,
-          scorePct,
-          stars: result.stars,
-          gems: result.completion_saved ? 5 : 0,
-          heartsRemaining: result.hearts_remaining,
-        });
-        reset();
-      } else {
-        nextStep();
-      }
+      const result = await completeSession();
+      invalidateLevels();
+      // Fire-and-forget so navigation to LessonComplete isn't blocked by a refresh call
+      void refreshLearning({ force: true });
+      // Use answerable-steps count so listen/interstitial don't deflate score
+      const state = useLessonStore.getState();
+      const answerableCount = steps.filter(
+        s => s.type !== 'listen' && s.type !== 'interstitial',
+      ).length;
+      const scorePct = Math.round(
+        (state.correctCount / Math.max(answerableCount, 1)) * 100,
+      );
+      clearCrashContext();
+      navigation.replace('LessonComplete', {
+        xp: result.xp_awarded,
+        scorePct,
+        stars: result.stars,
+        gems: result.completion_saved ? 5 : 0,
+        heartsRemaining: result.hearts_remaining,
+      });
+      reset();
     } catch (e) {
-      if (isLast) {
-        completingRef.current = false;
-        setCompleteError(e instanceof Error ? e.message : 'Could not complete lesson');
-      }
+      completingRef.current = false;
+      setCompleteError(e instanceof Error ? e.message : 'Could not complete lesson');
     }
   };
 

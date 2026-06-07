@@ -45,10 +45,11 @@ export function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.yellow,
-        tabBarInactiveTintColor: colors.grey,
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.55)',
         tabBarStyle: {
           backgroundColor: 'rgba(8,14,22,0.97)',
-          borderTopColor: `${colors.grey}18`,
+          borderTopColor: `${colors.grey}22`,
+          borderTopWidth: 1,
           height: tabBarHeight,
           paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,

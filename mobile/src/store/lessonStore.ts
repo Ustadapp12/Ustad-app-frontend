@@ -1,3 +1,4 @@
+import { InteractionManager } from 'react-native';
 import { create } from 'zustand';
 import { lessonsApi, learningApi, exerciseTypeForApi } from '../api';
 import { loadLessonGroup } from '../services/cachedContent';
@@ -77,23 +78,32 @@ export const useLessonStore = create<LessonState>((set, get) => ({
         loadLessonGroup(groupId),
         lessonsApi.exercises(groupId).catch(() => null),
       ]);
-      let steps;
-      if (exercisesData && exercisesData.exercises.length > 0) {
-        steps = buildStepsFromExerciseOut(exercisesData.exercises, group.ayahs);
-        if (isListenOnlyLesson(steps)) {
-          steps = buildLessonSteps(group.ayahs);
-        }
-      } else {
-        steps = buildLessonSteps(group.ayahs);
-      }
+
+      // Defer heavy step-building until after any navigation animations complete
+      const steps = await new Promise<ExerciseStep[]>(resolve => {
+        InteractionManager.runAfterInteractions(() => {
+          let s: ExerciseStep[];
+          if (exercisesData && exercisesData.exercises.length > 0) {
+            s = buildStepsFromExerciseOut(exercisesData.exercises, group.ayahs);
+            if (isListenOnlyLesson(s)) {
+              s = buildLessonSteps(group.ayahs);
+            }
+          } else {
+            s = buildLessonSteps(group.ayahs);
+          }
+          resolve(s);
+        });
+      });
+
       set({ group, steps, stepIndex: 0, loading: false });
 
-      // Pre-buffer all ayah audio files for the lesson so there's no delay per step
-      const audioUrls = steps.flatMap(s => {
-        const ayahUrl =
-          (s as { ayahAudioUrl?: string | null }).ayahAudioUrl ?? s.ayah.audio_url;
-        return ayahUrl ? [ayahUrl] : [];
-      }).filter((url, i, arr) => arr.indexOf(url) === i); // deduplicate
+      // Deduplicate audio URLs in O(n) then pre-buffer for zero per-step delay
+      const audioUrls = [...new Set(
+        steps.flatMap(s => {
+          const url = (s as { ayahAudioUrl?: string | null }).ayahAudioUrl ?? s.ayah.audio_url;
+          return url ? [url] : [];
+        }),
+      )];
       void preloadAudioUrls(audioUrls);
     } catch (e) {
       set({
@@ -116,7 +126,6 @@ export const useLessonStore = create<LessonState>((set, get) => ({
       set({ loading: true, error: null });
       try {
         await abandonPendingLessonSessionFromStorage();
-        await abandonActiveLessonSession().catch(() => null);
 
         const startOnce = () => learningApi.startSession(group.id);
         let session;
@@ -200,10 +209,12 @@ export const useLessonStore = create<LessonState>((set, get) => ({
         }).catch(() => null)
       : Promise.resolve(null);
     await Promise.all([sessionAttempt, srsAttempt]);
-    const pending = await getPendingLessonSession();
-    if (pending?.sessionId === sessionId) {
-      await setPendingLessonSession({ ...pending, mistakes: get().mistakes });
-    }
+    // Crash-recovery bookkeeping — fire-and-forget, must not block the UI transition
+    void getPendingLessonSession().then(pending => {
+      if (pending?.sessionId === sessionId) {
+        void setPendingLessonSession({ ...pending, mistakes: get().mistakes });
+      }
+    });
   },
 
   nextStep: () => {

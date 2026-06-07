@@ -108,7 +108,7 @@ export function StatsScreen() {
             <View style={styles.card}>
               <AppText style={styles.cardTitle}>XP This Week</AppText>
               <View style={styles.barChart}>
-                {[...stats.weekly_xp].reverse().map((xp, i) => {
+                {stats.weekly_xp.map((xp, i) => {
                   const maxXp = Math.max(...stats.weekly_xp, 1);
                   const height = Math.max((xp / maxXp) * 80, xp > 0 ? 4 : 2);
                   const isToday = i === stats.weekly_xp.length - 1;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
 import { typography, arabicFontForScript, androidSafeFont, fontFamily } from '../../theme/typography';
-import { getScriptPreferenceSync } from '../../utils/storage';
+import { useScriptStore } from '../../store/scriptStore';
 
 type Variant = keyof typeof typography;
 
@@ -17,9 +17,10 @@ function isBoldWeight(weight: TextStyle['fontWeight']): boolean {
 }
 
 export function AppText({ variant = 'body', style, ...rest }: Props) {
+  const script = useScriptStore(s => s.script);
   const fontOverride =
     variant === 'arabic'
-      ? { fontFamily: arabicFontForScript(getScriptPreferenceSync()) }
+      ? { fontFamily: arabicFontForScript(script) }
       : undefined;
 
   const merged = StyleSheet.flatten([typography[variant], fontOverride, style]) as TextStyle;

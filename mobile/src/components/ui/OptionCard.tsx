@@ -17,7 +17,7 @@ export function OptionCard({ label, icon, selected, onPress }: Props) {
       onPress={onPress}
       style={[styles.card, selected && styles.selected]}>
       {icon ? <AppText style={styles.icon}>{icon}</AppText> : null}
-      <AppText variant="body" style={styles.label}>
+      <AppText variant="body" style={styles.label} numberOfLines={2} ellipsizeMode="tail">
         {label}
       </AppText>
     </Pressable>

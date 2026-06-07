@@ -3,6 +3,10 @@ import { View, StyleSheet } from 'react-native';
 import { AppText } from './AppText';
 import { colors } from '../../theme/colors';
 
+const styles = StyleSheet.create({
+  root: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+});
+
 const CHARS = [
   'بَ', 'تُ', 'ثِ', 'جْ', 'حَ', 'خُ', 'دِ', 'ذْ', 'رَ', 'زُ',
   'سِ', 'شْ', 'صَ', 'ضُ', 'طِ', 'ظْ', 'عَ', 'غُ', 'فِ', 'قْ',
@@ -22,7 +26,7 @@ export function IrabBackground({
   opacityBase = 0.04,
 }: Props) {
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={styles.root} pointerEvents="none">
       {Array.from({ length: count }, (_, i) => {
         const x = ((i * 1618) % 9400) / 100;
         const y = ((i * 2347) % 9700) / 100;

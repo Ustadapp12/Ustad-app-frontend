@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 6,
-    width: 140,
+    alignSelf: 'stretch',
     borderRadius: 3,
     backgroundColor: 'rgba(255,255,255,0.25)',
     marginTop: spacing.sm,

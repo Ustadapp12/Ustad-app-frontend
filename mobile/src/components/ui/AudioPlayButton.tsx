@@ -50,7 +50,10 @@ export function AudioPlayButton({
       <Pressable
         style={[styles.btn, !url && styles.btnDisabled]}
         onPress={onPress}
-        disabled={loading || !url}>
+        disabled={loading || !url}
+        accessibilityRole="button"
+        accessibilityLabel={loading ? 'Loading audio' : url ? label : 'No audio available'}
+        accessibilityState={{ disabled: loading || !url, busy: loading }}>
         {loading ? (
           <ActivityIndicator color={colors.white} />
         ) : (
@@ -65,7 +68,10 @@ export function AudioPlayButton({
             <Pressable
               key={s}
               onPress={() => handleSpeedChange(s)}
-              style={[styles.speedChip, speed === s && styles.speedChipActive]}>
+              style={[styles.speedChip, speed === s && styles.speedChipActive]}
+              accessibilityRole="radio"
+              accessibilityLabel={`${s}× speed`}
+              accessibilityState={{ checked: speed === s }}>
               <AppText style={[styles.speedText, speed === s && styles.speedTextActive]}>
                 {s}×
               </AppText>

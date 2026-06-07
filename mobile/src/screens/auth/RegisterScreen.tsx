@@ -94,7 +94,7 @@ export function RegisterScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen style={styles.screen}>
+    <Screen style={styles.screen} edges={['bottom']}>
       <IrabBackground color={colors.charcoal} opacityBase={0.09} />
       <View style={[styles.topBar, { paddingTop: Math.max(insets.top, spacing.sm) }]}>
         <BackButton onPress={() => navigation.goBack()} />
@@ -321,8 +321,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    height: 50,
-    borderRadius: 14,
+    height: spacing.buttonHeight,
+    borderRadius: spacing.buttonRadius,
     backgroundColor: colors.white,
     borderWidth: 2,
     borderColor: `${colors.grey}35`,

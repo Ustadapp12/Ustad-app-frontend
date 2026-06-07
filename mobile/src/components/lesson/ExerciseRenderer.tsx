@@ -39,6 +39,9 @@ import {
 import { ayahIdForApi } from '../../utils/ayahId';
 import type { WordOut } from '../../types/api';
 
+// Cached once per app session — avoids AsyncStorage read on every step change
+let cachedReciterId: string | null = null;
+
 interface Props {
   step: ExerciseStep;
   stepIndex: number;
@@ -67,13 +70,16 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
   // so the correct reading order is never exposed to the user.
   const reorderPool = React.useMemo<string[]>(() => {
     if (step.type !== 'reorder') return [];
-    if (step.scrambledWords?.length) return step.scrambledWords;
-    const pool = step.ayah.words.map(w => w.arabic);
-    for (let i = pool.length - 1; i > 0; i--) {
+    // Start from backend scrambledWords if available, otherwise use ayah word order
+    const base = step.scrambledWords?.length
+      ? [...step.scrambledWords]
+      : step.ayah.words.map(w => w.arabic);
+    // Always apply client-side Fisher-Yates so the arrangement is never predictable
+    for (let i = base.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
+      [base[i], base[j]] = [base[j], base[i]];
     }
-    return pool;
+    return base;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step.type, step.ayah.id]);
   // listen_repeat — real recording
@@ -115,8 +121,8 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
     let cancelled = false;
     (async () => {
       await warmAudioUrlCache();
-      const id = await getReciterId();
-      const url = await resolveAyahPlayUrl(step.ayah, step.ayahAudioUrl, id);
+      if (!cachedReciterId) cachedReciterId = await getReciterId();
+      const url = await resolveAyahPlayUrl(step.ayah, step.ayahAudioUrl, cachedReciterId);
       if (!cancelled) setAudioUrl(url);
     })();
     return () => { cancelled = true; };
@@ -961,10 +967,10 @@ const styles = StyleSheet.create({
   ayahCardText: { fontSize: 26, lineHeight: 44, textAlign: 'right' },
 
   tapHint: { fontSize: 11, fontWeight: '700', color: colors.grey, textAlign: 'center', letterSpacing: 0.3 },
-  /** First word of ayah at bottom; later words stack upward (recitation order). */
   wordRow: {
-    flexDirection: 'column-reverse',
-    alignItems: 'center',
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: spacing.sm,
   },
   wordChip: {

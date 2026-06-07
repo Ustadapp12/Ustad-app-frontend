@@ -30,18 +30,18 @@ export function OnboardingLayout({
   const insets = useSafeAreaInsets();
 
   return (
-    <Screen style={dark ? styles.dark : undefined}>
+    <Screen style={dark ? styles.dark : undefined} edges={['bottom']}>
       {dark
         ? <IrabBackground />
         : <IrabBackground color={colors.charcoal} opacityBase={0.09} />}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing.sm) }]}>
         {onBack ? <BackButton onPress={onBack} light={dark} /> : <View style={styles.spacer} />}
-        {step != null ? (
-          <StepDots total={totalSteps} current={step} />
-        ) : (
-          <View style={styles.spacer} />
-        )}
         <View style={styles.spacer} />
+        {step != null && (
+          <View style={styles.dotsOverlay} pointerEvents="none">
+            <StepDots total={totalSteps} current={step} />
+          </View>
+        )}
       </View>
       <ScrollView
         style={styles.scroll}
@@ -64,11 +64,18 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   spacer: { width: 40 },
+  dotsOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
   scroll: { flex: 1, zIndex: 1 },
   content: {
     paddingHorizontal: spacing.screenHorizontal,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
+    flexGrow: 1,
   },
   footer: {
     paddingHorizontal: spacing.screenHorizontal,

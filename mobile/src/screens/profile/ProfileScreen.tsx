@@ -20,6 +20,7 @@ import { getCachedProfile, setCachedProfile } from '../../services/bootCache';
 import { copy } from '../../i18n/copy';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { setScriptPreference } from '../../utils/storage';
 import type { LearnerMode, ScriptPreference, UserProfile } from '../../types/api';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -126,7 +127,11 @@ export function ProfileScreen() {
     if (draftStreakGoal !== null) patch.streak_goal_days = draftStreakGoal;
     if (draftMotivation.trim()) patch.motivation = draftMotivation.trim();
     const saved = await patchProfile(patch);
-    if (saved) setEditingPrefs(false);
+    if (saved) {
+      // Sync the local cache + reactive store so Arabic text re-renders immediately
+      if (draftScript !== null) await setScriptPreference(draftScript);
+      setEditingPrefs(false);
+    }
   };
 
   return (
@@ -348,8 +353,8 @@ const rowStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
-  label: { color: colors.grey, fontWeight: '600' },
-  value: { color: colors.white, fontWeight: '800' },
+  label: { color: colors.grey, fontWeight: '600', flex: 1 },
+  value: { color: colors.white, fontWeight: '800', flex: 1, textAlign: 'right' },
 });
 
 const prefStyles = StyleSheet.create({

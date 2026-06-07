@@ -3,6 +3,7 @@ import { loadReciters } from './reciters';
 import type { AyahOut, WordOut } from '../types/api';
 
 let publicAudioBaseUrl: string | null = null;
+let warmCachePromise: Promise<void> | null = null;
 
 /** Prefer API `audio_url`; optional fallback from rel_path + cached base. */
 export function resolveAudioUrl(
@@ -36,9 +37,11 @@ export async function loadPublicAudioBaseFromHealth(): Promise<void> {
   }
 }
 
-/** Cache reciters + health audio base for rel_path fallbacks. */
+/** Cache reciters + health audio base for rel_path fallbacks. Runs only once per app session. */
 export async function warmAudioUrlCache(): Promise<void> {
-  await Promise.all([loadReciters(), loadPublicAudioBaseFromHealth()]);
+  if (warmCachePromise) return warmCachePromise;
+  warmCachePromise = Promise.all([loadReciters(), loadPublicAudioBaseFromHealth()]).then(() => {});
+  return warmCachePromise;
 }
 
 async function audioFallbackBase(reciterId?: string): Promise<string | null> {

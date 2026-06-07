@@ -27,13 +27,13 @@ export function LessonCompleteScreen({ route, navigation }: Props) {
   const [nextLesson, setNextLesson] = useState<RecommendedNext | null>(null);
 
   useEffect(() => {
-    // Try cache first; if invalidated (post-lesson), fetch fresh
-    const cached = getCachedRecommended();
-    if (cached) {
-      setNextLesson(cached);
-    } else {
-      learningApi.recommendedNext().then(setNextLesson).catch(() => null);
-    }
+    // Always fetch fresh — the boot cache is invalidated at lesson completion
+    learningApi.recommendedNext()
+      .then(setNextLesson)
+      .catch(() => {
+        const cached = getCachedRecommended();
+        if (cached) setNextLesson(cached);
+      });
   }, []);
 
   return (

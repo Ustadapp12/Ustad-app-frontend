@@ -27,10 +27,6 @@ export function LessonStartScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     loadGroup(groupId);
-    void logAnalyticsEvent(AnalyticsEvents.LESSON_OPENED, {
-      group_id: groupId,
-      label,
-    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, loadGroup]);
 

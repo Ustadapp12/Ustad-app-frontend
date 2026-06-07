@@ -219,6 +219,7 @@ const styles = StyleSheet.create({
     color: colors.yellow,
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
   },
   searchRow: {
     flexDirection: 'row',
@@ -241,5 +242,5 @@ const styles = StyleSheet.create({
   searchSpinner: { marginLeft: spacing.sm },
   scroll: { paddingBottom: spacing.xl },
   noResults: { padding: spacing.lg, alignItems: 'center' },
-  noResultsText: { color: colors.grey, fontWeight: '600', fontSize: 14 },
+  noResultsText: { color: colors.grey, fontWeight: '600', fontSize: 14, textAlign: 'center', flexShrink: 1 },
 });

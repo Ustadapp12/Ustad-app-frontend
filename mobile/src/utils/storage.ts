@@ -3,6 +3,7 @@ import {
   getSecureTokens,
   setSecureTokens,
 } from '../services/secureTokens';
+import { useScriptStore } from '../store/scriptStore';
 import type { OnboardingAnswers, ScriptPreference, Tokens, User } from '../types/api';
 
 const KEYS = {
@@ -87,6 +88,7 @@ export function getScriptPreferenceSync(): ScriptPreference {
 export async function hydrateScriptPreference(): Promise<ScriptPreference> {
   const raw = await AsyncStorage.getItem(KEYS.script);
   scriptPreferenceCache = (raw as ScriptPreference) ?? 'uthmani';
+  useScriptStore.getState().setScript(scriptPreferenceCache);
   return scriptPreferenceCache;
 }
 
@@ -98,6 +100,7 @@ export async function setScriptPreference(
   script: ScriptPreference,
 ): Promise<void> {
   scriptPreferenceCache = script;
+  useScriptStore.getState().setScript(script);
   await AsyncStorage.setItem(KEYS.script, script);
   await saveOnboarding({ script });
 }

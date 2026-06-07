@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     borderColor: colors.grey,
     borderRadius: 16,
     padding: spacing.lg,
-    maxWidth: 320,
+    maxWidth: '88%',
   },
   text: {
     textAlign: 'center',

@@ -90,71 +90,34 @@ export function SpeakerIcon({ size = 16, color = '#05966A', muted = false }: {
   color?: string;
   muted?: boolean;
 }) {
-  const s = size;
   return (
-    <View style={{ width: s, height: s, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{
-        position: 'absolute',
-        left: 0,
-        top: s * 0.25,
-        width: s * 0.35,
-        height: s * 0.5,
-        backgroundColor: color,
-        borderTopLeftRadius: 2,
-        borderBottomLeftRadius: 2,
-      }} />
-      <View style={{
-        position: 'absolute',
-        left: s * 0.28,
-        top: 0,
-        width: 0,
-        height: 0,
-        borderTopWidth: s * 0.5,
-        borderBottomWidth: s * 0.5,
-        borderLeftWidth: s * 0.4,
-        borderTopColor: 'transparent',
-        borderBottomColor: 'transparent',
-        borderLeftColor: color,
-      }} />
-      {!muted && (
-        <View style={{
-          position: 'absolute',
-          right: s * 0.08,
-          top: s * 0.2,
-          width: s * 0.18,
-          height: s * 0.6,
-          borderTopRightRadius: s * 0.15,
-          borderBottomRightRadius: s * 0.15,
-          borderWidth: Math.max(1.5, s * 0.1),
-          borderLeftWidth: 0,
-          borderColor: color,
-        }} />
-      )}
-      {muted && (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Speaker body + cone — filled shape */}
+      <Path d="M11 5L6 9H2v6h4l5 4V5z" fill={color} />
+      {muted ? (
         <>
-          <View style={{
-            position: 'absolute',
-            right: s * 0.05,
-            top: s * 0.25,
-            width: Math.max(1.5, s * 0.1),
-            height: s * 0.5,
-            backgroundColor: color,
-            transform: [{ rotate: '45deg' }],
-            borderRadius: 1,
-          }} />
-          <View style={{
-            position: 'absolute',
-            right: s * 0.05,
-            top: s * 0.25,
-            width: Math.max(1.5, s * 0.1),
-            height: s * 0.5,
-            backgroundColor: color,
-            transform: [{ rotate: '-45deg' }],
-            borderRadius: 1,
-          }} />
+          <Path d="M23 9l-6 6" stroke={color} strokeWidth={2} strokeLinecap="round" />
+          <Path d="M17 9l6 6" stroke={color} strokeWidth={2} strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          {/* Inner sound wave */}
+          <Path
+            d="M15.54 8.46a5 5 0 0 1 0 7.07"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+          {/* Outer sound wave */}
+          <Path
+            d="M19.07 4.93a10 10 0 0 1 0 14.14"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
         </>
       )}
-    </View>
+    </Svg>
   );
 }
 

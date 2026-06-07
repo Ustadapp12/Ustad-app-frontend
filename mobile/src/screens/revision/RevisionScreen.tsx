@@ -36,6 +36,7 @@ export function RevisionScreen() {
   const exerciseStartedAtRef = useRef(Date.now());
   const knewCountRef = useRef(0);
   const missedCountRef = useRef(0);
+  const answeringRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,6 +99,8 @@ export function RevisionScreen() {
   };
 
   const handleAnswer = async (correct: boolean) => {
+    if (answeringRef.current) return;
+    answeringRef.current = true;
     if (correct) knewCountRef.current += 1;
     else missedCountRef.current += 1;
     await logAttempt(correct);
@@ -110,6 +113,7 @@ export function RevisionScreen() {
       });
     }
     setIndex(nextIndex);
+    answeringRef.current = false;
   };
 
   if (loading) {

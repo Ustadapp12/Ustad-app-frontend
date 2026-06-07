@@ -66,10 +66,11 @@ export async function preloadAudioUrls(urls: string[]): Promise<void> {
     const Sound = SoundModule.default ?? SoundModule;
     Sound.setCategory('Playback');
 
-    await Promise.allSettled(
-      urls
-        .filter(url => url && !preloadedSounds.has(url))
-        .map(
+    const pending = urls.filter(url => url && !preloadedSounds.has(url));
+    const BATCH = 4;
+    for (let i = 0; i < pending.length; i += BATCH) {
+      await Promise.allSettled(
+        pending.slice(i, i + BATCH).map(
           url =>
             new Promise<void>(resolve => {
               const sound = new Sound(url, '', (err: Error | null) => {
@@ -80,7 +81,8 @@ export async function preloadAudioUrls(urls: string[]): Promise<void> {
               });
             }),
         ),
-    );
+      );
+    }
   } catch {
     // non-fatal — regular lazy loading is the fallback
   }

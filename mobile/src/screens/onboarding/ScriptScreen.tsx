@@ -7,6 +7,7 @@ import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { copy } from '../../i18n/copy';
 import { setScriptPreference } from '../../utils/storage';
 import { updateProfileIfAuthed } from '../../api';
+import { arabicFontForScript } from '../../theme/typography';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation/types';
@@ -71,13 +72,13 @@ export function ScriptScreen({ navigation }: Props) {
 
                 {/* Text */}
                 <View style={styles.cardText}>
-                  <AppText style={styles.nameAr}>{opt.nameAr}</AppText>
+                  <AppText style={[styles.nameAr, { fontFamily: arabicFontForScript(opt.id) }]}>{opt.nameAr}</AppText>
                   <AppText style={styles.nameEn}>{opt.nameEn}</AppText>
                 </View>
               </View>
 
-              {/* Sample */}
-              <AppText style={styles.sample}>{opt.sample}</AppText>
+              {/* Sample rendered in that option's own font so the user sees an accurate preview */}
+              <AppText style={[styles.sample, { fontFamily: arabicFontForScript(opt.id) }]}>{opt.sample}</AppText>
             </Pressable>
           );
         })}

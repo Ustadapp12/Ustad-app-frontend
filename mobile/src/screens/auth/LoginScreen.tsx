@@ -24,7 +24,7 @@ export function LoginScreen({ navigation }: Props) {
   const submit = async () => {
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password.trim());
       navigation.replace('MainTabs');
     } catch (e) {
       Alert.alert('Login failed', e instanceof Error ? e.message : 'Error');
@@ -43,51 +43,54 @@ export function LoginScreen({ navigation }: Props) {
           {copy.auth.loginTitle}
         </AppText>
       </View>
-      <View style={styles.fields}>
-        <AppText style={styles.label}>{copy.auth.email}</AppText>
-        <TextInput
-          style={[styles.input, styles.inputText, focused === 'email' && styles.inputFocused]}
-          placeholder="you@email.com"
-          placeholderTextColor={colors.grey}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-          onFocus={() => setFocused('email')}
-          onBlur={() => setFocused(null)}
-          selectionColor={colors.primary}
+      <View style={styles.form}>
+        <View style={styles.fields}>
+          <AppText style={styles.label}>{copy.auth.email}</AppText>
+          <TextInput
+            style={[styles.input, styles.inputText, focused === 'email' && styles.inputFocused]}
+            placeholder="you@email.com"
+            placeholderTextColor={colors.grey}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+            onFocus={() => setFocused('email')}
+            onBlur={() => setFocused(null)}
+            selectionColor={colors.primary}
+          />
+          <AppText style={styles.label}>{copy.auth.password}</AppText>
+          <TextInput
+            style={[styles.input, focused === 'pw' && styles.inputFocused, styles.inputText]}
+            placeholder="••••••••"
+            placeholderTextColor={colors.grey}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            onFocus={() => setFocused('pw')}
+            onBlur={() => setFocused(null)}
+            selectionColor={colors.primary}
+          />
+          <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
+            <AppText style={styles.forgot}>{copy.auth.forgot}</AppText>
+          </Pressable>
+        </View>
+        <PrimaryButton title={copy.auth.login} onPress={submit} loading={loading} />
+        <PrimaryButton
+          title={copy.auth.noAccount}
+          variant="secondary"
+          onPress={() => navigation.navigate('AuthRegister')}
+          style={styles.gap}
         />
-        <AppText style={styles.label}>{copy.auth.password}</AppText>
-        <TextInput
-          style={[styles.input, focused === 'pw' && styles.inputFocused, styles.inputText]}
-          placeholder="••••••••"
-          placeholderTextColor={colors.grey}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          onFocus={() => setFocused('pw')}
-          onBlur={() => setFocused(null)}
-          selectionColor={colors.primary}
-        />
-        <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
-          <AppText style={styles.forgot}>{copy.auth.forgot}</AppText>
-        </Pressable>
       </View>
-      <PrimaryButton title={copy.auth.login} onPress={submit} loading={loading} />
-      <PrimaryButton
-        title={copy.auth.noAccount}
-        variant="secondary"
-        onPress={() => navigation.navigate('AuthRegister')}
-        style={styles.gap}
-      />
     </OnboardingLayout>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: 'center', marginBottom: spacing.xl },
+  hero: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   title: { marginTop: spacing.md, textAlign: 'center' },
+  form: { paddingBottom: spacing.sm },
   fields: { marginBottom: spacing.lg },
   label: {
     fontSize: 10,

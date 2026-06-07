@@ -15,12 +15,22 @@ export class ApiError extends Error {
   }
 }
 
+const API_TIMEOUT_MS = 15_000;
+
+function fetchWithTimeout(url: string, opts: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() =>
+    clearTimeout(timer),
+  );
+}
+
 async function refreshAccess(): Promise<string> {
   const tokens = await getTokens();
   if (!tokens?.refresh_token) {
     throw new ApiError('Session expired', 401, null);
   }
-  const res = await fetch(`${API_BASE}${API_PREFIX}/auth/refresh`, {
+  const res = await fetchWithTimeout(`${API_BASE}${API_PREFIX}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: tokens.refresh_token }),
@@ -53,7 +63,7 @@ export async function api<T>(
     }
   }
 
-  let res = await fetch(`${API_BASE}${API_PREFIX}${path}`, {
+  let res = await fetchWithTimeout(`${API_BASE}${API_PREFIX}${path}`, {
     ...options,
     headers,
   });
@@ -62,7 +72,7 @@ export async function api<T>(
     try {
       const access = await refreshAccess();
       headers.Authorization = `Bearer ${access}`;
-      res = await fetch(`${API_BASE}${API_PREFIX}${path}`, {
+      res = await fetchWithTimeout(`${API_BASE}${API_PREFIX}${path}`, {
         ...options,
         headers,
       });

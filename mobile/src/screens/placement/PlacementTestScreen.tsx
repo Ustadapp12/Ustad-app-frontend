@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.heart,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: spacing.lg,
