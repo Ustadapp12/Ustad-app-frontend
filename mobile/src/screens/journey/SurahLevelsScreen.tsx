@@ -15,6 +15,7 @@ import { spacing } from '../../theme/spacing';
 import type { SurahPath, SurahStage } from '../../types/api';
 import type { RootStackParamList } from '../../navigation/types';
 import { displaySurahNameAr } from '../../utils/surahDisplay';
+import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SurahLevels'>;
 
@@ -49,7 +50,13 @@ export function SurahLevelsScreen({ route, navigation }: Props) {
       .finally(() => setLoading(false));
   }, [surahNumber]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    void logAnalyticsEvent(AnalyticsEvents.SURAH_SELECTED, {
+      surah_id: surahNumber,
+      surah_name: nameEn,
+    });
+  }, [load, surahNumber, nameEn]);
 
   const completedCount = path?.stages.filter(s => s.status === 'completed').length ?? 0;
   const totalStages = path?.stages.length ?? 5;
@@ -121,7 +128,13 @@ export function SurahLevelsScreen({ route, navigation }: Props) {
                 style={[styles.stageCard, !canOpen && styles.stageCardLocked]}
                 onPress={() => {
                   if (!canOpen || !groupId) return;
-                  // Show stage intro only the first time (status === 'available')
+                  void logAnalyticsEvent(AnalyticsEvents.STAGE_SELECTED, {
+                    surah_id: surahNumber,
+                    stage_num: stage.stage_num,
+                    stage_type: stage.stage_type,
+                    status: stage.status,
+                    group_id: groupId,
+                  });
                   if (stage.status === 'available') {
                     navigation.navigate('StageIntro', {
                       groupId,

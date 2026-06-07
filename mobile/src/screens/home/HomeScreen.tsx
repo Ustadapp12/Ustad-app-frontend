@@ -23,8 +23,10 @@ import {
   getCachedRecommended,
   getCachedWeakSurahs,
 } from '../../services/bootCache';
+import { getCachedLevelsFromDisk } from '../../services/contentCache';
 import type { RecommendedNext } from '../../types/api';
 import { useAuthStore } from '../../store/authStore';
+import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import {
@@ -78,8 +80,28 @@ export function HomeScreen({ navigation }: Props) {
         // Instant path — use in-memory boot cache populated at auth time
         recommendedResult = getCachedRecommended();
         levelsList = surahs.map(s => getCachedLevels(s.surah_number) ?? []);
+      } else if (!isRefresh) {
+        // Disk cache path — AsyncStorage (no network, ~50ms)
+        const diskLevels = await Promise.all(
+          surahs.map(s => getCachedLevelsFromDisk(s.surah_number)),
+        );
+        if (diskLevels.every(l => l !== null)) {
+          recommendedResult = getCachedRecommended();
+          levelsList = diskLevels as import('../../types/api').SurahLevel[][];
+        } else {
+          // Network path — first launch or disk cache expired
+          void warmAudioUrlCache();
+          const [recResult, ...levelResults] = await Promise.allSettled([
+            learningApi.recommendedNext(),
+            ...surahs.map(s => learningApi.levels(s.surah_number)),
+          ]);
+          recommendedResult = recResult.status === 'fulfilled'
+            ? recResult.value
+            : getCachedRecommended();
+          levelsList = levelResults.map(r => r.status === 'fulfilled' ? r.value : []);
+        }
       } else {
-        // Network path — refresh or cache miss
+        // Explicit refresh — always hit network
         void warmAudioUrlCache();
         const [recResult, ...levelResults] = await Promise.allSettled([
           learningApi.recommendedNext(),
@@ -124,6 +146,11 @@ export function HomeScreen({ navigation }: Props) {
 
   useEffect(() => {
     load();
+    void logAnalyticsEvent(AnalyticsEvents.HOME_VIEW, {
+      streak: learning?.current_streak,
+      xp: learning?.xp_total,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 
   const onRefresh = () => {

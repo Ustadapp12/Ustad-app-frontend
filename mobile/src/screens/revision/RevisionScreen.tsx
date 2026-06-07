@@ -8,6 +8,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { JourneyTopBar } from '../../components/ui/JourneyTopBar';
 import { useAuthStore } from '../../store/authStore';
 import { learningApi } from '../../api';
+import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
 import { copy } from '../../i18n/copy';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -33,6 +34,8 @@ export function RevisionScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const exerciseStartedAtRef = useRef(Date.now());
+  const knewCountRef = useRef(0);
+  const missedCountRef = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,6 +45,13 @@ export function RevisionScreen() {
       const data = await learningApi.weakExercises(20);
       setExercises(data);
       setSessionLoaded(true);
+      knewCountRef.current = 0;
+      missedCountRef.current = 0;
+      if (data.length > 0) {
+        void logAnalyticsEvent(AnalyticsEvents.REVISION_STARTED, {
+          exercise_count: data.length,
+        });
+      }
     } catch {
       setExercises([]);
       setLoadError(true);
@@ -88,8 +98,18 @@ export function RevisionScreen() {
   };
 
   const handleAnswer = async (correct: boolean) => {
+    if (correct) knewCountRef.current += 1;
+    else missedCountRef.current += 1;
     await logAttempt(correct);
-    setIndex(i => i + 1);
+    const nextIndex = index + 1;
+    if (nextIndex >= exercises.length) {
+      void logAnalyticsEvent(AnalyticsEvents.REVISION_COMPLETED, {
+        reviewed_count: exercises.length,
+        knew_count: knewCountRef.current,
+        missed_count: missedCountRef.current,
+      });
+    }
+    setIndex(nextIndex);
   };
 
   if (loading) {

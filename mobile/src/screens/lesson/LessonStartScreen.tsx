@@ -8,6 +8,7 @@ import { Mascot } from '../../components/ui/Mascot';
 import { IrabBackground } from '../../components/ui/IrabBackground';
 import { useLessonStore } from '../../store/lessonStore';
 import { getPendingLessonSession } from '../../services/lessonSession';
+import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
 import { copy } from '../../i18n/copy';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -26,16 +27,30 @@ export function LessonStartScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     loadGroup(groupId);
+    void logAnalyticsEvent(AnalyticsEvents.LESSON_OPENED, {
+      group_id: groupId,
+      label,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, loadGroup]);
 
   useEffect(() => {
     getPendingLessonSession().then(pending => {
-      if (pending?.groupId === groupId && (pending.stepIndex ?? 0) > 0) {
-        setResumeStep(pending.stepIndex ?? 0);
-      }
+      const step = pending?.groupId === groupId && (pending.stepIndex ?? 0) > 0
+        ? (pending.stepIndex ?? 0)
+        : null;
+      setResumeStep(step);
       setCheckingResume(false);
+      // Re-fire lesson_opened with resume context now that we know
+      void logAnalyticsEvent(AnalyticsEvents.LESSON_OPENED, {
+        group_id: groupId,
+        is_resume: step != null ? 1 : 0,
+        resume_step: step ?? 0,
+        ayah_count: group?.ayahs.length,
+        surah_id: group?.surah_number,
+      });
     }).catch(() => setCheckingResume(false));
-  }, [groupId]);
+  }, [groupId, group]);
 
   const begin = async (fromStep = 0) => {
     try {

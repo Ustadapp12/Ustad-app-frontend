@@ -45,11 +45,11 @@ export function SplashScreen({ navigation }: Props) {
 
   useEffect(() => {
     const boot = async () => {
-      const ok = await healthCheck();
-      setBackendOk(ok);
+      // Health check runs in background — only updates the offline indicator
+      void healthCheck().then(ok => setBackendOk(ok)).catch(() => setBackendOk(false));
+      // Hydrate in parallel with script preference — don't block on health check
       await Promise.all([hydrate(), hydrateScriptPreference()]);
       await abandonPendingLessonSessionFromStorage();
-      await new Promise<void>(r => setTimeout(r, 3000));
       const currentUser = useAuthStore.getState().user;
       if (currentUser) {
         navigation.replace('MainTabs');
@@ -57,7 +57,7 @@ export function SplashScreen({ navigation }: Props) {
         navigation.replace('Welcome');
       }
     };
-    boot();
+    void boot();
   }, [hydrate, navigation]);
 
   const progressWidth = progress.interpolate({

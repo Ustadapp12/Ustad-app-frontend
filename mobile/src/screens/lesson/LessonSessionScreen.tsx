@@ -8,6 +8,12 @@ import { useAbandonLessonOnBackground } from '../../hooks/useAbandonLessonOnBack
 import { useLessonStore } from '../../store/lessonStore';
 import { useAuthStore } from '../../store/authStore';
 import { invalidateLevels } from '../../services/bootCache';
+import {
+  AnalyticsEvents,
+  logAnalyticsEvent,
+  logUserStruggling,
+} from '../../services/analytics';
+import { setCrashContext, clearCrashContext, addBreadcrumb } from '../../services/crashReporter';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { copy } from '../../i18n/copy';
@@ -32,10 +38,14 @@ export function LessonSessionScreen({ navigation }: Props) {
   const refreshLearning = useAuthStore(s => s.refreshLearning);
   const completingRef = useRef(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
+  // Per-exercise analytics tracking
+  const stepFailCountRef = useRef(0);   // wrong attempts on current step
+  const stepStartMsRef = useRef(Date.now()); // wall-clock start of current step
 
   useAbandonLessonOnBackground();
 
   const leaveLesson = useCallback(async () => {
+    clearCrashContext();
     await abandonSession({ silent: true });
     reset();
     navigation.goBack();
@@ -67,6 +77,33 @@ export function LessonSessionScreen({ navigation }: Props) {
   const hearts = Math.max(0, heartsAtStart - mistakes);
   const step = steps[stepIndex];
 
+  // Update Sentry context whenever the active step changes
+  useEffect(() => {
+    if (!step) return;
+    stepFailCountRef.current = 0;
+    stepStartMsRef.current = Date.now();
+    const ayahKey = `${step.ayah.surah_number}:${step.ayah.ayah_number}`;
+    setCrashContext({
+      screen: 'LessonSession',
+      exercise_type: step.type,
+      ayah_id: ayahKey,
+      surah_id: step.ayah.surah_number,
+      session_id: sessionId ?? undefined,
+      step_index: stepIndex,
+    });
+    // Fire exercise_started for answerable steps only
+    if (step.type !== 'listen' && step.type !== 'interstitial' && sessionId) {
+      void logAnalyticsEvent(AnalyticsEvents.EXERCISE_STARTED, {
+        exercise_type: step.type,
+        surah_id: step.ayah.surah_number,
+        ayah_id: ayahKey,
+        step_index: stepIndex,
+        session_id: sessionId,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepIndex, sessionId]);
+
   if (loading || !step || !sessionId) {
     return (
       <Screen style={styles.center}>
@@ -94,16 +131,71 @@ export function LessonSessionScreen({ navigation }: Props) {
     const isLast = stepIndex + 1 >= steps.length;
     if (isLast) completingRef.current = true;
 
+    const timeSpentMs = Date.now() - stepStartMsRef.current;
+    const ayahKey = `${step.ayah.surah_number}:${step.ayah.ayah_number}`;
+    const isAnswerable = step.type !== 'listen' && step.type !== 'interstitial';
+
+    // ── Per-exercise analytics ────────────────────────────────────
+    if (isAnswerable) {
+      if (correct) {
+        void logAnalyticsEvent(AnalyticsEvents.EXERCISE_COMPLETED, {
+          exercise_type: step.type,
+          surah_id: step.ayah.surah_number,
+          ayah_id: ayahKey,
+          step_index: stepIndex,
+          time_spent_ms: timeSpentMs,
+          attempts: stepFailCountRef.current + 1,
+          session_id: sessionId ?? undefined,
+        });
+      } else {
+        stepFailCountRef.current += 1;
+        void logAnalyticsEvent(AnalyticsEvents.EXERCISE_FAILED, {
+          exercise_type: step.type,
+          surah_id: step.ayah.surah_number,
+          ayah_id: ayahKey,
+          step_index: stepIndex,
+          time_spent_ms: timeSpentMs,
+          attempts: stepFailCountRef.current,
+          session_id: sessionId ?? undefined,
+        });
+
+        // ── Friction detection ──────────────────────────────────
+        const highAttempts = stepFailCountRef.current >= 3;
+        const slowCompletion = timeSpentMs > 120_000;
+        if (highAttempts || slowCompletion) {
+          void logUserStruggling({
+            exercise_type: step.type,
+            ayah_id: ayahKey,
+            surah_id: step.ayah.surah_number,
+            reason: highAttempts && slowCompletion ? 'both'
+              : highAttempts ? 'high_attempts'
+              : 'slow_completion',
+            attempts: stepFailCountRef.current,
+            time_spent_ms: timeSpentMs,
+          });
+        }
+      }
+    }
+
+    addBreadcrumb(`exercise ${correct ? 'correct' : 'wrong'}: ${step.type}`, 'lesson', {
+      ayah_id: ayahKey, step_index: stepIndex,
+    });
+
     try {
       await recordAttempt(step.type, correct, correct ? 0 : 1);
       if (isLast) {
         const result = await completeSession();
-        invalidateLevels(); // bust cache so HomeScreen re-fetches fresh levels
+        invalidateLevels();
         await refreshLearning({ force: true });
+        // Use answerable-steps count so listen/interstitial don't deflate score
+        const state = useLessonStore.getState();
+        const answerableCount = steps.filter(
+          s => s.type !== 'listen' && s.type !== 'interstitial',
+        ).length;
         const scorePct = Math.round(
-          (useLessonStore.getState().correctCount / Math.max(steps.length, 1)) *
-            100,
+          (state.correctCount / Math.max(answerableCount, 1)) * 100,
         );
+        clearCrashContext();
         navigation.replace('LessonComplete', {
           xp: result.xp_awarded,
           scorePct,

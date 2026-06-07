@@ -11,6 +11,7 @@
  */
 
 import { authApi, learningApi } from '../api';
+import { setCachedLevelsToDisk, invalidateLevelsFromDisk } from './contentCache';
 import type {
   ExerciseOut,
   LearningStats,
@@ -80,9 +81,12 @@ export function setCachedProfile(profile: UserProfile): void {
 // ── Invalidation ──────────────────────────────────────────────────
 
 /** Call after a lesson completes so HomeScreen re-fetches fresh levels. */
-export function invalidateLevels(): void {
+export function invalidateLevels(mvpSurahNumbers?: number[]): void {
+  const surahNumbers = mvpSurahNumbers ?? Array.from(_levels.keys());
   _levels.clear();
   _recommended = null;
+  // Also clear the disk cache so HomeScreen re-fetches from network
+  void invalidateLevelsFromDisk(surahNumbers);
 }
 
 export function invalidateAll(): void {
@@ -114,7 +118,10 @@ export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
 
     ...mvpSurahNumbers.map(n =>
       learningApi.levels(n)
-        .then(d => { _levels.set(n, stamp(d)); }),
+        .then(d => {
+          _levels.set(n, stamp(d));
+          void setCachedLevelsToDisk(n, d);
+        }),
     ),
 
     // Fetch weak exercises and derive a set of surah numbers for badge display

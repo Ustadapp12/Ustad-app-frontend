@@ -6,7 +6,9 @@ import {
   AnalyticsEvents,
   logAnalyticsEvent,
   setAnalyticsUserId,
+  setUserProperties,
 } from '../services/analytics';
+import { setCrashUser } from '../services/crashReporter';
 import { warmAudioUrlCache } from '../services/audioUrls';
 import { prefetchAll, invalidateAll } from '../services/bootCache';
 import {
@@ -57,7 +59,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           email: 'learner',
           role: 'learner',
         } as User);
-      await warmAudioUrlCache();
+      void warmAudioUrlCache();
       await setAnalyticsUserId(user.id);
       lastLearningMeFetchAt = Date.now();
       set({ isHydrated: true, user, learning });
@@ -75,10 +77,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setStoredUser(res.user);
     const learning = await learningApi.me();
     await warmAudioUrlCache();
-    // Tag all future crash reports with this user
     Sentry.setUser({ id: res.user.id, email: res.user.email });
+    setCrashUser(res.user.id, res.user.email);
     await setAnalyticsUserId(res.user.id);
     void logAnalyticsEvent(AnalyticsEvents.LOGIN, { method: 'email' });
+    // Set profile-based user properties for segmentation in Firebase dashboards
+    void authApi.me().then(me => {
+      if (me.profile) {
+        void setUserProperties({
+          learner_mode: me.profile.learner_mode ?? undefined,
+          script_preference: me.profile.script_preference ?? undefined,
+          daily_goal_minutes: me.profile.daily_goal_minutes ?? undefined,
+          streak_goal_days: me.profile.streak_goal_days ?? undefined,
+        });
+      }
+    }).catch(() => null);
     lastLearningMeFetchAt = Date.now();
     set({ user: res.user, learning });
     void prefetchAll(learning.mvp_surah_numbers ?? []);
@@ -95,6 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const learning = await learningApi.me();
     await warmAudioUrlCache();
     Sentry.setUser({ id: res.user.id, email: res.user.email });
+    setCrashUser(res.user.id, res.user.email);
     await setAnalyticsUserId(res.user.id);
     void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'email' });
     lastLearningMeFetchAt = Date.now();

@@ -86,6 +86,11 @@ export async function preloadAudioUrls(urls: string[]): Promise<void> {
   }
 }
 
+/** Stop any currently playing audio. */
+export function stopAudio(): void {
+  stopActiveSound();
+}
+
 /** Release all pre-loaded sounds. Call when the lesson ends or is abandoned. */
 export function clearPreloadedAudio(): void {
   stopActiveSound();

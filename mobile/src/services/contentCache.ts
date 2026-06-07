@@ -3,11 +3,14 @@ import type {
   LessonGroupDetail,
   ReciterOut,
   SurahBrief,
+  SurahLevel,
 } from '../types/api';
 
 const PREFIX = '@ustadapp/cache/v1/';
 /** Static Quran catalogue — long TTL (surahs/ayahs rarely change). */
 const STATIC_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** Surah levels — short TTL so progress changes are reflected quickly. */
+const LEVELS_TTL_MS = 15 * 60 * 1000;
 
 type Entry<T> = { data: T; savedAt: number };
 
@@ -65,4 +68,18 @@ export async function getCachedReciters(): Promise<ReciterOut[] | null> {
 
 export async function setCachedReciters(data: ReciterOut[]): Promise<void> {
   await writeEntry('reciters', data);
+}
+
+export async function getCachedLevelsFromDisk(surahNumber: number): Promise<SurahLevel[] | null> {
+  return readEntry<SurahLevel[]>(`levels:${surahNumber}`, LEVELS_TTL_MS);
+}
+
+export async function setCachedLevelsToDisk(surahNumber: number, data: SurahLevel[]): Promise<void> {
+  await writeEntry(`levels:${surahNumber}`, data);
+}
+
+export async function invalidateLevelsFromDisk(surahNumbers: number[]): Promise<void> {
+  await Promise.allSettled(
+    surahNumbers.map(n => AsyncStorage.removeItem(`${PREFIX}levels:${n}`)),
+  );
 }

@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
-import { getAudioDuration, playAudioUrl as playUrl } from '../../services/audioPlayer';
+import { getAudioDuration, playAudioUrl as playUrl, stopAudio } from '../../services/audioPlayer';
 import {
   requestMicPermission,
   startRecording,
@@ -60,6 +60,22 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
   const [seqOrder, setSeqOrder] = useState<number[]>([]);
   const [selectedWordPos, setSelectedWordPos] = useState<number | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [speakerPlaying, setSpeakerPlaying] = useState(false);
+
+  // Stable shuffled word pool for reorder — recomputed only when the step changes.
+  // Uses backend scrambledWords when available; otherwise shuffles ayah.words here
+  // so the correct reading order is never exposed to the user.
+  const reorderPool = React.useMemo<string[]>(() => {
+    if (step.type !== 'reorder') return [];
+    if (step.scrambledWords?.length) return step.scrambledWords;
+    const pool = step.ayah.words.map(w => w.arabic);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step.type, step.ayah.id]);
   // listen_repeat — real recording
   const recordStartRef = useRef<number | null>(null);
   const [recordedMs, setRecordedMs] = useState<number | null>(null);
@@ -125,6 +141,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
     setSelectedWordPos(null);
     setRecordedMs(null);
     setRecording(false);
+    setSpeakerPlaying(false);
     setChecked(false);
     feedbackSlide.setValue(200);
     correctScale.setValue(1);
@@ -195,9 +212,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
         correct = filledWord === getFillBlankCorrectAnswer(step);
         break;
       case 'reorder':
-        correct = step.correctOrder
-          ? order.join('|') === step.correctOrder.join('|')
-          : order.join('|') === wordsInAyahOrder(step.ayah.words).map(w => w.arabic).join('|');
+        correct = order.join('|') === wordsInAyahOrder(step.ayah.words).map(w => w.arabic).join('|');
         break;
       case 'match_meaning':
       case 'mcq':
@@ -243,7 +258,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
       case 'listen': case 'interstitial': return true;
       case 'listen_repeat': return (recordedMs ?? 0) > 0;
       case 'fill_blank':     return filledWord != null;
-      case 'reorder':        return order.length === (step.scrambledWords?.length ?? step.ayah.words.length);
+      case 'reorder':        return order.length === reorderPool.length;
       case 'sequence_order': return seqOrder.length === (step.sequenceAyahs?.length ?? 0);
       default:               return selected != null;
     }
@@ -265,24 +280,21 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
     }
   };
 
-  // ── Compact audio chip shown on exercises that aren't dedicated listen steps ──
-  const AudioChip = () => {
-    const [playing, setPlaying] = useState(false);
-    if (!audioUrl) return null;
-    return (
-      <Pressable
-        style={[styles.audioChip, playing && styles.audioChipPlaying]}
-        disabled={playing}
-        onPress={async () => {
-          setPlaying(true);
-          try { await playAudioUrl(audioUrl); } finally { setPlaying(false); }
-        }}>
-        <SpeakerIcon size={13} color={playing ? colors.white : colors.primary} />
-        <AppText style={[styles.audioChipLabel, playing && styles.audioChipLabelPlaying]}>
-          {playing ? 'Playing…' : 'Play ayah'}
-        </AppText>
-      </Pressable>
-    );
+  // ── Floating corner speaker — shown on all exercise types except dedicated listen steps ──
+  const showSpeaker = !!audioUrl &&
+    step.type !== 'listen' &&
+    step.type !== 'listen_repeat' &&
+    step.type !== 'interstitial';
+
+  const handleSpeakerPress = async () => {
+    if (!audioUrl) return;
+    if (speakerPlaying) {
+      stopAudio();
+      setSpeakerPlaying(false);
+    } else {
+      setSpeakerPlaying(true);
+      try { await playAudioUrl(audioUrl); } catch { /* audio optional */ } finally { setSpeakerPlaying(false); }
+    }
   };
 
   // ── Word highlight helpers (listen step) ─────────────────────
@@ -510,7 +522,6 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
             const options = step.options ?? step.ayah.words.map(w => w.arabic);
             return (
             <View style={styles.fillBlankBlock}>
-              <AudioChip />
               <View style={styles.blankAyahCard}>
                 <AppText variant="arabic" style={styles.blankAyahText}>
                   {resolveBlankDisplay(step)}
@@ -540,7 +551,7 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
           {/* ══ REORDER ══════════════════════════════════════════ */}
           {step.type === 'reorder' && (
             <View style={styles.reorderBlock}>
-              {/* Drop zone — no full ayah shown */}
+              {/* Drop zone — placed words appear here; tap to remove */}
               <View style={[styles.dropZone, order.length > 0 && styles.dropZoneActive]}>
                 {order.length === 0
                   ? <AppText style={styles.dropZonePlaceholder}>Tap words below to build the ayah</AppText>
@@ -553,9 +564,13 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
                     ))
                 }
               </View>
+              {/* Word pool — shuffled, shrinks as words are placed */}
               <View style={styles.tileRow}>
-                {(step.scrambledWords ?? step.ayah.words.map(w => w.arabic))
-                  .filter(w => order.filter(x => x === w).length < (step.scrambledWords ?? step.ayah.words.map(x => x.arabic)).filter(x => x === w).length)
+                {reorderPool
+                  .filter(w =>
+                    order.filter(x => x === w).length <
+                    reorderPool.filter(x => x === w).length,
+                  )
                   .map((w, i) => (
                     <Pressable key={`${w}-${i}`} disabled={checked}
                       onPress={() => setOrder([...order, w])} style={styles.tile}>
@@ -569,7 +584,6 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
           {/* ══ CONTINUE AYAH ════════════════════════════════════ */}
           {step.type === 'continue_ayah' && (
             <View style={styles.continueBlock}>
-              <AudioChip />
               <View style={styles.shownAyahCard}>
                 <AppText style={styles.shownLabel}>COMPLETE THIS</AppText>
                 <AppText variant="arabic" style={styles.shownAyah}>
@@ -601,7 +615,6 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
           {/* ══ MATCH MEANING / WORD MEANING ═════════════════════ */}
           {(step.type === 'match_meaning' || step.type === 'mcq') && (
             <View style={styles.matchBlock}>
-              <AudioChip />
               <View style={styles.ayahCard}>
                 <AppText variant="arabic" style={styles.ayahCardText}>{step.ayah.arabic}</AppText>
               </View>
@@ -612,7 +625,6 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
 
           {step.type === 'word_meaning' && (
             <View style={styles.matchBlock}>
-              <AudioChip />
               <View style={styles.ayahCard}>
                 <AppText variant="arabic" style={styles.ayahCardText}>{step.ayah.arabic}</AppText>
               </View>
@@ -774,6 +786,16 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
   return (
     <LessonShell step={stepIndex} total={total} hearts={hearts} onClose={onClose}>
       {renderBody()}
+
+      {/* Floating corner speaker — tap to play/stop the ayah audio */}
+      {showSpeaker ? (
+        <Pressable
+          style={[styles.floatingSpeaker, speakerPlaying && styles.floatingSpeakerActive]}
+          onPress={handleSpeakerPress}
+          hitSlop={8}>
+          <SpeakerIcon size={16} color={speakerPlaying ? colors.white : colors.primary} />
+        </Pressable>
+      ) : null}
 
       {/* Bottom action area */}
       <View style={[styles.bottomArea, { paddingBottom: bottomInset + spacing.md }]}>
@@ -1035,28 +1057,32 @@ const styles = StyleSheet.create({
   },
   blankAyahText: { fontSize: 24, lineHeight: 42, textAlign: 'right', color: colors.dark },
   tileHint: { fontSize: 11, fontWeight: '700', color: colors.grey, textAlign: 'center' },
-  tileRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
+  tileRow: {
+    flexDirection: 'row-reverse', flexWrap: 'wrap',
+    gap: 6, justifyContent: 'center',
+  },
   tile: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 10, paddingVertical: 6,
     backgroundColor: colors.white, borderRadius: TILE_RADIUS,
     borderWidth: 1.5, borderColor: `${colors.grey}30`,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 2, elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07, shadowRadius: 2, elevation: 1,
   },
   tileSelected: { borderColor: colors.primary, backgroundColor: `${colors.primary}10` },
   tileCorrect:  { borderColor: colors.primary, backgroundColor: colors.successBg },
   tileWrong:    { borderColor: colors.heart,   backgroundColor: colors.errorBg },
-  tileText: { fontSize: 20 },
+  tileText: { fontSize: 17 },
   tileCheck: { color: colors.primary, fontWeight: '900', fontSize: 14 },
   tileX:     { color: colors.heart,   fontWeight: '900', fontSize: 14 },
 
   // ── Reorder ────────────────────────────────────────────────
-  reorderBlock: { gap: spacing.md },
+  reorderBlock: { gap: spacing.sm },
   dropZone: {
-    minHeight: 64, borderRadius: CARD_RADIUS, borderWidth: 2,
+    minHeight: 52, borderRadius: CARD_RADIUS, borderWidth: 2,
     borderColor: `${colors.grey}30`, borderStyle: 'dashed',
     backgroundColor: `${colors.grey}08`, flexDirection: 'row-reverse',
-    flexWrap: 'wrap', gap: spacing.sm, padding: spacing.sm,
+    flexWrap: 'wrap', gap: 6, padding: 8,
     alignItems: 'center',
   },
   dropZoneActive: { borderColor: colors.primary, backgroundColor: `${colors.primary}06` },
@@ -1196,16 +1222,28 @@ const styles = StyleSheet.create({
   feedbackBtnOk:  { backgroundColor: colors.primary },
   feedbackBtnBad: { backgroundColor: colors.heart },
 
-  // ── Compact audio chip (non-listen exercise types) ─────────
-  audioChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    alignSelf: 'center',
-    backgroundColor: `${colors.primary}12`,
-    borderRadius: 20, paddingHorizontal: spacing.md, paddingVertical: 6,
-    borderWidth: 1, borderColor: `${colors.primary}30`,
-    marginBottom: spacing.xs,
+  // ── Floating corner speaker button ─────────────────────────
+  floatingSpeaker: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.screenHorizontal,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${colors.primary}15`,
+    borderWidth: 1.5,
+    borderColor: `${colors.primary}35`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  audioChipPlaying: { backgroundColor: colors.primary },
-  audioChipLabel: { color: colors.primary, fontWeight: '700', fontSize: 12 },
-  audioChipLabelPlaying: { color: colors.white },
+  floatingSpeakerActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
 });

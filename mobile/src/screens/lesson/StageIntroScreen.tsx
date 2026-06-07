@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
@@ -8,6 +8,7 @@ import { IrabBackground } from '../../components/ui/IrabBackground';
 import { EmojiText } from '../../components/ui/EmojiText';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StageIntro'>;
@@ -49,8 +50,19 @@ const STAGE_META: Record<
 };
 
 export function StageIntroScreen({ route, navigation }: Props) {
-  const { groupId, stageType, stageTitle, surahNameEn, xpReward } = route.params;
+  const { groupId, stageType, stageTitle, surahNameEn, surahNumber, xpReward } = route.params;
   const meta = STAGE_META[stageType];
+
+  useEffect(() => {
+    void logAnalyticsEvent(AnalyticsEvents.STAGE_INTRO_VIEWED, {
+      surah_id: surahNumber,
+      surah_name: surahNameEn,
+      stage_type: stageType,
+      group_id: groupId,
+      xp_reward: xpReward,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Screen style={styles.screen}>
