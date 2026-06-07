@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { lessonsApi, learningApi, exerciseTypeForApi } from '../api';
 import { loadLessonGroup } from '../services/cachedContent';
+import { preloadAudioUrls, clearPreloadedAudio } from '../services/audioPlayer';
 import { ApiError } from '../api/client';
 import { buildLessonSteps, buildStepsFromExerciseOut } from '../lesson/buildSteps';
 import { isListenOnlyLesson } from '../lesson/mergeSteps';
@@ -86,6 +87,14 @@ export const useLessonStore = create<LessonState>((set, get) => ({
         steps = buildLessonSteps(group.ayahs);
       }
       set({ group, steps, stepIndex: 0, loading: false });
+
+      // Pre-buffer all ayah audio files for the lesson so there's no delay per step
+      const audioUrls = steps.flatMap(s => {
+        const ayahUrl =
+          (s as { ayahAudioUrl?: string | null }).ayahAudioUrl ?? s.ayah.audio_url;
+        return ayahUrl ? [ayahUrl] : [];
+      }).filter((url, i, arr) => arr.indexOf(url) === i); // deduplicate
+      void preloadAudioUrls(audioUrls);
     } catch (e) {
       set({
         loading: false,
@@ -229,6 +238,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
 
   abandonSession: async ({ silent } = {}) => {
     const { sessionId, result, group } = get();
+    clearPreloadedAudio();
     if (result) {
       await clearPendingLessonSession();
       return;
@@ -252,7 +262,8 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     }
   },
 
-  reset: () =>
+  reset: () => {
+    clearPreloadedAudio();
     set({
       group: null,
       steps: [],
@@ -263,5 +274,6 @@ export const useLessonStore = create<LessonState>((set, get) => ({
       result: null,
       error: null,
       stepStartedAt: Date.now(),
-    }),
+    });
+  },
 }));

@@ -8,6 +8,7 @@ import {
   setAnalyticsUserId,
 } from '../services/analytics';
 import { warmAudioUrlCache } from '../services/audioUrls';
+import { prefetchAll, invalidateAll } from '../services/bootCache';
 import {
   abandonActiveLessonSession,
   abandonPendingLessonSessionFromStorage,
@@ -60,6 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await setAnalyticsUserId(user.id);
       lastLearningMeFetchAt = Date.now();
       set({ isHydrated: true, user, learning });
+      void prefetchAll(learning.mvp_surah_numbers ?? []);
     } catch {
       await setTokens(null);
       await setStoredUser(null);
@@ -79,6 +81,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     void logAnalyticsEvent(AnalyticsEvents.LOGIN, { method: 'email' });
     lastLearningMeFetchAt = Date.now();
     set({ user: res.user, learning });
+    void prefetchAll(learning.mvp_surah_numbers ?? []);
   },
 
   register: async (email, password, displayName) => {
@@ -96,6 +99,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'email' });
     lastLearningMeFetchAt = Date.now();
     set({ user: res.user, learning });
+    void prefetchAll(learning.mvp_surah_numbers ?? []);
   },
 
   logout: async () => {
@@ -107,6 +111,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setStoredUser(null);
     Sentry.setUser(null); // Clear user from crash reports on logout
     await setAnalyticsUserId(null);
+    invalidateAll();
     lastLearningMeFetchAt = 0;
     set({ user: null, learning: null });
   },

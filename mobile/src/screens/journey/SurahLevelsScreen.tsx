@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ScrollView,
   View,
   StyleSheet,
-  ActivityIndicator,
   Pressable,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -40,21 +39,17 @@ export function SurahLevelsScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(false);
     lessonsApi
       .surahPath(surahNumber)
-      .then(setPath)
-      .catch(() => setError(true))
+      .then(data => { setPath(data); })
+      .catch(() => { setError(true); })
       .finally(() => setLoading(false));
   }, [surahNumber]);
 
-  if (loading) {
-    return (
-      <Screen style={styles.center}>
-        <ActivityIndicator color={colors.primary} />
-      </Screen>
-    );
-  }
+  useEffect(() => { load(); }, [load]);
 
   const completedCount = path?.stages.filter(s => s.status === 'completed').length ?? 0;
   const totalStages = path?.stages.length ?? 5;
@@ -84,7 +79,29 @@ export function SurahLevelsScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      {error || !path ? (
+      {loading ? (
+        <View style={styles.skeletonList}>
+          {[1, 2, 3, 4].map(i => (
+            <View key={i} style={styles.skeletonCard}>
+              <View style={styles.skeletonIcon} />
+              <View style={styles.skeletonBody}>
+                <View style={[styles.skeletonLine, { width: '60%' }]} />
+                <View style={[styles.skeletonLine, { width: '40%', marginTop: 6 }]} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : error ? (
+        <View style={styles.empty}>
+          <AppText style={styles.emptyTitle}>Couldn't load path</AppText>
+          <AppText variant="caption" style={styles.emptyBody}>
+            Check your connection and try again.
+          </AppText>
+          <Pressable onPress={load} style={styles.retryBtn}>
+            <AppText style={styles.retryText}>Retry</AppText>
+          </Pressable>
+        </View>
+      ) : !path ? (
         <View style={styles.empty}>
           <AppText style={styles.emptyTitle}>Path not available yet</AppText>
           <AppText variant="caption" style={styles.emptyBody}>
@@ -226,7 +243,39 @@ const styles = StyleSheet.create({
   stageBadge: { alignItems: 'flex-end' },
   badgeText: { fontWeight: '800', fontSize: 12 },
   lockIcon: { fontSize: 16 },
-  empty: { padding: spacing.xl, marginHorizontal: spacing.screenHorizontal },
-  emptyTitle: { color: colors.white, fontWeight: '800', fontSize: 16, marginBottom: spacing.sm },
-  emptyBody: { color: colors.grey, lineHeight: 20 },
+  empty: { padding: spacing.xl, marginHorizontal: spacing.screenHorizontal, alignItems: 'center' },
+  emptyTitle: { color: colors.white, fontWeight: '800', fontSize: 16, marginBottom: spacing.sm, textAlign: 'center' },
+  emptyBody: { color: colors.grey, lineHeight: 20, textAlign: 'center' },
+  retryBtn: {
+    marginTop: spacing.md,
+    backgroundColor: `${colors.primary}25`,
+    borderRadius: 10,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: `${colors.primary}50`,
+  },
+  retryText: { color: colors.primary, fontWeight: '800', fontSize: 14 },
+
+  skeletonList: { padding: spacing.screenHorizontal, gap: spacing.sm },
+  skeletonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  skeletonIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  skeletonBody: { flex: 1 },
+  skeletonLine: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
 });

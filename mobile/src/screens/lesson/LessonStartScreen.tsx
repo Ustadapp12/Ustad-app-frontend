@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
@@ -48,8 +48,18 @@ export function LessonStartScreen({ route, navigation }: Props) {
 
   if (loading && !group) {
     return (
-      <Screen style={styles.centerScreen}>
-        <ActivityIndicator color={colors.yellow} />
+      <Screen style={styles.screen}>
+        <IrabBackground color={colors.yellow} opacityBase={0.05} />
+        <View style={styles.content}>
+          <View style={styles.skeletonCircle} />
+          <View style={styles.skeletonTitle} />
+          <View style={[styles.skeletonTitle, { width: '50%', height: 16, marginTop: 4 }]} />
+          <View style={styles.skeletonCard} />
+        </View>
+        <View style={styles.footer}>
+          <View style={styles.skeletonBtn} />
+          <View style={[styles.skeletonBtn, styles.skeletonBtnSec]} />
+        </View>
       </Screen>
     );
   }
@@ -188,4 +198,35 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   gap: { marginTop: spacing.sm },
+
+  skeletonCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  skeletonTitle: {
+    height: 28,
+    width: '70%',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginTop: spacing.lg,
+  },
+  skeletonCard: {
+    width: '100%',
+    height: 80,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginTop: spacing.xl,
+  },
+  skeletonBtn: {
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: '100%',
+  },
+  skeletonBtnSec: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginTop: spacing.sm,
+  },
 });

@@ -7,6 +7,7 @@ import { Mascot } from '../../components/ui/Mascot';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
 import { updateProfileIfAuthed } from '../../api';
+import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation/types';
@@ -46,12 +47,18 @@ const GOALS = [
 
 export function StreakGoalScreen({ navigation }: Props) {
   const [days, setDays] = useState<7 | 14 | 30>(14);
+  const isLoggedIn = useAuthStore(s => !!s.user);
 
   const finish = async () => {
     await saveOnboarding({ streakGoalDays: days });
     updateProfileIfAuthed({ streak_goal_days: days });
     await setOnboardingDone(true);
-    navigation.navigate('AuthRegister');
+    // Already authenticated (e.g. re-visiting onboarding) → go straight to home
+    if (isLoggedIn) {
+      navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+    } else {
+      navigation.navigate('AuthRegister');
+    }
   };
 
   return (

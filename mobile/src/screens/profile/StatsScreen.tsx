@@ -6,6 +6,7 @@ import { EmojiText } from '../../components/ui/EmojiText';
 import { JourneyTopBar } from '../../components/ui/JourneyTopBar';
 import { IrabBackground } from '../../components/ui/IrabBackground';
 import { learningApi } from '../../api';
+import { getCachedStats } from '../../services/bootCache';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -13,8 +14,8 @@ import type { LearningStats } from '../../types/api';
 
 export function StatsScreen() {
   const learning = useAuthStore(s => s.learning);
-  const [stats, setStats] = useState<LearningStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<LearningStats | null>(() => getCachedStats());
+  const [loading, setLoading] = useState(() => getCachedStats() === null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
@@ -22,7 +23,7 @@ export function StatsScreen() {
       const data = await learningApi.stats();
       setStats(data);
     } catch {
-      setStats(null);
+      // keep existing data on error
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -30,10 +31,13 @@ export function StatsScreen() {
   }, []);
 
   useEffect(() => {
-    load();
+    // Only fetch from network on cache miss; pull-to-refresh always refetches
+    if (getCachedStats() === null) {
+      void load();
+    }
   }, [load]);
 
-  const onRefresh = () => { setRefreshing(true); load(); };
+  const onRefresh = () => { setRefreshing(true); void load(); };
 
   if (loading) {
     return (

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
@@ -11,6 +11,9 @@ import { copy } from '../../i18n/copy';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { useAuthStore } from '../../store/authStore';
+import { learningApi } from '../../api';
+import { getCachedRecommended } from '../../services/bootCache';
+import type { RecommendedNext } from '../../types/api';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LessonComplete'>;
@@ -20,6 +23,18 @@ export function LessonCompleteScreen({ route, navigation }: Props) {
   const streak = useAuthStore(s => s.learning?.current_streak ?? 0);
   const learning = useAuthStore(s => s.learning);
   const hearts = heartsRemaining ?? learning?.hearts_remaining ?? 5;
+
+  const [nextLesson, setNextLesson] = useState<RecommendedNext | null>(null);
+
+  useEffect(() => {
+    // Try cache first; if invalidated (post-lesson), fetch fresh
+    const cached = getCachedRecommended();
+    if (cached) {
+      setNextLesson(cached);
+    } else {
+      learningApi.recommendedNext().then(setNextLesson).catch(() => null);
+    }
+  }, []);
 
   return (
     <Screen style={styles.screen}>
@@ -53,6 +68,25 @@ export function LessonCompleteScreen({ route, navigation }: Props) {
         <AppText style={styles.hearts}>
           {copy.complete.heartsLabel}: {hearts} ❤️
         </AppText>
+
+        {nextLesson ? (
+          <Pressable
+            style={styles.nextCard}
+            onPress={() =>
+              navigation.navigate('LessonStart', {
+                groupId: nextLesson.lesson_group_id,
+                label: `${nextLesson.surah_name_en} · Level ${nextLesson.level_number}`,
+              })
+            }>
+            <View style={styles.nextCardLeft}>
+              <AppText style={styles.nextLabel}>Up next</AppText>
+              <AppText style={styles.nextTitle}>
+                {nextLesson.surah_name_en} · Level {nextLesson.level_number}
+              </AppText>
+            </View>
+            <AppText style={styles.nextArrow}>▶</AppText>
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.footer}>
         <PrimaryButton
@@ -108,6 +142,29 @@ const styles = StyleSheet.create({
   stars: { color: colors.yellow, fontSize: 18, marginTop: 4 },
   gems: { marginTop: spacing.lg, color: colors.yellow, fontWeight: '800' },
   hearts: { marginTop: spacing.sm, color: colors.grey, fontWeight: '700' },
+  nextCard: {
+    marginTop: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${colors.primary}20`,
+    borderWidth: 1.5,
+    borderColor: `${colors.primary}50`,
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    width: '100%',
+    gap: spacing.sm,
+  },
+  nextCardLeft: { flex: 1 },
+  nextLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
+  nextTitle: { fontSize: 14, fontWeight: '800', color: colors.white, marginTop: 2 },
+  nextArrow: { color: colors.primary, fontSize: 16, fontWeight: '900' },
   footer: {
     padding: spacing.screenHorizontal,
     paddingBottom: spacing.xl + 8,

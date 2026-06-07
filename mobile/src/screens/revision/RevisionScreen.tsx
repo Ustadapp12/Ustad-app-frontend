@@ -29,17 +29,20 @@ export function RevisionScreen() {
   const [exercises, setExercises] = useState<ExerciseOut[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const exerciseStartedAtRef = useRef(Date.now());
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     setIndex(0);
     try {
       const data = await learningApi.weakExercises(20);
       setExercises(data);
     } catch {
       setExercises([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -104,7 +107,15 @@ export function RevisionScreen() {
           {copy.revision.title}
         </AppText>
 
-        {empty ? (
+        {loadError ? (
+          <View style={styles.emptyCard}>
+            <EmojiText size={48}>📡</EmojiText>
+            <AppText style={styles.empty}>Couldn't load exercises.{'\n'}Check your connection and try again.</AppText>
+            <Pressable onPress={load} style={styles.retryBtn}>
+              <AppText style={styles.retryText}>Retry</AppText>
+            </Pressable>
+          </View>
+        ) : empty ? (
           <View style={styles.emptyCard}>
             <EmojiText size={48}>📖</EmojiText>
             <AppText style={styles.empty}>{copy.revision.empty}</AppText>
@@ -161,7 +172,7 @@ export function RevisionScreen() {
         ) : null}
       </View>
 
-      {!empty && !done && exercise ? (
+      {!loadError && !empty && !done && exercise ? (
         <View style={styles.footer}>
           <View style={styles.answerRow}>
             <Pressable
@@ -217,6 +228,16 @@ const styles = StyleSheet.create({
   },
   emptyEmoji: { fontSize: 48, marginBottom: spacing.md },
   empty: { color: colors.grey, textAlign: 'center', fontWeight: '600', lineHeight: 22 },
+  retryBtn: {
+    marginTop: spacing.md,
+    backgroundColor: `${colors.primary}20`,
+    borderRadius: 10,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: `${colors.primary}40`,
+  },
+  retryText: { color: colors.primary, fontWeight: '800', fontSize: 14 },
 
   exerciseCard: {
     backgroundColor: colors.white,

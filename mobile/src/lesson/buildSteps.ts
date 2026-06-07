@@ -6,14 +6,13 @@ import { BLANK_PLACEHOLDER } from './exerciseHelpers';
 export function buildLessonSteps(ayahs: AyahOut[]): ExerciseStep[] {
   const steps: ExerciseStep[] = [];
   ayahs.forEach((ayah, index) => {
-    if (index === 0) {
-      steps.push({
-        type: 'listen',
-        ayah,
-        ayahAudioUrl: ayah.audio_url ?? null,
-        metadataWords: ayah.words?.length ? ayah.words : undefined,
-      });
-    }
+    // Every ayah gets a listen/introduction step before its exercises
+    steps.push({
+      type: 'listen',
+      ayah,
+      ayahAudioUrl: ayah.audio_url ?? null,
+      metadataWords: ayah.words?.length ? ayah.words : undefined,
+    });
     const words = ayah.words ?? [];
     if (words.length >= 2) {
       const ordered = wordsInAyahOrder(words);
@@ -172,7 +171,26 @@ export function buildStepsFromExerciseOut(
     }
   }
 
-  return steps;
+  // Ensure every ayah block starts with a listen step.
+  // The backend may omit listen steps for non-first ayahs, so inject them.
+  const withIntros: ExerciseStep[] = [];
+  let lastAyahKey = '';
+  for (const step of steps) {
+    const key = `${step.ayah.surah_number}:${step.ayah.ayah_number}`;
+    if (key !== lastAyahKey) {
+      if (step.type !== 'listen') {
+        withIntros.push({
+          ayah: step.ayah,
+          type: 'listen',
+          ayahAudioUrl: step.ayah.audio_url ?? null,
+          metadataWords: step.ayah.words?.length ? step.ayah.words : undefined,
+        });
+      }
+      lastAyahKey = key;
+    }
+    withIntros.push(step);
+  }
+  return withIntros;
 }
 
 function shuffle<T>(arr: T[]): T[] {

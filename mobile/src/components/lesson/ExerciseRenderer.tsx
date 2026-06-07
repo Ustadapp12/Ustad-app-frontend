@@ -220,10 +220,31 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
   // ── Body ─────────────────────────────────────────────────────
   const renderBody = () => {
     if (step.type === 'interstitial') {
+      const pct = total > 0 ? Math.round((stepIndex / total) * 100) : 50;
       return (
         <View style={styles.center}>
-          <EmojiText size={48}>💡</EmojiText>
-          <AppText variant="h2" style={styles.centerText}>{copy.streakGoal.tip}</AppText>
+          <EmojiText size={56}>🌟</EmojiText>
+          <AppText variant="h2" style={[styles.centerText, styles.interstitialHeading]}>
+            Halfway there!
+          </AppText>
+          <AppText style={styles.interstitialSub}>
+            {pct}% of this lesson complete — keep going!
+          </AppText>
+          <View style={styles.interstitialProgress}>
+            <View style={[styles.interstitialFill, { width: `${pct}%` }]} />
+          </View>
+          <View style={styles.interstitialCard}>
+            <EmojiText size={18}>💡</EmojiText>
+            <AppText style={styles.interstitialTip}>{copy.streakGoal.tip}</AppText>
+          </View>
+          {step.ayah.arabic ? (
+            <View style={styles.interstitialAyahWrap}>
+              <AppText style={styles.interstitialAyahLabel}>Today's ayah</AppText>
+              <AppText variant="arabic" style={styles.interstitialAyah}>
+                {step.ayah.arabic}
+              </AppText>
+            </View>
+          ) : null}
         </View>
       );
     }
@@ -398,12 +419,23 @@ export function ExerciseRenderer({ step, stepIndex, total, hearts, sessionId, on
               <View style={styles.ayahCard}>
                 <AppText variant="arabic" style={styles.ayahCardText}>{step.ayah.arabic}</AppText>
               </View>
-              {step.wordAr ? (
-                <View style={styles.wordHighlight}>
-                  <AppText style={styles.highlightLabel}>This word ↓</AppText>
-                  <AppText variant="arabic" style={styles.highlightWord}>{step.wordAr}</AppText>
-                </View>
-              ) : null}
+              {step.wordAr ? (() => {
+                // Find matching word by position or arabic text for word-level audio
+                const matchedWord = step.ayah.words?.find(
+                  w => w.position === step.blankPosition || w.arabic === step.wordAr
+                ) ?? null;
+                return (
+                  <View style={styles.wordHighlight}>
+                    <AppText style={styles.highlightLabel}>This word ↓</AppText>
+                    <View style={styles.wordHighlightRow}>
+                      <AppText variant="arabic" style={styles.highlightWord}>{step.wordAr}</AppText>
+                      {matchedWord && (matchedWord.audio_url || matchedWord.audio_rel_path) ? (
+                        <WordAudioButton word={matchedWord} />
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })() : null}
               <OptionList options={step.options ?? []} selected={selected} correctIndex={step.correctIndex ?? -1}
                 checked={checked} onSelect={i => setSelected(i)} />
             </View>
@@ -522,6 +554,24 @@ function OptionList({ options, selected, correctIndex, checked, onSelect }: {
   );
 }
 
+// ── Standalone word audio button (for word_meaning exercises) ─────
+function WordAudioButton({ word }: { word: WordOut }) {
+  const [playing, setPlaying] = useState(false);
+  return (
+    <Pressable
+      style={[styles.wordAudioBtn, playing && styles.wordAudioBtnPlaying]}
+      disabled={playing}
+      onPress={async () => {
+        const url = await resolveWordPlayUrl(word);
+        if (!url) return;
+        setPlaying(true);
+        try { await playAudioUrl(url); } catch { /* audio optional */ } finally { setPlaying(false); }
+      }}>
+      <SpeakerIcon size={14} color={playing ? colors.white : colors.primary} />
+    </Pressable>
+  );
+}
+
 // ── Word chip ──────────────────────────────────────────────────
 function WordChip({ word, selected, onPress }: { word: WordOut; selected: boolean; onPress: () => void }) {
   const [playing, setPlaying] = useState(false);
@@ -563,9 +613,45 @@ const CARD_RADIUS = 16;
 
 const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingBottom: spacing.sm, paddingHorizontal: spacing.screenHorizontal },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.lg },
-  interstitialEmoji: { fontSize: 48 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.screenHorizontal },
   centerText: { textAlign: 'center', color: colors.charcoal },
+  interstitialHeading: { color: colors.dark, marginTop: 0 },
+  interstitialSub: { color: colors.charcoal, fontWeight: '700', fontSize: 14, textAlign: 'center' },
+  interstitialProgress: {
+    width: '100%',
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: `${colors.grey}30`,
+    overflow: 'hidden',
+  },
+  interstitialFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+  },
+  interstitialCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: `${colors.yellow}15`,
+    borderRadius: 14,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: `${colors.yellow}35`,
+    width: '100%',
+  },
+  interstitialTip: { flex: 1, color: colors.charcoal, fontWeight: '600', fontSize: 13, lineHeight: 19 },
+  interstitialAyahWrap: {
+    width: '100%',
+    backgroundColor: colors.ash,
+    borderRadius: 14,
+    padding: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: `${colors.grey}20`,
+  },
+  interstitialAyahLabel: { color: colors.grey, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  interstitialAyah: { fontSize: 22, lineHeight: 38, textAlign: 'center' },
 
   prompt: {
     fontSize: 15,
@@ -674,7 +760,13 @@ const styles = StyleSheet.create({
     padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: `${colors.yellow}35`,
   },
   highlightLabel: { fontSize: 10, fontWeight: '800', color: colors.charcoal, marginBottom: 4, letterSpacing: 0.5 },
+  wordHighlightRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   highlightWord: { fontSize: 30, color: colors.dark },
+  wordAudioBtn: {
+    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: `${colors.primary}15`, borderWidth: 1, borderColor: `${colors.primary}40`,
+  },
+  wordAudioBtnPlaying: { backgroundColor: colors.primary },
 
   // ── Options (shared) ───────────────────────────────────────
   optionList: { gap: spacing.sm },

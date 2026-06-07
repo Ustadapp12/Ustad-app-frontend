@@ -17,6 +17,11 @@ import { IrabBackground } from '../../components/ui/IrabBackground';
 import { LevelNode, nodeAlignForIndex } from '../../components/journey/LevelNode';
 import { learningApi } from '../../api';
 import { loadSurahs } from '../../services/cachedContent';
+import {
+  allLevelsCached,
+  getCachedLevels,
+  getCachedRecommended,
+} from '../../services/bootCache';
 import type { RecommendedNext } from '../../types/api';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
@@ -52,29 +57,40 @@ export function HomeScreen({ navigation }: Props) {
   const [recommended, setRecommended] = useState<RecommendedNext | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
+    const mvpNumbers = useAuthStore.getState().learning?.mvp_surah_numbers ?? [];
     if (!isRefresh) setLoading(true);
+    setLoadError(false);
     try {
-      const mvpNumbers = useAuthStore.getState().learning?.mvp_surah_numbers;
-
-      const [rawSurahs, recommendedResult] = await Promise.all([
-        loadSurahs(30, true, { force: isRefresh }).catch(() => [] as SurahBrief[]),
-        learningApi.recommendedNext().catch(() => null),
-        warmAudioUrlCache(),
-      ]);
-
+      const rawSurahs = await loadSurahs(30, true, { force: isRefresh }).catch(() => [] as SurahBrief[]);
       const surahs = sortSurahsForJourney(
         filterToMvpSurahs(mergeMvpCatalog(rawSurahs), mvpNumbers),
       );
 
-      const levels = await Promise.allSettled(
-        surahs.map(s => learningApi.levels(s.surah_number)),
-      );
+      let recommendedResult: RecommendedNext | null;
+      let levelsList: SurahLevel[][];
+
+      if (!isRefresh && allLevelsCached(mvpNumbers)) {
+        // Instant path — use in-memory boot cache populated at auth time
+        recommendedResult = getCachedRecommended();
+        levelsList = surahs.map(s => getCachedLevels(s.surah_number) ?? []);
+      } else {
+        // Network path — refresh or cache miss
+        void warmAudioUrlCache();
+        const [recResult, ...levelResults] = await Promise.allSettled([
+          learningApi.recommendedNext(),
+          ...surahs.map(s => learningApi.levels(s.surah_number)),
+        ]);
+        recommendedResult = recResult.status === 'fulfilled'
+          ? recResult.value
+          : getCachedRecommended();
+        levelsList = levelResults.map(r => r.status === 'fulfilled' ? r.value : []);
+      }
 
       const progress: SurahProgress[] = surahs.map((surah, i) => {
-        const res = levels[i];
-        const surahLevels = res.status === 'fulfilled' ? res.value : [];
+        const surahLevels = levelsList[i];
         const completedCount = surahLevels.filter(l => l.status === 'completed').length;
         const progressPct =
           surahLevels.length > 0 ? (completedCount / surahLevels.length) * 100 : 0;
@@ -94,6 +110,8 @@ export function HomeScreen({ navigation }: Props) {
 
       setChapters(progress);
       setRecommended(recommendedResult);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -137,6 +155,17 @@ export function HomeScreen({ navigation }: Props) {
         hearts={learning?.hearts_remaining}
         gems={learning?.gem_balance}
       />
+
+      {/* Error banner */}
+      {loadError && !refreshing && (
+        <Pressable
+          style={styles.errorBanner}
+          onPress={() => { setRefreshing(true); void refreshLearning({ force: true }); load(true); }}>
+          <AppText style={styles.errorBannerText}>
+            Couldn't load lessons — tap to retry
+          </AppText>
+        </Pressable>
+      )}
 
       {/* Continue banner — taps directly into the recommended next lesson */}
       {recommended && (
@@ -299,6 +328,19 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.dark },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { paddingBottom: spacing.xl },
+
+  errorBanner: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: `${colors.heart}18`,
+    borderWidth: 1,
+    borderColor: `${colors.heart}40`,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  errorBannerText: { color: colors.heart, fontWeight: '700', fontSize: 13 },
 
   // Continue banner
   continueBanner: {
