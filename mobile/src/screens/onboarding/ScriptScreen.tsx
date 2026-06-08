@@ -20,8 +20,8 @@ export function ScriptScreen({ navigation }: Props) {
 
   return (
     <OnboardingLayout
-      step={0}
-      totalSteps={3}
+      step={1}
+      totalSteps={4}
       onBack={() => navigation.goBack()}
       footer={
         <PrimaryButton

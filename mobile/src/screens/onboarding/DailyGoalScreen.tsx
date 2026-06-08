@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Screen } from '../../components/ui/Screen';
 import { AppText } from '../../components/ui/AppText';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { ProgressHeader } from '../../components/ui/ProgressHeader';
+import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { copy } from '../../i18n/copy';
 import { saveOnboarding } from '../../utils/storage';
 import { updateProfileIfAuthed } from '../../api';
@@ -18,8 +17,20 @@ export function DailyGoalScreen({ navigation }: Props) {
   const [selected, setSelected] = useState(10);
 
   return (
-    <Screen>
-      <ProgressHeader step={1} total={4} onBack={() => navigation.goBack()} />
+    <OnboardingLayout
+      step={2}
+      totalSteps={4}
+      onBack={() => navigation.goBack()}
+      footer={
+        <PrimaryButton
+          title={copy.dailyGoal.cta}
+          onPress={async () => {
+            await saveOnboarding({ dailyGoalMinutes: selected as 5 | 10 | 15 | 20 });
+            updateProfileIfAuthed({ daily_goal_minutes: selected });
+            navigation.navigate('RecitationLevel');
+          }}
+        />
+      }>
       <AppText variant="h1" style={styles.title}>
         {copy.dailyGoal.title}
       </AppText>
@@ -38,23 +49,13 @@ export function DailyGoalScreen({ navigation }: Props) {
           </Pressable>
         ))}
       </View>
-      <View style={styles.footer}>
-        <PrimaryButton
-          title={copy.dailyGoal.cta}
-          onPress={async () => {
-            await saveOnboarding({ dailyGoalMinutes: selected as 5 | 10 | 15 | 20 });
-            updateProfileIfAuthed({ daily_goal_minutes: selected });
-            navigation.navigate('OnboardingNotifications');
-          }}
-        />
-      </View>
-    </Screen>
+    </OnboardingLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { paddingHorizontal: spacing.screenHorizontal, marginBottom: spacing.lg },
-  list: { flex: 1, paddingHorizontal: spacing.screenHorizontal },
+  title: { marginBottom: spacing.lg },
+  list: { flex: 1 },
   row: {
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
@@ -62,5 +63,4 @@ const styles = StyleSheet.create({
   },
   rowSelected: { backgroundColor: colors.ash, marginHorizontal: -8, paddingHorizontal: 8, borderRadius: 8 },
   selectedText: { color: colors.primary },
-  footer: { padding: spacing.screenHorizontal, paddingBottom: spacing.lg },
 });

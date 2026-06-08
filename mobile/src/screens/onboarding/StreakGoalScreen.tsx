@@ -14,7 +14,18 @@ import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingStreakGoal'>;
 
-const GOALS = [
+type GoalOption = {
+  days: 7 | 14 | 30;
+  icon: string;
+  label: string;
+  title: string;
+  sub: string;
+  xp: string;
+  color: string;
+  popular?: boolean;
+};
+
+const GOALS: GoalOption[] = [
   {
     days: 7,
     icon: '🌱',
@@ -43,7 +54,7 @@ const GOALS = [
     xp: '+35 XP/day',
     color: colors.heart,
   },
-] as const;
+];
 
 export function StreakGoalScreen({ navigation }: Props) {
   const [days, setDays] = useState<7 | 14 | 30>(14);

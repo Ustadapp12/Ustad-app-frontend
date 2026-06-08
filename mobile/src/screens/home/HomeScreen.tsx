@@ -231,6 +231,10 @@ export function HomeScreen({ navigation }: Props) {
             tintColor={colors.yellow}
           />
         }>
+        <Juzz30WorldBanner
+          completedSurahs={chapters.filter(c => c.isComplete).length}
+          totalSurahs={chapters.length}
+        />
         {chapters.map(ch => (
           <ChapterSection
             key={ch.surah.surah_number}
@@ -248,6 +252,7 @@ export function HomeScreen({ navigation }: Props) {
                 label: ch.surah.name_ar,
               });
             }}
+            onRevisionPress={() => navigation.navigate('Revision')}
           />
         ))}
         <View style={styles.bottomPad} />
@@ -260,10 +265,12 @@ function ChapterSection({
   chapter,
   onBannerPress,
   onLevelPress,
+  onRevisionPress,
 }: {
   chapter: SurahProgress;
   onBannerPress?: () => void;
   onLevelPress: (groupId: string) => void;
+  onRevisionPress: () => void;
 }) {
   const { surah, levels, progressPct, isLocked, isComplete, hasWeak } = chapter;
 
@@ -346,6 +353,67 @@ function ChapterSection({
       {levels.length === 0 && isLocked && (
         <LockedPlaceholder count={Math.min(surah.ayah_count, 5)} />
       )}
+
+      {/* Revision node — shown for unlocked surahs that have any progress */}
+      {!isLocked && levels.length > 0 && (
+        <RevisionNode
+          hasWeakAyahs={hasWeak}
+          onPress={onRevisionPress}
+        />
+      )}
+    </View>
+  );
+}
+
+function Juzz30WorldBanner({
+  completedSurahs,
+  totalSurahs,
+}: {
+  completedSurahs: number;
+  totalSurahs: number;
+}) {
+  const pct = totalSurahs > 0 ? (completedSurahs / totalSurahs) * 100 : 0;
+  return (
+    <View style={worldStyles.wrap}>
+      <View style={worldStyles.inner}>
+        <View style={worldStyles.left}>
+          <AppText style={worldStyles.juzzLabel}>JUZZ 30</AppText>
+          <AppText style={worldStyles.worldName}>عَمَّ يَتَسَاءَلُونَ</AppText>
+          <AppText style={worldStyles.worldSub}>Amma · The Final Chapter · 37 Surahs</AppText>
+        </View>
+        <AppText style={worldStyles.icon}>🌙</AppText>
+      </View>
+      <View style={worldStyles.progressRow}>
+        <View style={worldStyles.progressTrack}>
+          <View style={[worldStyles.progressFill, { width: `${pct}%` }]} />
+        </View>
+        <AppText style={worldStyles.progressLabel}>
+          {completedSurahs}/{totalSurahs} complete
+        </AppText>
+      </View>
+    </View>
+  );
+}
+
+function RevisionNode({
+  hasWeakAyahs,
+  onPress,
+}: {
+  hasWeakAyahs: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <View style={revStyles.row}>
+      <View style={revStyles.line} />
+      <Pressable
+        onPress={onPress}
+        style={[revStyles.node, hasWeakAyahs && revStyles.nodeDue]}>
+        <AppText style={revStyles.icon}>{hasWeakAyahs ? '⚠️' : '🔖'}</AppText>
+        <AppText style={[revStyles.label, hasWeakAyahs && revStyles.labelDue]}>
+          {hasWeakAyahs ? 'Revision due' : 'Revise'}
+        </AppText>
+      </Pressable>
+      <View style={revStyles.line} />
     </View>
   );
 }
@@ -567,4 +635,109 @@ const styles = StyleSheet.create({
   },
   placeholderIcon: { fontSize: 24 },
   bottomPad: { height: 32 },
+});
+
+const worldStyles = StyleSheet.create({
+  wrap: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    borderRadius: 20,
+    backgroundColor: `${colors.primary}18`,
+    borderWidth: 1.5,
+    borderColor: `${colors.primary}40`,
+    overflow: 'hidden',
+  },
+  inner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  left: { flex: 1 },
+  juzzLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 2,
+    color: colors.primary,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  worldName: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: colors.white,
+    writingDirection: 'rtl',
+    marginBottom: 2,
+  },
+  worldSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.55)',
+  },
+  icon: { fontSize: 36 },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  progressLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+});
+
+const revStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.xs,
+    paddingHorizontal: spacing.screenHorizontal,
+    gap: spacing.sm,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  node: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: 99,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  nodeDue: {
+    borderColor: `${colors.yellow}60`,
+    backgroundColor: `${colors.yellow}10`,
+  },
+  icon: { fontSize: 14 },
+  label: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.45)',
+  },
+  labelDue: { color: colors.yellow },
 });

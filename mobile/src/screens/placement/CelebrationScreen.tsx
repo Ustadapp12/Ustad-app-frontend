@@ -17,7 +17,8 @@ import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Celebration'>;
 
-const CONFETTI = [
+type ConfettiDot = { x: `${number}%`; size: number; color: string };
+const CONFETTI: ConfettiDot[] = [
   { x: '8%',  size: 8,  color: colors.yellow },
   { x: '18%', size: 14, color: colors.primary },
   { x: '30%', size: 6,  color: '#e96868' },
@@ -141,7 +142,7 @@ export function CelebrationScreen({ route, navigation }: Props) {
             title={copy.celebration.cta}
             onPress={async () => {
               await setOnboardingDone(true);
-              navigation.replace('OnboardingStreakGoal');
+              navigation.replace('StreakDay1');
             }}
           />
         </Animated.View>

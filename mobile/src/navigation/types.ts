@@ -7,7 +7,9 @@ export type RootStackParamList = {
   OnboardingDailyGoal: undefined;
   OnboardingNotifications: undefined;
   OnboardingAccount: undefined;
+  RecitationLevel: undefined;
   OnboardingStreakGoal: undefined;
+  StreakDay1: undefined;
   PathChoose: undefined;
   PlacementIntro: undefined;
   PlacementTest: undefined;

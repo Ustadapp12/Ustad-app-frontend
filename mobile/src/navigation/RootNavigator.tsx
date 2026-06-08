@@ -10,10 +10,9 @@ import { IntroScreen } from '../screens/startup/IntroScreen';
 import { MotivationScreen } from '../screens/onboarding/MotivationScreen';
 import { ScriptScreen } from '../screens/onboarding/ScriptScreen';
 import { DailyGoalScreen } from '../screens/onboarding/DailyGoalScreen';
-import { NotificationsScreen } from '../screens/onboarding/NotificationsScreen';
-import { AccountPromptScreen } from '../screens/onboarding/AccountPromptScreen';
+import { RecitationLevelScreen } from '../screens/onboarding/RecitationLevelScreen';
 import { StreakGoalScreen } from '../screens/onboarding/StreakGoalScreen';
-import { PathChooseScreen } from '../screens/path/PathChooseScreen';
+import { StreakDay1Screen } from '../screens/onboarding/StreakDay1Screen';
 import { PlacementIntroScreen } from '../screens/path/PlacementIntroScreen';
 import { PlacementTestScreen } from '../screens/placement/PlacementTestScreen';
 import { PlacementResultsScreen } from '../screens/placement/PlacementResultsScreen';
@@ -66,10 +65,9 @@ export function RootNavigator() {
         <Stack.Screen name="OnboardingMotivation" component={MotivationScreen} />
         <Stack.Screen name="OnboardingScript" component={ScriptScreen} />
         <Stack.Screen name="OnboardingDailyGoal" component={DailyGoalScreen} />
-        <Stack.Screen name="OnboardingNotifications" component={NotificationsScreen} />
-        <Stack.Screen name="OnboardingAccount" component={AccountPromptScreen} />
+        <Stack.Screen name="RecitationLevel" component={RecitationLevelScreen} />
         <Stack.Screen name="OnboardingStreakGoal" component={StreakGoalScreen} />
-        <Stack.Screen name="PathChoose" component={PathChooseScreen} />
+        <Stack.Screen name="StreakDay1" component={StreakDay1Screen} />
         <Stack.Screen name="PlacementIntro" component={PlacementIntroScreen} />
         <Stack.Screen name="PlacementTest" component={PlacementTestScreen} />
         <Stack.Screen name="PlacementResults" component={PlacementResultsScreen} />

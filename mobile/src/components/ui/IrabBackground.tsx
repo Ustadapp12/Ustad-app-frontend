@@ -4,7 +4,7 @@ import { AppText } from './AppText';
 import { colors } from '../../theme/colors';
 
 const styles = StyleSheet.create({
-  root: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  root: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
 });
 
 const CHARS = [

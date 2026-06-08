@@ -260,6 +260,7 @@ export interface OnboardingAnswers {
   script?: ScriptPreference;
   dailyGoalMinutes?: 5 | 10 | 15 | 20;
   notificationsEnabled?: boolean;
+  recitationLevel?: 'none' | 'letters' | 'reads' | 'advanced';
   streakGoalDays?: 3 | 7 | 14 | 30;
   learnerMode?: LearnerMode;
   pathChoice?: 'fresh' | 'placement';
