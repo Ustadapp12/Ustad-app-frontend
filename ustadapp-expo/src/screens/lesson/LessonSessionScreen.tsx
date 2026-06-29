@@ -310,7 +310,7 @@ const PP = StyleSheet.create({
   btnDark: { backgroundColor: 'rgba(224,188,78,0.15)' },
   icon:    { fontSize: 14, color: colors.primary },
   iconDark:{ color: '#E0BC4E' },
-  text:    { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.primary },
+  text:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
   textDark:{ color: '#E0BC4E' },
 });
 
@@ -385,11 +385,11 @@ function stripBismillahPrefix(text: string | null | undefined): string {
   return stripped || text;
 }
 
-// ── Ayah text with proportionally smaller ۝ end-marker ───────────
+// ── Ayah text with matching-size ۝ end-marker ────────────────────
 function AyahText({ text, style }: { text: string; style: any }) {
   if (!text.includes('۝')) return <Text style={style}>{text}</Text>;
   const parts = text.split('۝');
-  const circleSize = Math.round((style.fontSize ?? 20) * 0.62);
+  const circleSize = style.fontSize ?? 20;
   return (
     <Text style={style}>
       {parts.map((part, i) => (
@@ -503,21 +503,21 @@ const HB = StyleSheet.create({
   container:    { alignItems: 'center', justifyContent: 'center', width: 52, height: 52 },
   glow:         { position: 'absolute', width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFF59D' },
   icon:         { fontSize: 22 },
-  label:        { fontSize: 10, fontFamily: 'PlusJakartaSans_600SemiBold', color: '#A07C00', marginTop: 1 },
+  label:        { fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#A07C00', marginTop: 1 },
   backdrop:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   modal:        { backgroundColor: 'white', borderRadius: 24, padding: 24, alignItems: 'center', width: '88%', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
   lumo:         { width: 100, height: 100, marginBottom: 8 },
-  modalTitle:   { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 20, color: colors.darkText, marginBottom: 12 },
+  modalTitle:   { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, marginBottom: 12 },
   ayahBox:      { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 14, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 16, alignItems: 'center', marginBottom: 16 },
   ayahAr:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 38 },
-  ayahTrans:    { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginTop: 8, fontStyle: 'italic', lineHeight: 18 },
+  ayahTrans:    { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginTop: 8, fontStyle: 'italic', lineHeight: 18 },
   playBtn:      { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
   playBtnActive:{ backgroundColor: '#1A5C3A' },
-  playText:     { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: 'white' },
+  playText:     { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
   pauseRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pauseBar:     { width: 4, height: 16, backgroundColor: 'white', borderRadius: 2 },
   cancelBtn:    { width: '100%', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
-  cancelText:   { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 14, color: colors.midText },
+  cancelText:   { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
 });
 
 // ── Character rotation ────────────────────────────────────────────
@@ -567,9 +567,9 @@ const LL = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg, alignItems: 'center', justifyContent: 'center' },
   lottie: { width: 180, height: 180 },
   bubble: { backgroundColor: 'white', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginTop: 16, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3, maxWidth: '88%' },
-  bubbleText: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 16, color: colors.darkText, textAlign: 'center' },
+  bubbleText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, textAlign: 'center' },
   backBtn: { position: 'absolute', left: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
-  backText: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 14, color: colors.midText },
+  backText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
 });
 
 // ── Segment play button with waveform signal ─────────────────────
@@ -680,13 +680,13 @@ const BI = StyleSheet.create({
     alignItems: 'center', width: '100%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.55, shadowRadius: 14, elevation: 10,
   },
-  surahLabel: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 12, color: 'rgba(224,188,78,0.8)', marginBottom: 12, letterSpacing: 0.5 },
+  surahLabel: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: 'rgba(224,188,78,0.8)', marginBottom: 12, letterSpacing: 0.5 },
   bismillah: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 32, color: '#E0BC4E', textAlign: 'center', lineHeight: 52 },
-  translation: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 10, lineHeight: 18 },
+  translation: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 10, lineHeight: 18 },
   listenBtn: { marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(224,188,78,0.15)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20 },
-  listenBtnText: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 14, color: '#E0BC4E' },
+  listenBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#E0BC4E' },
   beginBtn: { marginTop: 28, backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 18, paddingHorizontal: 60, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 6 },
-  beginBtnText: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 17, color: 'white' },
+  beginBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
 });
 
 // ── Segment progress dots ─────────────────────────────────────────
@@ -794,13 +794,13 @@ const AD = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40, alignItems: 'center' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF8E7', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 16, borderWidth: 1, borderColor: '#E0BC4E' },
   badgeIcon: { fontSize: 14 },
-  badgeText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 11, color: '#9A7A20', letterSpacing: 0.8 },
-  verseTitle: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 16, color: colors.darkText, marginBottom: 4, textAlign: 'center' },
-  subInstruction: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginBottom: 20 },
+  badgeText: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#9A7A20', letterSpacing: 0.8 },
+  verseTitle: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, marginBottom: 4, textAlign: 'center' },
+  subInstruction: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginBottom: 20 },
   ayahCard: { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 18, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 24, alignItems: 'center', marginBottom: 24 },
   ayahAr: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 30, color: colors.darkText, textAlign: 'center', lineHeight: 54, marginBottom: 12 },
-  transliteration: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 14, color: '#9A7A20', textAlign: 'center', marginBottom: 6 },
-  translation: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', fontStyle: 'italic' },
+  transliteration: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#9A7A20', textAlign: 'center', marginBottom: 6 },
+  translation: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', fontStyle: 'italic' },
   playBtn: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 24, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
   playBtnActive: { backgroundColor: '#1A5C3A' },
   playIconText: { fontSize: 24, color: 'white' },
@@ -810,12 +810,12 @@ const AD = StyleSheet.create({
   lumoImg: { width: 70, height: 70 },
   lumoBubble: { flex: 1, backgroundColor: '#E8F5EE', borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, position: 'relative' },
   lumoBubbleTail: { position: 'absolute', left: -9, top: 14, width: 0, height: 0, borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: colors.primary },
-  lumoBubbleText: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.primary },
+  lumoBubbleText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
   tipCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFFBEC', borderRadius: 14, padding: 14, width: '100%', marginBottom: 24, borderWidth: 1, borderColor: '#FDE68A' },
   tipIcon: { fontSize: 16 },
-  tipText: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, color: '#92400E', flex: 1, lineHeight: 18 },
+  tipText: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: '#92400E', flex: 1, lineHeight: 18 },
   continueBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  continueBtnText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 16, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
 });
 
 function FillBlankOrNextWord({
@@ -1293,7 +1293,7 @@ function AudioFill({
 const AF = StyleSheet.create({
   hearBtn:           { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 22, marginBottom: 16, borderWidth: 1.5, borderColor: colors.primary },
   hearBtnIcon:       { fontSize: 18 },
-  hearBtnLabel:      { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: colors.primary },
+  hearBtnLabel:      { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
   optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 24 },
   optionBtn:         { width: '45%', backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 18, alignItems: 'center', gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   optionSelected:    { borderColor: colors.primary, backgroundColor: colors.primaryBg },
@@ -1303,7 +1303,7 @@ const AF = StyleSheet.create({
   playIcon:          { fontSize: 18, color: colors.primary },
   pauseRow:          { flexDirection: 'row', gap: 4 },
   pauseBar:          { width: 4, height: 14, backgroundColor: 'white', borderRadius: 2 },
-  optionNum:         { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: colors.mutedText },
+  optionNum:         { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.mutedText },
 });
 
 // ── Ayat Then Order exercise ──────────────────────────────────────
@@ -1409,7 +1409,7 @@ function AyatThenOrder({
 const ATO = StyleSheet.create({
   firstAyahCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 16, marginBottom: 8, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
   firstAyahAr:   { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 26, color: colors.darkText, textAlign: 'center', lineHeight: 44, marginBottom: 8 },
-  divider:       { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 12, marginTop: 4 },
+  divider:       { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 12, marginTop: 4 },
 });
 
 // ── Shared result banner for speak exercises ───────────────────────
@@ -1421,12 +1421,14 @@ interface SpeakResult {
   passed: boolean;
   score_pct: number;
   transcript: string;
+  correctAyah?: string | null;
 }
 
 // Full bottom-sheet result — rendered at screen level (like FeedbackBanner)
 // so it always has enough room to show the score, XP pill, and Continue button.
 function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvance: () => void }) {
-  const { passed, score_pct, transcript } = result;
+  const { passed, score_pct, correctAyah } = result;
+  const arabicFont = useArabicFont();
   return (
     <View style={[SRB.sheet, !passed && SRB.sheetFail]}>
       {/* Top row: badge + title/subtitle */}
@@ -1452,11 +1454,11 @@ function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvan
         </View>
       )}
 
-      {/* Transcript — shown only on fail so user knows what was heard */}
-      {!!transcript && !passed && (
+      {/* Correct ayah — shown on fail so user can see the right text */}
+      {!!correctAyah && !passed && (
         <View style={SRB.transcriptBox}>
-          <Text style={SRB.transcriptLabel}>HEARD</Text>
-          <Text style={SRB.transcriptText}>{transcript}</Text>
+          <Text style={SRB.transcriptLabel}>CORRECT AYAH</Text>
+          <AyahText text={correctAyah} style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any} />
         </View>
       )}
 
@@ -1476,20 +1478,20 @@ const SRB = StyleSheet.create({
   badgeFail:       { backgroundColor: '#F97316' },
   badgeText:       { fontSize: 20, color: 'white', fontWeight: '700' },
   topText:         { flex: 1 },
-  title:           { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 22, color: '#14532D' },
+  title:           { fontFamily: 'Nunito_700Bold', fontSize: 22, color: '#14532D' },
   titleFail:       { color: '#7C2D12' },
-  sub:             { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
+  sub:             { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
   subFail:         { color: '#9A3412' },
   // XP pill — full width, content centered, matching FeedbackBanner xpPill
   xpPill:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'white', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   xpLumo:          { width: 32, height: 32 },
-  xpText:          { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 16, color: colors.darkText },
-  transcriptBox:   { backgroundColor: 'white', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 14 },
-  transcriptLabel: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 4 },
-  transcriptText:  { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.darkText, lineHeight: 20 },
+  xpText:          { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText },
+  transcriptBox:   { backgroundColor: 'white', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 14, alignItems: 'center' },
+  transcriptLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 8 },
+  ayahText:        { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 38 },
   btn:             { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   btnFail:         { backgroundColor: '#F97316', shadowColor: '#F97316' },
-  btnText:         { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 16, color: 'white' },
+  btnText:         { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
 });
 
 // ── Read Ayah and Speak exercise ───────────────────────────────────
@@ -1562,7 +1564,7 @@ function ReadAyahAndSpeak({
 
       if (mountedRef.current) {
         setSpeakState('done');
-        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript });
+        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.ayah_ar ?? ex.expected_arabic ?? null });
       }
     } catch (e) {
       console.warn('[ReadAyahAndSpeak] speak-attempt failed:', e);
@@ -1665,7 +1667,7 @@ const RAS = StyleSheet.create({
   ayahText:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 28, color: colors.darkText, textAlign: 'center', lineHeight: 52 },
   // Fixed bottom area — always visible above the WaveBar / result sheet
   micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
-  micInstruction: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
+  micInstruction: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
   // White background with green border makes the mic.png icon clearly visible
   // against the button surface. Press → slight scale-down.
@@ -1674,8 +1676,8 @@ const RAS = StyleSheet.create({
   micImage:       { width: 52, height: 52, tintColor: 'white' },
   listenAnim:     { width: 88, height: 88 },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
-  errorText:      { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
-  retryLink:      { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 13, color: colors.primary },
+  errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
+  retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
 });
 
 // ── Read and Speak exercise ────────────────────────────────────────
@@ -1739,7 +1741,7 @@ function ReadAndSpeak({
 
       if (mountedRef.current) {
         setSpeakState('done');
-        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript });
+        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.expected_arabic ?? null });
       }
     } catch (e) {
       console.warn('[ReadAndSpeak] speak-attempt failed:', e);
@@ -1858,9 +1860,9 @@ const RANS = StyleSheet.create({
   // "Hear them all" button — plays the full phrase sequence
   hearAllBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 18, marginBottom: 8, borderWidth: 1, borderColor: colors.primary },
   hearAllIcon:    { fontSize: 14 },
-  hearAllText:    { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.primary },
+  hearAllText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
   micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
-  micInstruction: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
+  micInstruction: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
   // White background with green border makes mic.png clearly visible
   micBtn:         { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
@@ -1868,8 +1870,8 @@ const RANS = StyleSheet.create({
   micImage:       { width: 52, height: 52, tintColor: 'white' },
   listenAnim:     { width: 88, height: 88 },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
-  errorText:      { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
-  retryLink:      { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 13, color: colors.primary },
+  errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
+  retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
 });
 
 // ── Hear and Select exercise ──────────────────────────────────────
@@ -1983,34 +1985,34 @@ const HAS = StyleSheet.create({
   },
   speakerBtnActive: { backgroundColor: colors.primary },
   speakerIcon:  { fontSize: 46, textAlign: 'center', color: colors.primary },
-  speakerLabel: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 11, color: colors.primary, marginTop: 6, textAlign: 'center' },
+  speakerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.primary, marginTop: 6, textAlign: 'center' },
   pauseIcon:    { flexDirection: 'row', gap: 7, alignItems: 'center' },
   pauseBar:     { width: 7, height: 30, backgroundColor: 'white', borderRadius: 3 },
 });
 
 const EX = StyleSheet.create({
   scrollContent: { padding: 20, paddingBottom: 40 },
-  instruction: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 16 },
+  instruction: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 16 },
   // Character + speech bubble
   characterRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 16, overflow: 'visible' },
   characterImg: { width: 110, height: 110 },
   verseInfoCard: { flex: 1, backgroundColor: 'white', borderRadius: 16, padding: 14, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2, gap: 3 },
   bubbleTail: { position: 'absolute', left: -10, top: 18, width: 0, height: 0, borderTopWidth: 8, borderBottomWidth: 8, borderRightWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: 'white' },
-  characterName: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 12, color: colors.primary, letterSpacing: 0.8 },
-  bubbleLabel: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 10, color: colors.mutedText },
-  bubbleText:  { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: colors.darkText },
+  characterName: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary, letterSpacing: 0.8 },
+  bubbleLabel: { fontFamily: 'Nunito_400Regular', fontSize: 10, color: colors.mutedText },
+  bubbleText:  { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText },
   // Word-by-word speaker (above question card)
   wordAudioBtn:   { alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8, backgroundColor: colors.primaryBg, borderRadius: 14, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.primary },
   wordAudioIcon:  { fontSize: 13 },
-  wordAudioLabel: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 12, color: colors.primary },
+  wordAudioLabel: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary },
   // Review (wrong-answer replay) banner
   reviewBanner: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 10, alignItems: 'center' as const, borderWidth: 1, borderColor: '#F59E0B' },
-  reviewBannerText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: '#92400E' },
+  reviewBannerText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#92400E' },
   // Question card
   questionCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 20, marginBottom: 20, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
   ayahCard: { backgroundColor: 'white', borderRadius: 18, padding: 22, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   ayahAr: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 28, color: colors.darkText, textAlign: 'right', lineHeight: 52, marginBottom: 10 },
-  ayahTrans: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
+  ayahTrans: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
   contextText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
   tokensRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 },
   tokenWord: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 24, color: colors.darkText },
@@ -2029,16 +2031,16 @@ const EX = StyleSheet.create({
   optionTextSelected: { color: colors.primary },
   optionsColumn: { gap: 10, marginBottom: 24 },
   answerZone: { minHeight: 60, backgroundColor: 'white', borderRadius: 14, borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed', flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, padding: 10, marginBottom: 16, alignItems: 'center', justifyContent: 'center' },
-  answerPlaceholder: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.mutedText },
+  answerPlaceholder: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText },
   tileBank: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 24 },
   bankTile: { backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
   placedTile: { backgroundColor: colors.primaryBg, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
   tileText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: colors.darkText },
   listenBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 16 },
-  listenBtnText: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 14, color: colors.primary },
+  listenBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
   continueBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   continueBtnDisabled: { opacity: 0.35 },
-  continueBtnText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 16, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
   // Sequence (ayah ordering) exercise styles
   seqAnswerZone: { flexDirection: 'row-reverse' as const, gap: 12, justifyContent: 'center' as const, marginVertical: 20, paddingHorizontal: 16 },
   seqBank:       { flexDirection: 'row-reverse' as const, gap: 12, justifyContent: 'center' as const, marginBottom: 24, paddingHorizontal: 16 },
@@ -2049,7 +2051,7 @@ const EX = StyleSheet.create({
                    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
   seqBoxFilled:  { backgroundColor: 'rgba(55,161,104,0.1)' },
   seqBoxEmpty:   { borderStyle: 'dashed' as const, borderColor: 'rgba(55,161,104,0.4)', backgroundColor: 'rgba(55,161,104,0.03)' },
-  seqSlotNum:    { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 18, color: 'rgba(55,161,104,0.25)' },
+  seqSlotNum:    { fontFamily: 'Nunito_700Bold', fontSize: 18, color: 'rgba(55,161,104,0.25)' },
   seqTileText:   { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: '#1A3A2A', textAlign: 'center' as const },
 });
 
@@ -2116,22 +2118,22 @@ const FB = StyleSheet.create({
   correctRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   correctBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
   correctBadgeText: { fontSize: 20, color: 'white', fontWeight: '700' },
-  correctTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 22, color: '#14532D' },
-  correctSub: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
+  correctTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: '#14532D' },
+  correctSub: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
   xpPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'white', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   xpLumo: { width: 32, height: 32 },
-  xpText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 16, color: colors.darkText },
+  xpText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText },
   continueBtn: { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  continueBtnText: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 16, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
   wrongRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   wrongBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' },
   wrongBadgeText: { fontSize: 18, color: 'white', fontWeight: '700' },
-  wrongTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 22, color: '#7F1D1D' },
-  correctAnswerLabel: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 10, color: '#991B1B', letterSpacing: 1.2, marginBottom: 8 },
+  wrongTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: '#7F1D1D' },
+  correctAnswerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: '#991B1B', letterSpacing: 1.2, marginBottom: 8 },
   correctAnswerBox: { backgroundColor: 'white', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', marginBottom: 20 },
   correctAnswerText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center' },
   gotItBtn: { backgroundColor: '#DC2626', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#DC2626', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  gotItBtnText: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 16, color: 'white', letterSpacing: 0.5 },
+  gotItBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white', letterSpacing: 0.5 },
 });
 
 // ── Main screen ────────────────────────────────────────────────────
@@ -2337,7 +2339,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           <Text style={S.retryBtnText}>Try again</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
-          <Text style={{ color: colors.mutedText, fontFamily: 'PlusJakartaSans_400Regular' }}>Go back</Text>
+          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito_400Regular' }}>Go back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -2364,7 +2366,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           onPress={() => { abandonSession({ silent: true }).catch(() => {}); navigation.goBack(); }}
           style={{ marginTop: 12 }}
         >
-          <Text style={{ color: colors.mutedText, fontFamily: 'PlusJakartaSans_400Regular' }}>Back to Map</Text>
+          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito_400Regular' }}>Back to Map</Text>
         </TouchableOpacity>
       </View>
     );
@@ -2404,7 +2406,9 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const heartsLeft = Math.max(0, maxHearts - mistakes);
 
   const totalSteps       = Math.max(steps.filter(s => s.type !== 'interstitial').length, 1);
-  const progressFraction = Math.min(exercisesCompleted / totalSteps, 0.95);
+  // Use max(expected, observed) so bar stays accurate when Gemini serves more exercises than estimated
+  const effectiveTotal   = Math.max(totalSteps, exerciseIndexRef.current + 1);
+  const progressFraction = Math.min(exercisesCompleted / effectiveTotal, 1.0);
   const character = characterForIndex(charOrderRef.current, exerciseIndexRef.current);
 
   return (
@@ -2622,19 +2626,19 @@ const S = StyleSheet.create({
   spinnerOverlay:  { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,244,248,0.6)' },
   confettiOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
   confettiAnim:    { width: '100%', height: 320 },
-  errorTitle: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
-  errorMsg: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
+  errorTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
+  errorMsg: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
   retryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 },
-  retryBtnText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: 'white' },
+  retryBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white' },
   // No-hearts overlay
   noHeartsOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', zIndex: 100, paddingHorizontal: 28 },
   noHeartsCard: { backgroundColor: 'white', borderRadius: 28, padding: 28, alignItems: 'center', width: '100%', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 20 },
-  noHeartsTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 26, color: colors.darkText, marginBottom: 10 },
-  noHeartsBody: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 14, color: colors.midText, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  noHeartsTitle: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: colors.darkText, marginBottom: 10 },
+  noHeartsBody: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.midText, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   buyHeartsBtn: { width: '100%', backgroundColor: '#F0F4FF', borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginBottom: 12, borderWidth: 1.5, borderColor: '#C7D2FE' },
-  buyHeartsBtnText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: '#4338CA' },
-  buyHeartsSubText: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 11, color: '#818CF8', marginTop: 2 },
+  buyHeartsBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#4338CA' },
+  buyHeartsSubText: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: '#818CF8', marginTop: 2 },
   noHeartsRetryBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  noHeartsRetryText: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 15, color: 'white' },
+  noHeartsRetryText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white' },
   noHeartsLumo: { width: 120, height: 120, marginBottom: 8 },
 });

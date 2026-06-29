@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
@@ -11,8 +11,10 @@ import type { ProfileNavProp } from '../../navigation/types';
 interface Props { navigation: ProfileNavProp }
 
 const FONT_OPTIONS: { key: ScriptPreference; label: string; subtitle: string; fontFamily: string; fontSize: number; accentColor: string }[] = [
-  { key: 'uthmani',  label: 'Naskh',       subtitle: 'نسخ',          fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, accentColor: colors.primary },
-  { key: 'nastaliq', label: 'Amiri Quran', subtitle: 'خط المصحف',   fontFamily: 'AmiriQuran',                 fontSize: 24, accentColor: '#C4A84C'      },
+  { key: 'uthmani',      label: 'Usmani',   subtitle: 'عثماني',      fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, accentColor: colors.primary },
+  { key: 'nastaliq',     label: 'Indo-Pak', subtitle: 'خط المصحف',   fontFamily: 'AmiriQuran',                 fontSize: 24, accentColor: '#C4A84C'      },
+  { key: 'amiri',        label: 'Amiri',    subtitle: 'أميري',        fontFamily: 'AmiriRegular',               fontSize: 22, accentColor: '#8B5CF6'      },
+  { key: 'nastaliq_urdu',label: 'Nastaliq', subtitle: 'نستعليق',     fontFamily: 'NotoNastaliqUrdu',           fontSize: 20, accentColor: '#DC2626'      },
 ];
 const PREVIEW = 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ';
 
@@ -259,7 +261,7 @@ export default function ProfileScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg },
   statusBar: { paddingHorizontal: 24, paddingVertical: 6 },
-  time: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: colors.darkText },
+  time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
   avatarCard: {
     alignItems: 'center', paddingVertical: 20, paddingHorizontal: 22,
     backgroundColor: colors.white, marginHorizontal: 16, borderRadius: 20, marginBottom: 14,
@@ -271,14 +273,14 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
   },
-  initials: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 28, color: 'white' },
+  initials: { fontFamily: 'Nunito_700Bold', fontSize: 28, color: 'white' },
   editBadge: {
     position: 'absolute', right: -4, bottom: -4,
     width: 26, height: 26, borderRadius: 13, backgroundColor: colors.gold,
     borderWidth: 2, borderColor: 'white', alignItems: 'center', justifyContent: 'center',
   },
-  displayName: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 20, color: colors.darkText, marginBottom: 4 },
-  levelTag: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 12, color: colors.mutedText },
+  displayName: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, marginBottom: 4 },
+  levelTag: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText },
   statsGrid: {
     flexDirection: 'row', backgroundColor: colors.white,
     marginHorizontal: 16, borderRadius: 18, marginBottom: 14, overflow: 'hidden',
@@ -287,15 +289,15 @@ const styles = StyleSheet.create({
   statCell: { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 3 },
   statCellBorder: { borderLeftWidth: 1, borderLeftColor: colors.border },
   statEmoji: { fontSize: 18 },
-  statValue: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 18, color: colors.darkText },
-  statLabel: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 9, color: colors.mutedText, letterSpacing: 0.3 },
+  statValue: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText },
+  statLabel: { fontFamily: 'Nunito_400Regular', fontSize: 9, color: colors.mutedText, letterSpacing: 0.3 },
   section: {
     marginHorizontal: 16, marginBottom: 12,
     backgroundColor: colors.white, borderRadius: 18, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
   sectionTitle: {
-    fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 10, color: colors.mutedText,
+    fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText,
     letterSpacing: 1.5, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 6,
   },
   settingRow: {
@@ -305,38 +307,38 @@ const styles = StyleSheet.create({
   },
   settingEmoji: { fontSize: 16 },
   settingContent: { flex: 1 },
-  settingLabel: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 14, color: colors.darkText },
-  settingValue: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 11, color: colors.mutedText, marginTop: 1 },
+  settingLabel: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText },
+  settingValue: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: colors.mutedText, marginTop: 1 },
   settingArrow: { fontSize: 18, color: colors.border, fontWeight: '600' },
   logoutBtn: {
     marginHorizontal: 16, marginBottom: 8, borderRadius: 16, paddingVertical: 16,
     alignItems: 'center', backgroundColor: colors.redBg, borderWidth: 1.5, borderColor: '#FCA5A5',
   },
-  logoutText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: colors.red },
+  logoutText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.red },
   deleteBtn: {
     marginHorizontal: 16, marginBottom: 8, borderRadius: 16, paddingVertical: 14,
     alignItems: 'center',
   },
-  deleteText: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.mutedText },
+  deleteText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText },
   // Delete modal
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   modalCard: { backgroundColor: colors.white, borderRadius: 20, padding: 24, width: '100%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
-  modalTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 18, color: colors.darkText, marginBottom: 8 },
-  modalBody: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 16 },
+  modalTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8 },
+  modalBody: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 16 },
   modalInput: {
     borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 12,
-    fontFamily: 'PlusJakartaSans_400Regular', fontSize: 14, color: colors.darkText,
+    fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.darkText,
     marginBottom: 20,
   },
   modalBtns: { flexDirection: 'row', gap: 10 },
   modalCancel: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  modalCancelText: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 14, color: colors.midText },
+  modalCancelText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
   modalConfirm: { flex: 1, backgroundColor: colors.red, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  modalConfirmText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: 'white' },
+  modalConfirmText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
   // Font picker
   fontOption: { backgroundColor: colors.lightBg, borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  fontOptionLabel: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: colors.darkText, marginBottom: 6 },
+  fontOptionLabel: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText, marginBottom: 6 },
   fontOptionPreview: { textAlign: 'right', lineHeight: 38 },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   radioDot: { width: 11, height: 11, borderRadius: 6 },

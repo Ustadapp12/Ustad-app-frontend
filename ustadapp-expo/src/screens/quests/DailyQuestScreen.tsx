@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'react-native';
@@ -100,7 +100,7 @@ export default function DailyQuestScreen() {
         {/* Reset timer */}
         <View style={styles.resetRow}>
           <Text style={{ fontSize: 16 }}>⏱</Text>
-          <Text style={styles.resetText}>Quests reset in <Text style={{ color: colors.gold, fontFamily: 'PlusJakartaSans_700Bold' }}>06:14:32</Text></Text>
+          <Text style={styles.resetText}>Quests reset in <Text style={{ color: colors.gold, fontFamily: 'Nunito_700Bold' }}>06:14:32</Text></Text>
         </View>
       </ScrollView>
     </LinearGradient>
@@ -116,16 +116,16 @@ const styles = StyleSheet.create({
     shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.7, shadowRadius: 10, elevation: 8,
   },
   comingSoonText: {
-    fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 22, color: 'white',
+    fontFamily: 'Nunito_700Bold', fontSize: 22, color: 'white',
     letterSpacing: 0.5,
   },
-  time: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: 'rgba(255,255,255,0.85)' },
+  time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'rgba(255,255,255,0.85)' },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 22, paddingTop: 6, paddingBottom: 10,
   },
-  headerLabel: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 10, color: colors.gold, letterSpacing: 1.5 },
-  headerTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 22, color: 'white', marginTop: 2 },
+  headerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.gold, letterSpacing: 1.5 },
+  headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: 'white', marginTop: 2 },
   lumaAvatar: { width: 54, height: 54 },
   progressCard: {
     marginHorizontal: 18, marginBottom: 14,
@@ -134,16 +134,16 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   progressTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  progressFraction: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 22, color: 'white' },
-  progressLabel: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)' },
+  progressFraction: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: 'white' },
+  progressLabel: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   bonusBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: colors.goldBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6,
   },
-  bonusText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 12, color: colors.warning },
+  bonusText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.warning },
   progressBarTrack: { height: 8, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 4, marginBottom: 8 },
   progressBarFill: { height: 8, backgroundColor: colors.success, borderRadius: 4 },
-  progressHint: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.6)' },
+  progressHint: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.6)' },
   scroll: { paddingHorizontal: 18, paddingBottom: 30 },
   questCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -158,14 +158,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center',
   },
   questContent: { flex: 1 },
-  questTitle: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: 'white', marginBottom: 2 },
+  questTitle: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white', marginBottom: 2 },
   questTitleLocked: { color: 'rgba(255,255,255,0.55)' },
-  questDesc: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.65)' },
+  questDesc: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.65)' },
   questDescLocked: { color: 'rgba(255,255,255,0.35)' },
   miniProgressWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   miniProgressTrack: { flex: 1, height: 5, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 3 },
   miniProgressFill: { height: 5, backgroundColor: colors.primary, borderRadius: 3 },
-  miniProgressLabel: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 10, color: 'rgba(255,255,255,0.7)' },
+  miniProgressLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: 'rgba(255,255,255,0.7)' },
   questRight: { alignItems: 'center', gap: 6 },
   doneBadge: {
     width: 28, height: 28, borderRadius: 14, backgroundColor: colors.success,
@@ -180,11 +180,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(42,125,79,0.7)', borderRadius: 10,
     paddingHorizontal: 9, paddingVertical: 3,
   },
-  xpText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 11, color: '#A8EBC0' },
+  xpText: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#A8EBC0' },
   resetRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     marginTop: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, paddingVertical: 12,
   },
-  resetText: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.65)' },
+  resetText: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.65)' },
 });
 

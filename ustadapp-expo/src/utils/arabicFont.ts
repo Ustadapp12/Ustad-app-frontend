@@ -6,15 +6,16 @@ export type ArabicFontKey = 'naskh' | 'amiri';
 /** Map script preference → actual RN fontFamily string */
 export function scriptToFontFamily(script: ScriptPreference | null | undefined): string {
   if (script === 'nastaliq') return 'AmiriQuran';
-  return 'NotoNaskhArabic_400Regular'; // uthmani + simple both use Naskh
+  if (script === 'amiri') return 'AmiriRegular';
+  if (script === 'nastaliq_urdu') return 'NotoNastaliqUrdu';
+  return 'NotoNaskhArabic_400Regular'; // uthmani + simple + default
 }
 
-/**
- * Amiri Quran glyphs are naturally larger than Noto Naskh at the same px.
- * Multiply base fontSize by this factor when using AmiriQuran.
- */
+/** Multiply base fontSize by this factor for fonts whose glyphs render larger/smaller. */
 export function scriptFontScale(script: ScriptPreference | null | undefined): number {
-  return script === 'nastaliq' ? 1.08 : 1;
+  if (script === 'nastaliq') return 1.08;
+  if (script === 'nastaliq_urdu') return 1.15;
+  return 1;
 }
 
 /** Hook: returns { fontFamily, scale } derived from the global script store. */

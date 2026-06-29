@@ -308,8 +308,8 @@ function buildClouds(): CloudDecor[] {
   // y: 0 keeps the full cloud image within the visible scrollable area —
   // y: -10 was clipping the top edge of both images.
   return [
-    { y: 0, x: 0,            w: MAP_W * 0.55, h: 50, opacity: 0.85 },
-    { y: 0, x: MAP_W * 0.45, w: MAP_W * 0.55, h: 46, opacity: 0.75 },
+    { y: 0, x: 0,            w: MAP_W * 0.55, h: 90, opacity: 0.85 },
+    { y: 0, x: MAP_W * 0.45, w: MAP_W * 0.55, h: 90, opacity: 0.75 },
   ];
 }
 const CLOUDS = buildClouds();
@@ -334,11 +334,11 @@ function SurahLabel({ arabicName, name, isLeft }: { arabicName: string; name: st
 }
 const SL = StyleSheet.create({
   arabic: {
-    fontFamily: 'NotoNaskhArabic_700Bold', fontSize: 26, color: '#E0BC4E',
+    fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 26, color: '#E0BC4E',
     textShadowColor: 'rgba(0,0,0,0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6,
   },
   english: {
-    fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 13, color: '#FFE87A', letterSpacing: 0.8,
+    fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#FFE87A', letterSpacing: 0.8,
     textShadowColor: 'rgba(0,0,0,0.65)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
     marginTop: 2,
   },
@@ -362,7 +362,7 @@ const SB = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 8, maxWidth: 160,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 4,
   },
-  text: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 10, color: '#374151', textAlign: 'center', lineHeight: 14 },
+  text: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: '#374151', textAlign: 'center', lineHeight: 14 },
   tail: {
     width: 0, height: 0,
     borderLeftWidth: 7, borderRightWidth: 7, borderTopWidth: 8,
@@ -613,13 +613,13 @@ export default function MapScreen({ navigation }: Props) {
             })}
           </Svg>
 
-          {/* Multiple small clouds scattered across the map */}
+          {/* Cloud images at top of map — shown as-is, no cropping */}
           {CLOUDS.map((c, i) => (
             <Image
               key={`cloud${i}`}
               source={CLOUD_SRC}
               style={{ position: 'absolute', left: c.x, top: c.y, width: c.w, height: c.h, opacity: c.opacity }}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           ))}
 
@@ -755,7 +755,7 @@ const S = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 5,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 4, elevation: 3,
   },
-  hudVal: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 12, color: '#DC2626' },
+  hudVal: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#DC2626' },
   avatarBtn: {
     width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.9)',
     borderWidth: 2, borderColor: 'white', alignItems: 'center', justifyContent: 'center',
@@ -769,9 +769,9 @@ const S = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     shadowColor: '#C4A84C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 6,
   },
-  questLabel:     { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 13, color: '#5A3A00', flex: 1 },
+  questLabel:     { fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#5A3A00', flex: 1 },
   questBadge:     { backgroundColor: 'rgba(90,58,0,0.15)', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 2 },
-  questBadgeText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 11, color: '#5A3A00' },
+  questBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#5A3A00' },
   bismillahCard: {
     marginHorizontal: 12, marginTop: 4, marginBottom: 6,
     paddingHorizontal: 20, paddingVertical: 14,
@@ -780,7 +780,7 @@ const S = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.55, shadowRadius: 10, elevation: 8,
   },
   bismillahText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 30, color: '#E0BC4E', textAlign: 'center', lineHeight: 46 },
-  bismillahSub:  { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 2 },
+  bismillahSub:  { fontFamily: 'Nunito_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 2 },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center', justifyContent: 'center',
@@ -791,9 +791,9 @@ const S = StyleSheet.create({
   nodeCurrent:   { backgroundColor: '#37A168', borderWidth: 4, borderColor: 'white', shadowColor: '#2A7D4F', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.7, shadowRadius: 14, elevation: 10 },
   nodeGrey:      { backgroundColor: '#B0B8C8', borderWidth: 4, borderColor: '#8A95A8', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
   pulseRing:     { position: 'absolute', width: NODE_SIZE + 20, height: NODE_SIZE + 20, borderRadius: (NODE_SIZE + 20) / 2, borderWidth: 3, borderColor: '#37A168' },
-  nodeNumber:    { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 20, color: 'white' },
+  nodeNumber:    { fontFamily: 'Nunito_700Bold', fontSize: 20, color: 'white' },
   nodeWrapper:   { alignItems: 'center' },
-  rangeLabel:        { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 8, color: 'rgba(255,255,255,0.75)', marginTop: 2, textAlign: 'center' },
+  rangeLabel:        { fontFamily: 'Nunito_400Regular', fontSize: 8, color: 'rgba(255,255,255,0.75)', marginTop: 2, textAlign: 'center' },
   starsBadge:        { position: 'absolute', bottom: -6, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, paddingHorizontal: 4, paddingVertical: 1 },
   starsText:         { fontSize: 8, color: '#FFD700' },
   lumaGlow: {
@@ -803,5 +803,5 @@ const S = StyleSheet.create({
     shadowColor: '#fff', shadowOpacity: 0.6, shadowRadius: 8, elevation: 5,
   },
   lumaImg:           { width: 66, height: 66 },
-  endText:           { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 11, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 4 },
+  endText:           { fontFamily: 'Nunito_700Bold', fontSize: 11, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 4 },
 });

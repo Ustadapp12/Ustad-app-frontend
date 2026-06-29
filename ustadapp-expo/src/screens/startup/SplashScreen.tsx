@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   arabicTitle: {
-    fontFamily: 'NotoNaskhArabic_700Bold',
+    fontFamily: 'NotoNaskhArabic_400Regular',
     fontSize: 42,
     color: '#C4A84C',
     marginBottom: 5,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 20,
   },
   subtitle: {
-    fontFamily: 'PlusJakartaSans_800ExtraBold',
+    fontFamily: 'Nunito_700Bold',
     fontSize: 11,
     color: 'rgba(255,255,255,0.45)',
     letterSpacing: 3.5,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tagline: {
-    fontFamily: 'PlusJakartaSans_400Regular',
+    fontFamily: 'Nunito_400Regular',
     fontSize: 14,
     color: 'rgba(255,255,255,0.65)',
     lineHeight: 22,
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   pillEmoji: { fontSize: 13 },
   pillLabel: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_700Bold',
     fontSize: 12,
     color: 'rgba(255,255,255,0.8)',
   },

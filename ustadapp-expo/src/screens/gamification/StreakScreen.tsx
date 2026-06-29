@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+﻿import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -123,23 +123,23 @@ const styles = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19, backgroundColor: colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  closeBtnText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: colors.midText },
-  headerTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 17, color: colors.darkText },
+  closeBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
+  headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: colors.darkText },
   scroll: { alignItems: 'center', paddingHorizontal: 22, paddingBottom: 16 },
   streakAnim: { width: 140, height: 140 },
-  streakNum: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 64, color: '#EA580C', lineHeight: 68 },
-  streakLabel: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 24, color: colors.darkText, marginBottom: 6 },
-  streakSub: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 19, marginBottom: 14, paddingHorizontal: 16 },
+  streakNum: { fontFamily: 'Nunito_700Bold', fontSize: 64, color: '#EA580C', lineHeight: 68 },
+  streakLabel: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, marginBottom: 6 },
+  streakSub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 19, marginBottom: 14, paddingHorizontal: 16 },
   xpBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: colors.primaryBg, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 20,
   },
-  xpBadgeText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 13, color: colors.primary },
+  xpBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
   weekCard: {
     width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16, marginBottom: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
   },
-  weekTitle: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: colors.darkText, marginBottom: 12 },
+  weekTitle: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText, marginBottom: 12 },
   daysRow: { flexDirection: 'row', justifyContent: 'space-between' },
   dayCol: { alignItems: 'center', gap: 6 },
   dayDot: {
@@ -148,20 +148,20 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   dayDotFilled: { backgroundColor: '#EA580C', borderColor: '#EA580C' },
-  dayLabel: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 11, color: colors.mutedText },
+  dayLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.mutedText },
   dayLabelFilled: { color: '#EA580C' },
   milestonesCard: {
     width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
   },
-  milestonesTitle: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: colors.darkText, marginBottom: 10 },
+  milestonesTitle: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText, marginBottom: 10 },
   milestoneRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border,
   },
   milestoneRowDone: { opacity: 0.9 },
-  milestoneLabel: { flex: 1, fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.midText },
-  milestoneReward: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 12, color: colors.primary },
+  milestoneLabel: { flex: 1, fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.midText },
+  milestoneReward: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary },
   milestoneDone: {
     width: 22, height: 22, borderRadius: 11, backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
@@ -171,6 +171,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#EA580C', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
     shadowColor: '#EA580C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
   },
-  btnText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 16, color: 'white' },
+  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
 });
 

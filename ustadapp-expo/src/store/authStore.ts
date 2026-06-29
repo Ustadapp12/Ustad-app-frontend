@@ -68,6 +68,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         void setUserProperties({
           learner_mode: me.profile.learner_mode ?? undefined,
           script_preference: me.profile.script_preference ?? undefined,
+          daily_goal_minutes: me.profile.daily_goal_minutes ?? undefined,
+          streak_goal_days: me.profile.streak_goal_days ?? undefined,
         });
         // Enrich user with display name from profile
         const enriched = { ...res.user, name: me.profile.display_name ?? res.user.email.split('@')[0] };

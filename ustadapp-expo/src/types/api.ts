@@ -136,7 +136,7 @@ export interface JuzOut {
 }
 
 export type LearnerMode = 'child' | 'adult' | 'beginner' | 'placement_pending';
-export type ScriptPreference = 'uthmani' | 'nastaliq' | 'simple';
+export type ScriptPreference = 'uthmani' | 'nastaliq' | 'simple' | 'amiri' | 'nastaliq_urdu';
 export type PlacementLevel = 'beginner' | 'intermediate' | 'advanced';
 
 // ── New backend APIs (June 2025) ──────────────────────────────────

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+﻿import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -100,19 +100,19 @@ const xp_styles = StyleSheet.create({
     position: 'absolute', bottom: 52, left: 28, right: 28,
     alignItems: 'center', gap: 14,
   },
-  title:   { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 26, color: 'white',
+  title:   { fontFamily: 'Nunito_700Bold', fontSize: 26, color: 'white',
              textShadowColor: 'rgba(0,0,0,0.45)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
   xpBadge: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: 'rgba(0,0,0,0.40)', borderRadius: 20,
              paddingHorizontal: 26, paddingVertical: 12,
              borderWidth: 2, borderColor: colors.gold },
-  xpPlus:  { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 26, color: colors.gold, marginBottom: 2 },
-  xpNumber:{ fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 44, color: colors.gold, lineHeight: 48 },
-  xpLabel: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 24, color: colors.gold, marginBottom: 3 },
-  sub:     { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 14, color: 'rgba(255,255,255,0.85)' },
+  xpPlus:  { fontFamily: 'Nunito_700Bold', fontSize: 26, color: colors.gold, marginBottom: 2 },
+  xpNumber:{ fontFamily: 'Nunito_700Bold', fontSize: 44, color: colors.gold, lineHeight: 48 },
+  xpLabel: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.gold, marginBottom: 3 },
+  sub:     { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'rgba(255,255,255,0.85)' },
   btn:     { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17,
              alignItems: 'center',
              shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 14, elevation: 8 },
-  btnText: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 17, color: 'white' },
+  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
 });
 
 // ── Summary screen ────────────────────────────────────────────────
@@ -219,17 +219,17 @@ const styles = StyleSheet.create({
   content:      { alignItems: 'center', paddingHorizontal: 28, width: '100%' },
   starsRow:     { flexDirection: 'row', gap: 12, marginBottom: 16 },
   star:         { fontSize: 52 },
-  grade:        { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 32, marginBottom: 4 },
-  scorePct:     { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 16, color: 'rgba(255,255,255,0.65)', marginBottom: 16 },
+  grade:        { fontFamily: 'Nunito_700Bold', fontSize: 32, marginBottom: 4 },
+  scorePct:     { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.65)', marginBottom: 16 },
   lumaImg:      { width: 110, height: 110, marginBottom: 16 },
   statsGrid:    { flexDirection: 'row', width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', marginBottom: 24, overflow: 'hidden' },
   statCell:     { flex: 1, alignItems: 'center', paddingVertical: 16, gap: 4 },
   statBorder:   { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.12)' },
   statEmoji:    { fontSize: 22 },
-  statVal:      { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 20, color: 'white' },
-  statLbl:      { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 10, color: 'rgba(255,255,255,0.55)' },
+  statVal:      { fontFamily: 'Nunito_700Bold', fontSize: 20, color: 'white' },
+  statLbl:      { fontFamily: 'Nunito_400Regular', fontSize: 10, color: 'rgba(255,255,255,0.55)' },
   continueBtn:  { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  continueBtnText: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 17, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
   reviewBtn:    { width: '100%', borderRadius: 18, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)' },
-  reviewBtnText:{ fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: 'rgba(255,255,255,0.75)' },
+  reviewBtnText:{ fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'rgba(255,255,255,0.75)' },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { saveOnboarding } from '../../utils/storage';
@@ -93,7 +93,7 @@ export default function OnboardGoalScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg },
   statusBar: { paddingHorizontal: 24, paddingVertical: 6 },
-  time: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: colors.darkText },
+  time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
   headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 6, paddingTop: 4 },
   backBtn: {
     width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
@@ -105,19 +105,19 @@ const styles = StyleSheet.create({
   dotActive: { backgroundColor: colors.primary },
   scroll: { paddingHorizontal: 22, paddingBottom: 20 },
   badge: {
-    fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 10, color: colors.primary,
+    fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.primary,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8,
   },
-  heading: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 24, color: colors.darkText, lineHeight: 30, marginBottom: 6 },
-  sub: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.mutedText, marginBottom: 16 },
+  heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, lineHeight: 30, marginBottom: 6 },
+  sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, marginBottom: 16 },
   xpBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: colors.goldBg, borderWidth: 1.5, borderColor: colors.goldBorder,
     borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 18,
   },
   xpEmoji: { fontSize: 18 },
-  xpText: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.warning },
-  xpHighlight: { fontFamily: 'PlusJakartaSans_800ExtraBold', color: colors.primary },
+  xpText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.warning },
+  xpHighlight: { fontFamily: 'Nunito_700Bold', color: colors.primary },
   optionCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
@@ -126,8 +126,8 @@ const styles = StyleSheet.create({
   optionCardActive: { borderColor: colors.primary, backgroundColor: '#F0FAF5' },
   optionEmoji: { fontSize: 20 },
   optionText: { flex: 1 },
-  optionTitle: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: colors.darkText },
-  optionDesc: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 11, color: colors.mutedText, marginTop: 1 },
+  optionTitle: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText },
+  optionDesc: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: colors.mutedText, marginTop: 1 },
   radio: {
     width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.border,
     alignItems: 'center', justifyContent: 'center',
@@ -141,6 +141,6 @@ const styles = StyleSheet.create({
     shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4,
   },
   btnDisabled: { opacity: 0.4 },
-  btnText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 16, color: colors.white },
+  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
 });
 

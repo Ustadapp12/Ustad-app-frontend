@@ -102,16 +102,16 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg },
   statusBar: { paddingHorizontal: 24, paddingVertical: 6 },
-  time: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: colors.darkText },
+  time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 22, paddingBottom: 4,
   },
-  headerLabel: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.5 },
-  headerTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 22, color: colors.darkText },
+  headerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.5 },
+  headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.darkText },
   lumaImg: { width: 62, height: 62 },
   weekBadge: { backgroundColor: colors.primaryBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
-  weekText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 12, color: colors.primary },
+  weekText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary },
   podium: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end',
     paddingHorizontal: 20, paddingVertical: 14,
@@ -125,10 +125,10 @@ const styles = StyleSheet.create({
     width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginTop: -6,
   },
   podiumBadgeLarge: { width: 28, height: 28, borderRadius: 14 },
-  podiumRankText: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 11, color: 'white' },
-  podiumRankTextLarge: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 14, color: 'white' },
-  podiumName: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 11, color: colors.darkText, textAlign: 'center', marginTop: 4 },
-  podiumXP: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 10, color: colors.mutedText },
+  podiumRankText: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: 'white' },
+  podiumRankTextLarge: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
+  podiumName: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.darkText, textAlign: 'center', marginTop: 4 },
+  podiumXP: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText },
   scroll: { paddingHorizontal: 16, paddingBottom: 30 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -136,12 +136,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: colors.border,
   },
   rowMe: { borderColor: colors.primary, backgroundColor: '#F0FAF5' },
-  rowRank: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 14, color: colors.mutedText, width: 28, textAlign: 'center' },
+  rowRank: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.mutedText, width: 28, textAlign: 'center' },
   rowAvatar: {
     width: 38, height: 38, borderRadius: 19, backgroundColor: colors.lightBg,
     alignItems: 'center', justifyContent: 'center',
   },
-  rowName: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 13, color: colors.darkText },
-  rowXP: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 13, color: colors.mutedText },
+  rowName: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.darkText },
+  rowXP: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText },
 });
 

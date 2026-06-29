@@ -1,18 +1,16 @@
-import { Platform } from 'react-native';
+﻿import { Platform } from 'react-native';
 
 export const fonts = {
-  // Plus Jakarta Sans (loaded via @expo-google-fonts/plus-jakarta-sans)
-  regular: 'PlusJakartaSans_400Regular',
-  medium: 'PlusJakartaSans_500Medium',
-  semiBold: 'PlusJakartaSans_600SemiBold',
-  bold: 'PlusJakartaSans_700Bold',
-  extraBold: 'PlusJakartaSans_800ExtraBold',
+  // Nunito (loaded from local assets)
+  regular: 'Nunito_400Regular',
+  medium: 'Nunito_400Regular',
+  semiBold: 'Nunito_700Bold',
+  bold: 'Nunito_700Bold',
+  extraBold: 'Nunito_700Bold',
 
   // Arabic (loaded via expo-font from local assets)
   arabicRegular: 'NotoNaskhArabic_400Regular',
-  arabicMedium: 'NotoNaskhArabic_500Medium',
-  arabicSemiBold: 'NotoNaskhArabic_600SemiBold',
-  arabicBold: 'NotoNaskhArabic_700Bold',
+  arabicBold: 'NotoNaskhArabic_400Regular',
 } as const;
 
 export const typography = {
