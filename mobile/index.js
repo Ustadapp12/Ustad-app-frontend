@@ -8,15 +8,21 @@ import App from './App';
 import { name as appName } from './app.json';
 import sentryConfig from './sentry.config';
 
-Sentry.init({
-  dsn: 'https://374bfaa46733ff117de43dd3803fa0e6@o4511506682544128.ingest.us.sentry.io/4511506700173312',
-  release: sentryConfig.release,
-  dist: sentryConfig.dist,
-  tracesSampleRate: 1.0,
-  // debug: true triggers NativeEventEmitter.addListener which crashes on Android
-  // with "addListener of NativeEventEmitter can't be used on Android" — keep false
-  debug: false,
-  environment: __DEV__ ? 'development' : 'production',
-});
+let sentryReady = false;
+try {
+  Sentry.init({
+    dsn: 'https://374bfaa46733ff117de43dd3803fa0e6@o4511506682544128.ingest.us.sentry.io/4511506700173312',
+    release: sentryConfig.release,
+    dist: sentryConfig.dist,
+    tracesSampleRate: 1.0,
+    // debug: true triggers NativeEventEmitter.addListener which crashes on Android
+    // with "addListener of NativeEventEmitter can't be used on Android" — keep false
+    debug: false,
+    environment: __DEV__ ? 'development' : 'production',
+  });
+  sentryReady = true;
+} catch { /* Sentry native module not available (e.g. Expo Go) */ }
 
-AppRegistry.registerComponent(appName, () => Sentry.wrap(App));
+const wrap = C => { try { return sentryReady ? Sentry.wrap(C) : C; } catch { return C; } };
+AppRegistry.registerComponent(appName, () => wrap(App)); // bare RN build
+AppRegistry.registerComponent('main', () => wrap(App)); // Expo Go

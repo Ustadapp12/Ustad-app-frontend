@@ -63,10 +63,22 @@ export async function api<T>(
     }
   }
 
-  let res = await fetchWithTimeout(`${API_BASE}${API_PREFIX}${path}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${API_BASE}${API_PREFIX}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (err) {
+    const isAbort = err instanceof Error && err.name === 'AbortError';
+    throw new ApiError(
+      isAbort
+        ? 'Request timed out — check your connection.'
+        : 'Cannot reach server — check your network or local API settings.',
+      0,
+      null,
+    );
+  }
 
   if (res.status === 401 && auth) {
     try {
@@ -84,13 +96,14 @@ export async function api<T>(
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     const message = messageForStatus(res.status, body);
-    // Report API errors to Sentry with full context
-    Sentry.addBreadcrumb({
-      category: 'api',
-      message: `${options.method ?? 'GET'} ${path} → ${res.status}`,
-      level: res.status >= 500 ? 'error' : 'warning',
-      data: { status: res.status, path },
-    });
+    try {
+      Sentry.addBreadcrumb({
+        category: 'api',
+        message: `${options.method ?? 'GET'} ${path} → ${res.status}`,
+        level: res.status >= 500 ? 'error' : 'warning',
+        data: { status: res.status, path },
+      });
+    } catch { /* ignore */ }
     throw new ApiError(message, res.status, body);
   }
 

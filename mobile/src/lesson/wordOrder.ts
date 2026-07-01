@@ -4,3 +4,4 @@ import type { WordOut } from '../types/api';
 export function wordsInAyahOrder(words: WordOut[]): WordOut[] {
   return [...words].sort((a, b) => a.position - b.position);
 }
+

@@ -49,3 +49,4 @@ export function displaySurahNameEn(surahNumber: number): string {
   const meta = JUZ30_SURAHS.find(s => s.surah_number === surahNumber);
   return meta ? `Surah ${meta.name_en}` : `Surah ${surahNumber}`;
 }
+

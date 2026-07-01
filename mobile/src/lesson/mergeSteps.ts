@@ -9,3 +9,4 @@ export function isListenOnlyLesson(steps: ExerciseStep[]): boolean {
     steps.every(s => LISTEN_TYPES.has(s.type))
   );
 }
+

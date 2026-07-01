@@ -1,138 +1,227 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppText } from '../../components/ui/AppText';
-import { Logo } from '../../components/ui/Logo';
-import { Mascot } from '../../components/ui/Mascot';
-import { IrabBackground } from '../../components/ui/IrabBackground';
-import { copy } from '../../i18n/copy';
-import { healthCheck } from '../../api/client';
+﻿import React, { useEffect, useRef } from 'react';
+import {
+  View, Text, Image, StyleSheet, Animated, TouchableOpacity, Dimensions,
+} from 'react-native';
+import LottieView from 'lottie-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
-import { abandonPendingLessonSessionFromStorage } from '../../services/lessonSession';
-import { hydrateScriptPreference } from '../../utils/storage';
-import { colors } from '../../theme/colors';
-import type { RootStackParamList } from '../../navigation/types';
+import { isOnboardingDone } from '../../utils/storage';
+import type { RootNavProp } from '../../navigation/types';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
+const { width } = Dimensions.get('window');
 
-export function SplashScreen({ navigation }: Props) {
-  const hydrate = useAuthStore(s => s.hydrate);
-  const [phase, setPhase] = useState(0);
-  const [backendOk, setBackendOk] = useState(true);
-  const scale = useRef(new Animated.Value(0.3)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const progress = useRef(new Animated.Value(0)).current;
+const ARABIC_LETTERS = [
+  { char: 'ن', top: '6%', left: '7%', size: 32, rotate: '-12deg', opacity: 0.06 },
+  { char: 'ف', top: '11%', right: '9%', size: 40, rotate: '18deg', opacity: 0.04 },
+  { char: 'ع', top: '30%', left: '4%', size: 28, rotate: '5deg', opacity: 0.05 },
+  { char: 'ر', top: '55%', right: '6%', size: 34, rotate: '-18deg', opacity: 0.04 },
+  { char: 'ق', top: '75%', left: '8%', size: 24, rotate: '8deg', opacity: 0.045 },
+];
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 10 }),
-      Animated.timing(opacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-    ]).start();
-    const t1 = setTimeout(() => setPhase(1), 600);
-    const t2 = setTimeout(() => {
-      setPhase(2);
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: 1400,
-        useNativeDriver: false,
-      }).start();
-    }, 1500);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [scale, opacity, progress]);
+const PILLS = [
+  { emoji: '🌙', label: 'Hifz tracking' },
+  { emoji: '⚡', label: 'XP & streaks' },
+  { emoji: '📋', label: 'All scripts' },
+  { emoji: '🏆', label: 'Achievements' },
+];
+
+interface Props {
+  navigation: RootNavProp;
+}
+
+export default function SplashScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
+  const { user, isHydrated } = useAuthStore();
+
+  const lumaY = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const boot = async () => {
-      // Health check runs in background — only updates the offline indicator
-      void healthCheck().then(ok => setBackendOk(ok)).catch(() => setBackendOk(false));
-      // Hydrate in parallel with script preference — don't block on health check
-      await Promise.all([hydrate(), hydrateScriptPreference()]);
-      await abandonPendingLessonSessionFromStorage();
-      const currentUser = useAuthStore.getState().user;
-      if (currentUser) {
-        navigation.replace('MainTabs');
-      } else {
-        navigation.replace('Welcome');
-      }
-    };
-    void boot();
-  }, [hydrate, navigation]);
+    // Fade in
+    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
 
-  const progressWidth = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
+    // Luma float loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(lumaY, { toValue: -9, duration: 1500, useNativeDriver: true }),
+        Animated.timing(lumaY, { toValue: 0, duration: 1500, useNativeDriver: true }),
+      ]),
+    ).start();
+
+    // Auto-navigate after hydration
+    if (isHydrated) {
+      const timer = setTimeout(() => navigate(), 2200);
+      return () => clearTimeout(timer);
+    }
+  }, [isHydrated]);
+
+  async function navigate() {
+    if (user) {
+      navigation.replace('MainTabs');
+    } else {
+      const done = await isOnboardingDone();
+      navigation.replace(done ? 'Login' : 'OnboardGoal');
+    }
+  }
 
   return (
-    <View style={styles.root}>
-      <IrabBackground />
-      <Animated.View
-        style={[
-          styles.center,
-          { transform: [{ scale }], opacity },
-        ]}>
-        <Mascot size={155} bounce />
-        {phase >= 1 ? (
-          <View style={styles.logoWrap}>
-            <Logo large light />
+    <TouchableOpacity style={styles.container} activeOpacity={1} onPress={() => isHydrated && navigate()}>
+      <View style={[styles.inner, { paddingTop: insets.top + 8 }]}>
+
+        {/* Decorative Arabic letters */}
+        {ARABIC_LETTERS.map((l, i) => (
+          <Text
+            key={i}
+            style={[
+              styles.decorLetter,
+              {
+                top: l.top as any,
+                left: l.left as any,
+                right: (l as any).right as any,
+                fontSize: l.size,
+                transform: [{ rotate: l.rotate }],
+                opacity: l.opacity,
+              },
+            ]}
+          >
+            {l.char}
+          </Text>
+        ))}
+
+        <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', justifyContent: 'center', flex: 1, width: '100%' }}>
+          {/* Bismillah */}
+          <Text style={styles.bismillah}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</Text>
+
+          {/* Welcome animation */}
+          <View style={styles.welcomeCard}>
+            <LottieView
+              source={require('../../../assets/animations/Welcome.json')}
+              autoPlay loop
+              style={styles.welcomeAnim}
+            />
           </View>
-        ) : null}
-      </Animated.View>
-      {phase >= 2 ? (
-        <View style={styles.footer}>
-          <View style={styles.track}>
-            <Animated.View style={[styles.fill, { width: progressWidth }]} />
+
+          {/* Luma */}
+          <Animated.Image
+            source={require('../../../assets/images/lumo_transparent.png')}
+            style={[styles.luma, { transform: [{ translateY: lumaY }] }]}
+            resizeMode="contain"
+          />
+
+          {/* Arabic title */}
+          <Text style={styles.arabicTitle}>أُسْتَاذ</Text>
+          <Text style={styles.subtitle}>USTAD · HIFZ</Text>
+          <Text style={styles.tagline}>The gamified way to memorise the Holy Quran</Text>
+
+          {/* Feature pills */}
+          <View style={styles.pillsRow}>
+            {PILLS.map(p => (
+              <View key={p.label} style={styles.pill}>
+                <Text style={styles.pillEmoji}>{p.emoji}</Text>
+                <Text style={styles.pillLabel}>{p.label}</Text>
+              </View>
+            ))}
           </View>
-          <AppText style={styles.loading}>{copy.splash.loading}</AppText>
-          {!backendOk ? (
-            <AppText style={styles.offline}>{copy.splash.offline}</AppText>
-          ) : null}
-        </View>
-      ) : null}
-    </View>
+        </Animated.View>
+      </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
+  container: {
     flex: 1,
-    backgroundColor: colors.dark,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#0D1B2A',
   },
-  center: { alignItems: 'center', gap: 28 },
-  logoWrap: { marginTop: 8 },
-  footer: {
+  inner: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    paddingBottom: 32,
+  },
+  decorLetter: {
     position: 'absolute',
-    bottom: 56,
+    fontFamily: 'NotoNaskhArabic_400Regular',
+    color: 'white',
+  },
+  bismillah: {
+    fontFamily: 'NotoNaskhArabic_400Regular',
+    fontSize: 19,
+    color: '#C4A84C',
+    letterSpacing: 1,
+    marginBottom: 16,
+    marginTop: 8,
+    textShadowColor: 'rgba(196,168,76,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
+  },
+  welcomeCard: {
+    backgroundColor: 'rgba(42,125,79,0.25)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(42,125,79,0.45)',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    marginBottom: 6,
+  },
+  welcomeAnim: {
     width: 160,
-    alignItems: 'center',
-    gap: 8,
+    height: 80,
   },
-  track: {
-    height: 4,
-    width: '100%',
-    borderRadius: 2,
-    backgroundColor: `${colors.yellow}28`,
-    overflow: 'hidden',
+  luma: {
+    width: 180,
+    height: 180,
+    marginBottom: 8,
   },
-  fill: {
-    height: '100%',
-    backgroundColor: colors.yellow,
-    borderRadius: 2,
+  arabicTitle: {
+    fontFamily: 'NotoNaskhArabic_400Regular',
+    fontSize: 42,
+    color: '#C4A84C',
+    marginBottom: 5,
+    textShadowColor: 'rgba(196,168,76,0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 20,
   },
-  loading: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: `${colors.yellow}99`,
+  subtitle: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 3.5,
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
-  offline: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: colors.heart,
+  tagline: {
+    fontFamily: 'Nunito_400Regular',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.65)',
+    lineHeight: 22,
+    marginBottom: 20,
     textAlign: 'center',
-    marginTop: 4,
+    maxWidth: 260,
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+  },
+  pillEmoji: { fontSize: 13 },
+  pillLabel: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
   },
 });
+

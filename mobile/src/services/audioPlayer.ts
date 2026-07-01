@@ -45,12 +45,9 @@ function logAudioIssue(
   if (__DEV__) {
     console.warn(`[audioPlayer] ${phase} failed:`, detail, url);
   } else if (error instanceof Error) {
-    Sentry.captureException(error, { extra: { url, phase } });
+    try { Sentry.captureException(error, { extra: { url, phase } }); } catch { /* ignore */ }
   } else {
-    Sentry.captureMessage(`audioPlayer ${phase} failed`, {
-      level: 'warning',
-      extra: { url, detail },
-    });
+    try { Sentry.captureMessage(`audioPlayer ${phase} failed`, { level: 'warning', extra: { url, detail } }); } catch { /* ignore */ }
   }
 }
 
@@ -87,6 +84,9 @@ export async function preloadAudioUrls(urls: string[]): Promise<void> {
     // non-fatal — regular lazy loading is the fallback
   }
 }
+
+/** Alias used by expo-originated screens. */
+export const playAudio = playAudioUrl;
 
 /** Stop any currently playing audio. */
 export function stopAudio(): void {

@@ -1,125 +1,149 @@
-import React, { useState } from 'react';
-import { TextInput, View, StyleSheet, Alert, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppText } from '../../components/ui/AppText';
-import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { Logo } from '../../components/ui/Logo';
-import { Mascot } from '../../components/ui/Mascot';
-import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
-import { copy } from '../../i18n/copy';
+﻿import React, { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+} from 'react-native';
+import { Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import type { RootStackParamList } from '../../navigation/types';
+import type { RootNavProp } from '../../navigation/types';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'AuthLogin'>;
+interface Props { navigation: RootNavProp }
 
-export function LoginScreen({ navigation }: Props) {
+export default function LoginScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const login = useAuthStore(s => s.login);
+  const setDevUser = useAuthStore(s => s._devLogin);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [focused, setFocused] = useState<string | null>(null);
 
-  const submit = async () => {
+  async function handleLogin() {
+    if (!email.trim() || !password) {
+      Alert.alert('Missing fields', 'Please enter your email and password.');
+      return;
+    }
+    // Dev bypass: any email + password "expo" skips the API
+    if (__DEV__ && password === 'expo') {
+      setDevUser?.(email.trim());
+      navigation.replace('MainTabs');
+      return;
+    }
     setLoading(true);
     try {
-      await login(email.trim(), password.trim());
+      await login(email.trim().toLowerCase(), password);
       navigation.replace('MainTabs');
-    } catch (e) {
-      Alert.alert('Login failed', e instanceof Error ? e.message : 'Error');
+    } catch (e: any) {
+      Alert.alert('Login failed', e?.message ?? 'Please check your credentials.');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-    <OnboardingLayout onBack={() => navigation.goBack()}>
-      <View style={styles.hero}>
-        <Mascot size={80} />
-        <Logo />
-        <AppText variant="h1" style={styles.title}>
-          {copy.auth.loginTitle}
-        </AppText>
-      </View>
-      <View style={styles.form}>
-        <View style={styles.fields}>
-          <AppText style={styles.label}>{copy.auth.email}</AppText>
-          <TextInput
-            style={[styles.input, styles.inputText, focused === 'email' && styles.inputFocused]}
-            placeholder="you@email.com"
-            placeholderTextColor={colors.grey}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-            onFocus={() => setFocused('email')}
-            onBlur={() => setFocused(null)}
-            selectionColor={colors.primary}
-          />
-          <AppText style={styles.label}>{copy.auth.password}</AppText>
-          <TextInput
-            style={[styles.input, focused === 'pw' && styles.inputFocused, styles.inputText]}
-            placeholder="••••••••"
-            placeholderTextColor={colors.grey}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            onFocus={() => setFocused('pw')}
-            onBlur={() => setFocused(null)}
-            selectionColor={colors.primary}
-          />
-          <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
-            <AppText style={styles.forgot}>{copy.auth.forgot}</AppText>
-          </Pressable>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {/* Luma */}
+        <View style={styles.lumaWrap}>
+          <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
         </View>
-        <PrimaryButton title={copy.auth.login} onPress={submit} loading={loading} />
-        <PrimaryButton
-          title={copy.auth.noAccount}
-          variant="secondary"
-          onPress={() => navigation.navigate('AuthRegister')}
-          style={styles.gap}
-        />
-      </View>
-    </OnboardingLayout>
+
+        <Text style={styles.heading}>Welcome back!</Text>
+        <Text style={styles.sub}>Sign in to continue your Hifz journey</Text>
+
+        {/* Email */}
+        <View style={styles.fieldWrap}>
+          <Text style={styles.fieldLabel}>EMAIL</Text>
+          <View style={styles.inputRow}>
+            <Text style={styles.inputIcon}>✉️</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="ahmad@example.com"
+              placeholderTextColor={colors.placeholderText}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+            />
+          </View>
+        </View>
+
+        {/* Password */}
+        <View style={styles.fieldWrap}>
+          <Text style={styles.fieldLabel}>PASSWORD</Text>
+          <View style={styles.inputRow}>
+            <Text style={styles.inputIcon}>🔒</Text>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="••••••••"
+              placeholderTextColor={colors.placeholderText}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPass}
+              autoComplete="password"
+            />
+            <TouchableOpacity onPress={() => setShowPass(v => !v)}>
+              <Text style={styles.showHide}>{showPass ? 'HIDE' : 'SHOW'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Forgot */}
+        <TouchableOpacity style={styles.forgotWrap}>
+          <Text style={styles.forgot}>Forgot password?</Text>
+        </TouchableOpacity>
+
+        {/* CTA */}
+        <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleLogin} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Log In</Text>}
+        </TouchableOpacity>
+
+        {/* Register link */}
+        <View style={styles.switchRow}>
+          <Text style={styles.switchText}>New to Ustad? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+            <Text style={styles.switchLink}>Create account</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { marginTop: spacing.md, textAlign: 'center' },
-  form: { paddingBottom: spacing.sm },
-  fields: { marginBottom: spacing.lg },
-  label: {
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-    color: colors.charcoal,
-    marginBottom: 4,
-    marginTop: spacing.sm,
+  container: { flex: 1, backgroundColor: colors.lightBg },
+  statusBar: { paddingHorizontal: 24, paddingBottom: 6, backgroundColor: colors.lightBg },
+  time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
+  scroll: { paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' },
+  lumaWrap: { alignItems: 'center', paddingVertical: 20 },
+  luma: { width: 110, height: 110 },
+  heading: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
+  sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
+  fieldWrap: { marginBottom: 13 },
+  fieldLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.midText, marginBottom: 5, letterSpacing: 0.4 },
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
   },
-  input: {
-    borderWidth: 2,
-    borderColor: `${colors.grey}35`,
-    borderRadius: 14,
-    padding: spacing.md,
-    fontSize: 15,
-    fontWeight: '600',
-    backgroundColor: colors.white,
+  inputIcon: { fontSize: 16 },
+  input: { flex: 1, fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText },
+  showHide: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.placeholderText },
+  forgotWrap: { alignItems: 'flex-end', marginBottom: 24 },
+  forgot: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  btn: {
+    backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
+    alignItems: 'center', marginBottom: 18,
+    shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
   },
-  inputText: {
-    color: colors.dark,
-  },
-  inputFocused: {
-    borderColor: colors.primary,
-  },
-  forgot: {
-    color: colors.primary,
-    fontWeight: '700',
-    marginTop: spacing.md,
-    textAlign: 'right',
-  },
-  gap: { marginTop: spacing.md },
+  btnDisabled: { opacity: 0.7 },
+  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
+  switchRow: { flexDirection: 'row', justifyContent: 'center' },
+  switchText: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText },
+  switchLink: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
 });
+

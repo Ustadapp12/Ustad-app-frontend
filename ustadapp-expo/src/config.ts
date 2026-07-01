@@ -1,16 +1,11 @@
 import { Platform } from 'react-native';
 
 /** Live backend — all API calls use this host. */
-export const PRODUCTION_API_BASE = 'https://ustad-app-backend.vercel.app';
+export const PRODUCTION_API_BASE = 'https://ustad-app-backend-git-main-ustadapp.vercel.app';
 
-/**
- * Set true only when testing against a local FastAPI server.
- * Android emulator: 10.0.2.2:8000 · iOS simulator: 127.0.0.1:8000
- */
-export const USE_LOCAL_API = true;
+export const USE_LOCAL_API = false;
 
-/** Override when USE_LOCAL_API and testing on a physical device (same Wi‑Fi). */
-export const PHYSICAL_DEVICE_HOST: string | null = '172.20.10.5';
+export const PHYSICAL_DEVICE_HOST: string | null = null;
 
 /** MVP: last 10 surahs 105–114 from API (`mvp_only=true`). Set true for full Juz 30. */
 export const FULL_JUZ_AMMA = false;

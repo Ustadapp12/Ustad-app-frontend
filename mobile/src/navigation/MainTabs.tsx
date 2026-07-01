@@ -1,96 +1,110 @@
 import React from 'react';
-import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { HomeScreen } from '../screens/home/HomeScreen';
-import { RevisionScreen } from '../screens/revision/RevisionScreen';
-import { StatsScreen } from '../screens/profile/StatsScreen';
-import { ProfileScreen } from '../screens/profile/ProfileScreen';
-import {
-  TabHomeIcon,
-  TabRevisionIcon,
-  TabStatsIcon,
-  TabProfileIcon,
-} from '../components/ui/Icons';
+import { Text, View, StyleSheet } from 'react-native';
+import MapScreen from '../screens/home/MapScreen';
+import DailyQuestScreen from '../screens/quests/DailyQuestScreen';
+import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
+import HelpScreen from '../screens/help/HelpScreen';
 import { colors } from '../theme/colors';
-import { fontFamily } from '../theme/typography';
-import type { MainTabParamList } from './types';
+import type { TabParamList } from './types';
 
-const Tab = createBottomTabNavigator<MainTabParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
 
-function TabIcon({ name, color }: { name: string; color: string }) {
-  const icon =
-    name === 'Home' ? (
-      <TabHomeIcon color={color} />
-    ) : name === 'Revision' ? (
-      <TabRevisionIcon color={color} />
-    ) : name === 'Stats' ? (
-      <TabStatsIcon color={color} />
-    ) : (
-      <TabProfileIcon color={color} />
-    );
+function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', height: 26 }}>
-      {icon}
+    <View style={[styles.iconWrap, focused && styles.iconFocused]}>
+      <Text style={styles.emoji}>{emoji}</Text>
     </View>
   );
 }
 
-export function MainTabs() {
-  const insets = useSafeAreaInsets();
-  const tabBarHeight = 52 + insets.bottom;
-
+export default function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.yellow,
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.55)',
-        tabBarStyle: {
-          backgroundColor: 'rgba(8,14,22,0.97)',
-          borderTopColor: `${colors.grey}22`,
-          borderTopWidth: 1,
-          height: tabBarHeight,
-          paddingBottom: Math.max(insets.bottom, 8),
-          paddingTop: 6,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontFamily: fontFamily.bold,
-        },
-      }}>
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.mutedText,
+        tabBarLabelStyle: styles.label,
+      }}
+    >
       <Tab.Screen
-        name="Home"
-        component={HomeScreen}
+        name="Map"
+        component={MapScreen}
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <TabIcon name="Home" color={color} />,
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} />,
         }}
       />
       <Tab.Screen
-        name="Revision"
-        component={RevisionScreen}
+        name="DailyQuest"
+        component={DailyQuestScreen}
         options={{
-          title: 'Revise',
-          tabBarIcon: ({ color }) => <TabIcon name="Revision" color={color} />,
+          tabBarLabel: 'Quests',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="⭐" focused={focused} />,
         }}
       />
       <Tab.Screen
-        name="Stats"
-        component={StatsScreen}
+        name="Leaderboard"
+        component={LeaderboardScreen}
         options={{
-          title: 'Stats',
-          tabBarIcon: ({ color }) => <TabIcon name="Stats" color={color} />,
+          tabBarLabel: 'Board',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🏆" focused={focused} />,
         }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <TabIcon name="Profile" color={color} />,
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Help"
+        component={HelpScreen}
+        options={{
+          tabBarLabel: 'Help',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="❓" focused={focused} />,
         }}
       />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: colors.white,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    height: 80,
+    paddingBottom: 16,
+    paddingTop: 8,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  iconWrap: {
+    width: 36,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  iconFocused: {
+    backgroundColor: colors.primaryBg,
+  },
+  emoji: {
+    fontSize: 18,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+});
+

@@ -1,11 +1,3 @@
+// Using bare RN metro config — babel-preset-expo handles Expo Go compatibility
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
-
-/**
- * Metro configuration
- * https://reactnative.dev/docs/metro
- *
- * @type {import('@react-native/metro-config').MetroConfig}
- */
-const config = {};
-
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+module.exports = mergeConfig(getDefaultConfig(__dirname), {});

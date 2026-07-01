@@ -30,3 +30,4 @@ export function filterToMvpSurahs(
       : new Set<number>(MVP_SURAH_NUMBERS);
   return surahs.filter(s => allowed.has(s.surah_number));
 }
+

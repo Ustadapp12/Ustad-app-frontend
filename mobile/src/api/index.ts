@@ -6,6 +6,8 @@ import type {
   AyahOut,
   ExerciseAttemptResponse,
   ExerciseOut,
+  FormulaAttemptIn,
+  FormulaAttemptOut,
   JuzOut,
   LearningMe,
   LearningStats,
@@ -19,6 +21,7 @@ import type {
   RecommendedNext,
   RevisionNext,
   SessionCompleteOut,
+  SpeakAttemptResponse,
   SurahBrief,
   SurahLevel,
   SurahPath,
@@ -88,6 +91,12 @@ export const usersApi = {
     api<AuthMeResponse>('/users/me/profile', {
       method: 'PATCH',
       body: JSON.stringify(body),
+    }),
+
+  deleteAccount: (password: string) =>
+    api<void>('/users/me/delete', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
     }),
 };
 
@@ -228,6 +237,12 @@ export const learningApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  formulaAttempt: (sessionId: string, body: FormulaAttemptIn) =>
+    api<FormulaAttemptOut>(`/learning/sessions/${sessionId}/formula-attempt`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 // ── Revision ─────────────────────────────────────────────────────
@@ -276,6 +291,25 @@ export const progressApi = {
     return api<VoiceAttemptResponse>('/progress/voice-attempt', {
       method: 'POST',
       body: JSON.stringify({ session_id, ayah_id, duration_ms: body.duration_ms ?? 0 }),
+    });
+  },
+
+  speakAttempt: (body: {
+    expected_arabic: string;
+    audioUri: string;
+    audioType?: string;
+  }) => {
+    const { expected_arabic, audioUri, audioType = 'audio/m4a' } = body;
+    const form = new FormData();
+    form.append('expected_arabic', expected_arabic);
+    form.append('audio', {
+      uri: audioUri,
+      name: 'recitation.m4a',
+      type: audioType,
+    } as unknown as Blob);
+    return api<SpeakAttemptResponse>('/progress/speak-attempt', {
+      method: 'POST',
+      body: form,
     });
   },
 };

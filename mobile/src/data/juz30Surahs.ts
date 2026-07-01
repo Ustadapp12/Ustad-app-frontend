@@ -45,3 +45,4 @@ export const JUZ30_SURAHS: SurahBrief[] = [
 export const JUZ30_SURAH_ORDER = [...JUZ30_SURAHS]
   .map(s => s.surah_number)
   .sort((a, b) => b - a);
+

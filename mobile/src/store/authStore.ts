@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as Sentry from '@sentry/react-native';
-import { authApi, learningApi } from '../api';
+import { authApi, learningApi, usersApi } from '../api';
 import { getTokens, setTokens, getStoredUser, setStoredUser } from '../utils/storage';
 import {
   AnalyticsEvents,
@@ -30,7 +30,9 @@ interface AuthState {
     displayName?: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
   refreshLearning: (opts?: { force?: boolean }) => Promise<void>;
+  _devLogin?: (email: string) => void;
 }
 
 const LEARNING_ME_INTERVAL_MS = 60_000;
@@ -77,7 +79,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setStoredUser(res.user);
     const learning = await learningApi.me();
     await warmAudioUrlCache();
-    Sentry.setUser({ id: res.user.id, email: res.user.email });
+    try { Sentry.setUser({ id: res.user.id, email: res.user.email }); } catch { /* ignore */ }
     setCrashUser(res.user.id, res.user.email);
     await setAnalyticsUserId(res.user.id);
     void logAnalyticsEvent(AnalyticsEvents.LOGIN, { method: 'email' });
@@ -107,7 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setStoredUser(res.user);
     const learning = await learningApi.me();
     await warmAudioUrlCache();
-    Sentry.setUser({ id: res.user.id, email: res.user.email });
+    try { Sentry.setUser({ id: res.user.id, email: res.user.email }); } catch { /* ignore */ }
     setCrashUser(res.user.id, res.user.email);
     await setAnalyticsUserId(res.user.id);
     void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'email' });
@@ -123,11 +125,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await abandonPendingLessonSessionFromStorage();
     await setTokens(null);
     await setStoredUser(null);
-    Sentry.setUser(null); // Clear user from crash reports on logout
+    try { Sentry.setUser(null); } catch { /* ignore */ } // Clear user from crash reports on logout
     await setAnalyticsUserId(null);
     invalidateAll();
     lastLearningMeFetchAt = 0;
     set({ user: null, learning: null });
+  },
+
+  deleteAccount: async (password: string) => {
+    await useLessonStore.getState().abandonSession({ silent: true }).catch(() => null);
+    useLessonStore.getState().reset();
+    await usersApi.deleteAccount(password);
+    await setTokens(null);
+    await setStoredUser(null);
+    try { Sentry.setUser(null); } catch { /* ignore */ }
+    await setAnalyticsUserId(null);
+    invalidateAll();
+    lastLearningMeFetchAt = 0;
+    set({ user: null, learning: null });
+  },
+
+  _devLogin: (email: string) => {
+    const mockUser: User = { id: 'dev-user', email, name: email.split('@')[0], role: 'learner' } as any;
+    const mockLearning: LearningMe = {
+      user_id: 'dev-user', xp_total: 120, current_streak: 3,
+      script_preference: 'uthmani', mvp_surah_numbers: [1, 112, 113, 114],
+    } as any;
+    set({ user: mockUser, learning: mockLearning, isHydrated: true });
   },
 
   refreshLearning: async ({ force = false } = {}) => {

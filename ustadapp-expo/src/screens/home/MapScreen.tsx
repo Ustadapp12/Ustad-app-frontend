@@ -466,10 +466,10 @@ export default function MapScreen({ navigation }: Props) {
     const groups = Array.isArray(path.groups) ? path.groups : [];
     return {
       ...section,
-      nodes: section.nodes.map(node => {
-        const group = groups.find(g => g.lesson_group_id === node.id);
+      nodes: section.nodes.map((node, nodeIdx) => {
+        const group = groups[nodeIdx];
         if (!group) return node;
-        return { ...node, status: stageToNodeStatus(group.status), stars: group.stars ?? 0, startAyah: group.start_ayah, endAyah: group.end_ayah };
+        return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: group.stars ?? 0, startAyah: group.start_ayah, endAyah: group.end_ayah };
       }),
     };
   });

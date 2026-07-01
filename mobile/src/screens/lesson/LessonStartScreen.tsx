@@ -1,243 +1,138 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Screen } from '../../components/ui/Screen';
-import { AppText } from '../../components/ui/AppText';
-import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { Mascot } from '../../components/ui/Mascot';
-import { IrabBackground } from '../../components/ui/IrabBackground';
-import { useLessonStore } from '../../store/lessonStore';
-import { getPendingLessonSession } from '../../services/lessonSession';
-import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
-import { copy } from '../../i18n/copy';
+﻿import React, { useEffect } from 'react';
+import { View } from 'react-native';
+import type { RootNavProp } from '../../navigation/types';
+
+interface Props {
+  navigation: RootNavProp;
+  route: { params: { groupId: string; surahName: string; surahNumber: number } };
+}
+
+// Lesson preview screen commented out for now — navigate directly to LessonSession.
+// To restore: uncomment the original content below.
+export default function LessonStartScreen({ navigation, route }: Props) {
+  const { surahName, surahNumber, groupId } = route.params;
+
+  useEffect(() => {
+    navigation.replace('LessonSession', { groupId, surahName, surahNumber });
+  }, []);
+
+  return <View style={{ flex: 1 }} />;
+}
+
+/*
+import { Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Image } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import type { RootStackParamList } from '../../navigation/types';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'LessonStart'>;
+const PRACTICE_ITEMS = [
+  { emoji: '🎧', label: 'Listen to each ayah' },
+  { emoji: '📝', label: 'Fill in the blanks' },
+  { emoji: '🔀', label: 'Order the verses' },
+  { emoji: '✅', label: 'Multiple choice recall' },
+];
 
-export function LessonStartScreen({ route, navigation }: Props) {
-  const { groupId, label } = route.params;
-  const { group, loading, error, sessionId, loadGroup, startSession } =
-    useLessonStore();
-  const starting = loading && !!group && !sessionId;
+function LessonStartScreenFull({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
+  const { surahName, surahNumber, groupId } = route.params;
 
-  const [resumeStep, setResumeStep] = useState<number | null>(null);
-  const [checkingResume, setCheckingResume] = useState(true);
-
-  useEffect(() => {
-    loadGroup(groupId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupId, loadGroup]);
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    getPendingLessonSession().then(pending => {
-      const step = pending?.groupId === groupId && (pending.stepIndex ?? 0) > 0
-        ? (pending.stepIndex ?? 0)
-        : null;
-      setResumeStep(step);
-      setCheckingResume(false);
-      // Re-fire lesson_opened with resume context now that we know
-      void logAnalyticsEvent(AnalyticsEvents.LESSON_OPENED, {
-        group_id: groupId,
-        is_resume: step != null ? 1 : 0,
-        resume_step: step ?? 0,
-        ayah_count: group?.ayahs.length,
-        surah_id: group?.surah_number,
-      });
-    }).catch(() => setCheckingResume(false));
-  }, [groupId, group]);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    Animated.loop(Animated.sequence([
+      Animated.timing(floatAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
+      Animated.timing(floatAnim, { toValue: 0, duration: 1300, useNativeDriver: true }),
+    ])).start();
+  }, []);
 
-  const begin = async (fromStep = 0) => {
-    try {
-      await startSession(fromStep);
-      navigation.replace('LessonSession', { groupId });
-    } catch {
-      /* error shown via store */
-    }
-  };
-
-  if (loading && !group) {
-    return (
-      <Screen style={styles.screen}>
-        <IrabBackground color={colors.yellow} opacityBase={0.05} />
-        <View style={styles.content}>
-          <View style={styles.skeletonCircle} />
-          <View style={styles.skeletonTitle} />
-          <View style={[styles.skeletonTitle, { width: '50%', height: 16, marginTop: 4 }]} />
-          <View style={styles.skeletonCard} />
-        </View>
-        <View style={styles.footer}>
-          <View style={styles.skeletonBtn} />
-          <View style={[styles.skeletonBtn, styles.skeletonBtnSec]} />
-        </View>
-      </Screen>
-    );
-  }
-
-  const totalSteps = group?.ayahs?.length ?? 0;
-  const resumePct = resumeStep && totalSteps > 0
-    ? Math.round((resumeStep / totalSteps) * 100)
-    : 0;
+  const lumaY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
 
   return (
-    <Screen style={styles.screen}>
-      <IrabBackground color={colors.yellow} opacityBase={0.05} />
-      <View style={styles.content}>
-        <Mascot size={100} bounce />
-        <AppText variant="h1" style={styles.title}>
-          {copy.lessonStart.title}
-        </AppText>
-        <AppText variant="arabic" style={styles.label}>{label}</AppText>
-        {group ? (
-          <View style={styles.metaCard}>
-            <AppText style={styles.meta}>
-              {group.ayahs.length} ayahs · ~{group.estimated_minutes} min
-            </AppText>
-            <AppText style={styles.metaSub}>
-              Surah {group.surah_number} · Ayah {group.start_ayah}–{group.end_ayah}
-            </AppText>
-          </View>
-        ) : null}
-        {resumeStep !== null && !checkingResume && (
-          <View style={styles.resumeBanner}>
-            <AppText style={styles.resumeTitle}>You left off at {resumePct}%</AppText>
-            <AppText style={styles.resumeSub}>
-              Step {resumeStep} of {totalSteps} completed
-            </AppText>
-          </View>
-        )}
-        {error ? <AppText style={styles.error}>{error}</AppText> : null}
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={styles.container}>
+      <View style={{ paddingTop: insets.top + 6, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center' }}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.backText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Lesson Preview</Text>
       </View>
-      <View style={styles.footer}>
-        {resumeStep !== null && !checkingResume ? (
-          <>
-            <PrimaryButton
-              title="Resume ›"
-              onPress={() => begin(resumeStep)}
-              disabled={!group || starting}
-              loading={starting}
-            />
-            <PrimaryButton
-              title="Start Over"
-              variant="secondaryOnDark"
-              onPress={() => begin(0)}
-              disabled={starting}
-              style={styles.gap}
-            />
-          </>
-        ) : (
-          <>
-            <PrimaryButton
-              title={copy.lessonStart.cta}
-              onPress={() => begin(0)}
-              disabled={!group || starting}
-              loading={starting}
-            />
-            <PrimaryButton
-              title={copy.lessonStart.back}
-              variant="secondaryOnDark"
-              onPress={() => navigation.goBack()}
-              style={styles.gap}
-            />
-          </>
-        )}
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Animated.View style={[styles.surahBadge, { opacity: fadeAnim }]}>
+          <Text style={styles.surahNum}>{surahNumber}</Text>
+          <Text style={styles.surahArabic}>سورة {surahName}</Text>
+          <Text style={styles.surahName}>Surah {surahName}</Text>
+        </Animated.View>
+
+        <View style={styles.lumaRow}>
+          <View style={styles.speechBubble}>
+            <Text style={styles.speechText}>
+              Bismillah! Let's memorise{'\n'}Surah {surahName} together! 🌟
+            </Text>
+            <View style={styles.speechTail} />
+          </View>
+          <Animated.Image
+            source={require('../../../assets/images/lumo_transparent.png')}
+            style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={styles.practiceCard}>
+          <Text style={styles.practiceTitle}>What You'll Practice</Text>
+          {PRACTICE_ITEMS.map((item, i) => (
+            <View key={i} style={styles.practiceRow}>
+              <View style={styles.practiceIcon}><Text style={{ fontSize: 18 }}>{item.emoji}</Text></View>
+              <Text style={styles.practiceLabel}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.rewardRow}>
+          <View style={styles.rewardBadge}><Text style={{ fontSize: 14 }}>⚡</Text><Text style={styles.rewardText}>+20 XP for completing</Text></View>
+          <View style={styles.rewardBadge}><Text style={{ fontSize: 14 }}>❤️</Text><Text style={styles.rewardText}>5 hearts</Text></View>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
+        <TouchableOpacity
+          style={styles.startBtn}
+          onPress={() => navigation.navigate('LessonSession', { groupId, surahName, surahNumber })}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.startBtnText}>Start Lesson  →</Text>
+        </TouchableOpacity>
       </View>
-    </Screen>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: colors.dark, flex: 1 },
-  centerScreen: {
-    flex: 1,
-    backgroundColor: colors.dark,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.screenHorizontal,
-    zIndex: 1,
-  },
-  title: { color: colors.white, textAlign: 'center', marginTop: spacing.lg },
-  label: {
-    color: colors.yellow,
-    fontWeight: '800',
-    fontSize: 18,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  metaCard: {
-    marginTop: spacing.xl,
-    backgroundColor: 'rgba(5, 150, 106, 0.45)',
-    borderRadius: 16,
-    padding: spacing.lg,
-    width: '100%',
-    alignItems: 'center',
-  },
-  meta: { color: colors.white, fontWeight: '800' },
-  metaSub: { color: 'rgba(255,255,255,0.65)', marginTop: 4, fontSize: 12 },
-  resumeBanner: {
-    marginTop: spacing.md,
-    backgroundColor: `${colors.yellow}22`,
-    borderWidth: 1.5,
-    borderColor: `${colors.yellow}55`,
-    borderRadius: 12,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    width: '100%',
-    alignItems: 'center',
-  },
-  resumeTitle: {
-    color: colors.yellow,
-    fontWeight: '900',
-    fontSize: 13,
-  },
-  resumeSub: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  error: { color: colors.heart, marginTop: spacing.md },
-  footer: {
-    padding: spacing.screenHorizontal,
-    paddingBottom: spacing.xl,
-    zIndex: 1,
-  },
-  gap: { marginTop: spacing.sm },
-
-  skeletonCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  skeletonTitle: {
-    height: 28,
-    width: '70%',
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginTop: spacing.lg,
-  },
-  skeletonCard: {
-    width: '100%',
-    height: 80,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginTop: spacing.xl,
-  },
-  skeletonBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    width: '100%',
-  },
-  skeletonBtnSec: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    marginTop: spacing.sm,
-  },
+  container: { flex: 1 },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  backText: { fontSize: 18, color: 'white', fontWeight: '700' },
+  headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.8)' },
+  scroll: { paddingHorizontal: 22, paddingBottom: 20, alignItems: 'center' },
+  surahBadge: { width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 3, borderColor: colors.gold, alignItems: 'center', justifyContent: 'center', marginTop: 20, marginBottom: 18, shadowColor: colors.gold, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 8 },
+  surahNum: { fontFamily: 'Nunito_700Bold', fontSize: 36, color: colors.gold },
+  surahArabic: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: 2 },
+  surahName: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  lumaRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 22, width: '100%', paddingLeft: 10 },
+  speechBubble: { flex: 1, backgroundColor: 'white', borderRadius: 14, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
+  speechText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#374151', lineHeight: 19 },
+  speechTail: { position: 'absolute', right: -8, bottom: 18, width: 0, height: 0, borderTopWidth: 7, borderBottomWidth: 7, borderLeftWidth: 9, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: 'white' },
+  lumaImg: { width: 90, height: 90 },
+  practiceCard: { width: '100%', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', padding: 16, marginBottom: 16 },
+  practiceTitle: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 12 },
+  practiceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  practiceIcon: { width: 38, height: 38, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  practiceLabel: { flex: 1, fontFamily: 'Nunito_700Bold', fontSize: 13, color: 'rgba(255,255,255,0.8)' },
+  rewardRow: { flexDirection: 'row', gap: 10, width: '100%' },
+  rewardBadge: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 },
+  rewardText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: 'rgba(255,255,255,0.75)' },
+  footer: { paddingHorizontal: 22, paddingTop: 12 },
+  startBtn: { backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 18, alignItems: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
+  startBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
 });
+*/

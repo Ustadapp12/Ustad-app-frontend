@@ -1,80 +1,35 @@
-import { Platform, TextStyle } from 'react-native';
-import { colors } from './colors';
+﻿import { Platform } from 'react-native';
 
-/** Android ignores custom fontFamily when fontWeight is also set. */
-export function androidSafeFont(style: TextStyle): TextStyle {
-  if (Platform.OS !== 'android' || !style.fontFamily) {
-    return style;
-  }
-  const { fontWeight: _omit, ...rest } = style;
-  return rest;
-}
+export const fonts = {
+  // Nunito (loaded from local assets)
+  regular: 'Nunito_400Regular',
+  medium: 'Nunito_400Regular',
+  semiBold: 'Nunito_700Bold',
+  bold: 'Nunito_700Bold',
+  extraBold: 'Nunito_700Bold',
 
-export const fontFamily = {
-  regular: 'Nunito-Regular',
-  bold:    'Nunito-Bold',
-  black:   'Nunito-Bold',
-  /** Arabic script fonts — chosen per user's script preference */
-  arabicUthmani: 'AmiriQuran',      // traditional mushaf calligraphy
-  arabicNastaliq: 'NotoNastaliqUrdu', // Persian/Nastaliq style
-  arabicSimple:   'NotoNaskhArabic',  // clean modern Naskh
-};
+  // Arabic (loaded via expo-font from local assets)
+  arabicRegular: 'NotoNaskhArabic_400Regular',
+  arabicBold: 'NotoNaskhArabic_400Regular',
+} as const;
 
-/** Returns the Arabic font family for the user's script preference. */
-export function arabicFontForScript(pref?: string | null): string {
-  switch (pref) {
-    case 'nastaliq': return fontFamily.arabicNastaliq;
-    case 'simple':   return fontFamily.arabicSimple;
-    case 'uthmani':
-    default:         return fontFamily.arabicUthmani;
-  }
-}
+export const typography = {
+  h1: { fontFamily: fonts.extraBold, fontSize: 28, lineHeight: 36 },
+  h2: { fontFamily: fonts.extraBold, fontSize: 24, lineHeight: 30 },
+  h3: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 26 },
+  h4: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 22 },
+  bodyLarge: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24 },
+  body: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
+  bodySmall: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
+  caption: { fontFamily: fonts.medium, fontSize: 11, lineHeight: 16 },
+  label: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 16, letterSpacing: 1.2 },
+  button: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 22 },
+  buttonSmall: { fontFamily: fonts.semiBold, fontSize: 14, lineHeight: 18 },
 
-export const typography: Record<string, TextStyle> = {
-  h1: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.dark,
-    fontFamily: fontFamily.bold,
-  },
-  h2: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.dark,
-    fontFamily: fontFamily.bold,
-  },
-  body: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.charcoal,
-    lineHeight: 24,
-    fontFamily: fontFamily.regular,
-  },
-  caption: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.grey,
-    fontFamily: fontFamily.regular,
-  },
-  button: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.white,
-    letterSpacing: 0.5,
-    fontFamily: fontFamily.bold,
-  },
-  brand: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: colors.primary,
-    fontFamily: fontFamily.bold,
-  },
-  arabic: {
-    fontSize: 26,
-    color: colors.dark,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontFamily: fontFamily.arabicUthmani,
-    lineHeight: 44,
-  },
-};
+  // Arabic
+  arabicLarge: { fontFamily: fonts.arabicBold, fontSize: 28, lineHeight: 42, writingDirection: 'rtl' as const },
+  arabic: { fontFamily: fonts.arabicRegular, fontSize: 20, lineHeight: 32, writingDirection: 'rtl' as const },
+  arabicSmall: { fontFamily: fonts.arabicRegular, fontSize: 16, lineHeight: 26, writingDirection: 'rtl' as const },
+  bismillah: { fontFamily: fonts.arabicRegular, fontSize: 19, lineHeight: 30, writingDirection: 'rtl' as const },
+} as const;
+

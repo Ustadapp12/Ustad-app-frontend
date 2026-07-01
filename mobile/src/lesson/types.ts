@@ -38,3 +38,4 @@ export interface ExerciseStep {
   /** listen / listen_repeat: word-level data with individual audio URLs */
   metadataWords?: WordOut[];
 }
+

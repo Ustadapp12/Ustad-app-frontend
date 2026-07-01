@@ -89,3 +89,4 @@ export function resolveFullAyahArabic(
   if (!joined) return ar;
   return joined.length > ar.length ? joined : ar;
 }
+

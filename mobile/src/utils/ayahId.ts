@@ -9,3 +9,4 @@ export function ayahIdForApi(ayah: {
 }): string {
   return formatAyahId(ayah.surah_number, ayah.ayah_number);
 }
+

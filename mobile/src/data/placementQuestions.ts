@@ -168,3 +168,4 @@ export function scorePlacement(answers: (number | null)[]): {
   // Beginner — start from the very end (An-Nas 114)
   return { correct, total, level: 'beginner', startSurah: 114 };
 }
+

@@ -8,6 +8,7 @@ export interface User {
   id: string;
   email: string;
   role: string;
+  name?: string; // populated from profile.display_name after login
 }
 
 export interface AuthResponse {
@@ -24,6 +25,7 @@ export interface LearningMe {
   xp_total: number;
   gem_balance: number;
   mvp_surah_numbers: number[];
+  script_preference?: ScriptPreference | null; // optional, returned by some endpoints
 }
 
 export interface SurahBrief {
@@ -95,6 +97,7 @@ export interface LessonSessionStart {
   session_id: string;
   lesson_group_id: string;
   hearts_at_start: number;
+  first_exercise?: ExerciseDict | null;
 }
 
 /** GET /learning/sessions/active — null when no in-progress session. */
@@ -133,7 +136,7 @@ export interface JuzOut {
 }
 
 export type LearnerMode = 'child' | 'adult' | 'beginner' | 'placement_pending';
-export type ScriptPreference = 'uthmani' | 'nastaliq' | 'simple';
+export type ScriptPreference = 'uthmani' | 'nastaliq' | 'simple' | 'amiri' | 'nastaliq_urdu';
 export type PlacementLevel = 'beginner' | 'intermediate' | 'advanced';
 
 // ── New backend APIs (June 2025) ──────────────────────────────────
@@ -217,7 +220,7 @@ export interface SurahPath {
   surah_name_en: string;
   surah_name_ar: string;
   ayah_count: number;
-  stages: SurahStage[];
+  groups: SurahLevel[];
 }
 
 export interface ExerciseOption {
@@ -255,6 +258,102 @@ export interface LessonGroupExercises {
   exercises: ExerciseOut[];
 }
 
+// ── Formula Engine (Phase 2 backend) ─────────────────────────────
+
+export interface ExerciseToken {
+  ar: string;
+  blank?: boolean;          // undefined for read_and_speak tokens (all tokens are shown, none blanked)
+  audio_url?: string | null; // present for read_and_speak — tap-to-hear per word
+}
+
+export interface ExerciseOptionWord {
+  ar: string;
+  audio_url?: string | null;
+}
+
+export interface ExerciseTile {
+  ar: string;
+  audio_url?: string | null;
+}
+
+export interface ExerciseDict {
+  ex_id: string;
+  type: 'ayah_display' | 'fill_blank' | 'audio_fill' | 'reorder' | 'next_word' | 'segment_recall' | 'sequence' | 'hear_and_select' | 'ayat_then_order' | 'read_ayah_and_speak' | 'read_and_speak' | string;
+  phase: string;
+  surah_no: number;
+  ayah_no: number;
+  seg_no: number;
+  instruction: string;
+  ayah_audio_url?: string | null;
+  // ayah_display
+  ayah_ar?: string | null;
+  ayah_translation?: string | null;
+  // fill_blank / next_word / audio_fill
+  tokens?: ExerciseToken[] | null;
+  options?: ExerciseOptionWord[] | null;
+  context_before?: string[] | null;
+  context_after?: string[] | null;
+  // reorder / ayat_then_order
+  tiles?: ExerciseTile[] | null;
+  answer_len?: number | null;
+  // ayat_then_order
+  first_ayah_text?: string | null;
+  first_ayah_audio_url?: string | null;
+  // teaching mode
+  word_audio_url?: string | null;
+  // word-level audio (fill_blank / next_word / hear_and_select / audio_fill)
+  segment_audio_urls?: string[] | null;
+  // read_ayah_and_speak / read_and_speak — sent to speak-attempt for scoring
+  expected_arabic?: string | null;
+}
+
+export interface SegmentStatus {
+  ayah_no: number;
+  seg_no: number;
+  status: 'new' | 'learning' | 'mastered' | 'questionable';
+  asked: number;
+  wrong: number;
+}
+
+export interface FormulaAttemptIn {
+  ex_id: string;
+  user_answer: string | string[] | number[] | null;
+  response_ms?: number;
+}
+
+export interface FormulaAttemptOut {
+  correct: boolean;
+  correct_answer: string | string[] | null;
+  was_type: string;
+  next_exercise: ExerciseDict | null;
+  phase: 'view' | 'main' | 'review' | 'done';
+  done: boolean;
+  segments: SegmentStatus[];
+  xp_awarded?: number | null;
+}
+
+// ─────────────────────────────────────────────────────────────────
+
+// ── Speak attempt (read_ayah_and_speak / read_and_speak) ─────────────
+
+/** Per-word timing entry returned by Deepgram transcription. */
+export interface WordTiming {
+  word: string;
+  start: number;
+  end: number;
+  confidence: number;
+}
+
+/** Response from POST /api/v1/progress/speak-attempt */
+export interface SpeakAttemptResponse {
+  passed: boolean;       // true when score_pct >= 60
+  score_pct: number;     // 0–100
+  transcript: string;    // what Deepgram heard
+  word_timings: WordTiming[];
+}
+
+// ─────────────────────────────────────────────────────────────────
+
 export interface OnboardingAnswers {
   motivation?: string;
   script?: ScriptPreference;
@@ -268,3 +367,4 @@ export interface OnboardingAnswers {
   startSurah?: number;
   completedAt?: string;
 }
+

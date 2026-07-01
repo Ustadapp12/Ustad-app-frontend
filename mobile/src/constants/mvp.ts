@@ -11,3 +11,4 @@ export const MVP_SURAH_MAX = 114;
 export function isMvpSurah(surahNumber: number): boolean {
   return surahNumber >= MVP_SURAH_MIN && surahNumber <= MVP_SURAH_MAX;
 }
+

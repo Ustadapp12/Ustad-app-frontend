@@ -1,58 +1,41 @@
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+
 export type RootStackParamList = {
   Splash: undefined;
-  Welcome: undefined;
-  Intro: undefined;
-  OnboardingMotivation: undefined;
-  OnboardingScript: undefined;
-  OnboardingDailyGoal: undefined;
-  OnboardingNotifications: undefined;
-  OnboardingAccount: undefined;
-  RecitationLevel: undefined;
-  OnboardingStreakGoal: undefined;
-  StreakDay1: undefined;
-  PathChoose: undefined;
-  PlacementIntro: undefined;
-  PlacementTest: undefined;
-  PlacementResults: { answers: (number | null)[] };
-  VerifyEmail: { email: string };
-  ForgotPassword: undefined;
-  ResetCode: { email: string };
-  NewPassword: { email: string; code: string };
-  Celebration: {
-    answers?: (number | null)[];
-    scorePct?: number;
-    level?: string;
-    startSurah?: number;
-  };
-  AuthLogin: undefined;
-  AuthRegister: undefined;
+  Login: undefined;
+  SignUp: undefined;
+  OnboardGoal: undefined;
+  OnboardPath: undefined;
+  OnboardScript: undefined;
   MainTabs: undefined;
-  SurahLevels: { surahNumber: number; nameEn: string; nameAr?: string };
-  LessonStart: { groupId: string; label: string };
-  LessonSession: { groupId: string };
-  LessonComplete: {
-    xp: number;
-    scorePct: number;
-    stars: number;
-    gems?: number;
-    heartsRemaining?: number;
-  };
-  StreakModal: { streak: number };
-  StageIntro: {
-    groupId: string;
-    stageType: 'listening' | 'recognition' | 'building' | 'recall' | 'mastery';
-    stageTitle: string;
-    surahNameEn: string;
-    surahNumber: number;
-    xpReward: number;
-  };
-  Terms: undefined;
-  Privacy: undefined;
+  // Lesson flow (Phase 2)
+  LessonStart: { groupId: string; surahName: string; surahNumber: number };
+  LessonSession: { groupId: string; surahName: string; surahNumber: number };
+  LessonComplete: { xp: number; scorePct: number; stars: number; gems?: number; heartsRemaining?: number };
+  // Modals
+  Streak: undefined;
 };
 
-export type MainTabParamList = {
-  Home: undefined;
-  Revision: undefined;
-  Stats: undefined;
+export type TabParamList = {
+  Map: undefined;
+  DailyQuest: undefined;
+  Leaderboard: undefined;
   Profile: undefined;
+  Help: undefined;
 };
+
+export type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
+export type TabNavProp = BottomTabNavigationProp<TabParamList>;
+
+export type MapNavProp = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'Map'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
+export type ProfileNavProp = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'Profile'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+

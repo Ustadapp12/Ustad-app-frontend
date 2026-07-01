@@ -16,12 +16,14 @@ export async function getSecureTokens(): Promise<Tokens | null> {
 }
 
 export async function setSecureTokens(tokens: Tokens | null): Promise<void> {
-  if (!tokens) {
-    await Keychain.resetGenericPassword({ service: SERVICE });
-    return;
-  }
-  await Keychain.setGenericPassword('tokens', JSON.stringify(tokens), {
-    service: SERVICE,
-    accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED,
-  });
+  try {
+    if (!tokens) {
+      await Keychain.resetGenericPassword({ service: SERVICE });
+      return;
+    }
+    await Keychain.setGenericPassword('tokens', JSON.stringify(tokens), {
+      service: SERVICE,
+      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED,
+    });
+  } catch { /* Keychain not available (e.g. Expo Go) */ }
 }
