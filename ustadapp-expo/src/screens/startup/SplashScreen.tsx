@@ -96,6 +96,7 @@ export default function SplashScreen({ navigation }: Props) {
           {/* Welcome animation */}
           <View style={styles.welcomeCard}>
             <LottieView
+        renderMode="SOFTWARE"
               source={require('../../../assets/animations/Welcome.json')}
               autoPlay loop
               style={styles.welcomeAnim}

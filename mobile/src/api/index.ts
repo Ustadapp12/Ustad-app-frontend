@@ -163,6 +163,13 @@ export const learningApi = {
   levels: (surahNumber: number) =>
     api<SurahLevel[]>(`/learning/surahs/${surahNumber}/levels`),
 
+  /** Batched, lightweight status of just the first group of each surah — O(1)
+   * backend round-trips regardless of how many surahs are requested. */
+  firstLevels: (surahNumbers: number[]) =>
+    api<SurahLevel[]>(
+      `/learning/surahs/first-levels?${surahNumbers.map(n => `surah_numbers=${n}`).join('&')}`,
+    ),
+
   stats: () => api<LearningStats>('/learning/stats'),
 
   recommendedNext: () =>
@@ -261,6 +268,34 @@ export const revisionApi = {
 
 export const progressApi = {
   /**
+   * Score a read_ayah_and_speak or read_and_speak recitation.
+   * Always sends multipart/form-data with the recorded audio file.
+   */
+  speakAttempt: (body: {
+    expected_arabic: string; // the text shown to the user (from exercise.expected_arabic)
+    audioUri: string;        // local URI of the recorded file
+    audioType?: string;      // MIME type, defaults to audio/m4a
+  }) => {
+    const { expected_arabic, audioUri, audioType = 'audio/m4a' } = body;
+    // Filename extension must match the declared MIME type — Android records
+    // audio/mp4 (see LessonSessionScreen's speak handlers), and a mismatched
+    // .m4a filename on an audio/mp4 upload can trip up server-side format
+    // sniffing for the transcription service.
+    const ext = audioType.split('/')[1] ?? 'm4a';
+    const form = new FormData();
+    form.append('expected_arabic', expected_arabic);
+    form.append('audio', {
+      uri: audioUri,
+      name: `recitation.${ext}`,
+      type: audioType,
+    } as unknown as Blob);
+    return api<SpeakAttemptResponse>('/progress/speak-attempt', {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  /**
    * Submit a recitation attempt.
    * When audioUri is provided, sends multipart/form-data with the audio file.
    * Falls back to JSON-only (duration_ms) when no recording is available.
@@ -293,25 +328,6 @@ export const progressApi = {
       body: JSON.stringify({ session_id, ayah_id, duration_ms: body.duration_ms ?? 0 }),
     });
   },
-
-  speakAttempt: (body: {
-    expected_arabic: string;
-    audioUri: string;
-    audioType?: string;
-  }) => {
-    const { expected_arabic, audioUri, audioType = 'audio/m4a' } = body;
-    const form = new FormData();
-    form.append('expected_arabic', expected_arabic);
-    form.append('audio', {
-      uri: audioUri,
-      name: 'recitation.m4a',
-      type: audioType,
-    } as unknown as Blob);
-    return api<SpeakAttemptResponse>('/progress/speak-attempt', {
-      method: 'POST',
-      body: form,
-    });
-  },
 };
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -320,19 +336,18 @@ export const progressApi = {
 export function exerciseTypeForApi(clientType: string): string {
   switch (clientType) {
     case 'listen':
+    case 'ayah_display':
       return 'listen';
     case 'fill_blank':
+    case 'next_word':
       return 'fill_blank';
     case 'reorder':
+    case 'segment_recall':
       return 'recall';
-    case 'match_meaning':
-    case 'mcq':
-      return 'recall';
-    case 'listen_repeat':
-      return 'voice_check';
-    case 'interstitial':
-      return 'listen';
+    case 'hear_and_select':
+      return 'hear_and_select';
     default:
       return clientType;
   }
 }
+

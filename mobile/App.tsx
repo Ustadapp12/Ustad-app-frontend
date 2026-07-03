@@ -5,7 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initAnalytics } from './src/services/analytics';
 import { abandonActiveLessonSessionSilent } from './src/services/lessonSession';
 import { useAuthStore } from './src/store/authStore';
-import { RootNavigator } from './src/navigation/RootNavigator';
+import RootNavigator from './src/navigation/RootNavigator';
 
 const LEARNING_ME_POLL_MS = 60_000;
 
@@ -25,12 +25,29 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Momentary transitions to 'background'/'inactive' — the mic permission
+    // dialog, pulling the notification shade, a call banner, the app
+    // switcher — must NOT kill an in-progress lesson session. Only abandon
+    // if the app stays away for a real amount of time without coming back.
+    const ABANDON_GRACE_MS = 60_000;
+    let graceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const sub = AppState.addEventListener('change', state => {
-      if (state === 'background' || state === 'inactive') {
-        abandonActiveLessonSessionSilent();
+      if (state === 'active') {
+        if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
+        return;
+      }
+      if ((state === 'background' || state === 'inactive') && !graceTimer) {
+        graceTimer = setTimeout(() => {
+          abandonActiveLessonSessionSilent();
+          graceTimer = null;
+        }, ABANDON_GRACE_MS);
       }
     });
-    return () => sub.remove();
+    return () => {
+      sub.remove();
+      if (graceTimer) clearTimeout(graceTimer);
+    };
   }, []);
 
   return (

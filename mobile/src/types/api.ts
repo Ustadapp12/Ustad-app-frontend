@@ -98,6 +98,10 @@ export interface LessonSessionStart {
   lesson_group_id: string;
   hearts_at_start: number;
   first_exercise?: ExerciseDict | null;
+  base_total?: number;
+  correct_count?: number;
+  wrong_count?: number;
+  progress_pct?: number;
 }
 
 /** GET /learning/sessions/active — null when no in-progress session. */
@@ -330,6 +334,10 @@ export interface FormulaAttemptOut {
   done: boolean;
   segments: SegmentStatus[];
   xp_awarded?: number | null;
+  base_total?: number;
+  correct_count?: number;
+  wrong_count?: number;
+  progress_pct?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -344,12 +352,20 @@ export interface WordTiming {
   confidence: number;
 }
 
+/** Per-word correctness of the expected text, aligned against what was heard. */
+export interface ExpectedWordResult {
+  index: number;
+  word: string;
+  correct: boolean;
+}
+
 /** Response from POST /api/v1/progress/speak-attempt */
 export interface SpeakAttemptResponse {
   passed: boolean;       // true when score_pct >= 60
   score_pct: number;     // 0–100
   transcript: string;    // what Deepgram heard
   word_timings: WordTiming[];
+  expected_words: ExpectedWordResult[]; // expected text, word-by-word correct/wrong
 }
 
 // ─────────────────────────────────────────────────────────────────

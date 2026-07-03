@@ -3,7 +3,7 @@ import {
   View, Text, Image, StyleSheet, Animated, TouchableOpacity, Dimensions,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { isOnboardingDone } from '../../utils/storage';
@@ -61,7 +61,7 @@ export default function SplashScreen({ navigation }: Props) {
       navigation.replace('MainTabs');
     } else {
       const done = await isOnboardingDone();
-      navigation.replace(done ? 'Login' : 'OnboardGoal');
+      navigation.replace(done ? 'Login' : 'SignUp');
     }
   }
 
@@ -96,6 +96,7 @@ export default function SplashScreen({ navigation }: Props) {
           {/* Welcome animation */}
           <View style={styles.welcomeCard}>
             <LottieView
+        renderMode="SOFTWARE"
               source={require('../../../assets/animations/Welcome.json')}
               autoPlay loop
               style={styles.welcomeAnim}

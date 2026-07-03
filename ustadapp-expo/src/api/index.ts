@@ -163,6 +163,13 @@ export const learningApi = {
   levels: (surahNumber: number) =>
     api<SurahLevel[]>(`/learning/surahs/${surahNumber}/levels`),
 
+  /** Batched, lightweight status of just the first group of each surah — O(1)
+   * backend round-trips regardless of how many surahs are requested. */
+  firstLevels: (surahNumbers: number[]) =>
+    api<SurahLevel[]>(
+      `/learning/surahs/first-levels?${surahNumbers.map(n => `surah_numbers=${n}`).join('&')}`,
+    ),
+
   stats: () => api<LearningStats>('/learning/stats'),
 
   recommendedNext: () =>
@@ -270,11 +277,16 @@ export const progressApi = {
     audioType?: string;      // MIME type, defaults to audio/m4a
   }) => {
     const { expected_arabic, audioUri, audioType = 'audio/m4a' } = body;
+    // Filename extension must match the declared MIME type — Android records
+    // audio/mp4 (see LessonSessionScreen's speak handlers), and a mismatched
+    // .m4a filename on an audio/mp4 upload can trip up server-side format
+    // sniffing for the transcription service.
+    const ext = audioType.split('/')[1] ?? 'm4a';
     const form = new FormData();
     form.append('expected_arabic', expected_arabic);
     form.append('audio', {
       uri: audioUri,
-      name: 'recitation.m4a',
+      name: `recitation.${ext}`,
       type: audioType,
     } as unknown as Blob);
     return api<SpeakAttemptResponse>('/progress/speak-attempt', {

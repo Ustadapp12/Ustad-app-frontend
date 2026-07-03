@@ -1,20 +1,11 @@
 import { create } from 'zustand';
-import * as Sentry from '@sentry/react-native';
 import { authApi, learningApi, usersApi } from '../api';
 import { getTokens, setTokens, getStoredUser, setStoredUser } from '../utils/storage';
-import {
-  AnalyticsEvents,
-  logAnalyticsEvent,
-  setAnalyticsUserId,
-  setUserProperties,
-} from '../services/analytics';
+import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
 import { setCrashUser } from '../services/crashReporter';
 import { warmAudioUrlCache } from '../services/audioUrls';
 import { prefetchAll, invalidateAll } from '../services/bootCache';
-import {
-  abandonActiveLessonSession,
-  abandonPendingLessonSessionFromStorage,
-} from '../services/lessonSession';
+import { abandonActiveLessonSession, abandonPendingLessonSessionFromStorage } from '../services/lessonSession';
 import { useLessonStore } from './lessonStore';
 import type { LearningMe, User } from '../types/api';
 
@@ -24,11 +15,7 @@ interface AuthState {
   isHydrated: boolean;
   hydrate: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  register: (
-    email: string,
-    password: string,
-    displayName?: string,
-  ) => Promise<void>;
+  register: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
   refreshLearning: (opts?: { force?: boolean }) => Promise<void>;
@@ -54,13 +41,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         learningApi.me(),
         getStoredUser(),
       ]);
-      const user: User =
-        storedUser ??
-        ({
-          id: learning.user_id,
-          email: 'learner',
-          role: 'learner',
-        } as User);
+      const user: User = storedUser ?? ({ id: learning.user_id, email: 'learner', role: 'learner' } as User);
       void warmAudioUrlCache();
       await setAnalyticsUserId(user.id);
       lastLearningMeFetchAt = Date.now();
@@ -78,12 +59,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setTokens(res.tokens);
     await setStoredUser(res.user);
     const learning = await learningApi.me();
-    await warmAudioUrlCache();
-    try { Sentry.setUser({ id: res.user.id, email: res.user.email }); } catch { /* ignore */ }
+    void warmAudioUrlCache();
     setCrashUser(res.user.id, res.user.email);
     await setAnalyticsUserId(res.user.id);
     void logAnalyticsEvent(AnalyticsEvents.LOGIN, { method: 'email' });
-    // Set profile-based user properties for segmentation in Firebase dashboards
     void authApi.me().then(me => {
       if (me.profile) {
         void setUserProperties({
@@ -92,29 +71,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           daily_goal_minutes: me.profile.daily_goal_minutes ?? undefined,
           streak_goal_days: me.profile.streak_goal_days ?? undefined,
         });
+        // Enrich user with display name from profile
+        const enriched = { ...res.user, name: me.profile.display_name ?? res.user.email.split('@')[0] };
+        void setStoredUser(enriched);
+        set({ user: enriched });
       }
     }).catch(() => null);
     lastLearningMeFetchAt = Date.now();
-    set({ user: res.user, learning });
+    set({ user: { ...res.user, name: res.user.email.split('@')[0] }, learning });
     void prefetchAll(learning.mvp_surah_numbers ?? []);
   },
 
   register: async (email, password, displayName) => {
-    const res = await authApi.register({
-      email,
-      password,
-      display_name: displayName,
-    });
+    const res = await authApi.register({ email, password, display_name: displayName });
     await setTokens(res.tokens);
     await setStoredUser(res.user);
     const learning = await learningApi.me();
-    await warmAudioUrlCache();
-    try { Sentry.setUser({ id: res.user.id, email: res.user.email }); } catch { /* ignore */ }
+    void warmAudioUrlCache();
     setCrashUser(res.user.id, res.user.email);
     await setAnalyticsUserId(res.user.id);
     void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'email' });
     lastLearningMeFetchAt = Date.now();
-    set({ user: res.user, learning });
+    const enrichedUser = { ...res.user, name: displayName ?? res.user.email.split('@')[0] };
+    await setStoredUser(enrichedUser);
+    set({ user: enrichedUser, learning });
     void prefetchAll(learning.mvp_surah_numbers ?? []);
   },
 
@@ -125,7 +105,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await abandonPendingLessonSessionFromStorage();
     await setTokens(null);
     await setStoredUser(null);
-    try { Sentry.setUser(null); } catch { /* ignore */ } // Clear user from crash reports on logout
     await setAnalyticsUserId(null);
     invalidateAll();
     lastLearningMeFetchAt = 0;
@@ -138,7 +117,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await usersApi.deleteAccount(password);
     await setTokens(null);
     await setStoredUser(null);
-    try { Sentry.setUser(null); } catch { /* ignore */ }
     await setAnalyticsUserId(null);
     invalidateAll();
     lastLearningMeFetchAt = 0;
@@ -156,19 +134,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   refreshLearning: async ({ force = false } = {}) => {
     const tokens = await getTokens();
-    if (!tokens) {
-      return;
-    }
+    if (!tokens) return;
     const now = Date.now();
-    if (!force && now - lastLearningMeFetchAt < LEARNING_ME_INTERVAL_MS) {
-      return;
-    }
+    if (!force && now - lastLearningMeFetchAt < LEARNING_ME_INTERVAL_MS) return;
     try {
       const learning = await learningApi.me();
       lastLearningMeFetchAt = now;
       set({ learning });
-    } catch {
-      /* ignore when offline */
-    }
+    } catch { /* ignore when offline */ }
   },
 }));
+

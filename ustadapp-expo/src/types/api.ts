@@ -98,6 +98,10 @@ export interface LessonSessionStart {
   lesson_group_id: string;
   hearts_at_start: number;
   first_exercise?: ExerciseDict | null;
+  base_total?: number;
+  correct_count?: number;
+  wrong_count?: number;
+  progress_pct?: number;
 }
 
 /** GET /learning/sessions/active — null when no in-progress session. */
@@ -330,6 +334,10 @@ export interface FormulaAttemptOut {
   done: boolean;
   segments: SegmentStatus[];
   xp_awarded?: number | null;
+  base_total?: number;
+  correct_count?: number;
+  wrong_count?: number;
+  progress_pct?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────

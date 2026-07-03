@@ -44,3 +44,4 @@ export async function loadLessonGroup(
   await setCachedLessonGroup(groupId, data);
   return data;
 }
+

@@ -83,3 +83,4 @@ export async function invalidateLevelsFromDisk(surahNumbers: number[]): Promise<
     surahNumbers.map(n => AsyncStorage.removeItem(`${PREFIX}levels:${n}`)),
   );
 }
+

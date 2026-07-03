@@ -12,6 +12,7 @@
 
 import { authApi, learningApi } from '../api';
 import { setCachedLevelsToDisk, invalidateLevelsFromDisk } from './contentCache';
+import { groupIntoPhases } from '../utils/mapPhases';
 import type {
   ExerciseOut,
   LearningStats,
@@ -30,6 +31,8 @@ let _recommended: Stamped<RecommendedNext | null> | null = null;
 let _stats: Stamped<LearningStats> | null = null;
 let _profile: Stamped<UserProfile> | null = null;
 const _levels = new Map<number, Stamped<SurahLevel[]>>();
+// Lightweight first-group-only status, for surahs we haven't full-fetched yet
+const _firstLevels = new Map<number, Stamped<SurahLevel>>();
 // Set of surah numbers that have at least one weak exercise due
 let _weakSurahs: Stamped<Set<number>> | null = null;
 
@@ -62,6 +65,11 @@ export function getCachedLevels(surahNumber: number): SurahLevel[] | null {
   return alive(e) ? e.data : null;
 }
 
+export function getCachedFirstLevel(surahNumber: number): SurahLevel | null {
+  const e = _firstLevels.get(surahNumber);
+  return alive(e) ? e.data : null;
+}
+
 /** Returns the set of surah numbers with at least one weak exercise due. */
 export function getCachedWeakSurahs(): Set<number> | null {
   return alive(_weakSurahs) ? _weakSurahs.data : null;
@@ -84,6 +92,7 @@ export function setCachedProfile(profile: UserProfile): void {
 export function invalidateLevels(mvpSurahNumbers?: number[]): void {
   const surahNumbers = mvpSurahNumbers ?? Array.from(_levels.keys());
   _levels.clear();
+  _firstLevels.clear();
   _recommended = null;
   // Also clear the disk cache so HomeScreen re-fetches from network
   void invalidateLevelsFromDisk(surahNumbers);
@@ -94,35 +103,35 @@ export function invalidateAll(): void {
   _stats = null;
   _profile = null;
   _levels.clear();
+  _firstLevels.clear();
   _weakSurahs = null;
 }
 
 // ── Prefetch ──────────────────────────────────────────────────────
 
 /**
- * Fire all expensive calls in parallel right after auth.
- * Uses Promise.allSettled so a single failure never blocks the rest.
+ * Fire the cheap, always-needed calls in parallel right after auth, then
+ * load only the first "season" of the map: full level detail for whichever
+ * surah the user is actually on, and one batched lightweight call for the
+ * rest of that first phase. Later phases are NOT fetched here — MapScreen
+ * calls prefetchPhase() for those on demand (proactively when their season
+ * sign scrolls into view, or reactively the first time a node in them is
+ * tapped). This replaces the old behavior of eagerly full-fetching every
+ * MVP surah on every login.
+ *
  * Do NOT await this at the call site — let it populate the cache in the
  * background while the user navigates to the first screen.
  */
 export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
-  await Promise.allSettled([
+  const [recommendedResult] = await Promise.allSettled([
     learningApi.recommendedNext()
-      .then(d => { _recommended = stamp(d); }),
+      .then(d => { _recommended = stamp(d); return d; }),
 
     learningApi.stats()
       .then(d => { _stats = stamp(d); }),
 
     authApi.me()
       .then(res => { _profile = stamp(res.profile); }),
-
-    ...mvpSurahNumbers.map(n =>
-      learningApi.levels(n)
-        .then(d => {
-          _levels.set(n, stamp(d));
-          void setCachedLevelsToDisk(n, d);
-        }),
-    ),
 
     // Fetch weak exercises and derive a set of surah numbers for badge display
     learningApi.weakExercises(50)
@@ -131,5 +140,40 @@ export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
         _weakSurahs = stamp(surahSet);
       }),
   ]);
+
+  const recommended = recommendedResult.status === 'fulfilled' ? recommendedResult.value : null;
+  const currentSurah = recommended?.surah_number ?? mvpSurahNumbers[0] ?? null;
+
+  const [firstPhase] = groupIntoPhases(mvpSurahNumbers);
+  const restOfFirstPhase = (firstPhase ?? []).filter(n => n !== currentSurah);
+
+  await Promise.allSettled([
+    currentSurah != null
+      ? learningApi.levels(currentSurah).then(d => {
+          _levels.set(currentSurah, stamp(d));
+          void setCachedLevelsToDisk(currentSurah, d);
+        })
+      : Promise.resolve(),
+    prefetchPhase(restOfFirstPhase),
+  ]);
+}
+
+/**
+ * Batched lightweight fetch of first-group status for a set of surahs —
+ * used for a map phase that hasn't been full-loaded yet. Safe to call with
+ * an empty array. Never throws — a failure just leaves those surahs
+ * uncached, and MapScreen falls back to fetching on demand when tapped.
+ */
+export async function prefetchPhase(surahNumbers: number[]): Promise<void> {
+  if (surahNumbers.length === 0) return;
+  try {
+    const levels = await learningApi.firstLevels(surahNumbers);
+    const at = Date.now();
+    for (const level of levels) {
+      _firstLevels.set(level.surah_number, { data: level, at });
+    }
+  } catch {
+    // Leave uncached — MapScreen fetches on demand if the user taps in first.
+  }
 }
 

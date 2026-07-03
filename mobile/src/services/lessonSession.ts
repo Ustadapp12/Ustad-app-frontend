@@ -95,3 +95,4 @@ export async function abandonPendingLessonSessionFromStorage(): Promise<void> {
 export function abandonActiveLessonSessionSilent(): void {
   void abandonActiveLessonSession().catch(() => {});
 }
+

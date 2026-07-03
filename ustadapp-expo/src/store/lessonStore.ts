@@ -45,6 +45,7 @@ interface LessonState {
   result: SessionCompleteOut | null;
   stepStartedAt: number;
   firstExercise: ExerciseDict | null;
+  progressPct: number;
   loadGroup: (groupId: string) => Promise<void>;
   startSession: (initialStepIndex?: number) => Promise<void>;
   recordAttempt: (exerciseType: string, correct: boolean, mistakeCount?: number) => Promise<void>;
@@ -68,11 +69,12 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   result: null,
   stepStartedAt: Date.now(),
   firstExercise: null,
+  progressPct: 0,
 
   loadGroup: async groupId => {
     const myGen = ++storeGeneration;
     startSessionInFlight = null; // discard any in-flight startSession from a previous lesson
-    set({ loading: true, error: null, groupId, firstExercise: null, sessionId: null, result: null });
+    set({ loading: true, error: null, groupId, firstExercise: null, sessionId: null, result: null, progressPct: 0 });
     try {
       const [group, exercisesData] = await Promise.all([
         loadLessonGroup(groupId),
@@ -144,6 +146,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
           result: null,
           stepIndex: initialStepIndex,
           firstExercise: session.first_exercise ?? null,
+          progressPct: session.progress_pct ?? 0,
         });
         void logAnalyticsEvent(AnalyticsEvents.LESSON_START, { lesson_group_id: group.id, surah_number: group.surah_number });
       } catch (e) {
@@ -213,7 +216,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
 
   reset: () => {
     clearPreloadedAudio();
-    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null });
+    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0 });
   },
 }));
 

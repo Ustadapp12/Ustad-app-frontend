@@ -324,6 +324,7 @@ function WaveBar() {
   return (
     <View style={WAV.bar} pointerEvents="none">
       <LottieView
+        renderMode="SOFTWARE"
         source={require('../../../assets/animations/wave.json')}
         autoPlay
         loop
@@ -554,6 +555,7 @@ function LumaLoading({ message, insetTop, onBack }: { message: string; insetTop:
         </TouchableOpacity>
       )}
       <LottieView
+        renderMode="SOFTWARE"
         source={require('../../../assets/animations/loading.json')}
         autoPlay loop
         style={LL.lottie}
@@ -818,6 +820,13 @@ const AD = StyleSheet.create({
   continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
 });
 
+// EX.blankBox has a fixed size tuned for the default Naskh font. Scripts like
+// nastaliq render noticeably taller/wider glyphs (see scriptFontScale), so the
+// blank must grow with them — otherwise the filled-in word clips against the box.
+function scaledBlankBox(scale: number): { height: number; minWidth: number } {
+  return { height: Math.round(40 * scale), minWidth: Math.round(70 * scale) };
+}
+
 function FillBlankOrNextWord({
   ex, surahName, character, locked, onSubmit,
 }: {
@@ -876,7 +885,7 @@ function FillBlankOrNextWord({
           <View style={EX.tokensRow}>
             {ex.tokens.map((t, i) =>
               t.blank
-                ? <View key={i} style={[EX.blankBox, selected && EX.blankFilled]}>
+                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont.scale), selected && EX.blankFilled]}>
                     {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>{selected}</Text> : null}
                   </View>
                 : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
@@ -1249,7 +1258,7 @@ function AudioFill({
           <View style={EX.tokensRow}>
             {ex.tokens.map((t, i) =>
               t.blank
-                ? <View key={i} style={[EX.blankBox, selected ? EX.blankFilled : null]}>
+                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont.scale), selected ? EX.blankFilled : null]}>
                     {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>?</Text> : null}
                   </View>
                 : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
@@ -1502,7 +1511,7 @@ const SRB = StyleSheet.create({
 // phase: "main"   — single ayah
 // phase: "review" — same UX (side-by-side comparison is deferred)
 
-type SpeakState = 'idle' | 'recording' | 'scoring' | 'done';
+type SpeakState = 'idle' | 'recording' | 'recorded' | 'scoring' | 'done';
 
 function ReadAyahAndSpeak({
   ex, surahName, character, onSpeakScored,
@@ -1511,6 +1520,7 @@ function ReadAyahAndSpeak({
   const [speakState, setSpeakState] = useState<SpeakState>('idle');
   const [error, setError]           = useState<string | null>(null);
   const mountedRef  = useRef(true);
+  const recordedUriRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1525,40 +1535,53 @@ function ReadAyahAndSpeak({
   useEffect(() => {
     setSpeakState('idle');
     setError(null);
+    recordedUriRef.current = null;
   }, [ex.ex_id]);
 
-  /** User pressed the mic — request permission then start recording. */
-  const handlePressIn = async () => {
-    if (speakState !== 'idle') return;
-    setError(null);
-
-    const granted = await requestMicPermission();
-    if (!granted) {
-      if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+  /** Tap the mic — start recording (from idle/recorded) or stop it (from recording). */
+  const handleMicTap = async () => {
+    if (speakState === 'idle' || speakState === 'recorded') {
+      setError(null);
+      const granted = await requestMicPermission();
+      if (!granted) {
+        if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+        return;
+      }
+      try {
+        await startRecording();
+        if (mountedRef.current) setSpeakState('recording');
+      } catch (e) {
+        console.warn('[ReadAyahAndSpeak] startRecording failed:', e);
+        if (mountedRef.current) setError('Could not start recording. Please try again.');
+      }
       return;
     }
 
-    try {
-      await startRecording();
-      if (mountedRef.current) setSpeakState('recording');
-    } catch (e) {
-      console.warn('[ReadAyahAndSpeak] startRecording failed:', e);
-      if (mountedRef.current) setError('Could not start recording. Please try again.');
+    if (speakState === 'recording') {
+      try {
+        const uri = await stopRecording();
+        if (!uri) throw new Error('No audio captured');
+        recordedUriRef.current = uri;
+        if (mountedRef.current) setSpeakState('recorded');
+      } catch (e) {
+        console.warn('[ReadAyahAndSpeak] stopRecording failed:', e);
+        if (mountedRef.current) {
+          setError('Could not capture your recording. Please try again.');
+          setSpeakState('idle');
+        }
+      }
     }
   };
 
-  /** User lifted their finger — stop recording and score it. */
-  const handlePressOut = async () => {
-    if (speakState !== 'recording') return;
+  /** User tapped Check — submit the recorded audio for scoring. */
+  const handleCheck = async () => {
+    if (speakState !== 'recorded' || !recordedUriRef.current) return;
     if (mountedRef.current) setSpeakState('scoring');
 
     try {
-      const uri = await stopRecording();
-      if (!uri) throw new Error('No audio captured');
-
       const scored = await progressApi.speakAttempt({
         expected_arabic: ex.expected_arabic ?? '',
-        audioUri: uri,
+        audioUri: recordedUriRef.current,
         audioType: Platform.OS === 'ios' ? 'audio/m4a' : 'audio/mp4',
       });
 
@@ -1570,7 +1593,7 @@ function ReadAyahAndSpeak({
       console.warn('[ReadAyahAndSpeak] speak-attempt failed:', e);
       if (mountedRef.current) {
         setError('Scoring failed. Tap "Try again" to re-record.');
-        setSpeakState('idle');
+        setSpeakState('recorded');
       }
     }
   };
@@ -1615,22 +1638,24 @@ function ReadAyahAndSpeak({
         <View style={RAS.micArea}>
           <Text style={RAS.micInstruction}>
             {speakState === 'recording'
-              ? 'Recording… release to submit'
+              ? 'Recording… tap to stop'
               : speakState === 'scoring'
               ? 'Scoring your recitation…'
-              : 'Hold the mic and recite the ayah'}
+              : speakState === 'recorded'
+              ? 'Tap Check to submit, or tap the mic to re-record'
+              : 'Tap the mic and recite the ayah'}
           </Text>
 
           {speakState === 'scoring' ? (
             <ActivityIndicator color={colors.primary} size="large" style={RAS.spinner} />
           ) : (
             <Pressable
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              style={({ pressed }) => [RAS.micBtn, pressed && RAS.micBtnActive]}
+              onPress={handleMicTap}
+              style={({ pressed }) => [RAS.micBtn, pressed && RAS.micBtnActive, speakState === 'recorded' && RAS.micBtnRecorded]}
             >
               {speakState === 'recording' ? (
                 <LottieView
+        renderMode="SOFTWARE"
                   source={require('../../../assets/animations/listen.json')}
                   autoPlay
                   loop
@@ -1644,6 +1669,12 @@ function ReadAyahAndSpeak({
                 />
               )}
             </Pressable>
+          )}
+
+          {speakState === 'recorded' && (
+            <TouchableOpacity style={[EX.continueBtn, RAS.checkBtn]} onPress={handleCheck}>
+              <Text style={EX.continueBtnText}>Check</Text>
+            </TouchableOpacity>
           )}
 
           {!!error && (
@@ -1673,8 +1704,10 @@ const RAS = StyleSheet.create({
   // against the button surface. Press → slight scale-down.
   micBtn:         { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
   micBtnActive:   { transform: [{ scale: 0.93 }], shadowOpacity: 0.25 },
+  micBtnRecorded: { width: 76, height: 76, borderRadius: 38, opacity: 0.7 },
   micImage:       { width: 52, height: 52, tintColor: 'white' },
   listenAnim:     { width: 88, height: 88 },
+  checkBtn:       { width: '100%', marginTop: 20 },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
   errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
   retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
@@ -1701,41 +1734,58 @@ function ReadAndSpeak({
     };
   }, []);
 
+  const recordedUriRef = useRef<string | null>(null);
+
   useEffect(() => {
     setSpeakState('idle');
     setError(null);
+    recordedUriRef.current = null;
   }, [ex.ex_id]);
 
-  const handlePressIn = async () => {
-    if (speakState !== 'idle') return;
-    setError(null);
-
-    const granted = await requestMicPermission();
-    if (!granted) {
-      if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+  /** Tap the mic — start recording (from idle/recorded) or stop it (from recording). */
+  const handleMicTap = async () => {
+    if (speakState === 'idle' || speakState === 'recorded') {
+      setError(null);
+      const granted = await requestMicPermission();
+      if (!granted) {
+        if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+        return;
+      }
+      try {
+        await startRecording();
+        if (mountedRef.current) setSpeakState('recording');
+      } catch (e) {
+        console.warn('[ReadAndSpeak] startRecording failed:', e);
+        if (mountedRef.current) setError('Could not start recording. Please try again.');
+      }
       return;
     }
 
-    try {
-      await startRecording();
-      if (mountedRef.current) setSpeakState('recording');
-    } catch (e) {
-      console.warn('[ReadAndSpeak] startRecording failed:', e);
-      if (mountedRef.current) setError('Could not start recording. Please try again.');
+    if (speakState === 'recording') {
+      try {
+        const uri = await stopRecording();
+        if (!uri) throw new Error('No audio captured');
+        recordedUriRef.current = uri;
+        if (mountedRef.current) setSpeakState('recorded');
+      } catch (e) {
+        console.warn('[ReadAndSpeak] stopRecording failed:', e);
+        if (mountedRef.current) {
+          setError('Could not capture your recording. Please try again.');
+          setSpeakState('idle');
+        }
+      }
     }
   };
 
-  const handlePressOut = async () => {
-    if (speakState !== 'recording') return;
+  /** User tapped Check — submit the recorded audio for scoring. */
+  const handleCheck = async () => {
+    if (speakState !== 'recorded' || !recordedUriRef.current) return;
     if (mountedRef.current) setSpeakState('scoring');
 
     try {
-      const uri = await stopRecording();
-      if (!uri) throw new Error('No audio captured');
-
       const scored = await progressApi.speakAttempt({
         expected_arabic: ex.expected_arabic ?? '',
-        audioUri: uri,
+        audioUri: recordedUriRef.current,
         audioType: Platform.OS === 'ios' ? 'audio/m4a' : 'audio/mp4',
       });
 
@@ -1747,7 +1797,7 @@ function ReadAndSpeak({
       console.warn('[ReadAndSpeak] speak-attempt failed:', e);
       if (mountedRef.current) {
         setError('Scoring failed. Tap "Try again" to re-record.');
-        setSpeakState('idle');
+        setSpeakState('recorded');
       }
     }
   };
@@ -1805,22 +1855,24 @@ function ReadAndSpeak({
         <View style={RANS.micArea}>
           <Text style={RANS.micInstruction}>
             {speakState === 'recording'
-              ? 'Recording… release to submit'
+              ? 'Recording… tap to stop'
               : speakState === 'scoring'
               ? 'Scoring your recitation…'
-              : 'Hold the mic and read the words above'}
+              : speakState === 'recorded'
+              ? 'Tap Check to submit, or tap the mic to re-record'
+              : 'Tap the mic and read the words above'}
           </Text>
 
           {speakState === 'scoring' ? (
             <ActivityIndicator color={colors.primary} size="large" style={RANS.spinner} />
           ) : (
             <Pressable
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive]}
+              onPress={handleMicTap}
+              style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive, speakState === 'recorded' && RANS.micBtnRecorded]}
             >
               {speakState === 'recording' ? (
                 <LottieView
+        renderMode="SOFTWARE"
                   source={require('../../../assets/animations/listen.json')}
                   autoPlay
                   loop
@@ -1834,6 +1886,12 @@ function ReadAndSpeak({
                 />
               )}
             </Pressable>
+          )}
+
+          {speakState === 'recorded' && (
+            <TouchableOpacity style={[EX.continueBtn, RANS.checkBtn]} onPress={handleCheck}>
+              <Text style={EX.continueBtnText}>Check</Text>
+            </TouchableOpacity>
           )}
 
           {!!error && (
@@ -1867,8 +1925,10 @@ const RANS = StyleSheet.create({
   // White background with green border makes mic.png clearly visible
   micBtn:         { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
   micBtnActive:   { transform: [{ scale: 0.93 }], shadowOpacity: 0.25 },
+  micBtnRecorded: { width: 76, height: 76, borderRadius: 38, opacity: 0.7 },
   micImage:       { width: 52, height: 52, tintColor: 'white' },
   listenAnim:     { width: 88, height: 88 },
+  checkBtn:       { width: '100%', marginTop: 20 },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
   errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
   retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
@@ -2147,7 +2207,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const { groupId, surahName, surahNumber } = route.params;
   const insets = useSafeAreaInsets();
 
-  const { sessionId, heartsAtStart, firstExercise, error, loading, group, steps, reset, loadGroup, startSession, completeSession, abandonSession, groupId: storeGroupId } = useLessonStore();
+  const { sessionId, heartsAtStart, firstExercise, error, loading, group, steps, reset, loadGroup, startSession, completeSession, abandonSession, groupId: storeGroupId, progressPct: storeProgressPct } = useLessonStore();
   const { user } = useAuthStore();
 
   const [exercise, setExercise] = useState<ExerciseDict | null>(null);
@@ -2159,6 +2219,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [noHeartsVisible, setNoHeartsVisible] = useState(false);
   const [exercisesCompleted, setExercisesCompleted] = useState(0);
+  const [progressPct, setProgressPct] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [speakResult, setSpeakResult] = useState<SpeakResult | null>(null);
   const exerciseIndexRef = useRef(0);
@@ -2216,10 +2277,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       setExercise(firstExercise);
       setShowBismillah(true);
       startedAt.current = Date.now();
+      setProgressPct(storeProgressPct);
     }
   }, [firstExercise, storeGroupId]);
 
-  const submitAnswer = useCallback(async (userAnswer: string | string[] | number[] | null) => {
+  const submitAnswer = useCallback(async (userAnswer: string | string[] | number[] | null, correctOverride?: boolean) => {
     if (!sessionId || !exercise || submitting) return;
     setSubmitting(true);
     const ms = Date.now() - startedAt.current;
@@ -2232,16 +2294,23 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         response_ms: ms,
       });
 
+      // Speak exercises score correctness client-side (via Deepgram speak-attempt,
+      // passed in as correctOverride) since formulaAttempt gets no user_answer to grade.
+      const effectiveCorrect = correctOverride !== undefined ? correctOverride : result.correct;
+
       // remediation_up = reinforcement phase, no hearts lost even on wrong
       const isNoMistake = exercise.phase === 'mistakes_review' || exercise.phase === 'remediation_up';
-      const snapCorrect  = correctCount + (result.correct ? 1 : 0);
-      const snapMistakes = mistakes + (!result.correct && !isNoMistake ? 1 : 0);
+      const snapCorrect  = correctCount + (effectiveCorrect ? 1 : 0);
+      const snapMistakes = mistakes + (!effectiveCorrect && !isNoMistake ? 1 : 0);
 
       // Track cumulative XP earned across all exercises for the session-end screen
       totalXpRef.current += result.xp_awarded ?? 0;
 
-      if (!result.correct && !isNoMistake) setMistakes(snapMistakes);
-      else if (result.correct) {
+      // Server-computed accuracy bar (main + review testers) — see session_engine.py.
+      if (typeof result.progress_pct === 'number') setProgressPct(result.progress_pct);
+
+      if (!effectiveCorrect && !isNoMistake) setMistakes(snapMistakes);
+      else if (effectiveCorrect) {
         setCorrectCount(snapCorrect);
         setExercisesCompleted(prev => prev + 1);
         // Confetti: XP awarded on normal questions only (not listen steps, speak exercises, or session end)
@@ -2255,7 +2324,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       if (result.segments.length) setSegments(result.segments);
 
       // Hearts exhausted — end attempt immediately (skip in no-mistake phases)
-      if (!result.correct && !isNoMistake && snapMistakes >= 5) {
+      if (!effectiveCorrect && !isNoMistake && snapMistakes >= 5) {
         setSubmitting(false);
         setNoHeartsVisible(true);
         return;
@@ -2270,13 +2339,15 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         if (result.done) {
           try {
             const summary = await completeSession();
+            console.warn('[Lesson] completeSession OK. totalXpRef:', totalXpRef.current, 'summary:', JSON.stringify(summary));
             navigation.replace('LessonComplete', {
               xp: totalXpRef.current || summary.xp_awarded,
               scorePct: summary.passed ? Math.max(scorePct, 70) : scorePct,
               stars: 3,
               heartsRemaining: summary.hearts_remaining,
             });
-          } catch {
+          } catch (e) {
+            console.warn('[Lesson] completeSession FAILED. totalXpRef:', totalXpRef.current, 'error:', e);
             navigation.replace('LessonComplete', {
               xp: totalXpRef.current || 20, scorePct,
               stars: 3,
@@ -2326,6 +2397,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
+        renderMode="SOFTWARE"
           source={require('../../../assets/animations/404.json')}
           autoPlay loop
           style={{ width: 200, height: 200 }}
@@ -2350,6 +2422,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
+        renderMode="SOFTWARE"
           source={require('../../../assets/animations/loading.json')}
           autoPlay loop
           style={{ width: 140, height: 140 }}
@@ -2405,10 +2478,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const maxHearts = 5;
   const heartsLeft = Math.max(0, maxHearts - mistakes);
 
-  const totalSteps       = Math.max(steps.filter(s => s.type !== 'interstitial').length, 1);
-  // Use max(expected, observed) so bar stays accurate when Gemini serves more exercises than estimated
-  const effectiveTotal   = Math.max(totalSteps, exerciseIndexRef.current + 1);
-  const progressFraction = Math.min(exercisesCompleted / effectiveTotal, 1.0);
+  // Bar is the server-computed accuracy score (correct - wrong) / base_total
+  // from session_engine.py — covers main phase AND review, not raw exercise
+  // count or lesson structure. See session_engine.py's _progress_snapshot().
+  const progressFraction = Math.min(Math.max(progressPct / 100, 0), 1);
   const character = characterForIndex(charOrderRef.current, exerciseIndexRef.current);
 
   return (
@@ -2546,13 +2619,15 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       )}
 
       {/* Speak result bottom sheet — shown after speak-attempt scores.
-          Continue calls submitAnswer(null) → formulaAttempt → next exercise. */}
+          Continue calls submitAnswer(null, passed) so a failed recitation
+          costs a heart just like any other wrong answer. */}
       {speakResult && !feedback && (
         <SpeakResultBanner
           result={speakResult}
           onAdvance={() => {
+            const passed = speakResult.passed;
             setSpeakResult(null);
-            void submitAnswer(null);
+            void submitAnswer(null, passed);
           }}
         />
       )}
@@ -2569,6 +2644,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       {showConfetti && (
         <View style={S.confettiOverlay} pointerEvents="none">
           <LottieView
+        renderMode="SOFTWARE"
             source={require('../../../assets/animations/celebration.json')}
             autoPlay
             loop={false}
@@ -2623,15 +2699,15 @@ const S = StyleSheet.create({
   heartsRow: { flexDirection: 'row', gap: 3 },
   heartIcon: { fontSize: 16 },
   exerciseArea: { flex: 1 },
-  spinnerOverlay:  { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,244,248,0.6)' },
-  confettiOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
+  spinnerOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,244,248,0.6)' },
+  confettiOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
   confettiAnim:    { width: '100%', height: 320 },
   errorTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
   errorMsg: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
   retryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 },
   retryBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white' },
   // No-hearts overlay
-  noHeartsOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', zIndex: 100, paddingHorizontal: 28 },
+  noHeartsOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', zIndex: 100, paddingHorizontal: 28 },
   noHeartsCard: { backgroundColor: 'white', borderRadius: 28, padding: 28, alignItems: 'center', width: '100%', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 20 },
   noHeartsTitle: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: colors.darkText, marginBottom: 10 },
   noHeartsBody: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.midText, textAlign: 'center', lineHeight: 22, marginBottom: 24 },

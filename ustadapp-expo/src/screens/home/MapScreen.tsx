@@ -1,15 +1,17 @@
 ﻿import React, { useRef, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, Image, ActivityIndicator,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect, Ellipse, Path, Circle, G } from 'react-native-svg';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
-import { lessonsApi } from '../../api';
+import { learningApi } from '../../api';
 import { useArabicFont } from '../../utils/arabicFont';
 import { colors } from '../../theme/colors';
-import type { SurahPath } from '../../types/api';
+import { groupIntoPhases } from '../../utils/mapPhases';
+import { getCachedRecommended, getCachedLevels, getCachedFirstLevel } from '../../services/bootCache';
+import type { SurahLevel } from '../../types/api';
 import type { MapNavProp } from '../../navigation/types';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -42,12 +44,18 @@ const LOTTIE_SRCS = [
 
 // ── Types ─────────────────────────────────────────────────────────
 interface Props { navigation: MapNavProp }
-type NodeStatus = 'completed' | 'current' | 'available' | 'locked';
+// 'pending' = a surah's first level, not yet fetched from the backend. It's
+// never actually locked server-side (no cross-surah gate exists), so it
+// renders dim but stays tappable — tapping fetches it on demand instead of
+// blocking. Real 'locked' is reserved for non-first levels awaiting the
+// previous level's completion.
+type NodeStatus = 'completed' | 'current' | 'available' | 'locked' | 'pending';
 
 interface SectionNode {
   id: string; x: number; y: number;
   status: NodeStatus; stars: number; levelNum: number;
   startAyah?: number; endAyah?: number;
+  resolved?: boolean;
 }
 interface Section {
   surahNum: number; name: string; arabicName: string; ayahCount: number;
@@ -157,6 +165,27 @@ function computeLayout(defs: SectionDef[], mapW: number): { sections: Section[];
 // ── Computed layout — single source of truth for ALL positions ─────
 const { sections: BASE_SECTIONS, mapHeight: MAP_H } = computeLayout(SECTIONS_DEF, MAP_W);
 const ALL_NODES = BASE_SECTIONS.flatMap(s => s.nodes);
+
+// ── Seasons (phases) — pure loading/pacing grouping, not an access gate ────
+// [[114,113,112], [111,110,109], [108]] for the current 7-surah MVP set.
+const PHASE_GROUPS: number[][] = groupIntoPhases(SECTIONS_DEF.map(d => d.surahNum));
+
+interface SeasonSignPos { y: number; phaseIdx: number }
+function buildSeasonSigns(): SeasonSignPos[] {
+  const signs: SeasonSignPos[] = [];
+  let acc = 0;
+  for (let i = 0; i < PHASE_GROUPS.length - 1; i++) {
+    acc += PHASE_GROUPS[i].length;
+    const lastSec  = BASE_SECTIONS[acc - 1];
+    const nextSec  = BASE_SECTIONS[acc];
+    if (!lastSec || !nextSec) continue;
+    const lastY  = lastSec.nodes[lastSec.nodes.length - 1].y + NODE_SIZE / 2;
+    const nextY  = nextSec.nodes[0].y + NODE_SIZE / 2;
+    signs.push({ y: Math.round((lastY + nextY) / 2), phaseIdx: i + 1 });
+  }
+  return signs;
+}
+const SEASON_SIGNS = buildSeasonSigns();
 
 // ── Path string through all node centres ──────────────────────────
 function buildPath(nodes: SectionNode[]): string {
@@ -322,6 +351,58 @@ function stageToNodeStatus(s: string): NodeStatus {
   return 'locked';
 }
 
+// ── Season sign — brown wood-plank divider between map phases. Purely a
+// visual/loading-pacing cue: it fades from dim to full opacity once that
+// phase's data has arrived in the background, but never blocks navigation
+// (nodes below it are already tappable regardless — see handleNodePress).
+//
+// Every dimension is a ratio of MAP_W (real device width), not a fixed
+// pixel — BASELINE_W is only a reference design width used to derive the
+// ratio, the same role MAP_W already plays for node/decoration x-positions
+// elsewhere in this file. Clamped so text stays legible on both small
+// phones and tablets instead of scaling without bound.
+const SIGN_BASELINE_W = 393;
+const SIGN_SCALE = Math.min(1.25, Math.max(0.85, MAP_W / SIGN_BASELINE_W));
+const sc = (n: number) => Math.round(n * SIGN_SCALE);
+
+function SeasonSign({ seasonNumber, loaded }: { seasonNumber: number; loaded: boolean }) {
+  return (
+    <View style={[SS.wrapper, { opacity: loaded ? 1 : 0.55 }]} pointerEvents="none">
+      <View style={SS.plank}>
+        <Text style={SS.title}>SEASON {seasonNumber}</Text>
+        <Text style={SS.subtitle}>{loaded ? 'New season below' : 'Loading next season…'}</Text>
+      </View>
+    </View>
+  );
+}
+
+// Positions a SeasonSign centred on its target y — measures its own
+// rendered height via onLayout rather than assuming a fixed height, so
+// centring stays exact regardless of font scale, text length, or device.
+function SeasonSignSlot({ sign, loaded }: { sign: SeasonSignPos; loaded: boolean }) {
+  const [height, setHeight] = useState(0);
+  return (
+    <View
+      style={{ position: 'absolute', left: 0, right: 0, top: sign.y - height / 2 }}
+      onLayout={e => setHeight(e.nativeEvent.layout.height)}
+    >
+      <SeasonSign seasonNumber={sign.phaseIdx + 1} loaded={loaded} />
+    </View>
+  );
+}
+
+const SS = StyleSheet.create({
+  wrapper: { alignItems: 'center', justifyContent: 'center' },
+  plank: {
+    backgroundColor: '#8B5A2B', borderRadius: sc(10),
+    borderWidth: sc(3), borderColor: '#5A3A00',
+    paddingHorizontal: sc(22), paddingVertical: sc(10),
+    shadowColor: '#000', shadowOffset: { width: 0, height: sc(4) }, shadowOpacity: 0.4, shadowRadius: sc(6), elevation: sc(6),
+  },
+  title: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: '#F5DEB3', textAlign: 'center', letterSpacing: sc(1) },
+  subtitle: { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: '#E8C870', textAlign: 'center', marginTop: sc(2) },
+});
+
 // ── Surah name label ──────────────────────────────────────────────
 function SurahLabel({ arabicName, name, isLeft }: { arabicName: string; name: string; isLeft: boolean }) {
   const arabicFont = useArabicFont();
@@ -371,10 +452,11 @@ const SB = StyleSheet.create({
 });
 
 // ── Map node ──────────────────────────────────────────────────────
-function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, ayahFrom, ayahTo }: {
+function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, ayahFrom, ayahTo, isFetching }: {
   status: NodeStatus; stars: number;
   pulseAnim: Animated.Value; goldAnim: Animated.Value;
   levelNum: number; ayahFrom: number; ayahTo: number;
+  isFetching?: boolean;
 }) {
   const pulseScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
   const goldScale  = goldAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
@@ -409,6 +491,19 @@ function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, ayahFrom, ayahT
       <Text style={S.rangeLabel}>{rangeLabel}</Text>
     </View>
   );
+  if (status === 'pending') return (
+    // Not yet fetched, but never actually locked server-side — dim to signal
+    // "still loading" without implying the level is inaccessible. Tapping it
+    // fetches on demand (handled by the parent's press handler).
+    <View style={S.nodeWrapper}>
+      <View style={[S.node, S.nodeGrey, { opacity: 0.75 }]}>
+        {isFetching
+          ? <ActivityIndicator size="small" color="#5A3A00" />
+          : <Text style={[S.nodeNumber, { opacity: 0.8 }]}>{levelNum}</Text>}
+      </View>
+      <Text style={[S.rangeLabel, { color: 'rgba(255,255,255,0.55)' }]}>{rangeLabel}</Text>
+    </View>
+  );
   return (
     <View style={S.nodeWrapper}>
       <View style={[S.node, S.nodeGrey, { opacity: 0.55 }]}>
@@ -440,39 +535,144 @@ function LumaFloat({ style, speech, floatAnim }: { style?: object; speech?: stri
 export default function MapScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { learning } = useAuthStore();
-  const [paths, setPaths]          = useState<Record<number, SurahPath>>({});
-  const [loadingPaths, setLoading] = useState(true);
+
+  // fullLevels: every group of a surah (only fetched for the current surah).
+  // firstLevel: just the first group's status (fetched for every other surah,
+  // one phase at a time, batched). Nodes with neither yet render 'pending'
+  // (see enrichedSections below) but stay tappable — see handleNodePress.
+  const [fullLevels, setFullLevels]   = useState<Record<number, SurahLevel[]>>({});
+  const [firstLevel, setFirstLevel]   = useState<Record<number, SurahLevel>>({});
+  const [loadingPaths, setLoading]    = useState(true);
+  const [fetchingSurah, setFetchingSurah] = useState<number | null>(null);
+  const fetchedPhasesRef = useRef<Set<number>>(new Set());
+
+  const mergeFirstLevels = (levels: SurahLevel[]) => {
+    if (levels.length === 0) return;
+    setFirstLevel(prev => {
+      const next = { ...prev };
+      for (const lvl of levels) next[lvl.surah_number] = lvl;
+      return next;
+    });
+  };
+
+  // Batched fetch for one phase's surahs (skips the current surah, which
+  // gets full detail instead, and anything already cached from boot).
+  const fetchPhase = async (phaseIdx: number, currentSurah: number | null) => {
+    if (fetchedPhasesRef.current.has(phaseIdx)) return;
+    fetchedPhasesRef.current.add(phaseIdx);
+    const surahs = PHASE_GROUPS[phaseIdx] ?? [];
+    const targets = surahs.filter(n => n !== currentSurah);
+    if (targets.length === 0) return;
+    const fromCache = targets.filter(n => getCachedFirstLevel(n));
+    if (fromCache.length) {
+      mergeFirstLevels(fromCache.map(n => getCachedFirstLevel(n)!).filter(Boolean));
+    }
+    const uncached = targets.filter(n => !getCachedFirstLevel(n));
+    if (uncached.length === 0) return;
+    try {
+      mergeFirstLevels(await learningApi.firstLevels(uncached));
+    } catch (e) {
+      console.warn(`[MapScreen] phase ${phaseIdx} fetch failed:`, e);
+      fetchedPhasesRef.current.delete(phaseIdx); // allow a later on-demand retry
+    }
+  };
 
   useEffect(() => {
-    const nums = SECTIONS_DEF.map(d => d.surahNum);
     let cancelled = false;
     (async () => {
-      try {
-        const results = await Promise.allSettled(nums.map(n => lessonsApi.surahPath(n).then(p => ({ n, p }))));
+      const recommended = getCachedRecommended();
+      const currentSurah = recommended?.surah_number
+        ?? (learning?.mvp_surah_numbers?.[0] ?? SECTIONS_DEF[0]?.surahNum ?? null);
+
+      // 1. Current surah — full detail, cache-first.
+      if (currentSurah != null) {
+        const cached = getCachedLevels(currentSurah);
+        if (cached) {
+          if (!cancelled) setFullLevels(prev => ({ ...prev, [currentSurah]: cached }));
+        } else {
+          try {
+            const levels = await learningApi.levels(currentSurah);
+            if (!cancelled) setFullLevels(prev => ({ ...prev, [currentSurah]: levels }));
+          } catch (e) { console.warn('[MapScreen] current-surah levels fetch failed:', e); }
+        }
+      }
+      if (cancelled) return;
+
+      // 2. Rest of phase 1 — batched, lightweight, right away.
+      await fetchPhase(0, currentSurah);
+      if (!cancelled) setLoading(false);
+
+      // 3. Remaining phases — staggered in the background so they don't
+      // compete with the initial paint, but arrive within a couple seconds
+      // without requiring any tap. Signs fade in as each phase lands; nodes
+      // are tappable the whole time regardless (on-demand fetch fallback).
+      for (let i = 1; i < PHASE_GROUPS.length; i++) {
         if (cancelled) return;
-        const map: Record<number, SurahPath> = {};
-        for (const r of results) if (r.status === 'fulfilled') map[r.value.n] = r.value.p;
-        setPaths(map);
-      } catch { /* offline */ }
-      finally { if (!cancelled) setLoading(false); }
+        await new Promise(res => setTimeout(res, 700));
+        if (cancelled) return;
+        await fetchPhase(i, currentSurah);
+      }
     })();
     return () => { cancelled = true; };
   }, []);
 
+  // On-demand fallback: fetch a single surah's first level the moment its
+  // node is tapped, in case the background phase fetch hasn't landed yet.
+  async function fetchFirstLevelNow(surahNumber: number): Promise<SurahLevel | null> {
+    const cached = getCachedFirstLevel(surahNumber);
+    if (cached) { mergeFirstLevels([cached]); return cached; }
+    setFetchingSurah(surahNumber);
+    try {
+      const [lvl] = await learningApi.firstLevels([surahNumber]);
+      if (lvl) mergeFirstLevels([lvl]);
+      return lvl ?? null;
+    } catch (e) {
+      console.warn('[MapScreen] on-demand first-level fetch failed:', e);
+      return null;
+    } finally {
+      setFetchingSurah(null);
+    }
+  }
+
   // Enrich base layout with live backend statuses and real ayah ranges
   const enrichedSections = BASE_SECTIONS.map(section => {
-    const path = paths[section.surahNum];
-    if (!path) return section;
-    const groups = Array.isArray(path.groups) ? path.groups : [];
+    const full = fullLevels[section.surahNum];
+    const first = firstLevel[section.surahNum];
     return {
       ...section,
       nodes: section.nodes.map((node, nodeIdx) => {
-        const group = groups[nodeIdx];
-        if (!group) return node;
-        return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: group.stars ?? 0, startAyah: group.start_ayah, endAyah: group.end_ayah };
+        const group = full?.[nodeIdx];
+        if (group) {
+          return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: group.stars ?? 0, startAyah: group.start_ayah, endAyah: group.end_ayah, resolved: true };
+        }
+        if (nodeIdx === 0 && first) {
+          return { ...node, id: first.lesson_group_id, status: stageToNodeStatus(first.status), stars: first.stars ?? 0, startAyah: first.start_ayah, endAyah: first.end_ayah, resolved: true };
+        }
+        if (nodeIdx === 0) {
+          // First level of a surah is never actually locked server-side —
+          // just not confirmed yet. Tappable; see handleNodePress.
+          return { ...node, status: 'pending' as NodeStatus, resolved: false };
+        }
+        return { ...node, resolved: false }; // stays computeLayout's default 'locked' — a real gate
       }),
     };
   });
+
+  function isPhaseLoaded(phaseIdx: number): boolean {
+    const surahs = PHASE_GROUPS[phaseIdx] ?? [];
+    return surahs.length > 0 && surahs.every(n => fullLevels[n] || firstLevel[n]);
+  }
+
+  async function handleNodePress(section: Section, node: SectionNode) {
+    if (node.status === 'locked') return; // real gate — previous level not completed
+    if (node.status === 'pending') {
+      const lvl = await fetchFirstLevelNow(section.surahNum);
+      if (!lvl) return; // fetch failed — stay put rather than navigating with a bad id
+      navigation.navigate('LessonStart', { groupId: lvl.lesson_group_id, surahName: section.name, surahNumber: section.surahNum });
+      return;
+    }
+    navigation.navigate('LessonStart', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum });
+  }
 
   const allEnrichedNodes = enrichedSections.flatMap(s => s.nodes);
   const firstActiveNode  = allEnrichedNodes.find(n => n.status === 'current' || n.status === 'available');
@@ -509,12 +709,23 @@ export default function MapScreen({ navigation }: Props) {
 
   return (
     <View style={S.container}>
-      {/* HUD */}
+      {/* HUD — streak (animated) top-left, XP top-right. Hearts hidden on the
+          map for now (still shown in-lesson). */}
       <View style={[S.hud, { paddingTop: insets.top + 4 }]}>
         <View style={S.hudRow}>
-          <View style={S.hudPill}><Text>❤️</Text><Text style={S.hudVal}>{learning?.hearts_remaining ?? 5}</Text></View>
-          <View style={S.hudPill}><Text>🔥</Text><Text style={[S.hudVal, { color: '#EA580C' }]}>{learning?.current_streak ?? 0}</Text></View>
-          <View style={S.hudPill}><Text>⚡</Text><Text style={[S.hudVal, { color: '#2A7D4F' }]}>{learning?.xp_total ?? 0}</Text></View>
+          <View style={S.hudPill}>
+            <LottieView
+        renderMode="SOFTWARE"
+              source={require('../../../assets/animations/streak.json')}
+              autoPlay loop
+              style={S.hudStreakAnim}
+            />
+            <Text style={[S.hudVal, { color: '#EA580C' }]}>{learning?.current_streak ?? 0}</Text>
+          </View>
+          <View style={S.hudPill}>
+            <Text>⚡</Text>
+            <Text style={[S.hudVal, { color: '#2A7D4F' }]}>{learning?.xp_total ?? 0} XP</Text>
+          </View>
         </View>
       </View>
 
@@ -529,7 +740,7 @@ export default function MapScreen({ navigation }: Props) {
         <TouchableOpacity style={S.questBanner} onPress={() => navigation.navigate('DailyQuest')} activeOpacity={0.9}>
           <Text style={{ fontSize: 15 }}>⭐</Text>
           <Text style={S.questLabel}>Daily Quests</Text>
-          <View style={S.questBadge}><Text style={S.questBadgeText}>2 / 3 Done</Text></View>
+          <View style={S.questBadge}><Text style={S.questBadgeText}>Coming soon</Text></View>
           <Text style={{ fontSize: 16, color: '#5A3A00' }}>›</Text>
         </TouchableOpacity>
 
@@ -542,8 +753,11 @@ export default function MapScreen({ navigation }: Props) {
         {/* Map canvas — height computed from layout, not hardcoded */}
         <View style={{ width: MAP_W, height: MAP_H, position: 'relative' }}>
 
-          {/* SVG background */}
-          <Svg width={MAP_W} height={MAP_H} viewBox={`0 0 393 ${MAP_H}`} style={StyleSheet.absoluteFill}>
+          {/* SVG background — viewBox matches MAP_W exactly (not a fixed
+              design-reference width) so the gradient fully covers every
+              screen size and the road aligns with the node positions below,
+              which are also computed in real MAP_W units. */}
+          <Svg width={MAP_W} height={MAP_H} viewBox={`0 0 ${MAP_W} ${MAP_H}`} style={StyleSheet.absoluteFill}>
             <Defs>
               <LinearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0%"   stopColor="#7EC8E3" />
@@ -559,20 +773,20 @@ export default function MapScreen({ navigation }: Props) {
                 <Stop offset="100%" stopColor="#B8903A" />
               </LinearGradient>
             </Defs>
-            <Rect width="393" height={MAP_H} fill="url(#bg)" />
+            <Rect width={MAP_W} height={MAP_H} fill="url(#bg)" />
 
-            {/* Stars */}
-            {([[55,55],[180,40],[310,60],[130,48],[260,35]] as [number,number][]).map(([cx,cy],i) => (
-              <Circle key={`st${i}`} cx={cx} cy={cy} r={1.5} fill="white" opacity={0.6} />
+            {/* Stars — x as fraction of MAP_W, same pattern as node xFractions */}
+            {([0.140,0.458,0.789,0.331,0.662] as number[]).map((xf,i) => (
+              <Circle key={`st${i}`} cx={Math.round(xf * MAP_W)} cy={[55,40,60,48,35][i]} r={1.5} fill="white" opacity={0.6} />
             ))}
 
-            {/* River — proportional to MAP_H */}
+            {/* River — x as fraction of MAP_W, proportional to MAP_H */}
             <Path
-              d={`M362 ${TOP_MARGIN} Q378 ${MAP_H*0.25} 355 ${MAP_H*0.42} Q340 ${MAP_H*0.55} 368 ${MAP_H*0.68} Q382 ${MAP_H*0.80} 360 ${MAP_H}`}
+              d={`M${0.921*MAP_W} ${TOP_MARGIN} Q${0.962*MAP_W} ${MAP_H*0.25} ${0.903*MAP_W} ${MAP_H*0.42} Q${0.865*MAP_W} ${MAP_H*0.55} ${0.936*MAP_W} ${MAP_H*0.68} Q${0.972*MAP_W} ${MAP_H*0.80} ${0.916*MAP_W} ${MAP_H}`}
               stroke="#6BC8E8" strokeWidth="18" fill="none" opacity="0.32" strokeLinecap="round"
             />
             <Path
-              d={`M362 ${TOP_MARGIN} Q378 ${MAP_H*0.25} 355 ${MAP_H*0.42} Q340 ${MAP_H*0.55} 368 ${MAP_H*0.68} Q382 ${MAP_H*0.80} 360 ${MAP_H}`}
+              d={`M${0.921*MAP_W} ${TOP_MARGIN} Q${0.962*MAP_W} ${MAP_H*0.25} ${0.903*MAP_W} ${MAP_H*0.42} Q${0.865*MAP_W} ${MAP_H*0.55} ${0.936*MAP_W} ${MAP_H*0.68} Q${0.972*MAP_W} ${MAP_H*0.80} ${0.916*MAP_W} ${MAP_H}`}
               stroke="#A8E4F8" strokeWidth="8"  fill="none" opacity="0.28" strokeLinecap="round"
             />
 
@@ -686,6 +900,7 @@ export default function MapScreen({ navigation }: Props) {
           {/* Lottie animations — x derived from pathXAt, zone-checked */}
           {DECORATIONS.lotties.map((lt, i) => (
             <LottieView
+        renderMode="SOFTWARE"
               key={`lottie${i}`}
               source={lt.source}
               autoPlay loop
@@ -705,10 +920,7 @@ export default function MapScreen({ navigation }: Props) {
                     key={node.id}
                     style={{ position: 'absolute', left: node.x, top: node.y }}
                     activeOpacity={node.status === 'locked' ? 1 : 0.85}
-                    onPress={() => {
-                      if (node.status === 'locked') return;
-                      navigation.navigate('LessonStart', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum });
-                    }}
+                    onPress={() => void handleNodePress(section, node)}
                   >
                     <MapNode
                       status={node.status}
@@ -718,12 +930,21 @@ export default function MapScreen({ navigation }: Props) {
                       levelNum={idx}
                       ayahFrom={node.startAyah ?? ((node.levelNum ?? 1) - 1) * 3 + 1}
                       ayahTo={node.endAyah ?? Math.min((node.levelNum ?? 1) * 3, section.ayahCount)}
+                      isFetching={node.status === 'pending' && fetchingSurah === section.surahNum}
                     />
                   </TouchableOpacity>
                 );
               })
             );
           })()}
+
+          {/* Season signs — brown wood-plank dividers between map phases.
+              Fade from dim to full opacity as each phase's data streams in
+              in the background (see the staggered fetch effect above); never
+              gate access, the nodes beneath are already tappable regardless. */}
+          {SEASON_SIGNS.map(sign => (
+            <SeasonSignSlot key={`season-${sign.phaseIdx}`} sign={sign} loaded={isPhaseLoaded(sign.phaseIdx)} />
+          ))}
 
           {/* Luma — beside the active node, x derived from node position */}
           {firstActiveNode && (
@@ -748,7 +969,7 @@ export default function MapScreen({ navigation }: Props) {
 const S = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#7EC8E3' },
   hud: { backgroundColor: 'rgba(0,0,0,0.18)', paddingHorizontal: 16, paddingVertical: 6 },
-  hudRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  hudRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   hudPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 20,
@@ -756,6 +977,7 @@ const S = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 4, elevation: 3,
   },
   hudVal: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#DC2626' },
+  hudStreakAnim: { width: 20, height: 20 },
   avatarBtn: {
     width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.9)',
     borderWidth: 2, borderColor: 'white', alignItems: 'center', justifyContent: 'center',
@@ -782,7 +1004,7 @@ const S = StyleSheet.create({
   bismillahText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 30, color: '#E0BC4E', textAlign: 'center', lineHeight: 46 },
   bismillahSub:  { fontFamily: 'Nunito_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 2 },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(42,140,90,0.72)', zIndex: 20,
   },

@@ -93,6 +93,18 @@ export function stopAudio(): void {
   stopActiveSound();
 }
 
+/** Pause currently playing audio (no-op if nothing playing). */
+export function pauseAudio(): void {
+  if (!activeSound) return;
+  try { (activeSound as unknown as { pause: () => void }).pause(); } catch { /* ignore */ }
+}
+
+/** Resume a paused sound (no-op if nothing paused). */
+export function resumeAudio(): void {
+  if (!activeSound) return;
+  try { activeSound.play(() => {}); } catch { /* ignore */ }
+}
+
 /** Release all pre-loaded sounds. Call when the lesson ends or is abandoned. */
 export function clearPreloadedAudio(): void {
   stopActiveSound();
@@ -106,7 +118,29 @@ export function clearPreloadedAudio(): void {
   preloadedSounds.clear();
 }
 
-export async function playAudioUrl(url: string): Promise<void> {
+/** Release pre-loaded sounds for a specific set of URLs (exercise unmount). */
+export function evictPreloadedUrls(urls: string[]): void {
+  for (const url of urls) {
+    const sound = preloadedSounds.get(url) as SoundLike | undefined;
+    if (sound) {
+      preloadedSounds.delete(url);
+      try { sound.release(); } catch { /* ignore */ }
+    }
+  }
+}
+
+/** Whether a sound is currently loaded (playing or paused). */
+export function isSoundActive(): boolean {
+  return activeSound !== null;
+}
+
+/**
+ * Play a URL. `onStart` fires the instant playback actually begins (after any
+ * network buffering/decoding for non-preloaded sounds) — callers use it to
+ * drive UI (e.g. the WaveBar) that must appear exactly when sound starts, not
+ * when loading starts, so there's never a silent gap with a moving waveform.
+ */
+export async function playAudioUrl(url: string, onStart?: () => void): Promise<void> {
   if (!url) return;
 
   const preloaded = preloadedSounds.get(url) as SoundLike | undefined;
@@ -119,6 +153,7 @@ export async function playAudioUrl(url: string): Promise<void> {
       activeSound = preloaded;
       activeSoundIsPreloaded = true;
       await new Promise<void>(resolve => {
+        onStart?.();
         preloaded.play((success: boolean) => {
           if (!success) logAudioIssue('play', url);
           if (activeSound === preloaded) {
@@ -152,6 +187,7 @@ export async function playAudioUrl(url: string): Promise<void> {
         s.setSpeed(currentSpeed);
         activeSound = s;
         activeSoundIsPreloaded = false;
+        onStart?.();
         s.play((success: boolean) => {
           if (!success) {
             logAudioIssue('play', url);

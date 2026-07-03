@@ -25,13 +25,14 @@ export function formatApiError(body: unknown, fallback: string): string {
 
 export function messageForStatus(status: number, body: unknown): string {
   if (status === 409) {
-    return 'You already have a lesson in progress. Finish or leave it first.';
+    return formatApiError(body, 'You already have a lesson in progress. Finish or leave it first.');
   }
   if (status === 401) {
-    return 'Session expired. Please log in again.';
+    return formatApiError(body, 'Session expired. Please log in again.');
   }
   if (status === 404) {
     return formatApiError(body, 'Content not found for this surah or lesson.');
   }
   return formatApiError(body, `Request failed (${status})`);
 }
+

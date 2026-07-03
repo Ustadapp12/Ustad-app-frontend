@@ -21,7 +21,7 @@ export default function LessonStartScreen({ navigation, route }: Props) {
 
 /*
 import { Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 

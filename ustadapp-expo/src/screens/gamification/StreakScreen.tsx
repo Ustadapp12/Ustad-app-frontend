@@ -44,6 +44,7 @@ export default function StreakScreen({ navigation }: Props) {
         {/* Streak fire animation */}
         <Animated.View style={{ transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
           <LottieView
+        renderMode="SOFTWARE"
             source={require('../../../assets/animations/streak.json')}
             autoPlay loop
             style={styles.streakAnim}

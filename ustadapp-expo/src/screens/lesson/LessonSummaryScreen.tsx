@@ -52,11 +52,13 @@ function XPCelebration({ xp, onDone }: { xp: number; onDone: () => void }) {
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {/* Full-screen looping background animations */}
       <LottieView
+        renderMode="SOFTWARE"
         source={require('../../../assets/animations/congrats.json')}
         autoPlay loop
         style={StyleSheet.absoluteFill}
       />
       <LottieView
+        renderMode="SOFTWARE"
         source={require('../../../assets/animations/celebration.json')}
         autoPlay loop
         style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
@@ -168,6 +170,7 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
           {/* Lumo / success animation */}
           {stars === 3 ? (
             <LottieView
+        renderMode="SOFTWARE"
               source={require('../../../assets/animations/success.json')}
               autoPlay
               loop={false}

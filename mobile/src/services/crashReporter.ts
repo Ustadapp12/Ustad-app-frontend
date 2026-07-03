@@ -89,10 +89,9 @@ export function setCrashUser(userId: string | null, email?: string): void {
  */
 export function addBreadcrumb(
   message: string,
-  category = 'app',
   data?: Record<string, unknown>,
 ): void {
   try {
-    Sentry.addBreadcrumb({ message, category, data, level: 'info' });
+    Sentry.addBreadcrumb({ message, category: 'app', data, level: 'info' });
   } catch { /* ignore */ }
 }

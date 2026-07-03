@@ -6,98 +6,40 @@ import {
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Audio } from 'expo-av';
+import {
+  playAudioUrl, preloadAudioUrls as preloadAudioUrlsSvc, evictPreloadedUrls as evictPreloadedUrlsSvc,
+  pauseAudio, resumeAudio, stopAudio, isSoundActive,
+} from '../../services/audioPlayer';
+import {
+  requestMicPermission, startRecording as startRecordingSvc, stopRecording as stopRecordingSvc,
+} from '../../services/audioRecorder';
 import { useLessonStore } from '../../store/lessonStore';
 import { useAuthStore } from '../../store/authStore';
 import { learningApi, progressApi } from '../../api';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
 import { colors } from '../../theme/colors';
-import type { ExerciseDict, FormulaAttemptOut, SegmentStatus } from '../../types/api';
+import type { ExerciseDict, FormulaAttemptOut, SegmentStatus, ExpectedWordResult } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 
 
-// ── Audio helper ───────────────────────────────────────────────────
+// ── Audio helper — thin wrapper around services/audioPlayer
+// (react-native-sound), which does the actual playback on this bare RN
+// build. Adds the notifySystemPlaying() calls the WaveBar UI subscribes to.
 
-let _sound: Audio.Sound | null = null;
-let _audioReady = false;
-let _playGeneration = 0;
-
-// Pre-loaded sounds keyed by URL — populated by preloadAudioUrls() so that
-// tapping an option in audio_fill plays instantly instead of waiting for a
-// network fetch + decode on every tap.
-const _preloadCache = new Map<string, Audio.Sound>();
-
-// Load a set of URLs into the cache in the background (fire-and-forget).
-async function preloadAudioUrls(urls: string[]): Promise<void> {
-  await ensureAudioReady();
-  await Promise.all(
-    urls
-      .filter(url => url && !_preloadCache.has(url))
-      .map(async url => {
-        try {
-          const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: false });
-          _preloadCache.set(url, sound);
-        } catch {}
-      }),
-  );
-}
-
-// Release cached sounds for a set of URLs (call on exercise unmount).
-function evictPreloadedUrls(urls: string[]): void {
-  for (const url of urls) {
-    const s = _preloadCache.get(url);
-    if (s) { _preloadCache.delete(url); void s.unloadAsync().catch(() => {}); }
-  }
-}
-
-async function ensureAudioReady() {
-  if (_audioReady) return;
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
-    staysActiveInBackground: false,
-    playsInSilentModeIOS: true,   // plays even when the iOS silent switch is on
-    shouldDuckAndroid: true,
-    playThroughEarpieceAndroid: false,
-  });
-  _audioReady = true;
-}
+const preloadAudioUrls = preloadAudioUrlsSvc;
+const evictPreloadedUrls = evictPreloadedUrlsSvc;
 
 async function playUrl(url: string | null | undefined, onDone?: () => void) {
   if (!url) return;
-  const myGen = ++_playGeneration;
   try {
-    await ensureAudioReady();
-    if (_sound) {
-      await _sound.stopAsync().catch(() => {});
-      await _sound.unloadAsync().catch(() => {});
-      _sound = null;
-    }
-    if (myGen !== _playGeneration) return; // newer tap superseded this one
-
-    // Use preloaded sound if available (instant), otherwise fetch from network
-    let sound: Audio.Sound;
-    const cached = _preloadCache.get(url);
-    if (cached) {
-      _preloadCache.delete(url); // take ownership — now managed as _sound
-      await cached.setPositionAsync(0).catch(() => {}); // rewind in case replayed
-      sound = cached;
-    } else {
-      ({ sound } = await Audio.Sound.createAsync({ uri: url }));
-    }
-
-    if (myGen !== _playGeneration) { void sound.unloadAsync().catch(() => {}); return; }
-    _sound = sound;
-    sound.setOnPlaybackStatusUpdate(status => {
-      if (status.isLoaded && status.didJustFinish) {
-        notifySystemPlaying(false); // audio finished — hide WaveBar
-        onDone?.();
-      }
-    });
-    notifySystemPlaying(true); // audio starting — show WaveBar
-    await sound.playAsync();
+    // Show the WaveBar exactly when playback actually starts (after any
+    // network buffering), not when the tap happens — otherwise the wave
+    // animates during silent load time, breaking the "live voice" illusion.
+    await playAudioUrl(url, () => notifySystemPlaying(true));
   } catch (e) {
     console.warn('[audio] playUrl failed:', e);
-    notifySystemPlaying(false);
+  } finally {
+    notifySystemPlaying(false); // audio finished/failed — hide WaveBar immediately
     onDone?.(); // unblock any waiting sequence
   }
 }
@@ -114,56 +56,30 @@ async function playUrlSequence(urls: string[], onDone?: () => void) {
 // the smallest possible gap — used for the "Hear" button in read_and_speak.
 async function playUrlSequenceFast(urls: string[], onDone?: () => void) {
   if (!urls.length) { onDone?.(); return; }
-  const myGen = ++_playGeneration;
   try {
-    await ensureAudioReady();
-    // Load all sounds in parallel so there's no per-track fetch delay
-    const loaded = await Promise.all(urls.map(url => Audio.Sound.createAsync({ uri: url })));
-    if (myGen !== _playGeneration) {
-      loaded.forEach(({ sound }) => void sound.unloadAsync().catch(() => {}));
-      return;
-    }
+    await preloadAudioUrlsSvc(urls); // load all in parallel, no per-track fetch delay
     notifySystemPlaying(true);
-    for (const { sound } of loaded) {
-      if (myGen !== _playGeneration) { void sound.unloadAsync().catch(() => {}); continue; }
-      if (_sound) { await _sound.stopAsync().catch(() => {}); await _sound.unloadAsync().catch(() => {}); }
-      _sound = sound;
-      await new Promise<void>(resolve => {
-        sound.setOnPlaybackStatusUpdate(status => {
-          if (status.isLoaded && status.didJustFinish) resolve();
-        });
-        void sound.playAsync();
-      });
+    for (const url of urls) {
+      await playAudioUrl(url);
     }
-    notifySystemPlaying(false);
-    onDone?.();
   } catch (e) {
     console.warn('[audio] playUrlSequenceFast failed:', e);
+  } finally {
     notifySystemPlaying(false);
     onDone?.();
   }
 }
 
 async function pauseCurrentAudio() {
-  if (!_sound) return;
-  try {
-    const s = await _sound.getStatusAsync();
-    if (s.isLoaded && s.isPlaying) {
-      await _sound.pauseAsync();
-      notifySystemPlaying(false); // paused — hide WaveBar
-    }
-  } catch {}
+  if (!isSoundActive()) return;
+  pauseAudio();
+  notifySystemPlaying(false); // paused — hide WaveBar
 }
 
 async function resumeCurrentAudio() {
-  if (!_sound) return;
-  try {
-    const s = await _sound.getStatusAsync();
-    if (s.isLoaded && !s.isPlaying) {
-      await _sound.playAsync();
-      notifySystemPlaying(true);
-    }
-  } catch {}
+  if (!isSoundActive()) return;
+  resumeAudio();
+  notifySystemPlaying(true);
 }
 
 // ── System audio playing state ─────────────────────────────────────
@@ -191,55 +107,16 @@ function useSystemAudioPlaying(): boolean {
 }
 
 // ── Audio recording helpers (speak exercises) ──────────────────────
-
-let _recording: Audio.Recording | null = null;
-
-/** Switch audio session to recording mode (iOS requires this). */
-async function enableRecordingMode(): Promise<void> {
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: true,
-    staysActiveInBackground: false,
-    playsInSilentModeIOS: true,
-    shouldDuckAndroid: true,
-    playThroughEarpieceAndroid: false,
-  });
-  _audioReady = false; // flag stale — will re-init when switching back to playback
-}
-
-/** Switch back to playback-only mode after recording finishes. */
-async function enablePlaybackMode(): Promise<void> {
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
-    staysActiveInBackground: false,
-    playsInSilentModeIOS: true,
-    shouldDuckAndroid: true,
-    playThroughEarpieceAndroid: false,
-  });
-  _audioReady = true;
-}
-
-/** Request microphone permission. Returns true if the user grants it. */
-async function requestMicPermission(): Promise<boolean> {
-  const { status } = await Audio.requestPermissionsAsync();
-  return status === 'granted';
-}
+// Thin wrappers around services/audioRecorder (react-native-audio-recorder-player).
 
 /**
  * Start recording. Stops any currently playing audio first so playback
  * and recording don't conflict (especially on iOS).
  */
 async function startRecording(): Promise<void> {
-  if (_sound) {
-    await _sound.stopAsync().catch(() => {});
-    await _sound.unloadAsync().catch(() => {});
-    _sound = null;
-    notifySystemPlaying(false);
-  }
-  await enableRecordingMode();
-  const { recording } = await Audio.Recording.createAsync(
-    Audio.RecordingOptionsPresets.HIGH_QUALITY,
-  );
-  _recording = recording;
+  stopAudio();
+  notifySystemPlaying(false);
+  await startRecordingSvc();
 }
 
 /**
@@ -247,17 +124,10 @@ async function startRecording(): Promise<void> {
  * Returns null if nothing was being recorded or if an error occurred.
  */
 async function stopRecording(): Promise<string | null> {
-  if (!_recording) return null;
   try {
-    await _recording.stopAndUnloadAsync();
-    const uri = _recording.getURI();
-    _recording = null;
-    await enablePlaybackMode();
-    return uri ?? null;
+    return await stopRecordingSvc();
   } catch (e) {
     console.warn('[recording] stopRecording error:', e);
-    _recording = null;
-    await enablePlaybackMode().catch(() => {});
     return null;
   }
 }
@@ -267,11 +137,19 @@ function PlayPauseBtn({
 }: { url?: string | null; urls?: string[] | null; label?: string; darkMode?: boolean }) {
   const [state, setState] = useState<'idle' | 'playing' | 'paused'>('idle');
   const mountedRef = useRef(true);
+  const systemPlaying = useSystemAudioPlaying();
 
   // Normalise: prefer single url, fall back to playing urls in sequence
   const hasAudio = !!(url || urls?.length);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   useEffect(() => { setState('idle'); }, [url]);
+
+  // react-native-sound's stop() doesn't reliably fire the play() completion
+  // callback when playback is interrupted externally (e.g. recording starts), so
+  // fall back to the reliable global signal to reset the icon promptly.
+  useEffect(() => {
+    if (!systemPlaying && state === 'playing') setState('idle');
+  }, [systemPlaying]);
 
   const handlePress = async () => {
     if (state === 'idle') {
@@ -324,6 +202,7 @@ function WaveBar() {
   return (
     <View style={WAV.bar} pointerEvents="none">
       <LottieView
+        renderMode="SOFTWARE"
         source={require('../../../assets/animations/wave.json')}
         autoPlay
         loop
@@ -554,6 +433,7 @@ function LumaLoading({ message, insetTop, onBack }: { message: string; insetTop:
         </TouchableOpacity>
       )}
       <LottieView
+        renderMode="SOFTWARE"
         source={require('../../../assets/animations/loading.json')}
         autoPlay loop
         style={LL.lottie}
@@ -581,9 +461,20 @@ function SegmentPlayBtn({ url }: { url?: string | null }) {
   const [playing, setPlaying] = useState(false);
   const mountedRef = useRef(true);
   const pulseAnims = useRef(BAR_HEIGHTS.map(() => new Animated.Value(1))).current;
+  const systemPlaying = useSystemAudioPlaying();
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   useEffect(() => { setPlaying(false); }, [url]);
+
+  // react-native-sound's stop() doesn't reliably fire the play() completion
+  // callback when playback is interrupted (e.g. recording starts, or
+  // another sound takes over) — waiting on that callback alone left the
+  // waveform pulsing forever. notifySystemPlaying(false) IS always called
+  // synchronously on stop/pause/record-start, so mirror it here for an
+  // immediate, reliable stop.
+  useEffect(() => {
+    if (!systemPlaying && playing) setPlaying(false);
+  }, [systemPlaying]);
 
   useEffect(() => {
     if (playing) {
@@ -818,6 +709,13 @@ const AD = StyleSheet.create({
   continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
 });
 
+// EX.blankBox has a fixed size tuned for the default Naskh font. Scripts like
+// nastaliq render noticeably taller/wider glyphs (see scriptFontScale), so the
+// blank must grow with them — otherwise the filled-in word clips against the box.
+function scaledBlankBox(scale: number): { height: number; minWidth: number } {
+  return { height: Math.round(40 * scale), minWidth: Math.round(70 * scale) };
+}
+
 function FillBlankOrNextWord({
   ex, surahName, character, locked, onSubmit,
 }: {
@@ -876,7 +774,7 @@ function FillBlankOrNextWord({
           <View style={EX.tokensRow}>
             {ex.tokens.map((t, i) =>
               t.blank
-                ? <View key={i} style={[EX.blankBox, selected && EX.blankFilled]}>
+                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont.scale), selected && EX.blankFilled]}>
                     {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>{selected}</Text> : null}
                   </View>
                 : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
@@ -1249,7 +1147,7 @@ function AudioFill({
           <View style={EX.tokensRow}>
             {ex.tokens.map((t, i) =>
               t.blank
-                ? <View key={i} style={[EX.blankBox, selected ? EX.blankFilled : null]}>
+                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont.scale), selected ? EX.blankFilled : null]}>
                     {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>?</Text> : null}
                   </View>
                 : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
@@ -1422,12 +1320,35 @@ interface SpeakResult {
   score_pct: number;
   transcript: string;
   correctAyah?: string | null;
+  expectedWords?: ExpectedWordResult[];
+}
+
+// Renders the expected text as a single block, highlighting the specific
+// word(s) the backend marked wrong (expected_words[].correct === false) so
+// the user sees exactly what to fix instead of just a pass/fail score.
+function DiffAyahText({ words, fallbackText, style, wrongStyle }: {
+  words?: ExpectedWordResult[];
+  fallbackText: string;
+  style: any;
+  wrongStyle: any;
+}) {
+  if (!words?.length) return <AyahText text={fallbackText} style={style} />;
+  return (
+    <Text style={style}>
+      {words.map((w, i) => (
+        <React.Fragment key={w.index ?? i}>
+          <Text style={!w.correct ? wrongStyle : undefined}>{w.word}</Text>
+          {i < words.length - 1 ? ' ' : ''}
+        </React.Fragment>
+      ))}
+    </Text>
+  );
 }
 
 // Full bottom-sheet result — rendered at screen level (like FeedbackBanner)
 // so it always has enough room to show the score, XP pill, and Continue button.
 function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvance: () => void }) {
-  const { passed, score_pct, correctAyah } = result;
+  const { passed, score_pct, correctAyah, transcript, expectedWords } = result;
   const arabicFont = useArabicFont();
   return (
     <View style={[SRB.sheet, !passed && SRB.sheetFail]}>
@@ -1454,11 +1375,24 @@ function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvan
         </View>
       )}
 
-      {/* Correct ayah — shown on fail so user can see the right text */}
+      {/* Correct ayah — shown on fail, with the wrong word(s) highlighted */}
       {!!correctAyah && !passed && (
         <View style={SRB.transcriptBox}>
           <Text style={SRB.transcriptLabel}>CORRECT AYAH</Text>
-          <AyahText text={correctAyah} style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any} />
+          <DiffAyahText
+            words={expectedWords}
+            fallbackText={correctAyah}
+            style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any}
+            wrongStyle={SRB.wrongWord}
+          />
+        </View>
+      )}
+
+      {/* What we heard you say — makes the transcription visible to the user */}
+      {!!transcript && !passed && (
+        <View style={SRB.transcriptBox}>
+          <Text style={SRB.transcriptLabel}>YOU SAID</Text>
+          <Text style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any}>{transcript}</Text>
         </View>
       )}
 
@@ -1489,6 +1423,7 @@ const SRB = StyleSheet.create({
   transcriptBox:   { backgroundColor: 'white', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 14, alignItems: 'center' },
   transcriptLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 8 },
   ayahText:        { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 38 },
+  wrongWord:       { color: '#DC2626', textDecorationLine: 'underline' },
   btn:             { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   btnFail:         { backgroundColor: '#F97316', shadowColor: '#F97316' },
   btnText:         { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
@@ -1502,7 +1437,7 @@ const SRB = StyleSheet.create({
 // phase: "main"   — single ayah
 // phase: "review" — same UX (side-by-side comparison is deferred)
 
-type SpeakState = 'idle' | 'recording' | 'scoring' | 'done';
+type SpeakState = 'idle' | 'recording' | 'recorded' | 'scoring' | 'done';
 
 function ReadAyahAndSpeak({
   ex, surahName, character, onSpeakScored,
@@ -1511,13 +1446,14 @@ function ReadAyahAndSpeak({
   const [speakState, setSpeakState] = useState<SpeakState>('idle');
   const [error, setError]           = useState<string | null>(null);
   const mountedRef  = useRef(true);
+  const recordedUriRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       // Clean up any in-flight recording if the component unmounts mid-session
-      if (_recording) { void stopRecording(); }
+      void stopRecording();
     };
   }, []);
 
@@ -1525,37 +1461,13 @@ function ReadAyahAndSpeak({
   useEffect(() => {
     setSpeakState('idle');
     setError(null);
+    recordedUriRef.current = null;
   }, [ex.ex_id]);
 
-  /** User pressed the mic — request permission then start recording. */
-  const handlePressIn = async () => {
-    if (speakState !== 'idle') return;
-    setError(null);
-
-    const granted = await requestMicPermission();
-    if (!granted) {
-      if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
-      return;
-    }
-
-    try {
-      await startRecording();
-      if (mountedRef.current) setSpeakState('recording');
-    } catch (e) {
-      console.warn('[ReadAyahAndSpeak] startRecording failed:', e);
-      if (mountedRef.current) setError('Could not start recording. Please try again.');
-    }
-  };
-
-  /** User lifted their finger — stop recording and score it. */
-  const handlePressOut = async () => {
-    if (speakState !== 'recording') return;
+  /** Submit the just-stopped recording for scoring — runs automatically, no separate Check step. */
+  const submitRecording = async (uri: string) => {
     if (mountedRef.current) setSpeakState('scoring');
-
     try {
-      const uri = await stopRecording();
-      if (!uri) throw new Error('No audio captured');
-
       const scored = await progressApi.speakAttempt({
         expected_arabic: ex.expected_arabic ?? '',
         audioUri: uri,
@@ -1564,13 +1476,48 @@ function ReadAyahAndSpeak({
 
       if (mountedRef.current) {
         setSpeakState('done');
-        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.ayah_ar ?? ex.expected_arabic ?? null });
+        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.ayah_ar ?? ex.expected_arabic ?? null, expectedWords: scored.expected_words });
       }
     } catch (e) {
       console.warn('[ReadAyahAndSpeak] speak-attempt failed:', e);
       if (mountedRef.current) {
-        setError('Scoring failed. Tap "Try again" to re-record.');
+        setError('Scoring failed. Tap the mic to try again.');
         setSpeakState('idle');
+      }
+    }
+  };
+
+  /** One tap starts recording, the next tap stops it and checks automatically — no hold, no separate Check button. */
+  const handleMicTap = async () => {
+    if (speakState === 'idle') {
+      setError(null);
+      const granted = await requestMicPermission();
+      if (!granted) {
+        if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+        return;
+      }
+      try {
+        await startRecording();
+        if (mountedRef.current) setSpeakState('recording');
+      } catch (e) {
+        console.warn('[ReadAyahAndSpeak] startRecording failed:', e);
+        if (mountedRef.current) setError('Could not start recording. Please try again.');
+      }
+      return;
+    }
+
+    if (speakState === 'recording') {
+      try {
+        const uri = await stopRecording();
+        if (!uri) throw new Error('No audio captured');
+        recordedUriRef.current = uri;
+        await submitRecording(uri);
+      } catch (e) {
+        console.warn('[ReadAyahAndSpeak] stopRecording failed:', e);
+        if (mountedRef.current) {
+          setError('Could not capture your recording. Please try again.');
+          setSpeakState('idle');
+        }
       }
     }
   };
@@ -1615,22 +1562,22 @@ function ReadAyahAndSpeak({
         <View style={RAS.micArea}>
           <Text style={RAS.micInstruction}>
             {speakState === 'recording'
-              ? 'Recording… release to submit'
+              ? 'Recording… tap to stop and check'
               : speakState === 'scoring'
               ? 'Scoring your recitation…'
-              : 'Hold the mic and recite the ayah'}
+              : 'Tap the mic and recite the ayah'}
           </Text>
 
           {speakState === 'scoring' ? (
             <ActivityIndicator color={colors.primary} size="large" style={RAS.spinner} />
           ) : (
             <Pressable
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
+              onPress={handleMicTap}
               style={({ pressed }) => [RAS.micBtn, pressed && RAS.micBtnActive]}
             >
               {speakState === 'recording' ? (
                 <LottieView
+        renderMode="SOFTWARE"
                   source={require('../../../assets/animations/listen.json')}
                   autoPlay
                   loop
@@ -1673,8 +1620,10 @@ const RAS = StyleSheet.create({
   // against the button surface. Press → slight scale-down.
   micBtn:         { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
   micBtnActive:   { transform: [{ scale: 0.93 }], shadowOpacity: 0.25 },
+  micBtnRecorded: { width: 76, height: 76, borderRadius: 38, opacity: 0.7 },
   micImage:       { width: 52, height: 52, tintColor: 'white' },
   listenAnim:     { width: 88, height: 88 },
+  checkBtn:       { width: '100%', marginTop: 20 },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
   errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
   retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
@@ -1697,42 +1646,22 @@ function ReadAndSpeak({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      if (_recording) { void stopRecording(); }
+      void stopRecording();
     };
   }, []);
+
+  const recordedUriRef = useRef<string | null>(null);
 
   useEffect(() => {
     setSpeakState('idle');
     setError(null);
+    recordedUriRef.current = null;
   }, [ex.ex_id]);
 
-  const handlePressIn = async () => {
-    if (speakState !== 'idle') return;
-    setError(null);
-
-    const granted = await requestMicPermission();
-    if (!granted) {
-      if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
-      return;
-    }
-
-    try {
-      await startRecording();
-      if (mountedRef.current) setSpeakState('recording');
-    } catch (e) {
-      console.warn('[ReadAndSpeak] startRecording failed:', e);
-      if (mountedRef.current) setError('Could not start recording. Please try again.');
-    }
-  };
-
-  const handlePressOut = async () => {
-    if (speakState !== 'recording') return;
+  /** Submit the just-stopped recording for scoring — runs automatically, no separate Check step. */
+  const submitRecording = async (uri: string) => {
     if (mountedRef.current) setSpeakState('scoring');
-
     try {
-      const uri = await stopRecording();
-      if (!uri) throw new Error('No audio captured');
-
       const scored = await progressApi.speakAttempt({
         expected_arabic: ex.expected_arabic ?? '',
         audioUri: uri,
@@ -1741,13 +1670,48 @@ function ReadAndSpeak({
 
       if (mountedRef.current) {
         setSpeakState('done');
-        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.expected_arabic ?? null });
+        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.expected_arabic ?? null, expectedWords: scored.expected_words });
       }
     } catch (e) {
       console.warn('[ReadAndSpeak] speak-attempt failed:', e);
       if (mountedRef.current) {
-        setError('Scoring failed. Tap "Try again" to re-record.');
+        setError('Scoring failed. Tap the mic to try again.');
         setSpeakState('idle');
+      }
+    }
+  };
+
+  /** One tap starts recording, the next tap stops it and checks automatically — no hold, no separate Check button. */
+  const handleMicTap = async () => {
+    if (speakState === 'idle') {
+      setError(null);
+      const granted = await requestMicPermission();
+      if (!granted) {
+        if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+        return;
+      }
+      try {
+        await startRecording();
+        if (mountedRef.current) setSpeakState('recording');
+      } catch (e) {
+        console.warn('[ReadAndSpeak] startRecording failed:', e);
+        if (mountedRef.current) setError('Could not start recording. Please try again.');
+      }
+      return;
+    }
+
+    if (speakState === 'recording') {
+      try {
+        const uri = await stopRecording();
+        if (!uri) throw new Error('No audio captured');
+        recordedUriRef.current = uri;
+        await submitRecording(uri);
+      } catch (e) {
+        console.warn('[ReadAndSpeak] stopRecording failed:', e);
+        if (mountedRef.current) {
+          setError('Could not capture your recording. Please try again.');
+          setSpeakState('idle');
+        }
       }
     }
   };
@@ -1805,22 +1769,22 @@ function ReadAndSpeak({
         <View style={RANS.micArea}>
           <Text style={RANS.micInstruction}>
             {speakState === 'recording'
-              ? 'Recording… release to submit'
+              ? 'Recording… tap to stop and check'
               : speakState === 'scoring'
               ? 'Scoring your recitation…'
-              : 'Hold the mic and read the words above'}
+              : 'Tap the mic and read the words above'}
           </Text>
 
           {speakState === 'scoring' ? (
             <ActivityIndicator color={colors.primary} size="large" style={RANS.spinner} />
           ) : (
             <Pressable
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
+              onPress={handleMicTap}
               style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive]}
             >
               {speakState === 'recording' ? (
                 <LottieView
+        renderMode="SOFTWARE"
                   source={require('../../../assets/animations/listen.json')}
                   autoPlay
                   loop
@@ -1867,8 +1831,10 @@ const RANS = StyleSheet.create({
   // White background with green border makes mic.png clearly visible
   micBtn:         { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
   micBtnActive:   { transform: [{ scale: 0.93 }], shadowOpacity: 0.25 },
+  micBtnRecorded: { width: 76, height: 76, borderRadius: 38, opacity: 0.7 },
   micImage:       { width: 52, height: 52, tintColor: 'white' },
   listenAnim:     { width: 88, height: 88 },
+  checkBtn:       { width: '100%', marginTop: 20 },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
   errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
   retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
@@ -2147,7 +2113,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const { groupId, surahName, surahNumber } = route.params;
   const insets = useSafeAreaInsets();
 
-  const { sessionId, heartsAtStart, firstExercise, error, loading, group, steps, reset, loadGroup, startSession, completeSession, abandonSession, groupId: storeGroupId } = useLessonStore();
+  const { sessionId, heartsAtStart, firstExercise, error, loading, group, steps, reset, loadGroup, startSession, completeSession, abandonSession, groupId: storeGroupId, progressPct: storeProgressPct } = useLessonStore();
   const { user } = useAuthStore();
 
   const [exercise, setExercise] = useState<ExerciseDict | null>(null);
@@ -2158,7 +2124,9 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const [correctCount, setCorrectCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [noHeartsVisible, setNoHeartsVisible] = useState(false);
+  const [sessionExpiredVisible, setSessionExpiredVisible] = useState(false);
   const [exercisesCompleted, setExercisesCompleted] = useState(0);
+  const [progressPct, setProgressPct] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [speakResult, setSpeakResult] = useState<SpeakResult | null>(null);
   const exerciseIndexRef = useRef(0);
@@ -2181,10 +2149,9 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return () => {
       cancelled = true;
       pendingAdvanceFn.current = null;
-      void _sound?.stopAsync().catch(() => {});
-      void _sound?.unloadAsync().catch(() => {});
+      stopAudio();
       notifySystemPlaying(false);
-      if (_recording) { void stopRecording(); }
+      void stopRecording();
     };
   }, [groupId]);
 
@@ -2198,12 +2165,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   // Stop audio and reset playing state immediately when navigating away
   useEffect(() => {
     const unsub = navigation.addListener('blur', () => {
-      void _sound?.stopAsync().catch(() => {});
-      void _sound?.unloadAsync().catch(() => {});
-      _sound = null;
+      stopAudio();
       notifySystemPlaying(false);
       // Also abort any in-flight recording
-      if (_recording) { void stopRecording(); }
+      void stopRecording();
     });
     return unsub;
   }, [navigation]);
@@ -2216,10 +2181,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       setExercise(firstExercise);
       setShowBismillah(true);
       startedAt.current = Date.now();
+      setProgressPct(storeProgressPct);
     }
   }, [firstExercise, storeGroupId]);
 
-  const submitAnswer = useCallback(async (userAnswer: string | string[] | number[] | null) => {
+  const submitAnswer = useCallback(async (userAnswer: string | string[] | number[] | null, correctOverride?: boolean) => {
     if (!sessionId || !exercise || submitting) return;
     setSubmitting(true);
     const ms = Date.now() - startedAt.current;
@@ -2232,16 +2198,23 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         response_ms: ms,
       });
 
+      // Speak exercises score correctness client-side (via Deepgram speak-attempt,
+      // passed in as correctOverride) since formulaAttempt gets no user_answer to grade.
+      const effectiveCorrect = correctOverride !== undefined ? correctOverride : result.correct;
+
       // remediation_up = reinforcement phase, no hearts lost even on wrong
       const isNoMistake = exercise.phase === 'mistakes_review' || exercise.phase === 'remediation_up';
-      const snapCorrect  = correctCount + (result.correct ? 1 : 0);
-      const snapMistakes = mistakes + (!result.correct && !isNoMistake ? 1 : 0);
+      const snapCorrect  = correctCount + (effectiveCorrect ? 1 : 0);
+      const snapMistakes = mistakes + (!effectiveCorrect && !isNoMistake ? 1 : 0);
 
       // Track cumulative XP earned across all exercises for the session-end screen
       totalXpRef.current += result.xp_awarded ?? 0;
 
-      if (!result.correct && !isNoMistake) setMistakes(snapMistakes);
-      else if (result.correct) {
+      // Server-computed accuracy bar (main + review testers) — see session_engine.py.
+      if (typeof result.progress_pct === 'number') setProgressPct(result.progress_pct);
+
+      if (!effectiveCorrect && !isNoMistake) setMistakes(snapMistakes);
+      else if (effectiveCorrect) {
         setCorrectCount(snapCorrect);
         setExercisesCompleted(prev => prev + 1);
         // Confetti: XP awarded on normal questions only (not listen steps, speak exercises, or session end)
@@ -2255,7 +2228,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       if (result.segments.length) setSegments(result.segments);
 
       // Hearts exhausted — end attempt immediately (skip in no-mistake phases)
-      if (!result.correct && !isNoMistake && snapMistakes >= 5) {
+      if (!effectiveCorrect && !isNoMistake && snapMistakes >= 5) {
         setSubmitting(false);
         setNoHeartsVisible(true);
         return;
@@ -2270,13 +2243,15 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         if (result.done) {
           try {
             const summary = await completeSession();
+            console.warn('[Lesson] completeSession OK. totalXpRef:', totalXpRef.current, 'summary:', JSON.stringify(summary));
             navigation.replace('LessonComplete', {
               xp: totalXpRef.current || summary.xp_awarded,
               scorePct: summary.passed ? Math.max(scorePct, 70) : scorePct,
               stars: 3,
               heartsRemaining: summary.hearts_remaining,
             });
-          } catch {
+          } catch (e) {
+            console.warn('[Lesson] completeSession FAILED. totalXpRef:', totalXpRef.current, 'error:', e);
             navigation.replace('LessonComplete', {
               xp: totalXpRef.current || 20, scorePct,
               stars: 3,
@@ -2309,9 +2284,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     } catch (e: any) {
       setSubmitting(false);
       if (e?.status === 404 || e?.status === 400) {
-        navigation.replace('LessonComplete', {
-          xp: 0, scorePct: 0, stars: 1, heartsRemaining: heartsAtStart,
-        });
+        // The session was invalidated server-side (e.g. abandoned after a long
+        // background) — this is NOT a real completion. Never fake a "level
+        // complete" screen with 0 XP; that awarded no stars but still read as
+        // a finished level. Tell the user honestly and let them retry.
+        setSessionExpiredVisible(true);
       }
     }
   }, [sessionId, exercise, submitting, correctCount, mistakes, heartsAtStart]);
@@ -2326,6 +2303,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
+        renderMode="SOFTWARE"
           source={require('../../../assets/animations/404.json')}
           autoPlay loop
           style={{ width: 200, height: 200 }}
@@ -2350,6 +2328,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
+        renderMode="SOFTWARE"
           source={require('../../../assets/animations/loading.json')}
           autoPlay loop
           style={{ width: 140, height: 140 }}
@@ -2405,9 +2384,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const maxHearts = 5;
   const heartsLeft = Math.max(0, maxHearts - mistakes);
 
-  const totalSteps       = Math.max(steps.filter(s => s.type !== 'interstitial').length, 1);
-  const effectiveTotal   = Math.max(totalSteps, exerciseIndexRef.current + 1);
-  const progressFraction = Math.min(exercisesCompleted / effectiveTotal, 1.0);
+  // Bar is the server-computed accuracy score (correct - wrong) / base_total
+  // from session_engine.py — covers main phase AND review, not raw exercise
+  // count or lesson structure. See session_engine.py's _progress_snapshot().
+  const progressFraction = Math.min(Math.max(progressPct / 100, 0), 1);
   const character = characterForIndex(charOrderRef.current, exerciseIndexRef.current);
 
   return (
@@ -2545,13 +2525,15 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       )}
 
       {/* Speak result bottom sheet — shown after speak-attempt scores.
-          Continue calls submitAnswer(null) → formulaAttempt → next exercise. */}
+          Continue calls submitAnswer(null, passed) so a failed recitation
+          costs a heart just like any other wrong answer. */}
       {speakResult && !feedback && (
         <SpeakResultBanner
           result={speakResult}
           onAdvance={() => {
+            const passed = speakResult.passed;
             setSpeakResult(null);
-            void submitAnswer(null);
+            void submitAnswer(null, passed);
           }}
         />
       )}
@@ -2568,6 +2550,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       {showConfetti && (
         <View style={S.confettiOverlay} pointerEvents="none">
           <LottieView
+        renderMode="SOFTWARE"
             source={require('../../../assets/animations/celebration.json')}
             autoPlay
             loop={false}
@@ -2609,6 +2592,31 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           </View>
         </View>
       )}
+      {/* Session expired modal — shown instead of a fake "level complete" screen */}
+      {sessionExpiredVisible && (
+        <View style={S.noHeartsOverlay}>
+          <View style={S.noHeartsCard}>
+            <Image
+              source={require('../../../assets/images/lumo_cry.png')}
+              style={S.noHeartsLumo}
+              resizeMode="contain"
+            />
+            <Text style={S.noHeartsTitle}>Session Expired</Text>
+            <Text style={S.noHeartsBody}>
+              Your lesson session timed out.{'\n'}Let's start this level again.
+            </Text>
+            <TouchableOpacity
+              style={S.noHeartsRetryBtn}
+              onPress={() => {
+                setSessionExpiredVisible(false);
+                navigation.replace('LessonSession', { groupId, surahName, surahNumber });
+              }}
+            >
+              <Text style={S.noHeartsRetryText}>↩  Retry Level</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -2622,15 +2630,15 @@ const S = StyleSheet.create({
   heartsRow: { flexDirection: 'row', gap: 3 },
   heartIcon: { fontSize: 16 },
   exerciseArea: { flex: 1 },
-  spinnerOverlay:  { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,244,248,0.6)' },
-  confettiOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
+  spinnerOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,244,248,0.6)' },
+  confettiOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
   confettiAnim:    { width: '100%', height: 320 },
   errorTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
   errorMsg: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
   retryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 },
   retryBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white' },
   // No-hearts overlay
-  noHeartsOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', zIndex: 100, paddingHorizontal: 28 },
+  noHeartsOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', zIndex: 100, paddingHorizontal: 28 },
   noHeartsCard: { backgroundColor: 'white', borderRadius: 28, padding: 28, alignItems: 'center', width: '100%', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 20 },
   noHeartsTitle: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: colors.darkText, marginBottom: 10 },
   noHeartsBody: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.midText, textAlign: 'center', lineHeight: 22, marginBottom: 24 },

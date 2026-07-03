@@ -12,20 +12,37 @@ const KEYS = {
   script: '@ustadapp/script',
 } as const;
 
+// In-memory cache + in-flight dedup: getTokens() is called once per parallel
+// API request (e.g. the Map screen fires one per surah via Promise.allSettled).
+// Without this, each call hits the OS Keystore independently, which isn't
+// reliably safe under concurrent access and can silently return null for
+// some of them, dropping those requests as unauthenticated.
+let tokensCache: Tokens | null | undefined;
+let tokensInFlight: Promise<Tokens | null> | null = null;
+
 export async function getTokens(): Promise<Tokens | null> {
-  let tokens = await getSecureTokens();
-  if (!tokens) {
-    const legacy = await AsyncStorage.getItem(KEYS.tokensLegacy);
-    if (legacy) {
-      tokens = JSON.parse(legacy) as Tokens;
-      await setSecureTokens(tokens);
-      await AsyncStorage.removeItem(KEYS.tokensLegacy);
-    }
+  if (tokensCache !== undefined) return tokensCache;
+  if (!tokensInFlight) {
+    tokensInFlight = (async () => {
+      let tokens = await getSecureTokens();
+      if (!tokens) {
+        const legacy = await AsyncStorage.getItem(KEYS.tokensLegacy);
+        if (legacy) {
+          tokens = JSON.parse(legacy) as Tokens;
+          await setSecureTokens(tokens);
+          await AsyncStorage.removeItem(KEYS.tokensLegacy);
+        }
+      }
+      tokensCache = tokens;
+      tokensInFlight = null;
+      return tokens;
+    })();
   }
-  return tokens;
+  return tokensInFlight;
 }
 
 export async function setTokens(tokens: Tokens | null): Promise<void> {
+  tokensCache = tokens;
   await setSecureTokens(tokens);
   if (!tokens) await AsyncStorage.removeItem(KEYS.tokensLegacy);
 }
