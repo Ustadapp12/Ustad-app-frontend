@@ -5,7 +5,7 @@ export const PRODUCTION_API_BASE = 'https://ustad-app-backend-git-main-ustadapp.
 
 export const USE_LOCAL_API = false;
 
-export const PHYSICAL_DEVICE_HOST: string | null = '172.20.10.5';
+export const PHYSICAL_DEVICE_HOST: string | null = '192.168.18.75';
 
 /** MVP: last 10 surahs 105–114 from API (`mvp_only=true`). Set true for full Juz 30. */
 export const FULL_JUZ_AMMA = false;

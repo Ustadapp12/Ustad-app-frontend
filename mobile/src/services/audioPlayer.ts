@@ -134,11 +134,19 @@ export function isSoundActive(): boolean {
   return activeSound !== null;
 }
 
+// Clamp a Sound's reported duration into a safe completion-fallback timeout.
+// getDuration() can return 0 before metadata is ready — fall back to a
+// generous fixed window in that case rather than resolving instantly.
+function safeDurationMs(sound: SoundLike): number {
+  const duration = sound.getDuration();
+  return (duration > 0 ? duration * 1000 / currentSpeed : 6000) + 400;
+}
+
 /**
  * Play a URL. `onStart` fires the instant playback actually begins (after any
  * network buffering/decoding for non-preloaded sounds) — callers use it to
- * drive UI (e.g. the WaveBar) that must appear exactly when sound starts, not
- * when loading starts, so there's never a silent gap with a moving waveform.
+ * drive UI that must appear exactly when sound starts, not when loading
+ * starts.
  */
 export async function playAudioUrl(url: string, onStart?: () => void): Promise<void> {
   if (!url) return;
@@ -152,17 +160,26 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
       preloaded.setSpeed(currentSpeed);
       activeSound = preloaded;
       activeSoundIsPreloaded = true;
-      await new Promise<void>(resolve => {
-        onStart?.();
-        preloaded.play((success: boolean) => {
-          if (!success) logAudioIssue('play', url);
-          if (activeSound === preloaded) {
-            activeSound = null;
-            activeSoundIsPreloaded = false;
-          }
-          resolve();
-        });
-      });
+      onStart?.();
+      // react-native-sound's play() completion callback is not always
+      // reliable on a reused/preloaded Sound instance — when it never fires,
+      // a multi-word sequence (playUrlSequence) would hang forever after the
+      // first word. Race it against the clip's own duration so playback
+      // always advances even if the callback never comes.
+      const durationMs = safeDurationMs(preloaded);
+      await Promise.race([
+        new Promise<void>(resolve => {
+          preloaded.play((success: boolean) => {
+            if (!success) logAudioIssue('play', url);
+            if (activeSound === preloaded) {
+              activeSound = null;
+              activeSoundIsPreloaded = false;
+            }
+            resolve();
+          });
+        }),
+        new Promise<void>(resolve => setTimeout(resolve, durationMs)),
+      ]);
     } catch (err) {
       logAudioIssue('play', url, err);
     }
@@ -188,6 +205,8 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
         activeSound = s;
         activeSoundIsPreloaded = false;
         onStart?.();
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
         s.play((success: boolean) => {
           if (!success) {
             logAudioIssue('play', url);
@@ -196,8 +215,11 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
           if (activeSound === s) {
             activeSound = null;
           }
-          resolve();
+          finish();
         });
+        // Same safety net as the preloaded path — don't let a missed
+        // completion callback stall a multi-word sequence.
+        setTimeout(finish, safeDurationMs(s));
       });
     });
   } catch (err) {

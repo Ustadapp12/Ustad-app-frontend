@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View, StyleSheet } from 'react-native';
+import { Text, View, Image, StyleSheet } from 'react-native';
 import MapScreen from '../screens/home/MapScreen';
 import DailyQuestScreen from '../screens/quests/DailyQuestScreen';
 import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
@@ -15,6 +15,20 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return (
     <View style={[styles.iconWrap, focused && styles.iconFocused]}>
       <Text style={styles.emoji}>{emoji}</Text>
+    </View>
+  );
+}
+
+// Profile uses Lumo (the app's own mascot character) instead of a generic
+// person-outline emoji, which some fonts render as a plain unclear glyph.
+function ProfileTabIcon({ focused }: { focused: boolean }) {
+  return (
+    <View style={[styles.iconWrap, focused && styles.iconFocused]}>
+      <Image
+        source={require('../../assets/images/lumo_transparent.png')}
+        style={styles.profileIcon}
+        resizeMode="contain"
+      />
     </View>
   );
 }
@@ -59,7 +73,7 @@ export default function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          tabBarIcon: ({ focused }) => <ProfileTabIcon focused={focused} />,
         }}
       />
       <Tab.Screen
@@ -100,6 +114,10 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 18,
+  },
+  profileIcon: {
+    width: 22,
+    height: 22,
   },
   label: {
     fontSize: 11,

@@ -12,7 +12,7 @@ import { useAuthStore } from '../../store/authStore';
 import { learningApi, progressApi } from '../../api';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
 import { colors } from '../../theme/colors';
-import type { ExerciseDict, FormulaAttemptOut, SegmentStatus } from '../../types/api';
+import type { ExerciseDict, ExpectedWordResult, FormulaAttemptOut, SegmentStatus } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 
 
@@ -89,11 +89,11 @@ async function playUrl(url: string | null | undefined, onDone?: () => void) {
     _sound = sound;
     sound.setOnPlaybackStatusUpdate(status => {
       if (status.isLoaded && status.didJustFinish) {
-        notifySystemPlaying(false); // audio finished — hide WaveBar
+        notifySystemPlaying(false);
         onDone?.();
       }
     });
-    notifySystemPlaying(true); // audio starting — show WaveBar
+    notifySystemPlaying(true);
     await sound.playAsync();
   } catch (e) {
     console.warn('[audio] playUrl failed:', e);
@@ -150,7 +150,7 @@ async function pauseCurrentAudio() {
     const s = await _sound.getStatusAsync();
     if (s.isLoaded && s.isPlaying) {
       await _sound.pauseAsync();
-      notifySystemPlaying(false); // paused — hide WaveBar
+      notifySystemPlaying(false);
     }
   } catch {}
 }
@@ -167,28 +167,11 @@ async function resumeCurrentAudio() {
 }
 
 // ── System audio playing state ─────────────────────────────────────
-// Components subscribe via useSystemAudioPlaying() to drive the WaveBar
-// that appears at the bottom of the exercise card whenever the app speaks.
-
-type AudioPlayListener = (playing: boolean) => void;
-const _audioPlayListeners = new Set<AudioPlayListener>();
-let _isAudioPlaying = false;
-
-function notifySystemPlaying(playing: boolean) {
-  if (_isAudioPlaying === playing) return; // no-op if state unchanged
-  _isAudioPlaying = playing;
-  _audioPlayListeners.forEach(cb => cb(playing));
-}
-
-/** React hook — returns true while any system audio is actively playing. */
-function useSystemAudioPlaying(): boolean {
-  const [playing, setPlaying] = useState(_isAudioPlaying);
-  useEffect(() => {
-    _audioPlayListeners.add(setPlaying);
-    return () => { _audioPlayListeners.delete(setPlaying); };
-  }, []);
-  return playing;
-}
+// No-op now — this used to notify the WaveBar (wave animation shown while
+// audio played), which was removed. Left as a stub since call sites are
+// threaded through the recording/playback flow below and don't need to
+// change just because there's no more listener.
+function notifySystemPlaying(_playing: boolean) {}
 
 // ── Audio recording helpers (speak exercises) ──────────────────────
 
@@ -312,33 +295,6 @@ const PP = StyleSheet.create({
   iconDark:{ color: '#E0BC4E' },
   text:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
   textDark:{ color: '#E0BC4E' },
-});
-
-// ── WaveBar — full-width animation at the bottom of the exercise card ──
-// Appears whenever the app is playing audio (system speaking).
-// Self-manages visibility via useSystemAudioPlaying().
-
-function WaveBar() {
-  const isPlaying = useSystemAudioPlaying();
-  if (!isPlaying) return null;
-  return (
-    <View style={WAV.bar} pointerEvents="none">
-      <LottieView
-        renderMode="SOFTWARE"
-        source={require('../../../assets/animations/wave.json')}
-        autoPlay
-        loop
-        style={WAV.anim}
-      />
-    </View>
-  );
-}
-
-const WAV = StyleSheet.create({
-  // Raised 64 px above the bottom of the exerciseArea so it sits above the
-  // home indicator / gesture bar and doesn't hug the very edge of the screen.
-  bar:  { position: 'absolute', bottom: 64, left: 0, right: 0, height: 44, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  anim: { width: '100%', height: 64 },
 });
 
 // ── Speech bubble text per exercise type ─────────────────────────
@@ -547,6 +503,27 @@ function characterForIndex(shuffled: number[], idx: number): Character {
 // ── Luma loading state ─────────────────────────────────────────────
 
 function LumaLoading({ message, insetTop, onBack }: { message: string; insetTop: number; onBack?: () => void }) {
+  const flipAnim = useRef(new Animated.Value(0)).current;
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Hourglass flips over (180°) and back, pausing at each end — reads as
+    // "still working," not a spinner that implies near-instant completion.
+    Animated.loop(Animated.sequence([
+      Animated.timing(flipAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.delay(500),
+      Animated.timing(flipAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
+      Animated.delay(500),
+    ])).start();
+    Animated.loop(Animated.sequence([
+      Animated.timing(bounceAnim, { toValue: 1, duration: 650, useNativeDriver: true }),
+      Animated.timing(bounceAnim, { toValue: 0, duration: 650, useNativeDriver: true }),
+    ])).start();
+  }, []);
+
+  const rotate = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
+  const lumaY = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
+
   return (
     <View style={[LL.container, { paddingTop: insetTop }]}>
       {onBack && (
@@ -554,12 +531,12 @@ function LumaLoading({ message, insetTop, onBack }: { message: string; insetTop:
           <Text style={LL.backText}>←  Map</Text>
         </TouchableOpacity>
       )}
-      <LottieView
-        renderMode="SOFTWARE"
-        source={require('../../../assets/animations/loading.json')}
-        autoPlay loop
-        style={LL.lottie}
+      <Animated.Image
+        source={require('../../../assets/images/lumo_transparent.png')}
+        style={[LL.luma, { transform: [{ translateY: lumaY }] }]}
+        resizeMode="contain"
       />
+      <Animated.Text style={[LL.hourglass, { transform: [{ rotate }] }]}>⏳</Animated.Text>
       <View style={LL.bubble}><Text style={LL.bubbleText}>{message}</Text></View>
     </View>
   );
@@ -567,7 +544,8 @@ function LumaLoading({ message, insetTop, onBack }: { message: string; insetTop:
 
 const LL = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg, alignItems: 'center', justifyContent: 'center' },
-  lottie: { width: 180, height: 180 },
+  luma: { width: 140, height: 140 },
+  hourglass: { fontSize: 40, marginTop: 4 },
   bubble: { backgroundColor: 'white', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginTop: 16, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3, maxWidth: '88%' },
   bubbleText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, textAlign: 'center' },
   backBtn: { position: 'absolute', left: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
@@ -1431,13 +1409,39 @@ interface SpeakResult {
   score_pct: number;
   transcript: string;
   correctAyah?: string | null;
+  expectedWords?: ExpectedWordResult[];
+}
+
+// Renders the expected text as a single block, highlighting the specific
+// word(s) the backend marked wrong (expected_words[].correct === false) so
+// the user sees exactly what to fix instead of just a pass/fail score.
+function DiffAyahText({ words, fallbackText, style, wrongStyle }: {
+  words?: ExpectedWordResult[];
+  fallbackText: string;
+  style: any;
+  wrongStyle: any;
+}) {
+  if (!words?.length) return <AyahText text={fallbackText} style={style} />;
+  return (
+    <Text style={style}>
+      {words.map((w, i) => (
+        <React.Fragment key={w.index ?? i}>
+          <Text style={!w.correct ? wrongStyle : undefined}>{w.word}</Text>
+          {i < words.length - 1 ? ' ' : ''}
+        </React.Fragment>
+      ))}
+    </Text>
+  );
 }
 
 // Full bottom-sheet result — rendered at screen level (like FeedbackBanner)
 // so it always has enough room to show the score, XP pill, and Continue button.
 function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvance: () => void }) {
-  const { passed, score_pct, correctAyah } = result;
+  const { passed, score_pct, correctAyah, transcript, expectedWords } = result;
   const arabicFont = useArabicFont();
+  // Show the correction whenever any word was marked wrong — not only on
+  // fail. A 75% pass still has mistakes worth pointing out.
+  const hasMistakes = !!expectedWords?.some(w => !w.correct);
   return (
     <View style={[SRB.sheet, !passed && SRB.sheetFail]}>
       {/* Top row: badge + title/subtitle */}
@@ -1463,11 +1467,24 @@ function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvan
         </View>
       )}
 
-      {/* Correct ayah — shown on fail so user can see the right text */}
-      {!!correctAyah && !passed && (
+      {/* Correct ayah — shown whenever there's a mistake to point out, with the wrong word(s) highlighted */}
+      {!!correctAyah && (hasMistakes || !passed) && (
         <View style={SRB.transcriptBox}>
           <Text style={SRB.transcriptLabel}>CORRECT AYAH</Text>
-          <AyahText text={correctAyah} style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any} />
+          <DiffAyahText
+            words={expectedWords}
+            fallbackText={correctAyah}
+            style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any}
+            wrongStyle={SRB.wrongWord}
+          />
+        </View>
+      )}
+
+      {/* What we heard you say — makes the transcription visible to the user */}
+      {!!transcript && (hasMistakes || !passed) && (
+        <View style={SRB.transcriptBox}>
+          <Text style={SRB.transcriptLabel}>YOU SAID</Text>
+          <Text style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any}>{transcript}</Text>
         </View>
       )}
 
@@ -1480,7 +1497,7 @@ function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvan
 
 const SRB = StyleSheet.create({
   // Matches FeedbackBanner: absolute bottom sheet with rounded top corners
-  sheet:           { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#D1FAE5', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 36, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: -4 }, elevation: 12 },
+  sheet:           { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#D1FAE5', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 36, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 }, elevation: 4 },
   sheetFail:       { backgroundColor: '#FFF3E0' },
   topRow:          { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   badge:           { width: 44, height: 44, borderRadius: 22, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
@@ -1498,6 +1515,7 @@ const SRB = StyleSheet.create({
   transcriptBox:   { backgroundColor: 'white', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 14, alignItems: 'center' },
   transcriptLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 8 },
   ayahText:        { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 38 },
+  wrongWord:       { color: '#DC2626', textDecorationLine: 'underline' },
   btn:             { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   btnFail:         { backgroundColor: '#F97316', shadowColor: '#F97316' },
   btnText:         { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
@@ -1511,7 +1529,7 @@ const SRB = StyleSheet.create({
 // phase: "main"   — single ayah
 // phase: "review" — same UX (side-by-side comparison is deferred)
 
-type SpeakState = 'idle' | 'recording' | 'recorded' | 'scoring' | 'done';
+type SpeakState = 'idle' | 'recording' | 'scoring' | 'done';
 
 function ReadAyahAndSpeak({
   ex, surahName, character, onSpeakScored,
@@ -1521,6 +1539,9 @@ function ReadAyahAndSpeak({
   const [error, setError]           = useState<string | null>(null);
   const mountedRef  = useRef(true);
   const recordedUriRef = useRef<string | null>(null);
+  // Guards against a second tap landing before the first tap's state update
+  // has taken effect — only one recording/scoring attempt in flight at a time.
+  const busyRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1538,63 +1559,68 @@ function ReadAyahAndSpeak({
     recordedUriRef.current = null;
   }, [ex.ex_id]);
 
-  /** Tap the mic — start recording (from idle/recorded) or stop it (from recording). */
+  /**
+   * Tap the mic — first tap starts recording, second tap stops it and
+   * immediately submits it for scoring (no separate Check step).
+   */
   const handleMicTap = async () => {
-    if (speakState === 'idle' || speakState === 'recorded') {
-      setError(null);
-      const granted = await requestMicPermission();
-      if (!granted) {
-        if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      if (speakState === 'idle') {
+        setError(null);
+        const granted = await requestMicPermission();
+        if (!granted) {
+          if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+          return;
+        }
+        try {
+          await startRecording();
+          if (mountedRef.current) setSpeakState('recording');
+        } catch (e) {
+          console.warn('[ReadAyahAndSpeak] startRecording failed:', e);
+          if (mountedRef.current) setError('Could not start recording. Please try again.');
+        }
         return;
       }
-      try {
-        await startRecording();
-        if (mountedRef.current) setSpeakState('recording');
-      } catch (e) {
-        console.warn('[ReadAyahAndSpeak] startRecording failed:', e);
-        if (mountedRef.current) setError('Could not start recording. Please try again.');
-      }
-      return;
-    }
 
-    if (speakState === 'recording') {
-      try {
-        const uri = await stopRecording();
-        if (!uri) throw new Error('No audio captured');
+      if (speakState === 'recording') {
+        let uri: string | null = null;
+        try {
+          uri = await stopRecording();
+          if (!uri) throw new Error('No audio captured');
+        } catch (e) {
+          console.warn('[ReadAyahAndSpeak] stopRecording failed:', e);
+          if (mountedRef.current) {
+            setError('Could not capture your recording. Please try again.');
+            setSpeakState('idle');
+          }
+          return;
+        }
         recordedUriRef.current = uri;
-        if (mountedRef.current) setSpeakState('recorded');
-      } catch (e) {
-        console.warn('[ReadAyahAndSpeak] stopRecording failed:', e);
-        if (mountedRef.current) {
-          setError('Could not capture your recording. Please try again.');
-          setSpeakState('idle');
+        if (mountedRef.current) setSpeakState('scoring');
+
+        try {
+          const scored = await progressApi.speakAttempt({
+            expected_arabic: ex.expected_arabic ?? '',
+            audioUri: uri,
+            audioType: Platform.OS === 'ios' ? 'audio/m4a' : 'audio/mp4',
+          });
+
+          if (mountedRef.current) {
+            setSpeakState('done');
+            onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.ayah_ar ?? ex.expected_arabic ?? null, expectedWords: scored.expected_words });
+          }
+        } catch (e) {
+          console.warn('[ReadAyahAndSpeak] speak-attempt failed:', e);
+          if (mountedRef.current) {
+            setError('Scoring failed. Tap the mic to try again.');
+            setSpeakState('idle');
+          }
         }
       }
-    }
-  };
-
-  /** User tapped Check — submit the recorded audio for scoring. */
-  const handleCheck = async () => {
-    if (speakState !== 'recorded' || !recordedUriRef.current) return;
-    if (mountedRef.current) setSpeakState('scoring');
-
-    try {
-      const scored = await progressApi.speakAttempt({
-        expected_arabic: ex.expected_arabic ?? '',
-        audioUri: recordedUriRef.current,
-        audioType: Platform.OS === 'ios' ? 'audio/m4a' : 'audio/mp4',
-      });
-
-      if (mountedRef.current) {
-        setSpeakState('done');
-        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.ayah_ar ?? ex.expected_arabic ?? null });
-      }
-    } catch (e) {
-      console.warn('[ReadAyahAndSpeak] speak-attempt failed:', e);
-      if (mountedRef.current) {
-        setError('Scoring failed. Tap "Try again" to re-record.');
-        setSpeakState('recorded');
-      }
+    } finally {
+      busyRef.current = false;
     }
   };
 
@@ -1641,9 +1667,7 @@ function ReadAyahAndSpeak({
               ? 'Recording… tap to stop'
               : speakState === 'scoring'
               ? 'Scoring your recitation…'
-              : speakState === 'recorded'
-              ? 'Tap Check to submit, or tap the mic to re-record'
-              : 'Tap the mic and recite the ayah'}
+              : 'Tap the mic to start, tap again to stop and check'}
           </Text>
 
           {speakState === 'scoring' ? (
@@ -1651,7 +1675,7 @@ function ReadAyahAndSpeak({
           ) : (
             <Pressable
               onPress={handleMicTap}
-              style={({ pressed }) => [RAS.micBtn, pressed && RAS.micBtnActive, speakState === 'recorded' && RAS.micBtnRecorded]}
+              style={({ pressed }) => [RAS.micBtn, pressed && RAS.micBtnActive]}
             >
               {speakState === 'recording' ? (
                 <LottieView
@@ -1669,12 +1693,6 @@ function ReadAyahAndSpeak({
                 />
               )}
             </Pressable>
-          )}
-
-          {speakState === 'recorded' && (
-            <TouchableOpacity style={[EX.continueBtn, RAS.checkBtn]} onPress={handleCheck}>
-              <Text style={EX.continueBtnText}>Check</Text>
-            </TouchableOpacity>
           )}
 
           {!!error && (
@@ -1696,7 +1714,7 @@ const RAS = StyleSheet.create({
   container:      { padding: 20, paddingBottom: 8 },
   ayahCard:       { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 18, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 24, alignItems: 'center', marginBottom: 16 },
   ayahText:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 28, color: colors.darkText, textAlign: 'center', lineHeight: 52 },
-  // Fixed bottom area — always visible above the WaveBar / result sheet
+  // Fixed bottom area — always visible above the result sheet
   micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
   micInstruction: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
@@ -1735,6 +1753,9 @@ function ReadAndSpeak({
   }, []);
 
   const recordedUriRef = useRef<string | null>(null);
+  // Guards against a second tap landing before the first tap's state update
+  // has taken effect — only one recording/scoring attempt in flight at a time.
+  const busyRef = useRef(false);
 
   useEffect(() => {
     setSpeakState('idle');
@@ -1742,63 +1763,68 @@ function ReadAndSpeak({
     recordedUriRef.current = null;
   }, [ex.ex_id]);
 
-  /** Tap the mic — start recording (from idle/recorded) or stop it (from recording). */
+  /**
+   * Tap the mic — first tap starts recording, second tap stops it and
+   * immediately submits it for scoring (no separate Check step).
+   */
   const handleMicTap = async () => {
-    if (speakState === 'idle' || speakState === 'recorded') {
-      setError(null);
-      const granted = await requestMicPermission();
-      if (!granted) {
-        if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      if (speakState === 'idle') {
+        setError(null);
+        const granted = await requestMicPermission();
+        if (!granted) {
+          if (mountedRef.current) setError('Microphone permission is required to record your recitation.');
+          return;
+        }
+        try {
+          await startRecording();
+          if (mountedRef.current) setSpeakState('recording');
+        } catch (e) {
+          console.warn('[ReadAndSpeak] startRecording failed:', e);
+          if (mountedRef.current) setError('Could not start recording. Please try again.');
+        }
         return;
       }
-      try {
-        await startRecording();
-        if (mountedRef.current) setSpeakState('recording');
-      } catch (e) {
-        console.warn('[ReadAndSpeak] startRecording failed:', e);
-        if (mountedRef.current) setError('Could not start recording. Please try again.');
-      }
-      return;
-    }
 
-    if (speakState === 'recording') {
-      try {
-        const uri = await stopRecording();
-        if (!uri) throw new Error('No audio captured');
+      if (speakState === 'recording') {
+        let uri: string | null = null;
+        try {
+          uri = await stopRecording();
+          if (!uri) throw new Error('No audio captured');
+        } catch (e) {
+          console.warn('[ReadAndSpeak] stopRecording failed:', e);
+          if (mountedRef.current) {
+            setError('Could not capture your recording. Please try again.');
+            setSpeakState('idle');
+          }
+          return;
+        }
         recordedUriRef.current = uri;
-        if (mountedRef.current) setSpeakState('recorded');
-      } catch (e) {
-        console.warn('[ReadAndSpeak] stopRecording failed:', e);
-        if (mountedRef.current) {
-          setError('Could not capture your recording. Please try again.');
-          setSpeakState('idle');
+        if (mountedRef.current) setSpeakState('scoring');
+
+        try {
+          const scored = await progressApi.speakAttempt({
+            expected_arabic: ex.expected_arabic ?? '',
+            audioUri: uri,
+            audioType: Platform.OS === 'ios' ? 'audio/m4a' : 'audio/mp4',
+          });
+
+          if (mountedRef.current) {
+            setSpeakState('done');
+            onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.expected_arabic ?? null, expectedWords: scored.expected_words });
+          }
+        } catch (e) {
+          console.warn('[ReadAndSpeak] speak-attempt failed:', e);
+          if (mountedRef.current) {
+            setError('Scoring failed. Tap the mic to try again.');
+            setSpeakState('idle');
+          }
         }
       }
-    }
-  };
-
-  /** User tapped Check — submit the recorded audio for scoring. */
-  const handleCheck = async () => {
-    if (speakState !== 'recorded' || !recordedUriRef.current) return;
-    if (mountedRef.current) setSpeakState('scoring');
-
-    try {
-      const scored = await progressApi.speakAttempt({
-        expected_arabic: ex.expected_arabic ?? '',
-        audioUri: recordedUriRef.current,
-        audioType: Platform.OS === 'ios' ? 'audio/m4a' : 'audio/mp4',
-      });
-
-      if (mountedRef.current) {
-        setSpeakState('done');
-        onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.expected_arabic ?? null });
-      }
-    } catch (e) {
-      console.warn('[ReadAndSpeak] speak-attempt failed:', e);
-      if (mountedRef.current) {
-        setError('Scoring failed. Tap "Try again" to re-record.');
-        setSpeakState('recorded');
-      }
+    } finally {
+      busyRef.current = false;
     }
   };
 
@@ -1858,9 +1884,7 @@ function ReadAndSpeak({
               ? 'Recording… tap to stop'
               : speakState === 'scoring'
               ? 'Scoring your recitation…'
-              : speakState === 'recorded'
-              ? 'Tap Check to submit, or tap the mic to re-record'
-              : 'Tap the mic and read the words above'}
+              : 'Tap the mic to start, tap again to stop and check'}
           </Text>
 
           {speakState === 'scoring' ? (
@@ -1868,7 +1892,7 @@ function ReadAndSpeak({
           ) : (
             <Pressable
               onPress={handleMicTap}
-              style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive, speakState === 'recorded' && RANS.micBtnRecorded]}
+              style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive]}
             >
               {speakState === 'recording' ? (
                 <LottieView
@@ -1886,12 +1910,6 @@ function ReadAndSpeak({
                 />
               )}
             </Pressable>
-          )}
-
-          {speakState === 'recorded' && (
-            <TouchableOpacity style={[EX.continueBtn, RANS.checkBtn]} onPress={handleCheck}>
-              <Text style={EX.continueBtnText}>Check</Text>
-            </TouchableOpacity>
           )}
 
           {!!error && (
@@ -2004,7 +2022,7 @@ function HearAndSelect({
           : <Text style={HAS.speakerIcon}>🔊</Text>
         }
         <Text style={[HAS.speakerLabel, playing && { color: 'rgba(255,255,255,0.85)' }]}>
-          {playing ? 'Playing…' : 'Tap to hear again'}
+          {playing ? 'Playing…' : 'Tap to hear'}
         </Text>
       </TouchableOpacity>
 
@@ -2107,8 +2125,7 @@ const EX = StyleSheet.create({
   seqBox:        { flex: 1, minHeight: 90, borderRadius: 16,
                    alignItems: 'center' as const, justifyContent: 'center' as const,
                    paddingHorizontal: 10, paddingVertical: 12,
-                   backgroundColor: 'white', borderWidth: 2, borderColor: colors.primary,
-                   shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+                   backgroundColor: 'white', borderWidth: 2, borderColor: colors.primary },
   seqBoxFilled:  { backgroundColor: 'rgba(55,161,104,0.1)' },
   seqBoxEmpty:   { borderStyle: 'dashed' as const, borderColor: 'rgba(55,161,104,0.4)', backgroundColor: 'rgba(55,161,104,0.03)' },
   seqSlotNum:    { fontFamily: 'Nunito_700Bold', fontSize: 18, color: 'rgba(55,161,104,0.25)' },
@@ -2173,7 +2190,7 @@ function FeedbackBanner({
 }
 
 const FB = StyleSheet.create({
-  sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#D1FAE5', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 36, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: -4 }, elevation: 12 },
+  sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#D1FAE5', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 36, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 }, elevation: 4 },
   wrongSheet: { backgroundColor: '#FEE2E2' },
   correctRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   correctBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
@@ -2513,7 +2530,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         })()}
       </View>
 
-      {/* Exercise content + WaveBar (shows at bottom whenever audio plays) */}
+      {/* Exercise content */}
       <View style={S.exerciseArea}>
         {exercise.type === 'ayah_display' && (
           <AyahDisplay
@@ -2603,12 +2620,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           />
         )}
 
-        {/* WaveBar: hidden for audio_fill (user is choosing words, not listening)
-            and hidden for speak exercises (mic button is at the bottom — the wave
-            animation physically overlaps it and the PlayPauseBtn already shows audio state). */}
-        {exercise.type !== 'audio_fill' &&
-         exercise.type !== 'read_ayah_and_speak' &&
-         exercise.type !== 'read_and_speak' && <WaveBar />}
       </View>
 
       {/* Submitting spinner */}

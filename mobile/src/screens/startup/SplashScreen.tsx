@@ -1,9 +1,8 @@
-﻿import React, { useEffect, useRef } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, Image, StyleSheet, Animated, TouchableOpacity, Dimensions,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { isOnboardingDone } from '../../utils/storage';
@@ -36,6 +35,10 @@ export default function SplashScreen({ navigation }: Props) {
 
   const lumaY = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  // Minimum time the brand screen stays visible — starts counting from
+  // mount, in parallel with hydrate(), not after it finishes. Total wait is
+  // max(hydrate time, 2200ms) instead of hydrate time + 2200ms.
+  const [minDelayDone, setMinDelayDone] = useState(false);
 
   useEffect(() => {
     // Fade in
@@ -49,12 +52,14 @@ export default function SplashScreen({ navigation }: Props) {
       ]),
     ).start();
 
-    // Auto-navigate after hydration
-    if (isHydrated) {
-      const timer = setTimeout(() => navigate(), 2200);
-      return () => clearTimeout(timer);
-    }
-  }, [isHydrated]);
+    const timer = setTimeout(() => setMinDelayDone(true), 2200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Auto-navigate once both hydration and the minimum brand delay are done
+  useEffect(() => {
+    if (isHydrated && minDelayDone) navigate();
+  }, [isHydrated, minDelayDone]);
 
   async function navigate() {
     if (user) {
@@ -96,9 +101,9 @@ export default function SplashScreen({ navigation }: Props) {
           {/* Welcome animation */}
           <View style={styles.welcomeCard}>
             <LottieView
-        renderMode="SOFTWARE"
               source={require('../../../assets/animations/Welcome.json')}
               autoPlay loop
+              resizeMode="contain"
               style={styles.welcomeAnim}
             />
           </View>
@@ -167,8 +172,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   welcomeAnim: {
+    // Matches the Lottie's native 428x123 aspect ratio (~3.48:1) — the old
+    // 160x80 box (2:1) squished it non-uniformly every frame, reading as a
+    // "vibrating" jitter.
     width: 160,
-    height: 80,
+    height: 46,
   },
   luma: {
     width: 180,

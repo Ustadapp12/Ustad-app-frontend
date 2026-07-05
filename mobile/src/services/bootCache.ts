@@ -36,6 +36,12 @@ const _firstLevels = new Map<number, Stamped<SurahLevel>>();
 // Set of surah numbers that have at least one weak exercise due
 let _weakSurahs: Stamped<Set<number>> | null = null;
 
+// In-flight dedup so two callers racing for the same surah's data (e.g.
+// prefetchAll() during hydrate and MapScreen's own mount effect) share one
+// network request instead of firing a duplicate.
+const _levelsInFlight = new Map<number, Promise<SurahLevel[]>>();
+const _firstLevelInFlight = new Map<number, Promise<void>>();
+
 // ── Helpers ───────────────────────────────────────────────────────
 
 function alive<T>(e: Stamped<T> | null | undefined): e is Stamped<T> {
@@ -148,14 +154,32 @@ export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
   const restOfFirstPhase = (firstPhase ?? []).filter(n => n !== currentSurah);
 
   await Promise.allSettled([
-    currentSurah != null
-      ? learningApi.levels(currentSurah).then(d => {
-          _levels.set(currentSurah, stamp(d));
-          void setCachedLevelsToDisk(currentSurah, d);
-        })
-      : Promise.resolve(),
+    currentSurah != null ? fetchLevels(currentSurah) : Promise.resolve(),
     prefetchPhase(restOfFirstPhase),
   ]);
+}
+
+/**
+ * Full level detail for one surah, cache-first with in-flight dedup — two
+ * callers racing for the same surah (prefetchAll during hydrate, MapScreen's
+ * own mount effect if it lands before that finishes) share one network
+ * request instead of firing a duplicate.
+ */
+export async function fetchLevels(surahNumber: number): Promise<SurahLevel[]> {
+  const cached = getCachedLevels(surahNumber);
+  if (cached) return cached;
+  let inFlight = _levelsInFlight.get(surahNumber);
+  if (!inFlight) {
+    inFlight = learningApi.levels(surahNumber)
+      .then(d => {
+        _levels.set(surahNumber, stamp(d));
+        void setCachedLevelsToDisk(surahNumber, d);
+        return d;
+      })
+      .finally(() => { _levelsInFlight.delete(surahNumber); });
+    _levelsInFlight.set(surahNumber, inFlight);
+  }
+  return inFlight;
 }
 
 /**
@@ -163,17 +187,37 @@ export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
  * used for a map phase that hasn't been full-loaded yet. Safe to call with
  * an empty array. Never throws — a failure just leaves those surahs
  * uncached, and MapScreen falls back to fetching on demand when tapped.
+ *
+ * In-flight dedup is per-surah-number: if some requested surahs are already
+ * being fetched by another overlapping call (e.g. MapScreen's per-phase fetch
+ * racing this same function called from hydrate), this awaits those shared
+ * promises instead of re-requesting them.
  */
 export async function prefetchPhase(surahNumbers: number[]): Promise<void> {
-  if (surahNumbers.length === 0) return;
-  try {
-    const levels = await learningApi.firstLevels(surahNumbers);
-    const at = Date.now();
-    for (const level of levels) {
-      _firstLevels.set(level.surah_number, { data: level, at });
-    }
-  } catch {
-    // Leave uncached — MapScreen fetches on demand if the user taps in first.
+  const toFetch = surahNumbers.filter(n => !getCachedFirstLevel(n) && !_firstLevelInFlight.has(n));
+  const waitOnly = surahNumbers.filter(n => _firstLevelInFlight.has(n));
+
+  let ownPromise: Promise<void> | null = null;
+  if (toFetch.length > 0) {
+    ownPromise = (async () => {
+      try {
+        const levels = await learningApi.firstLevels(toFetch);
+        const at = Date.now();
+        for (const level of levels) {
+          _firstLevels.set(level.surah_number, { data: level, at });
+        }
+      } catch {
+        // Leave uncached — MapScreen fetches on demand if the user taps in first.
+      } finally {
+        for (const n of toFetch) _firstLevelInFlight.delete(n);
+      }
+    })();
+    for (const n of toFetch) _firstLevelInFlight.set(n, ownPromise);
   }
+
+  await Promise.allSettled([
+    ownPromise,
+    ...waitOnly.map(n => _firstLevelInFlight.get(n)),
+  ]);
 }
 

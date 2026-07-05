@@ -352,12 +352,20 @@ export interface WordTiming {
   confidence: number;
 }
 
+/** Per-word correctness of the expected text, aligned against what was heard. */
+export interface ExpectedWordResult {
+  index: number;
+  word: string;
+  correct: boolean;
+}
+
 /** Response from POST /api/v1/progress/speak-attempt */
 export interface SpeakAttemptResponse {
   passed: boolean;       // true when score_pct >= 60
   score_pct: number;     // 0–100
   transcript: string;    // what Deepgram heard
   word_timings: WordTiming[];
+  expected_words: ExpectedWordResult[]; // expected text, word-by-word correct/wrong
 }
 
 // ─────────────────────────────────────────────────────────────────

@@ -96,9 +96,9 @@ export default function SplashScreen({ navigation }: Props) {
           {/* Welcome animation */}
           <View style={styles.welcomeCard}>
             <LottieView
-        renderMode="SOFTWARE"
               source={require('../../../assets/animations/Welcome.json')}
               autoPlay loop
+              resizeMode="contain"
               style={styles.welcomeAnim}
             />
           </View>
@@ -167,8 +167,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   welcomeAnim: {
+    // Matches the Lottie's native 428x123 aspect ratio (~3.48:1) — the old
+    // 160x80 box (2:1) squished it non-uniformly every frame, reading as a
+    // "vibrating" jitter.
     width: 160,
-    height: 80,
+    height: 46,
   },
   luma: {
     width: 180,

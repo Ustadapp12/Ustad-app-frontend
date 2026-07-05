@@ -1,54 +1,55 @@
-﻿import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, Image, ActivityIndicator,
+  View, Text, StyleSheet, Animated, useWindowDimensions, Image, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
-import Svg, { Defs, LinearGradient, Stop, Rect, Ellipse, Path, Circle, G } from 'react-native-svg';
+import Svg, {
+  Defs, LinearGradient, Stop, Rect, Ellipse, Path, G, Pattern, Image as SvgImage,
+} from 'react-native-svg';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { learningApi } from '../../api';
-import { useArabicFont } from '../../utils/arabicFont';
 import { colors } from '../../theme/colors';
 import { groupIntoPhases } from '../../utils/mapPhases';
 import { getCachedRecommended, getCachedLevels, getCachedFirstLevel } from '../../services/bootCache';
 import type { SurahLevel } from '../../types/api';
 import type { MapNavProp } from '../../navigation/types';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const MAP_W    = SCREEN_W;
-const NODE_SIZE = 56;
-
-// ── Layout parameters ─────────────────────────────────────────────
-// Tune these numbers; never touch node pixel coords again.
-const NODE_GAP      = 170;  // px between consecutive nodes
-const SECTION_EXTRA  = 90;  // additional px at each section boundary
-const TOP_MARGIN     = 145;
-const FOOTER_PAD     = 200;
-const PATH_MARGIN    =   6;  // min gap between path edge and a decoration
-
-// ── Asset refs (static, so Metro can bundle them) ─────────────────
+// ── Asset refs (static, so Metro can bundle them) ──────────────────
 const TREE_SRCS = [
   require('../../../assets/tree1.png'),
   require('../../../assets/tree2.png'),
+  require('../../../assets/tree3.png'),
 ] as const;
 const MOSQUE_SRC   = require('../../../assets/mosque.png');
 const BIRDS_SRC    = require('../../../assets/birds.png');
 const CLOUD_SRC    = require('../../../assets/clouds.png');
 const LANTERN_SRC  = require('../../../assets/map4.png');
 const START_SRC    = require('../../../assets/start.png');
-const LOTTIE_SRCS = [
-  require('../../../assets/animations/map1.json'),
-  require('../../../assets/animations/map2.json'),
-  require('../../../assets/animations/map3.json'),
+const BRIDGE_SRC   = require('../../../assets/map/bridge.png');
+const SCROLL_SRC   = require('../../../assets/map/scroll2.png');
+const GRASS_SRC    = require('../../../assets/map/grass.jpg');
+const GRASS_PATCH_SRCS = [
+  require('../../../assets/map/grass_patch1.jpg'),
+  require('../../../assets/map/grass_patch2.jpg'),
 ] as const;
+const BRICK_SRC    = require('../../../assets/map/bricks.jpg');
+const POND_SRC     = require('../../../assets/map/pond.png');
+const SKY_SRC      = require('../../../assets/map/sky.jpg');
+const MOUNTAINS_SRC = require('../../../assets/map/mountains.png');
+const NODE_SRCS = {
+  locked: require('../../../assets/map/node_locked.png'),
+  current: require('../../../assets/map/node_current.png'),
+  completed: require('../../../assets/map/node_completed.png'),
+} as const;
 
 // ── Types ─────────────────────────────────────────────────────────
 interface Props { navigation: MapNavProp }
 // 'pending' = a surah's first level, not yet fetched from the backend. It's
 // never actually locked server-side (no cross-surah gate exists), so it
-// renders dim but stays tappable — tapping fetches it on demand instead of
-// blocking. Real 'locked' is reserved for non-first levels awaiting the
-// previous level's completion.
+// stays tappable — tapping fetches it on demand instead of blocking. Real
+// 'locked' is reserved for non-first levels awaiting the previous level's
+// completion, and is the only status that renders differently (lock icon).
 type NodeStatus = 'completed' | 'current' | 'available' | 'locked' | 'pending';
 
 interface SectionNode {
@@ -68,7 +69,7 @@ interface Section {
 interface SectionDef {
   surahNum: number; name: string; arabicName: string; ayahCount: number;
   levels: Array<{ id: string; levelNum: number }>;
-  xFractions: number[];  // x position of each level's node as fraction of MAP_W
+  xFractions: number[];  // x position of each level's node as fraction of map width
 }
 
 const SECTIONS_DEF: SectionDef[] = [
@@ -141,10 +142,88 @@ const SECTIONS_DEF: SectionDef[] = [
   },
 ];
 
-// ── ONE layout function: converts section defs → pixel positions ───
-function computeLayout(defs: SectionDef[], mapW: number): { sections: Section[]; mapHeight: number } {
+// Seasons (phases) — pure loading/pacing grouping, not an access gate. Pure
+// data derived from SECTIONS_DEF, so it doesn't depend on screen width.
+const PHASE_GROUPS: number[][] = groupIntoPhases(SECTIONS_DEF.map(d => d.surahNum));
+
+// ── Pure helpers with no width dependency ──────────────────────────
+// Deterministic pseudo-scatter (no Math.random — same input always gives
+// the same layout, so cloud banks/parallax puffs don't reshuffle on re-render).
+function hash(i: number): number {
+  const x = Math.sin(i * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+function pickEvenly<T>(arr: T[], count: number): T[] {
+  if (arr.length <= count) return arr;
+  return Array.from({ length: count }, (_, i) =>
+    arr[Math.round(i * (arr.length - 1) / Math.max(count - 1, 1))],
+  );
+}
+interface Zone { y: number; side: 'left' | 'right'; height: number }
+function isBlocked(y: number, side: 'left' | 'right', h: number, zones: Zone[], gap = 8): boolean {
+  return zones.some(z => z.side === side && Math.abs(z.y - y) < (z.height + h) / 2 + gap);
+}
+function stageToNodeStatus(s: string): NodeStatus {
+  if (s === 'completed') return 'completed';
+  if (s === 'in_progress') return 'current';
+  if (s === 'available') return 'available';
+  return 'locked';
+}
+
+// ── Types for the fully-computed, width-dependent map model ────────
+interface DecorMosque  { y: number; x: number }
+interface DecorTree    { y: number; x: number; src: (typeof TREE_SRCS)[number] }
+interface DecorBird    { y: number; x: number }
+interface DecorLantern { y: number; x: number }
+interface DecorBridge  { y: number; x: number; w: number; h: number }
+interface ParallaxLayer { puffs: { x: number; y: number; w: number; h: number; opacity: number }[]; speed: number; blur: number }
+interface LabelBox { x: number; y: number; w: number; h: number; isLeft: boolean }
+interface PillBox { x: number; y: number; w: number; h: number }
+
+interface MapModel {
+  MAP_W: number; SCALE: number; sc: (n: number) => number;
+  NODE_SIZE: number; NODE_GAP: number; SECTION_EXTRA: number; TOP_MARGIN: number; FOOTER_PAD: number;
+  BASE_SECTIONS: Section[]; MAP_H: number; ALL_NODES: SectionNode[];
+  PATH_D: string;
+  DECORATIONS: { mosques: DecorMosque[]; trees: DecorTree[]; birds: DecorBird[]; lanterns: DecorLantern[]; bridges: DecorBridge[] };
+  PARALLAX_FAR: ParallaxLayer; PARALLAX_MID: ParallaxLayer; PARALLAX_NEAR: ParallaxLayer;
+  SKY_BOUNDARY_Y: number;
+  GRASS_EDGE_D: string;
+  SKY_CLOUDS: { x: number; y: number; w: number; h: number }[];
+  SKY_BIRDS: { x: number; y: number; w: number; flip: boolean }[];
+  GRASS_PATCHES: { x: number; y: number; rx: number; ry: number; variant: 0 | 1 }[];
+  AYAH_PILLS: Record<string, PillBox>;
+  SURAH_LABELS: Record<number, LabelBox>;
+}
+
+// ── ONE function: real device width in → every pixel of the map's layout
+// out. Nothing derived here is a module-level constant anymore — it's all
+// recomputed whenever width changes (see useWindowDimensions in the
+// component), so split-screen/foldable/rotation resizes actually relayout
+// instead of leaving a stale frozen width baked in from first mount.
+function buildMapModel(mapW: number): MapModel {
+  const BASELINE_W = 393;
+  const SCALE = Math.min(1.3, Math.max(0.82, mapW / BASELINE_W));
+  const sc = (n: number) => Math.round(n * SCALE);
+
+  const NODE_SIZE     = sc(56);
+  const NODE_GAP      = sc(170);
+  const SECTION_EXTRA = sc(90);
+  const TOP_MARGIN    = sc(145);
+  const FOOTER_PAD    = sc(200);
+  // Real visual gap from the road's widest visible (glow) stroke, not just
+  // its centerline — the old NODE_SIZE/2 + sc(8) was only ~5px past the
+  // glow's own half-width, which read as "touching the road."
+  // Node bounding boxes are independently registered as blocking zones below
+  // (see ALL_NODES.forEach a bit further down), so this no longer needs to
+  // carry the whole safety margin by itself — a large CLEARANCE here mostly
+  // just rejected valid placements, which is why several decorations you'd
+  // expect to see (mosques, trees) were silently skipped as "no room."
+  const CLEARANCE = NODE_SIZE / 2 + sc(25);
+
+  // ── Layout: section defs → pixel positions ──
   let y = TOP_MARGIN;
-  const sections: Section[] = defs.map(def => {
+  const BASE_SECTIONS: Section[] = SECTIONS_DEF.map(def => {
     const nodes: SectionNode[] = def.levels.map((lvl, nIdx) => ({
       id: lvl.id,
       x: Math.round(def.xFractions[nIdx] * mapW - NODE_SIZE / 2),
@@ -157,276 +236,421 @@ function computeLayout(defs: SectionDef[], mapW: number): { sections: Section[];
     y = lastNodeY + NODE_GAP + SECTION_EXTRA;
     return { surahNum: def.surahNum, name: def.name, arabicName: def.arabicName, ayahCount: def.ayahCount, nodes };
   });
-  const lastSec = sections[sections.length - 1];
-  const mapHeight = lastSec.nodes[lastSec.nodes.length - 1].y + NODE_SIZE + FOOTER_PAD;
-  return { sections, mapHeight };
-}
+  const lastSec = BASE_SECTIONS[BASE_SECTIONS.length - 1];
+  const MAP_H = lastSec.nodes[lastSec.nodes.length - 1].y + NODE_SIZE + FOOTER_PAD;
+  const ALL_NODES = BASE_SECTIONS.flatMap(s => s.nodes);
 
-// ── Computed layout — single source of truth for ALL positions ─────
-const { sections: BASE_SECTIONS, mapHeight: MAP_H } = computeLayout(SECTIONS_DEF, MAP_W);
-const ALL_NODES = BASE_SECTIONS.flatMap(s => s.nodes);
-
-// ── Seasons (phases) — pure loading/pacing grouping, not an access gate ────
-// [[114,113,112], [111,110,109], [108]] for the current 7-surah MVP set.
-const PHASE_GROUPS: number[][] = groupIntoPhases(SECTIONS_DEF.map(d => d.surahNum));
-
-interface SeasonSignPos { y: number; phaseIdx: number }
-function buildSeasonSigns(): SeasonSignPos[] {
-  const signs: SeasonSignPos[] = [];
-  let acc = 0;
-  for (let i = 0; i < PHASE_GROUPS.length - 1; i++) {
-    acc += PHASE_GROUPS[i].length;
-    const lastSec  = BASE_SECTIONS[acc - 1];
-    const nextSec  = BASE_SECTIONS[acc];
-    if (!lastSec || !nextSec) continue;
-    const lastY  = lastSec.nodes[lastSec.nodes.length - 1].y + NODE_SIZE / 2;
-    const nextY  = nextSec.nodes[0].y + NODE_SIZE / 2;
-    signs.push({ y: Math.round((lastY + nextY) / 2), phaseIdx: i + 1 });
-  }
-  return signs;
-}
-const SEASON_SIGNS = buildSeasonSigns();
-
-// ── Path string through all node centres ──────────────────────────
-function buildPath(nodes: SectionNode[]): string {
-  const pts = nodes.map(n => ({ x: n.x + NODE_SIZE / 2, y: n.y + NODE_SIZE / 2 }));
-  if (pts.length < 2) return '';
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 1; i < pts.length; i++) {
-    const p = pts[i - 1], c = pts[i];
-    const midY = (p.y + c.y) / 2;
-    d += ` C ${p.x} ${midY}, ${c.x} ${midY}, ${c.x} ${c.y}`;
-  }
-  return d;
-}
-const PATH_D = buildPath(ALL_NODES);
-
-// ── Path x interpolation — the spine all decorations anchor to ────
-// Returns the path's x-centre at any y by linearly interpolating between
-// adjacent node centres. All decoration x positions are derived from this.
-function pathXAt(y: number): number {
-  const pts = ALL_NODES.map(n => ({ x: n.x + NODE_SIZE / 2, y: n.y + NODE_SIZE / 2 }));
-  if (y <= pts[0].y) return pts[0].x;
-  if (y >= pts[pts.length - 1].y) return pts[pts.length - 1].x;
-  for (let i = 0; i < pts.length - 1; i++) {
-    if (y >= pts[i].y && y < pts[i + 1].y) {
-      const t = (y - pts[i].y) / (pts[i + 1].y - pts[i].y);
-      return Math.round(pts[i].x + t * (pts[i + 1].x - pts[i].x));
+  // ── Path string + geometry through all node centres ──
+  const PATH_PTS = ALL_NODES.map(n => ({ x: n.x + NODE_SIZE / 2, y: n.y + NODE_SIZE / 2 }));
+  let PATH_D = '';
+  if (PATH_PTS.length >= 2) {
+    PATH_D = `M ${PATH_PTS[0].x} ${PATH_PTS[0].y}`;
+    for (let i = 1; i < PATH_PTS.length; i++) {
+      const p = PATH_PTS[i - 1], c = PATH_PTS[i];
+      const midY = (p.y + c.y) / 2;
+      PATH_D += ` C ${p.x} ${midY}, ${c.x} ${midY}, ${c.x} ${c.y}`;
     }
   }
-  return Math.round(MAP_W / 2);
-}
 
-// Convert (pathX, side, decorationWidth) → absolute left edge for the decoration.
-// Left-side items sit just to the left of the path; right-side items sit just to the right.
-function decorLeft(pathX: number, side: 'left' | 'right', decorW: number, margin = PATH_MARGIN): number {
-  if (side === 'left') return Math.max(0, pathX - decorW - margin);
-  return Math.min(MAP_W - decorW, pathX + NODE_SIZE + margin);
-}
+  // PATH_D's segments are cubic Beziers with control points pinned at the
+  // same-y midpoint (see the PATH_D loop above), which reduces to
+  // y(t) = p.y + dy·h(t), h(t) = 1.5t − 1.5t² + t³, and
+  // x(t) = p.x + dx·g(t), g(t) = 3t² − 2t³.
+  // A plain linear interpolation of x against y (the old approach) implicitly
+  // assumes h(t) ≡ t, which only holds at t = 0, 0.5, 1 — everywhere else it
+  // diverges from the real curve (worst at t ≈ 0.21/0.79, by ~14% of dx).
+  // Decorations anchored at those points were landing visibly off the actual
+  // rendered road. Solving h(t) = frac exactly (h is monotonic, so a few
+  // Newton steps converge) and then evaluating g(t) tracks the true curve.
+  function solveT(frac: number): number {
+    let t = frac;
+    for (let i = 0; i < 5; i++) {
+      const h = 1.5 * t - 1.5 * t * t + t * t * t;
+      const hp = 1.5 - 3 * t + 3 * t * t;
+      t -= (h - frac) / hp;
+      if (t < 0) t = 0; else if (t > 1) t = 1;
+    }
+    return t;
+  }
+  function pathXAt(py: number): number {
+    if (py <= PATH_PTS[0].y) return PATH_PTS[0].x;
+    if (py >= PATH_PTS[PATH_PTS.length - 1].y) return PATH_PTS[PATH_PTS.length - 1].x;
+    for (let i = 0; i < PATH_PTS.length - 1; i++) {
+      const p = PATH_PTS[i], c = PATH_PTS[i + 1];
+      if (py >= p.y && py < c.y) {
+        const frac = (py - p.y) / (c.y - p.y);
+        const t = solveT(frac);
+        const g = 3 * t * t - 2 * t * t * t;
+        return Math.round(p.x + g * (c.x - p.x));
+      }
+    }
+    return Math.round(mapW / 2);
+  }
+  // The path's local unit normal at y — offsets decorations perpendicular to
+  // the curve instead of a naive horizontal x±constant.
+  function pathNormalAt(py: number): { nx: number; ny: number } {
+    const d = 12;
+    const x0 = pathXAt(Math.max(PATH_PTS[0].y, py - d));
+    const x1 = pathXAt(Math.min(PATH_PTS[PATH_PTS.length - 1].y, py + d));
+    const dx = x1 - x0, dy = 2 * d;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    return { nx: -dy / len, ny: dx / len };
+  }
 
-// ── Shared zone registry ───────────────────────────────────────────
-// Prevents two decoration types from occupying the same (y-band, side) slot.
-// All decoration types are placed through this in priority order.
-interface Zone { y: number; side: 'left' | 'right'; height: number }
+  // Geometrically-guaranteed placement: clearance is measured from the
+  // node/path's own radius, never a screen-edge clamp. If neither side has
+  // real room, the decoration is skipped instead of forced onto the road.
+  function placeSide(
+    midY: number, w: number, h: number, preferSide: 'left' | 'right',
+    zones: Zone[], gap = 8,
+  ): { side: 'left' | 'right'; x: number; y: number } | null {
+    const pathX = pathXAt(midY);
+    const { nx, ny } = pathNormalAt(midY);
+    for (const side of [preferSide, preferSide === 'left' ? 'right' : 'left'] as const) {
+      const dir = side === 'left' ? -1 : 1;
+      const anchorX = pathX + nx * CLEARANCE * dir;
+      const anchorY = midY + ny * CLEARANCE * dir;
+      const x = side === 'left' ? anchorX - w : anchorX;
+      const py = anchorY - h / 2;
+      const fits = side === 'left' ? x >= 0 : x + w <= mapW;
+      if (fits && !isBlocked(py, side, h, zones, gap)) {
+        return { side, x: Math.round(x), y: Math.round(py) };
+      }
+    }
+    return null;
+  }
 
-function isBlocked(y: number, side: 'left' | 'right', h: number, zones: Zone[], gap = 8): boolean {
-  return zones.some(z => z.side === side && Math.abs(z.y - y) < (z.height + h) / 2 + gap);
-}
-
-function pickEvenly<T>(arr: T[], count: number): T[] {
-  if (arr.length <= count) return arr;
-  return Array.from({ length: count }, (_, i) =>
-    arr[Math.round(i * (arr.length - 1) / Math.max(count - 1, 1))],
-  );
-}
-
-// ── Build all decoration positions from the computed layout ────────
-// Priority: lottie > mosque > trees > birds
-// Each type checks `placed[]` before claiming a slot — no two types share a zone.
-interface DecorLottie   { y: number; x: number; source: (typeof LOTTIE_SRCS)[number] }
-interface DecorMosque   { y: number; x: number }
-interface DecorTree     { y: number; x: number; src: (typeof TREE_SRCS)[number] }
-interface DecorBird     { y: number; x: number }
-interface DecorLantern  { y: number; x: number }
-
-function buildDecorations(): { lotties: DecorLottie[]; mosques: DecorMosque[]; trees: DecorTree[]; birds: DecorBird[]; lanterns: DecorLantern[] } {
+  // ── Shared zone registry — seeded with the ayah pill / surah label /
+  // bridge / season-gate arch FIRST (real geometry, computed below), before
+  // any tree/mosque/rock/bird/lantern is placed, so nothing can land on them. ──
   const placed: Zone[] = [];
 
-  // Midpoint y between each consecutive node pair
-  const nodeMidYs = ALL_NODES.slice(0, -1).map((n, i) =>
-    Math.round((n.y + ALL_NODES[i + 1].y) / 2),
-  );
+  // Ayah pill — real offset derived from NODE_SIZE (not implicit flow-stacking).
+  const PILL_W = sc(80), PILL_H = sc(26);
+  const AYAH_PILLS: Record<string, PillBox> = {};
+  BASE_SECTIONS.forEach(section => {
+    section.nodes.forEach((node, nodeIdx) => {
+      const px = Math.max(0, Math.min(mapW - PILL_W, node.x + NODE_SIZE / 2 - PILL_W / 2));
+      const py = node.y + NODE_SIZE + sc(6);
+      AYAH_PILLS[`${section.surahNum}_${nodeIdx}`] = { x: px, y: py, w: PILL_W, h: PILL_H };
+      placed.push({ y: py, side: 'left', height: PILL_H });
+      placed.push({ y: py, side: 'right', height: PILL_H });
+    });
+  });
 
-  // Midpoint y of each section boundary gap
+  // Surah label — real offset derived from firstNode.x, mirroring the
+  // formula LumaFloat already used correctly (lumaLeft), not a hardcoded
+  // screen-edge constant.
+  const LABEL_H = sc(60);
+  const SURAH_LABELS: Record<number, LabelBox> = {};
+  BASE_SECTIONS.forEach(section => {
+    const firstNode = section.nodes[0];
+    // Scroll width follows the name's length instead of one fixed size for
+    // every surah — "An-Nasr" and "Al-Kafirun" don't need (and don't look
+    // right in) the same box.
+    const labelW = Math.round(Math.max(sc(95), Math.min(sc(155), sc(58) + section.name.length * sc(7))));
+    // Pick whichever side actually has more room, then clamp only against
+    // the screen edge on THAT side — clamping against the far edge (the old
+    // behaviour) could push the label back over the node itself when the
+    // node sat near a screen edge, making the scroll cover the node instead
+    // of sitting beside it.
+    const spaceLeft = firstNode.x;
+    const spaceRight = mapW - (firstNode.x + NODE_SIZE);
+    const isLeft = spaceLeft >= spaceRight;
+    const rawX = isLeft ? firstNode.x - labelW - sc(10) : firstNode.x + NODE_SIZE + sc(10);
+    const lx = isLeft ? Math.max(0, rawX) : Math.min(mapW - labelW, rawX);
+    const ly = firstNode.y + NODE_SIZE / 2 - LABEL_H / 2;
+    SURAH_LABELS[section.surahNum] = { x: lx, y: ly, w: labelW, h: LABEL_H, isLeft };
+    placed.push({ y: ly, side: isLeft ? 'left' : 'right', height: LABEL_H });
+  });
+
+  // Lesson nodes themselves — previously never registered here, so nothing
+  // stopped a decoration from landing on top of a node as long as it cleared
+  // *other decorations*. A node sits on the path's own centerline (not off
+  // to one side), so it's registered on BOTH sides with a margin so nothing
+  // anchors too close to its y regardless of which side it ends up on.
+  ALL_NODES.forEach(node => {
+    const zoneH = NODE_SIZE + sc(28);
+    const zoneY = node.y - sc(14);
+    placed.push({ y: zoneY, side: 'left', height: zoneH });
+    placed.push({ y: zoneY, side: 'right', height: zoneH });
+  });
+
+  // ── Decorations — every type placed via placeSide, into the zones already
+  // seeded above. Priority: mosque > tree > rock > bird > lantern. ──
+  const nodeMidYs = ALL_NODES.slice(0, -1).map((n, i) => Math.round((n.y + ALL_NODES[i + 1].y) / 2));
   const secMidYs = BASE_SECTIONS.slice(0, -1).map((sec, i) => {
     const lastY  = sec.nodes[sec.nodes.length - 1].y + NODE_SIZE / 2;
     const firstY = BASE_SECTIONS[i + 1].nodes[0].y + NODE_SIZE / 2;
     return Math.round((lastY + firstY) / 2);
   });
 
-  // 1. Lottie — pick 3 evenly from section boundary midpoints (highest priority)
-  const lotties: DecorLottie[] = [];
-  const lottieH = 82, lottieW = 110;
-  pickEvenly(secMidYs, Math.min(3, secMidYs.length)).forEach((midY, i) => {
-    const y    = midY - lottieH / 2;
-    const side: 'left' | 'right' = i % 2 === 0 ? 'right' : 'left';
-    if (!isBlocked(y, side, lottieH, placed)) {
-      placed.push({ y, side, height: lottieH });
-      lotties.push({ y, x: decorLeft(pathXAt(midY), side, lottieW), source: LOTTIE_SRCS[i % 3] });
-    }
+  const mosqueW = sc(72), mosqueH = sc(88);
+  const mosques: DecorMosque[] = [];
+  secMidYs.forEach((midY, i) => {
+    const prefer: 'left' | 'right' = i % 2 === 0 ? 'left' : 'right';
+    const p = placeSide(midY, mosqueW, mosqueH, prefer, placed);
+    if (p) { placed.push({ y: p.y, side: p.side, height: mosqueH }); mosques.push({ y: p.y, x: p.x }); }
+  });
+  // Extra mosque pass along the road itself — more mosques scattered
+  // between nodes too, not just at section boundaries.
+  nodeMidYs.forEach((midY, i) => {
+    if (i % 2 !== 0) return;
+    const prefer: 'left' | 'right' = i % 4 === 0 ? 'left' : 'right';
+    const p = placeSide(midY - sc(40), mosqueW, mosqueH, prefer, placed, 6);
+    if (p) { placed.push({ y: p.y, side: p.side, height: mosqueH }); mosques.push({ y: p.y, x: p.x }); }
+  });
+  // Third mosque pass — even more of them dotted along the way.
+  nodeMidYs.forEach((midY, i) => {
+    if (i % 2 === 0) return;
+    const prefer: 'left' | 'right' = i % 3 === 0 ? 'right' : 'left';
+    const p = placeSide(midY + sc(45), mosqueW, mosqueH, prefer, placed, 6);
+    if (p) { placed.push({ y: p.y, side: p.side, height: mosqueH }); mosques.push({ y: p.y, x: p.x }); }
   });
 
-  // 2. Mosques — one per section boundary, preferring the opposite side from the lottie
-  const mosques: DecorMosque[] = [];
-  const mosqueH = 88, mosqueW = 72;
+  const treeW = sc(58), treeH = sc(80);
+  const trees: DecorTree[] = [];
+  nodeMidYs.forEach((midY, i) => {
+    const pL = placeSide(midY, treeW, treeH, 'left', placed, 4);
+    if (pL) { placed.push({ y: pL.y, side: pL.side, height: treeH }); trees.push({ y: pL.y, x: pL.x, src: TREE_SRCS[i % 3] }); }
+    const pR = placeSide(midY + sc(22), treeW, treeH, 'right', placed, 4);
+    if (pR) { placed.push({ y: pR.y, side: pR.side, height: treeH }); trees.push({ y: pR.y, x: pR.x, src: TREE_SRCS[(i + 1) % 3] }); }
+  });
+  // Extra tree pass at section boundaries — denser treeline, still
+  // zone-checked so it can never land on a mosque/label/pill/etc.
   secMidYs.forEach((midY, i) => {
-    const y = midY - mosqueH / 2;
-    const prefer: 'left' | 'right'   = i % 2 === 0 ? 'left' : 'right';
-    const fallback: 'left' | 'right' = prefer === 'left' ? 'right' : 'left';
-    for (const side of [prefer, fallback] as const) {
-      if (!isBlocked(y, side, mosqueH, placed)) {
-        placed.push({ y, side, height: mosqueH });
-        mosques.push({ y, x: decorLeft(pathXAt(midY), side, mosqueW) });
-        break;
+    const prefer: 'left' | 'right' = i % 2 === 0 ? 'right' : 'left';
+    const p = placeSide(midY + sc(35), treeW, treeH, prefer, placed, 4);
+    if (p) { placed.push({ y: p.y, side: p.side, height: treeH }); trees.push({ y: p.y, x: p.x, src: TREE_SRCS[(i + 2) % 3] }); }
+  });
+  // Third tree pass — even denser treeline along the grass, all still
+  // zone-checked so nothing overlaps.
+  nodeMidYs.forEach((midY, i) => {
+    const prefer: 'left' | 'right' = i % 2 === 0 ? 'left' : 'right';
+    const p = placeSide(midY - sc(38), treeW, treeH, prefer, placed, 4);
+    if (p) { placed.push({ y: p.y, side: p.side, height: treeH }); trees.push({ y: p.y, x: p.x, src: TREE_SRCS[i % 3] }); }
+  });
+
+  const birdW = sc(96), birdH = sc(48);
+  const birds: DecorBird[] = [];
+  secMidYs.forEach((midY, i) => {
+    const side: 'left' | 'right' = i % 2 === 0 ? 'left' : 'right';
+    const p = placeSide(midY - sc(20), birdW, birdH, side, placed, 6);
+    if (p) { placed.push({ y: p.y, side: p.side, height: birdH }); birds.push({ y: p.y, x: p.x }); }
+  });
+  // Extra birds pass along the road itself (not just section boundaries).
+  nodeMidYs.forEach((midY, i) => {
+    if (i % 2 !== 0) return;
+    const side: 'left' | 'right' = i % 4 === 0 ? 'right' : 'left';
+    const p = placeSide(midY + sc(30), birdW, birdH, side, placed, 6);
+    if (p) { placed.push({ y: p.y, side: p.side, height: birdH }); birds.push({ y: p.y, x: p.x }); }
+  });
+
+  const lanternW = sc(36), lanternH = sc(60);
+  const lanterns: DecorLantern[] = [];
+  secMidYs.forEach((midY, i) => {
+    const side: 'left' | 'right' = i % 2 === 0 ? 'right' : 'left';
+    const p = placeSide(midY + sc(10), lanternW, lanternH, side, placed, 4);
+    if (p) { placed.push({ y: p.y, side: p.side, height: lanternH }); lanterns.push({ y: p.y, x: p.x }); }
+  });
+
+  // Bridge — a riverside landmark beside the road, not a crossing laid over
+  // it. Placed once, near the first season boundary, on whichever side has
+  // real room (zone-checked like everything else).
+  const bridgeW = sc(120), bridgeH = sc(64);
+  const bridges: DecorBridge[] = [];
+  if (secMidYs.length > 2) {
+    const p = placeSide(secMidYs[2] + sc(50), bridgeW, bridgeH, 'left', placed, 6);
+    if (p) { placed.push({ y: p.y, side: p.side, height: bridgeH }); bridges.push({ y: p.y, x: p.x, w: bridgeW, h: bridgeH }); }
+  }
+
+  // ── Ground color boundary — sky ends, ground begins. Shared by the
+  // gradient, the grass texture wash, and the static sky-cloud strip so none
+  // of them can drift out of sync with each other. Extended down to roughly
+  // the first level's node so the night sky reads for longer before the
+  // ground takes over. ──
+  const SKY_BOUNDARY_Y = Math.round(TOP_MARGIN + NODE_SIZE * 0.35);
+
+  // Jagged grass edge — a torn/uneven line instead of a dead-flat cut, as if
+  // the grass texture were cut into the sky rather than pasted under it.
+  // Deterministic (hash-seeded), so it doesn't reshuffle on re-render.
+  const edgeStep = sc(16), edgeAmp = sc(9);
+  let GRASS_EDGE_D = `M 0 ${Math.round(SKY_BOUNDARY_Y + (hash(0) - 0.5) * edgeAmp * 2)}`;
+  {
+    let seed = 1;
+    for (let x = edgeStep; x < mapW; x += edgeStep) {
+      const ey = SKY_BOUNDARY_Y + (hash(seed) - 0.5) * edgeAmp * 2;
+      GRASS_EDGE_D += ` L ${Math.round(x)} ${Math.round(ey)}`;
+      seed++;
+    }
+  }
+  GRASS_EDGE_D += ` L ${mapW} ${SKY_BOUNDARY_Y} L ${mapW} ${MAP_H} L 0 ${MAP_H} Z`;
+
+  // More clouds scattered across the sky band itself (not just 2 under the
+  // Bismillah card), varied size/position so the sky doesn't look empty.
+  const SKY_CLOUDS = Array.from({ length: 6 }, (_, i) => {
+    const w = sc(110 + hash(i * 9 + 3) * 70);
+    return {
+      x: Math.round(hash(i * 9 + 1) * Math.max(1, mapW - w * 0.6) - w * 0.2),
+      y: Math.round(4 + hash(i * 9 + 5) * Math.max(1, SKY_BOUNDARY_Y - sc(50))),
+      w, h: w * 0.42,
+    };
+  });
+
+  // Birds scattered across the sky photo itself, not just at ground level.
+  const SKY_BIRDS = Array.from({ length: 6 }, (_, i) => ({
+    x: Math.round(hash(i * 11 + 4) * Math.max(1, mapW - sc(50))),
+    y: Math.round(14 + hash(i * 11 + 8) * Math.max(1, SKY_BOUNDARY_Y - sc(40))),
+    w: sc(30 + hash(i * 11 + 12) * 16),
+    flip: hash(i * 11 + 16) > 0.5,
+  }));
+
+  // Ground texture variety — grass.jpg is the base wash (see grassPattern
+  // fill below); these are a handful of scattered patches using the two
+  // other grass textures, so the ground doesn't read as one flat repeat.
+  // Rejection-sampled so patches never land on top of each other — stacked
+  // semi-transparent ellipses were compositing into solid dark blobs instead
+  // of a light texture accent.
+  const GRASS_PATCHES: { x: number; y: number; rx: number; ry: number; variant: 0 | 1 }[] = [];
+  {
+    const patchCount = Math.max(6, BASE_SECTIONS.length * 2);
+    for (let i = 0; i < patchCount; i++) {
+      const rx = sc(55 + hash(i * 19 + 10) * 25);
+      const ry = sc(34 + hash(i * 19 + 14) * 16);
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const seed = i * 19 + attempt * 97;
+        const x = Math.round(hash(seed + 2) * mapW);
+        const y = Math.round(SKY_BOUNDARY_Y + hash(seed + 6) * Math.max(1, MAP_H - SKY_BOUNDARY_Y - sc(40)));
+        const overlaps = GRASS_PATCHES.some(p => Math.abs(p.x - x) < (p.rx + rx) * 0.9 && Math.abs(p.y - y) < (p.ry + ry) * 0.9);
+        if (!overlaps) {
+          GRASS_PATCHES.push({ x, y, rx, ry, variant: (i % 2) as 0 | 1 });
+          break;
+        }
       }
     }
-  });
+  }
 
-  // 3. Trees — one left + one right per node gap where possible
-  const trees: DecorTree[] = [];
-  const treeH = 80, treeW = 58;
-  nodeMidYs.forEach((midY, i) => {
-    const yL = midY - treeH / 2;
-    if (!isBlocked(yL, 'left', treeH, placed, 4)) {
-      placed.push({ y: yL, side: 'left', height: treeH });
-      trees.push({ y: yL, x: decorLeft(pathXAt(midY), 'left', treeW, 4), src: TREE_SRCS[i % 2] });
+  // ── Ambient parallax cloud layers (3 depths) ──
+  function buildParallaxLayer(spacingY: number, w: number, h: number, baseOpacity: number, speed: number, blur: number): ParallaxLayer {
+    const puffs: ParallaxLayer['puffs'] = [];
+    let i = 0;
+    for (let py = -h; py < MAP_H + h; py += spacingY) {
+      const px = Math.round((hash(i) * mapW * 1.4) - mapW * 0.2);
+      puffs.push({ x: px, y: Math.round(py), w, h, opacity: baseOpacity + hash(i + 50) * 0.15 });
+      i++;
     }
-    const yR = midY - treeH / 2 + 22;  // slight vertical offset so pairs aren't mirrored
-    if (!isBlocked(yR, 'right', treeH, placed, 4)) {
-      placed.push({ y: yR, side: 'right', height: treeH });
-      trees.push({ y: yR, x: decorLeft(pathXAt(midY + 22), 'right', treeW, 4), src: TREE_SRCS[(i + 1) % 2] });
-    }
+    return { puffs, speed, blur };
+  }
+  // Sparser than before — these used to crowd the road itself; now just a
+  // light ambient touch instead of a wall of clouds drifting over the path.
+  const PARALLAX_FAR  = buildParallaxLayer(sc(680), sc(90),  sc(48), 0.14, 0.5, 0);
+  const PARALLAX_MID  = buildParallaxLayer(sc(900), sc(130), sc(66), 0.16, 1.0, 0);
+  const PARALLAX_NEAR = buildParallaxLayer(sc(1150), sc(190), sc(96), 0.15, 1.6, 6);
+
+  return {
+    MAP_W: mapW, SCALE, sc,
+    NODE_SIZE, NODE_GAP, SECTION_EXTRA, TOP_MARGIN, FOOTER_PAD,
+    BASE_SECTIONS, MAP_H, ALL_NODES,
+    PATH_D,
+    DECORATIONS: { mosques, trees, birds, lanterns, bridges },
+    PARALLAX_FAR, PARALLAX_MID, PARALLAX_NEAR,
+    SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS, GRASS_PATCHES,
+    AYAH_PILLS, SURAH_LABELS,
+  };
+}
+
+// ── Styles that depend on the model's `sc()` — rebuilt via useMemo whenever
+// the model changes (i.e. whenever screen width changes). ──
+function makeStyles(M: MapModel) {
+  const { sc, NODE_SIZE } = M;
+  const S = StyleSheet.create({
+    // Ground green, not sky blue — this is the fallback fill for whatever
+    // isn't covered by the sky backdrop or the map's own content (e.g.
+    // bottom overscroll bounce). It should never read as "the sky leaking
+    // through at the bottom."
+    container: { flex: 1, backgroundColor: colors.mapBg },
+    hud: { backgroundColor: 'rgba(0,0,0,0.18)', paddingHorizontal: sc(16), paddingVertical: sc(6) },
+    hudRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    hudPill: {
+      flexDirection: 'row', alignItems: 'center', gap: sc(4),
+      backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: sc(20),
+      paddingHorizontal: sc(10), paddingVertical: sc(5),
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 4, elevation: 3,
+    },
+    hudVal: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: '#DC2626' },
+    hudStreakEmoji: { fontSize: sc(16) },
+    bismillahCard: {
+      marginHorizontal: sc(12), marginTop: sc(4), marginBottom: sc(6),
+      paddingHorizontal: sc(20), paddingVertical: sc(14),
+      backgroundColor: 'rgba(4,20,10,0.93)', borderRadius: sc(18), alignItems: 'center',
+      borderWidth: 1.5, borderColor: 'rgba(224,188,78,0.45)',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.55, shadowRadius: 10, elevation: 8,
+    },
+    bismillahText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: sc(30), color: '#E0BC4E', textAlign: 'center', lineHeight: sc(46) },
+    bismillahSub:  { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: sc(2) },
+    loadingOverlay: {
+      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: 'rgba(42,140,90,0.72)', zIndex: 20,
+    },
+    node: { width: NODE_SIZE, height: NODE_SIZE, alignItems: 'center', justifyContent: 'center' },
+    nodeImg: { position: 'absolute', width: NODE_SIZE, height: NODE_SIZE },
+    nodeShadow: {
+      position: 'absolute', bottom: -sc(4), width: NODE_SIZE * 0.8, height: sc(10), borderRadius: sc(6),
+      backgroundColor: 'rgba(0,0,0,0.25)', left: NODE_SIZE * 0.1,
+    },
+    pulseRing: { position: 'absolute', width: NODE_SIZE + sc(20), height: NODE_SIZE + sc(20), borderRadius: (NODE_SIZE + sc(20)) / 2, borderWidth: 3, borderColor: '#37A168' },
+    nodeNumber: { fontFamily: 'Nunito_700Bold', fontSize: sc(20), color: 'white', textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
+    lockIcon: { fontSize: sc(18) },
+    nodeWrapper: { alignItems: 'center' },
+    starsBadge: { position: 'absolute', bottom: -sc(6), backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: sc(8), paddingHorizontal: sc(4), paddingVertical: sc(1) },
+    starsText: { fontSize: sc(8), color: '#FFD700' },
+    ayahPill: { alignItems: 'center', justifyContent: 'center' },
+    ayahPillText: {
+      fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#3B2A12', textAlign: 'center',
+      textShadowColor: 'rgba(255,255,255,0.85)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
+    },
+    lumaGlow: {
+      width: sc(72), height: sc(72), borderRadius: sc(36),
+      backgroundColor: 'rgba(255,255,255,0.18)',
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: '#fff', shadowOpacity: 0.6, shadowRadius: 8, elevation: 5,
+    },
+    lumaImg: { width: sc(66), height: sc(66) },
+    endText: { fontFamily: 'Nunito_700Bold', fontSize: sc(11), color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: sc(4) },
   });
-
-  // 4. Birds — one per section boundary, alternating sides, no zone check (they float freely)
-  const birds: DecorBird[] = [];
-  const birdH = 48, birdW = 96;
-  secMidYs.forEach((midY, i) => {
-    const y = midY - birdH / 2 - 20; // slightly above other decor so they feel airborne
-    const side: 'left' | 'right' = i % 2 === 0 ? 'left' : 'right';
-    birds.push({ y, x: decorLeft(pathXAt(midY), side, birdW, 8) });
+  const SL = StyleSheet.create({
+    // width:'100%' + alignItems:'stretch' (not 'center') is required, not
+    // decorative — the Text needs a real width to measure against, or
+    // `adjustsFontSizeToFit` never triggers and longer names (Al-Ikhlas,
+    // Al-Kafirun) overflow the scroll art instead of shrinking to fit.
+    labelBox: { width: '100%', alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: sc(10) },
+    english: {
+      fontFamily: 'Nunito_700Bold', fontSize: sc(17), color: '#FFFFFF', letterSpacing: 0.4,
+      textAlign: 'center',
+      textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
+    },
   });
-
-  // 5. Lanterns (map4.png) — one per section boundary, opposite side from bird
-  const lanterns: DecorLantern[] = [];
-  const lanternH = 60, lanternW = 36;
-  secMidYs.forEach((midY, i) => {
-    const y = midY - lanternH / 2 + 10; // slightly below midpoint
-    const side: 'left' | 'right' = i % 2 === 0 ? 'right' : 'left'; // opposite side from bird
-    lanterns.push({ y, x: decorLeft(pathXAt(midY), side, lanternW, 2) });
+  const SB = StyleSheet.create({
+    wrapper: { alignItems: 'center', marginBottom: sc(2) },
+    bubble: {
+      backgroundColor: 'white', borderRadius: sc(12),
+      paddingHorizontal: sc(12), paddingVertical: sc(8), maxWidth: sc(160),
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 4,
+    },
+    text: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#374151', textAlign: 'center', lineHeight: sc(14) },
+    tail: {
+      width: 0, height: 0,
+      borderLeftWidth: sc(7), borderRightWidth: sc(7), borderTopWidth: sc(8),
+      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: 'white',
+    },
   });
-
-  return { lotties, mosques, trees, birds, lanterns };
+  return { S, SL, SB };
 }
-
-const DECORATIONS = buildDecorations();
-
-// Two cloud strips only at the very top of the map — not scattered lower.
-interface CloudDecor { y: number; x: number; w: number; h: number; opacity: number }
-function buildClouds(): CloudDecor[] {
-  // y: 0 keeps the full cloud image within the visible scrollable area —
-  // y: -10 was clipping the top edge of both images.
-  return [
-    { y: 0, x: 0,            w: MAP_W * 0.55, h: 90, opacity: 0.85 },
-    { y: 0, x: MAP_W * 0.45, w: MAP_W * 0.55, h: 90, opacity: 0.75 },
-  ];
-}
-const CLOUDS = buildClouds();
-
-// ── Status helper ─────────────────────────────────────────────────
-function stageToNodeStatus(s: string): NodeStatus {
-  if (s === 'completed') return 'completed';
-  if (s === 'in_progress') return 'current';
-  if (s === 'available') return 'available';
-  return 'locked';
-}
-
-// ── Season sign — brown wood-plank divider between map phases. Purely a
-// visual/loading-pacing cue: it fades from dim to full opacity once that
-// phase's data has arrived in the background, but never blocks navigation
-// (nodes below it are already tappable regardless — see handleNodePress).
-//
-// Every dimension is a ratio of MAP_W (real device width), not a fixed
-// pixel — BASELINE_W is only a reference design width used to derive the
-// ratio, the same role MAP_W already plays for node/decoration x-positions
-// elsewhere in this file. Clamped so text stays legible on both small
-// phones and tablets instead of scaling without bound.
-const SIGN_BASELINE_W = 393;
-const SIGN_SCALE = Math.min(1.25, Math.max(0.85, MAP_W / SIGN_BASELINE_W));
-const sc = (n: number) => Math.round(n * SIGN_SCALE);
-
-function SeasonSign({ seasonNumber, loaded }: { seasonNumber: number; loaded: boolean }) {
-  return (
-    <View style={[SS.wrapper, { opacity: loaded ? 1 : 0.55 }]} pointerEvents="none">
-      <View style={SS.plank}>
-        <Text style={SS.title}>SEASON {seasonNumber}</Text>
-        <Text style={SS.subtitle}>{loaded ? 'New season below' : 'Loading next season…'}</Text>
-      </View>
-    </View>
-  );
-}
-
-// Positions a SeasonSign centred on its target y — measures its own
-// rendered height via onLayout rather than assuming a fixed height, so
-// centring stays exact regardless of font scale, text length, or device.
-function SeasonSignSlot({ sign, loaded }: { sign: SeasonSignPos; loaded: boolean }) {
-  const [height, setHeight] = useState(0);
-  return (
-    <View
-      style={{ position: 'absolute', left: 0, right: 0, top: sign.y - height / 2 }}
-      onLayout={e => setHeight(e.nativeEvent.layout.height)}
-    >
-      <SeasonSign seasonNumber={sign.phaseIdx + 1} loaded={loaded} />
-    </View>
-  );
-}
-
-const SS = StyleSheet.create({
-  wrapper: { alignItems: 'center', justifyContent: 'center' },
-  plank: {
-    backgroundColor: '#8B5A2B', borderRadius: sc(10),
-    borderWidth: sc(3), borderColor: '#5A3A00',
-    paddingHorizontal: sc(22), paddingVertical: sc(10),
-    shadowColor: '#000', shadowOffset: { width: 0, height: sc(4) }, shadowOpacity: 0.4, shadowRadius: sc(6), elevation: sc(6),
-  },
-  title: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: '#F5DEB3', textAlign: 'center', letterSpacing: sc(1) },
-  subtitle: { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: '#E8C870', textAlign: 'center', marginTop: sc(2) },
-});
-
-// ── Surah name label ──────────────────────────────────────────────
-function SurahLabel({ arabicName, name, isLeft }: { arabicName: string; name: string; isLeft: boolean }) {
-  const arabicFont = useArabicFont();
-  return (
-    <View style={{ alignItems: isLeft ? 'flex-start' : 'flex-end' }}>
-      <Text style={[SL.arabic, { fontFamily: arabicFont.fontFamily, fontSize: Math.round(26 * arabicFont.scale) }]}>{arabicName}</Text>
-      <Text style={SL.english}>{name}</Text>
-    </View>
-  );
-}
-const SL = StyleSheet.create({
-  arabic: {
-    fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 26, color: '#E0BC4E',
-    textShadowColor: 'rgba(0,0,0,0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6,
-  },
-  english: {
-    fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#FFE87A', letterSpacing: 0.8,
-    textShadowColor: 'rgba(0,0,0,0.65)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
-    marginTop: 2,
-  },
-});
+type Styles = ReturnType<typeof makeStyles>;
 
 // ── Speech bubble — pure CSS, sizes to text content ───────────────
-function SpeechBubble({ text }: { text: string }) {
+function SpeechBubble({ text, SB }: { text: string; SB: Styles['SB'] }) {
   return (
     <View style={SB.wrapper}>
       <View style={SB.bubble}>
@@ -436,90 +660,89 @@ function SpeechBubble({ text }: { text: string }) {
     </View>
   );
 }
-const SB = StyleSheet.create({
-  wrapper: { alignItems: 'center', marginBottom: 2 },
-  bubble: {
-    backgroundColor: 'white', borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 8, maxWidth: 160,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 4,
-  },
-  text: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: '#374151', textAlign: 'center', lineHeight: 14 },
-  tail: {
-    width: 0, height: 0,
-    borderLeftWidth: 7, borderRightWidth: 7, borderTopWidth: 8,
-    borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: 'white',
-  },
-});
 
-// ── Map node ──────────────────────────────────────────────────────
-function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, ayahFrom, ayahTo, isFetching }: {
+// ── Surah name label — scroll art behind Arabic + English name ───────────
+function SurahLabel({ name, box, SL }: {
+  name: string; box: LabelBox; sc: (n: number) => number; SL: Styles['SL'];
+}) {
+  return (
+    <View style={{ position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h, alignItems: 'center', justifyContent: 'center' }}>
+      <Image source={SCROLL_SRC} resizeMode="contain" style={{ position: 'absolute', width: box.w, height: box.h }} />
+      <View style={SL.labelBox}>
+        <Text style={SL.english} numberOfLines={1} adjustsFontSizeToFit>{name}</Text>
+      </View>
+    </View>
+  );
+}
+
+// ── Pathway — the walkable road itself, textured with the brick pattern.
+// One function so the whole road is a single reusable unit; every dimension
+// comes from `sc()`, so it resizes with the model instead of being frozen at
+// whatever width the app first mounted at. ──
+function Pathway({ d, sc }: { d: string; sc: (n: number) => number }) {
+  return (
+    <G>
+      {/* Beveled undercoat so the road reads as carved into the ground —
+          kept light so it doesn't read as a heavy shadow. */}
+      <Path d={d} stroke="rgba(60,38,8,0.14)" strokeWidth={sc(64)} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={d} stroke="rgba(60,38,8,0.18)" strokeWidth={sc(50)} fill="none" strokeLinecap="round" strokeLinejoin="round" transform={`translate(0, ${sc(2)})`} />
+      {/* Brick texture — the actual walkable surface */}
+      <Path d={d} stroke="url(#brickPattern)" strokeWidth={sc(40)} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={d} stroke="rgba(20,10,4,0.14)" strokeWidth={sc(3)} fill="none" strokeLinecap="round" strokeLinejoin="round" transform={`translate(0, ${sc(2)})`} />
+      {/* Thin top-edge highlight for a subtle 3D pop */}
+      <Path d={d} stroke="rgba(255,248,220,0.32)" strokeWidth={sc(3)} fill="none" strokeLinecap="round" strokeLinejoin="round" transform={`translate(0, ${-sc(1)})`} />
+    </G>
+  );
+}
+
+// ── Map node — one visual shell for every non-completed/non-current status.
+// The ONLY differentiator for a real locked gate is the lock icon; nothing
+// is dimmed/faded anymore (dimming previously read as "broken", not "locked"). ──
+function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, isFetching, S }: {
   status: NodeStatus; stars: number;
   pulseAnim: Animated.Value; goldAnim: Animated.Value;
-  levelNum: number; ayahFrom: number; ayahTo: number;
-  isFetching?: boolean;
+  levelNum: number; isFetching?: boolean; S: Styles['S'];
 }) {
   const pulseScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
   const goldScale  = goldAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
-  const rangeLabel = ayahFrom === ayahTo ? `Ayah ${ayahFrom}` : `Ayahs ${ayahFrom}–${ayahTo}`;
+  const nodeImgSrc = status === 'completed' ? NODE_SRCS.completed : status === 'current' ? NODE_SRCS.current : NODE_SRCS.locked;
 
-  if (status === 'completed') return (
-    <View style={S.nodeWrapper}>
-      <Animated.View style={[S.node, S.nodeCompleted, { transform: [{ scale: goldScale }] }]}>
-        <Text style={S.nodeNumber}>{levelNum}</Text>
-        {stars > 0 && <View style={S.starsBadge}><Text style={S.starsText}>{'★'.repeat(stars)}</Text></View>}
-      </Animated.View>
-      <Text style={S.rangeLabel}>{rangeLabel}</Text>
-    </View>
-  );
-  if (status === 'current') return (
-    <View style={S.nodeWrapper}>
-      <Animated.View style={[S.node, S.nodeCurrent, { transform: [{ scale: pulseScale }] }]}>
-        <Animated.View style={[S.pulseRing, {
-          transform: [{ scale: pulseScale }],
-          opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
-        }]} />
-        <Text style={S.nodeNumber}>{levelNum}</Text>
-      </Animated.View>
-      <Text style={S.rangeLabel}>{rangeLabel}</Text>
-    </View>
-  );
-  if (status === 'available') return (
-    <View style={S.nodeWrapper}>
-      <View style={[S.node, S.nodeGrey]}>
-        <Text style={S.nodeNumber}>{levelNum}</Text>
-      </View>
-      <Text style={S.rangeLabel}>{rangeLabel}</Text>
-    </View>
-  );
-  if (status === 'pending') return (
-    // Not yet fetched, but never actually locked server-side — dim to signal
-    // "still loading" without implying the level is inaccessible. Tapping it
-    // fetches on demand (handled by the parent's press handler).
-    <View style={S.nodeWrapper}>
-      <View style={[S.node, S.nodeGrey, { opacity: 0.75 }]}>
-        {isFetching
-          ? <ActivityIndicator size="small" color="#5A3A00" />
-          : <Text style={[S.nodeNumber, { opacity: 0.8 }]}>{levelNum}</Text>}
-      </View>
-      <Text style={[S.rangeLabel, { color: 'rgba(255,255,255,0.55)' }]}>{rangeLabel}</Text>
-    </View>
-  );
   return (
     <View style={S.nodeWrapper}>
-      <View style={[S.node, S.nodeGrey, { opacity: 0.55 }]}>
-        <Text style={[S.nodeNumber, { opacity: 0.6 }]}>{levelNum}</Text>
-      </View>
-      <Text style={[S.rangeLabel, { color: 'rgba(255,255,255,0.35)' }]}>{rangeLabel}</Text>
+      <View style={S.nodeShadow} />
+      <Animated.View style={[
+        S.node,
+        status === 'completed' && { transform: [{ scale: goldScale }] },
+        status === 'current' && { transform: [{ scale: pulseScale }] },
+      ]}>
+        {status === 'current' && (
+          <Animated.View style={[S.pulseRing, {
+            transform: [{ scale: pulseScale }],
+            opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
+          }]} />
+        )}
+        <Image source={nodeImgSrc} resizeMode="contain" style={S.nodeImg} />
+        {status === 'locked' ? (
+          <Text style={S.lockIcon}>🔒</Text>
+        ) : status === 'pending' && isFetching ? (
+          <ActivityIndicator size="small" color="#5A3A00" />
+        ) : (
+          <Text style={S.nodeNumber}>{levelNum}</Text>
+        )}
+        {status === 'completed' && stars > 0 && (
+          <View style={S.starsBadge}><Text style={S.starsText}>{'★'.repeat(stars)}</Text></View>
+        )}
+      </Animated.View>
     </View>
   );
 }
 
 // ── Luma mascot ───────────────────────────────────────────────────
-function LumaFloat({ style, speech, floatAnim }: { style?: object; speech?: string; floatAnim: Animated.Value }) {
+function LumaFloat({ style, speech, floatAnim, S, SB }: { style?: object; speech?: string; floatAnim: Animated.Value; S: Styles['S']; SB: Styles['SB'] }) {
   const ty = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
   return (
     <View style={[{ alignItems: 'center' }, style]}>
-      {speech && <SpeechBubble text={speech} />}
+      {speech && <SpeechBubble text={speech} SB={SB} />}
       <View style={S.lumaGlow}>
         <Animated.Image
           source={require('../../../assets/images/lumo_transparent.png')}
@@ -535,6 +758,15 @@ function LumaFloat({ style, speech, floatAnim }: { style?: object; speech?: stri
 export default function MapScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { learning } = useAuthStore();
+  const { width } = useWindowDimensions();
+  const M = useMemo(() => buildMapModel(width), [width]);
+  const styles = useMemo(() => makeStyles(M), [M]);
+  const { S, SL, SB } = styles;
+  const {
+    MAP_W, MAP_H, sc, NODE_SIZE, TOP_MARGIN, BASE_SECTIONS, DECORATIONS,
+    PARALLAX_FAR, PARALLAX_MID, PARALLAX_NEAR,
+    SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS, GRASS_PATCHES, AYAH_PILLS, SURAH_LABELS, PATH_D,
+  } = M;
 
   // fullLevels: every group of a surah (only fetched for the current surah).
   // firstLevel: just the first group's status (fetched for every other surah,
@@ -658,11 +890,6 @@ export default function MapScreen({ navigation }: Props) {
     };
   });
 
-  function isPhaseLoaded(phaseIdx: number): boolean {
-    const surahs = PHASE_GROUPS[phaseIdx] ?? [];
-    return surahs.length > 0 && surahs.every(n => fullLevels[n] || firstLevel[n]);
-  }
-
   async function handleNodePress(section: Section, node: SectionNode) {
     if (node.status === 'locked') return; // real gate — previous level not completed
     if (node.status === 'pending') {
@@ -674,12 +901,17 @@ export default function MapScreen({ navigation }: Props) {
     navigation.navigate('LessonStart', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum });
   }
 
-  const allEnrichedNodes = enrichedSections.flatMap(s => s.nodes);
+  const allEnrichedNodes = enrichedSections.flatMap(s => s.nodes.map(n => ({ ...n, surahNum: s.surahNum })));
   const firstActiveNode  = allEnrichedNodes.find(n => n.status === 'current' || n.status === 'available');
 
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const goldAnim  = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
+  const scrollY   = useRef(new Animated.Value(0)).current;
+  const onScroll  = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: true },
+  );
 
   useEffect(() => {
     Animated.loop(Animated.sequence([
@@ -696,30 +928,37 @@ export default function MapScreen({ navigation }: Props) {
     ])).start();
   }, []);
 
-  // Luma: beside the first active node, x derived from node position
+  // Luma: beside the first active node, always on the opposite side from
+  // that surah's scroll label (they'd otherwise compete for the same side).
+  const scrollIsLeft = firstActiveNode ? SURAH_LABELS[firstActiveNode.surahNum]?.isLeft ?? (firstActiveNode.x > MAP_W / 2) : false;
   const lumaLeft = firstActiveNode
-    ? (firstActiveNode.x > MAP_W / 2
-        ? Math.max(0, firstActiveNode.x - 112)
-        : firstActiveNode.x + NODE_SIZE + 6)
-    : 4;
-  const lumaTop   = firstActiveNode ? firstActiveNode.y - 36 : 80;
+    ? (!scrollIsLeft
+        ? Math.max(0, firstActiveNode.x - sc(112))
+        : firstActiveNode.x + NODE_SIZE + sc(6))
+    : sc(4);
+  const lumaTop   = firstActiveNode ? firstActiveNode.y - sc(36) : sc(80);
   const lumaSpeech = firstActiveNode?.status === 'current'
     ? "Ready for today's lesson? 💪"
     : 'Begin here! ✨';
 
+  const skyPct = Math.min(95, (SKY_BOUNDARY_Y / MAP_H) * 100);
+
   return (
     <View style={S.container}>
-      {/* HUD — streak (animated) top-left, XP top-right. Hearts hidden on the
+      {/* Sky backdrop — fixed behind the HUD and the Bismillah card so the
+          sky reads as one continuous surface from the very top of the
+          screen, instead of cutting from a flat color to the photo sky only
+          once the map canvas begins. Bounded height (not the whole
+          container), so scrolling past it correctly reveals the green
+          container fallback rather than sky bleeding into the ground. */}
+      <Image source={SKY_SRC} resizeMode="cover" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: sc(320) }} />
+
+      {/* HUD — streak (emoji) top-left, XP top-right. Hearts hidden on the
           map for now (still shown in-lesson). */}
-      <View style={[S.hud, { paddingTop: insets.top + 4 }]}>
+      <View style={[S.hud, { paddingTop: insets.top + sc(4) }]}>
         <View style={S.hudRow}>
           <View style={S.hudPill}>
-            <LottieView
-        renderMode="SOFTWARE"
-              source={require('../../../assets/animations/streak.json')}
-              autoPlay loop
-              style={S.hudStreakAnim}
-            />
+            <Text style={S.hudStreakEmoji}>🔥</Text>
             <Text style={[S.hudVal, { color: '#EA580C' }]}>{learning?.current_streak ?? 0}</Text>
           </View>
           <View style={S.hudPill}>
@@ -735,15 +974,12 @@ export default function MapScreen({ navigation }: Props) {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-        {/* Quest banner */}
-        <TouchableOpacity style={S.questBanner} onPress={() => navigation.navigate('DailyQuest')} activeOpacity={0.9}>
-          <Text style={{ fontSize: 15 }}>⭐</Text>
-          <Text style={S.questLabel}>Daily Quests</Text>
-          <View style={S.questBadge}><Text style={S.questBadgeText}>Coming soon</Text></View>
-          <Text style={{ fontSize: 16, color: '#5A3A00' }}>›</Text>
-        </TouchableOpacity>
-
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1 }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
         {/* Bismillah card */}
         <View style={S.bismillahCard}>
           <Text style={S.bismillahText}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</Text>
@@ -751,89 +987,92 @@ export default function MapScreen({ navigation }: Props) {
         </View>
 
         {/* Map canvas — height computed from layout, not hardcoded */}
-        <View style={{ width: MAP_W, height: MAP_H, position: 'relative' }}>
+        <View style={{ width: MAP_W, height: MAP_H, position: 'relative', overflow: 'hidden' }}>
 
-          {/* SVG background — viewBox matches MAP_W exactly (not a fixed
-              design-reference width) so the gradient fully covers every
-              screen size and the road aligns with the node positions below,
-              which are also computed in real MAP_W units. */}
+          {/* SVG background */}
           <Svg width={MAP_W} height={MAP_H} viewBox={`0 0 ${MAP_W} ${MAP_H}`} style={StyleSheet.absoluteFill}>
             <Defs>
               <LinearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0%"   stopColor="#7EC8E3" />
-                <Stop offset="8%"   stopColor="#9EDBA8" />
-                <Stop offset="30%"  stopColor="#5AB06A" />
-                <Stop offset="65%"  stopColor="#4A9A58" />
-                <Stop offset="100%" stopColor="#3A8048" />
+                <Stop offset="0%" stopColor="#4FB3E8" />
+                <Stop offset={`${skyPct}%`} stopColor="#8ED2F0" />
+                <Stop offset={`${Math.min(98, skyPct + 3)}%`} stopColor={colors.mapBg} />
+                <Stop offset="100%" stopColor={colors.mapBg} />
               </LinearGradient>
-              <LinearGradient id="pathGrad" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0%"   stopColor="#B8903A" />
-                <Stop offset="40%"  stopColor="#E8C870" />
-                <Stop offset="60%"  stopColor="#E8C870" />
-                <Stop offset="100%" stopColor="#B8903A" />
-              </LinearGradient>
+              <Pattern id="grassPattern" patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>
+                <SvgImage href={GRASS_SRC} x={0} y={0} width={sc(140)} height={sc(140)} preserveAspectRatio="xMidYMid slice" />
+              </Pattern>
+              <Pattern id="grassPatch0" patternUnits="userSpaceOnUse" width={sc(90)} height={sc(90)}>
+                <SvgImage href={GRASS_PATCH_SRCS[0]} x={0} y={0} width={sc(90)} height={sc(90)} preserveAspectRatio="xMidYMid slice" />
+              </Pattern>
+              <Pattern id="grassPatch1" patternUnits="userSpaceOnUse" width={sc(90)} height={sc(90)}>
+                <SvgImage href={GRASS_PATCH_SRCS[1]} x={0} y={0} width={sc(90)} height={sc(90)} preserveAspectRatio="xMidYMid slice" />
+              </Pattern>
+              <Pattern id="brickPattern" patternUnits="userSpaceOnUse" width={sc(46)} height={sc(46)}>
+                <SvgImage href={BRICK_SRC} x={0} y={0} width={sc(46)} height={sc(46)} preserveAspectRatio="xMidYMid slice" />
+              </Pattern>
             </Defs>
             <Rect width={MAP_W} height={MAP_H} fill="url(#bg)" />
+            {/* Real sky photo — fills the sky band; the jagged grass edge
+                below overlaps its bottom edge so the seam isn't a hard line */}
+            <SvgImage
+              href={SKY_SRC} x={0} y={0} width={MAP_W} height={SKY_BOUNDARY_Y + sc(24)}
+              preserveAspectRatio="xMidYMid slice"
+            />
 
-            {/* Stars — x as fraction of MAP_W, same pattern as node xFractions */}
-            {([0.140,0.458,0.789,0.331,0.662] as number[]).map((xf,i) => (
-              <Circle key={`st${i}`} cx={Math.round(xf * MAP_W)} cy={[55,40,60,48,35][i]} r={1.5} fill="white" opacity={0.6} />
+            {/* Distant mountain range on the horizon. Runs from the very top
+                of the canvas down to just past SKY_BOUNDARY_Y so the grass
+                texture (drawn after this, below) overlaps its base with no
+                gap of bare sky between them. */}
+            <SvgImage
+              href={MOUNTAINS_SRC} x={0} y={0} width={MAP_W} height={SKY_BOUNDARY_Y + sc(20)}
+              preserveAspectRatio="xMidYMid slice"
+              opacity={0.9}
+            />
+
+            {/* Grass texture wash — a jagged/torn edge (not a flat cut) where
+                it meets the sky. Fully opaque — this is the actual ground,
+                not a faded overlay. */}
+            <Path d={GRASS_EDGE_D} fill="url(#grassPattern)" />
+            {/* Scattered patches of two other grass textures for variety */}
+            {GRASS_PATCHES.map((p, i) => (
+              <Ellipse
+                key={`gp${i}`} cx={p.x} cy={p.y} rx={p.rx} ry={p.ry}
+                fill={p.variant === 0 ? 'url(#grassPatch0)' : 'url(#grassPatch1)'}
+                opacity={0.65}
+              />
             ))}
 
-            {/* River — x as fraction of MAP_W, proportional to MAP_H */}
-            <Path
-              d={`M${0.921*MAP_W} ${TOP_MARGIN} Q${0.962*MAP_W} ${MAP_H*0.25} ${0.903*MAP_W} ${MAP_H*0.42} Q${0.865*MAP_W} ${MAP_H*0.55} ${0.936*MAP_W} ${MAP_H*0.68} Q${0.972*MAP_W} ${MAP_H*0.80} ${0.916*MAP_W} ${MAP_H}`}
-              stroke="#6BC8E8" strokeWidth="18" fill="none" opacity="0.32" strokeLinecap="round"
-            />
-            <Path
-              d={`M${0.921*MAP_W} ${TOP_MARGIN} Q${0.962*MAP_W} ${MAP_H*0.25} ${0.903*MAP_W} ${MAP_H*0.42} Q${0.865*MAP_W} ${MAP_H*0.55} ${0.936*MAP_W} ${MAP_H*0.68} Q${0.972*MAP_W} ${MAP_H*0.80} ${0.916*MAP_W} ${MAP_H}`}
-              stroke="#A8E4F8" strokeWidth="8"  fill="none" opacity="0.28" strokeLinecap="round"
-            />
+            {/* Road path — brick-textured, carved-in look */}
+            <Pathway d={PATH_D} sc={sc} />
 
-            {/* Road path */}
-            <Path d={PATH_D} stroke="rgba(232,200,112,0.09)" strokeWidth="62" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <Path d={PATH_D} stroke="rgba(232,200,112,0.15)" strokeWidth="40" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <Path d={PATH_D} stroke="rgba(80,50,10,0.35)"    strokeWidth="24" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <Path d={PATH_D} stroke="url(#pathGrad)"          strokeWidth="16" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <Path d={PATH_D} stroke="rgba(255,248,200,0.55)"  strokeWidth="6"  fill="none" strokeLinecap="round" strokeLinejoin="round" />
-
-            {/* Flowers: flanking the path at each node gap midpoint */}
-            {ALL_NODES.slice(0, -1).map((n, i) => {
-              const midY = Math.round((n.y + ALL_NODES[i + 1].y) / 2);
-              const px   = pathXAt(midY);
-              return (
-                <G key={`fl${i}`}>
-                  <Circle cx={Math.max(8, px - 40)} cy={midY}      r={4} fill={i%3===0?'#FF6B8A':i%3===1?'#FFD700':'#FF9F47'} opacity="0.70" />
-                  <Circle cx={Math.min(385, px + 50)} cy={midY + 14} r={3} fill={i%3===0?'#FFD700':'#FF6B8A'} opacity="0.60" />
-                </G>
-              );
-            })}
-
-            {/* Cloud wisps at section boundary midpoints */}
-            {BASE_SECTIONS.slice(0, -1).map((sec, i) => {
-              const lastY  = sec.nodes[sec.nodes.length - 1].y + NODE_SIZE / 2;
-              const firstY = BASE_SECTIONS[i + 1].nodes[0].y + NODE_SIZE / 2;
-              const midY   = (lastY + firstY) / 2;
-              const px     = pathXAt(midY);
-              return (
-                <Ellipse
-                  key={`wisp${i}`}
-                  cx={i % 2 === 0 ? Math.max(42, px - 80) : Math.min(351, px + 80)}
-                  cy={midY}
-                  rx={42} ry={14}
-                  fill="white" opacity={0.15 - i * 0.01}
-                />
-              );
-            })}
+            {/* Ground shadows under grounded decorations */}
+            {DECORATIONS.trees.map((t, i) => (
+              <Ellipse key={`tsh${i}`} cx={t.x + sc(29)} cy={t.y + sc(74)} rx={sc(20)} ry={sc(6)} fill="rgba(0,0,0,0.22)" />
+            ))}
+            {DECORATIONS.mosques.map((m, i) => (
+              <Ellipse key={`msh${i}`} cx={m.x + sc(36)} cy={m.y + sc(82)} rx={sc(30)} ry={sc(7)} fill="rgba(0,0,0,0.22)" />
+            ))}
+            {DECORATIONS.lanterns.map((l, i) => (
+              <Ellipse key={`lsh${i}`} cx={l.x + sc(18)} cy={l.y + sc(80)} rx={sc(12)} ry={sc(4)} fill="rgba(0,0,0,0.18)" />
+            ))}
           </Svg>
 
-          {/* Cloud images at top of map — shown as-is, no cropping */}
-          {CLOUDS.map((c, i) => (
+          {/* Static sky clouds — right below the Bismillah card, marking the
+              sky before the road begins */}
+          {SKY_CLOUDS.map((c, i) => (
+            <Image key={`skycloud${i}`} source={CLOUD_SRC} resizeMode="contain" style={{ position: 'absolute', left: c.x, top: c.y, width: c.w, height: c.h, opacity: 0.9 }} />
+          ))}
+
+          {/* Birds flying across the sky photo itself */}
+          {SKY_BIRDS.map((b, i) => (
             <Image
-              key={`cloud${i}`}
-              source={CLOUD_SRC}
-              style={{ position: 'absolute', left: c.x, top: c.y, width: c.w, height: c.h, opacity: c.opacity }}
+              key={`skybird${i}`}
+              source={BIRDS_SRC}
               resizeMode="contain"
+              style={{
+                position: 'absolute', left: b.x, top: b.y, width: b.w, height: b.w / 2,
+                opacity: 0.85, transform: [{ scaleX: b.flip ? -1 : 1 }],
+              }}
             />
           ))}
 
@@ -842,109 +1081,136 @@ export default function MapScreen({ navigation }: Props) {
             <Image
               key={`tree${i}`}
               source={t.src}
-              style={{ position: 'absolute', left: t.x, top: t.y, width: 58, height: 80, opacity: 0.78 + (i % 3) * 0.06 }}
+              style={{ position: 'absolute', left: t.x, top: t.y, width: sc(58), height: sc(80), opacity: 0.78 + (i % 3) * 0.06 }}
               resizeMode="contain"
             />
           ))}
 
-          {/* Mosques — x derived from pathXAt, zone-checked (never overlaps Lottie) */}
+          {/* Mosques */}
           {DECORATIONS.mosques.map((m, i) => (
             <Image
               key={`mosque${i}`}
               source={MOSQUE_SRC}
-              style={{ position: 'absolute', left: m.x, top: m.y, width: 72, height: 88, opacity: 0.82 - i * 0.04 }}
+              style={{ position: 'absolute', left: m.x, top: m.y, width: sc(72), height: sc(88), opacity: 0.82 - i * 0.04 }}
               resizeMode="contain"
             />
           ))}
 
-          {/* Birds — x derived from pathXAt, clearly visible near road */}
+          {/* Birds — zone-checked like every other decoration */}
           {DECORATIONS.birds.map((b, i) => (
             <Image
               key={`bird${i}`}
               source={BIRDS_SRC}
-              style={{ position: 'absolute', left: b.x, top: b.y, width: 160, height: 80, opacity: 1.0 }}
+              style={{ position: 'absolute', left: b.x, top: b.y, width: sc(96), height: sc(48), opacity: 1.0 }}
               resizeMode="contain"
             />
           ))}
 
-          {/* Lanterns (map4.png) — one per section boundary */}
+          {/* Lanterns */}
           {DECORATIONS.lanterns.map((l, i) => (
             <Image
               key={`lantern${i}`}
               source={LANTERN_SRC}
-              style={{ position: 'absolute', left: l.x, top: l.y, width: 52, height: 86, opacity: 0.90 - i * 0.04 }}
+              style={{ position: 'absolute', left: l.x, top: l.y, width: sc(36), height: sc(60), opacity: 0.90 - i * 0.04 }}
               resizeMode="contain"
             />
           ))}
 
-          {/* Surah labels — y from firstNode.y, x from section side */}
-          {enrichedSections.map((section, sIdx) => {
-            const isLeft    = sIdx % 2 === 0;
-            const firstNode = section.nodes[0];
+          {/* Bridge + pond — riverside decoration beside the road, not across it */}
+          {DECORATIONS.bridges.map((br, i) => (
+            <React.Fragment key={`bridge${i}`}>
+              <Image
+                source={POND_SRC} resizeMode="contain"
+                style={{ position: 'absolute', left: br.x - br.w * 0.15, top: br.y + br.h * 0.35, width: br.w * 1.3, height: br.h * 0.75 }}
+              />
+              <Image source={BRIDGE_SRC} resizeMode="contain" style={{ position: 'absolute', left: br.x, top: br.y, width: br.w, height: br.h }} />
+            </React.Fragment>
+          ))}
+
+          {/* Surah labels — scroll art, positioned a real derived distance
+              from each section's first node (mirrors lumaLeft's formula) */}
+          {enrichedSections.map(section => {
+            const box = SURAH_LABELS[section.surahNum];
+            if (!box) return null;
             return (
-              <View
-                key={`label-${section.surahNum}`}
-                style={{
-                  position: 'absolute',
-                  top:   firstNode.y + NODE_SIZE / 2 - 20,
-                  left:  isLeft ? 4 : undefined,
-                  right: isLeft ? undefined : 4,
-                  zIndex: 5,
-                }}
-              >
-                <SurahLabel arabicName={section.arabicName} name={section.name} isLeft={isLeft} />
-              </View>
+              <SurahLabel key={`label-${section.surahNum}`} name={section.name} box={box} sc={sc} SL={SL} />
             );
           })}
 
-          {/* Lottie animations — x derived from pathXAt, zone-checked */}
-          {DECORATIONS.lotties.map((lt, i) => (
-            <LottieView
-        renderMode="SOFTWARE"
-              key={`lottie${i}`}
-              source={lt.source}
-              autoPlay loop
-              style={{ position: 'absolute', left: lt.x, top: lt.y, width: 110, height: 82 }}
-            />
-          ))}
-
-          {/* Lesson nodes — globally numbered across all surahs */}
+          {/* Lesson nodes + ayah-range pills — globally numbered across all surahs */}
           {(() => {
             let globalIdx = 0;
             return enrichedSections.map(section =>
-              section.nodes.map(node => {
+              section.nodes.map((node, nodeIdx) => {
                 globalIdx++;
                 const idx = globalIdx;
+                const pill = AYAH_PILLS[`${section.surahNum}_${nodeIdx}`];
+                const ayahFrom = node.startAyah ?? ((node.levelNum ?? 1) - 1) * 2 + 1;
+                const ayahTo = node.endAyah ?? Math.min((node.levelNum ?? 1) * 2, section.ayahCount);
+                const rangeLabel = ayahFrom === ayahTo ? `Ayah ${ayahFrom}` : `Ayahs ${ayahFrom}–${ayahTo}`;
                 return (
-                  <TouchableOpacity
-                    key={node.id}
-                    style={{ position: 'absolute', left: node.x, top: node.y }}
-                    activeOpacity={node.status === 'locked' ? 1 : 0.85}
-                    onPress={() => void handleNodePress(section, node)}
-                  >
-                    <MapNode
-                      status={node.status}
-                      stars={node.stars}
-                      pulseAnim={pulseAnim}
-                      goldAnim={goldAnim}
-                      levelNum={idx}
-                      ayahFrom={node.startAyah ?? ((node.levelNum ?? 1) - 1) * 3 + 1}
-                      ayahTo={node.endAyah ?? Math.min((node.levelNum ?? 1) * 3, section.ayahCount)}
-                      isFetching={node.status === 'pending' && fetchingSurah === section.surahNum}
-                    />
-                  </TouchableOpacity>
+                  <React.Fragment key={node.id}>
+                    <TouchableOpacity
+                      style={{ position: 'absolute', left: node.x, top: node.y }}
+                      activeOpacity={node.status === 'locked' ? 1 : 0.85}
+                      onPress={() => void handleNodePress(section, node)}
+                    >
+                      <MapNode
+                        status={node.status}
+                        stars={node.stars}
+                        pulseAnim={pulseAnim}
+                        goldAnim={goldAnim}
+                        levelNum={idx}
+                        isFetching={node.status === 'pending' && fetchingSurah === section.surahNum}
+                        S={S}
+                      />
+                    </TouchableOpacity>
+                    {pill && (
+                      <View pointerEvents="none" style={[S.ayahPill, { position: 'absolute', left: pill.x, top: pill.y, width: pill.w, height: pill.h }]}>
+                        <Text style={S.ayahPillText}>{rangeLabel}</Text>
+                      </View>
+                    )}
+                  </React.Fragment>
                 );
               })
             );
           })()}
 
-          {/* Season signs — brown wood-plank dividers between map phases.
-              Fade from dim to full opacity as each phase's data streams in
-              in the background (see the staggered fetch effect above); never
-              gate access, the nodes beneath are already tappable regardless. */}
-          {SEASON_SIGNS.map(sign => (
-            <SeasonSignSlot key={`season-${sign.phaseIdx}`} sign={sign} loaded={isPhaseLoaded(sign.phaseIdx)} />
-          ))}
+          {/* Ambient parallax cloud layers — 3 depths reacting to scroll */}
+          {[PARALLAX_FAR, PARALLAX_MID, PARALLAX_NEAR].map((layer, li) => {
+            const translateY = scrollY.interpolate({
+              inputRange: [0, MAP_H || 1],
+              outputRange: [0, MAP_H * (1 - layer.speed)],
+              extrapolate: 'clamp',
+            });
+            const depthOpacity = scrollY.interpolate({
+              inputRange: [0, 500, 1200],
+              outputRange: li === 2 ? [0.5, 0.85, 1] : li === 0 ? [1, 0.6, 0.25] : [0.8, 0.8, 0.8],
+              extrapolate: 'clamp',
+            });
+            const depthScale = scrollY.interpolate({
+              inputRange: [0, 1200],
+              outputRange: li === 2 ? [1, 1.25] : li === 0 ? [1, 0.85] : [1, 1],
+              extrapolate: 'clamp',
+            });
+            return (
+              <Animated.View key={`plx${li}`} pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: MAP_W, height: MAP_H, transform: [{ translateY }], zIndex: 1 }}>
+                {layer.puffs.map((p, i) => (
+                  <Animated.Image
+                    key={i}
+                    source={CLOUD_SRC}
+                    resizeMode="contain"
+                    blurRadius={layer.blur}
+                    style={{
+                      position: 'absolute', left: p.x, top: p.y, width: p.w, height: p.h,
+                      opacity: Animated.multiply(depthOpacity, p.opacity),
+                      transform: [{ scale: depthScale }],
+                    }}
+                  />
+                ))}
+              </Animated.View>
+            );
+          })}
 
           {/* Luma — beside the active node, x derived from node position */}
           {firstActiveNode && (
@@ -952,78 +1218,19 @@ export default function MapScreen({ navigation }: Props) {
               style={{ position: 'absolute', left: lumaLeft, top: lumaTop }}
               speech={lumaSpeech}
               floatAnim={floatAnim}
+              S={S}
+              SB={SB}
             />
           )}
 
           {/* Journey end — start.png banner */}
-          <View style={{ position: 'absolute', left: MAP_W / 2 - 50, top: MAP_H - 130, alignItems: 'center' }}>
-            <Image source={START_SRC} style={{ width: 100, height: 80 }} resizeMode="contain" />
+          <View style={{ position: 'absolute', left: MAP_W / 2 - sc(50), top: MAP_H - sc(130), alignItems: 'center' }}>
+            <Image source={START_SRC} style={{ width: sc(100), height: sc(80) }} resizeMode="contain" />
             <Text style={S.endText}>More coming soon…</Text>
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
 
-const S = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#7EC8E3' },
-  hud: { backgroundColor: 'rgba(0,0,0,0.18)', paddingHorizontal: 16, paddingVertical: 6 },
-  hudRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  hudPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 4, elevation: 3,
-  },
-  hudVal: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#DC2626' },
-  hudStreakAnim: { width: 20, height: 20 },
-  avatarBtn: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.9)',
-    borderWidth: 2, borderColor: 'white', alignItems: 'center', justifyContent: 'center',
-    marginLeft: 'auto',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3,
-  },
-  questBanner: {
-    marginHorizontal: 12, marginBottom: 4, marginTop: 4,
-    backgroundColor: '#C4A84C', borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 9,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    shadowColor: '#C4A84C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 6,
-  },
-  questLabel:     { fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#5A3A00', flex: 1 },
-  questBadge:     { backgroundColor: 'rgba(90,58,0,0.15)', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 2 },
-  questBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#5A3A00' },
-  bismillahCard: {
-    marginHorizontal: 12, marginTop: 4, marginBottom: 6,
-    paddingHorizontal: 20, paddingVertical: 14,
-    backgroundColor: 'rgba(4,20,10,0.93)', borderRadius: 18, alignItems: 'center',
-    borderWidth: 1.5, borderColor: 'rgba(224,188,78,0.45)',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.55, shadowRadius: 10, elevation: 8,
-  },
-  bismillahText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 30, color: '#E0BC4E', textAlign: 'center', lineHeight: 46 },
-  bismillahSub:  { fontFamily: 'Nunito_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 2 },
-  loadingOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(42,140,90,0.72)', zIndex: 20,
-  },
-  node: { width: NODE_SIZE, height: NODE_SIZE, borderRadius: NODE_SIZE / 2, alignItems: 'center', justifyContent: 'center' },
-  nodeCompleted: { backgroundColor: '#F0C040', borderWidth: 4, borderColor: '#FFD700', shadowColor: '#F0C040', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 10, elevation: 8 },
-  nodeCurrent:   { backgroundColor: '#37A168', borderWidth: 4, borderColor: 'white', shadowColor: '#2A7D4F', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.7, shadowRadius: 14, elevation: 10 },
-  nodeGrey:      { backgroundColor: '#B0B8C8', borderWidth: 4, borderColor: '#8A95A8', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
-  pulseRing:     { position: 'absolute', width: NODE_SIZE + 20, height: NODE_SIZE + 20, borderRadius: (NODE_SIZE + 20) / 2, borderWidth: 3, borderColor: '#37A168' },
-  nodeNumber:    { fontFamily: 'Nunito_700Bold', fontSize: 20, color: 'white' },
-  nodeWrapper:   { alignItems: 'center' },
-  rangeLabel:        { fontFamily: 'Nunito_400Regular', fontSize: 8, color: 'rgba(255,255,255,0.75)', marginTop: 2, textAlign: 'center' },
-  starsBadge:        { position: 'absolute', bottom: -6, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, paddingHorizontal: 4, paddingVertical: 1 },
-  starsText:         { fontSize: 8, color: '#FFD700' },
-  lumaGlow: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#fff', shadowOpacity: 0.6, shadowRadius: 8, elevation: 5,
-  },
-  lumaImg:           { width: 66, height: 66 },
-  endText:           { fontFamily: 'Nunito_700Bold', fontSize: 11, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 4 },
-});

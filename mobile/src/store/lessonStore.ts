@@ -1,9 +1,9 @@
-import { InteractionManager } from 'react-native';
 import { create } from 'zustand';
 import { lessonsApi, learningApi, exerciseTypeForApi } from '../api';
 import { loadLessonGroup } from '../services/cachedContent';
 import { preloadAudioUrls, clearPreloadedAudio } from '../services/audioPlayer';
 import { ApiError } from '../api/client';
+import { addBreadcrumb } from '../services/crashReporter';
 import { buildLessonSteps, buildStepsFromExerciseOut } from '../lesson/buildSteps';
 import { isListenOnlyLesson } from '../lesson/mergeSteps';
 import { AnalyticsEvents, logAnalyticsEvent } from '../services/analytics';
@@ -74,26 +74,48 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   loadGroup: async groupId => {
     const myGen = ++storeGeneration;
     startSessionInFlight = null; // discard any in-flight startSession from a previous lesson
+    addBreadcrumb('loadGroup: start', { groupId });
     set({ loading: true, error: null, groupId, firstExercise: null, sessionId: null, result: null, progressPct: 0 });
     try {
       const [group, exercisesData] = await Promise.all([
         loadLessonGroup(groupId),
         lessonsApi.exercises(groupId).catch(() => null),
       ]);
-      if (myGen !== storeGeneration) return; // superseded by a newer loadGroup call
-      const steps = await new Promise<ExerciseStep[]>(resolve => {
-        InteractionManager.runAfterInteractions(() => {
-          let s: ExerciseStep[];
-          if (exercisesData && exercisesData.exercises.length > 0) {
-            s = buildStepsFromExerciseOut(exercisesData.exercises, group.ayahs);
-            if (isListenOnlyLesson(s)) s = buildLessonSteps(group.ayahs);
-          } else {
-            s = buildLessonSteps(group.ayahs);
+      if (myGen !== storeGeneration) {
+        addBreadcrumb('loadGroup: superseded after fetch', { groupId });
+        return;
+      }
+      addBreadcrumb('loadGroup: group+exercises fetched', { groupId, exerciseCount: exercisesData?.exercises.length ?? 0 });
+      // Deferred with a plain setTimeout rather than
+      // InteractionManager.runAfterInteractions(): that API waits for every
+      // pending "interaction handle" app-wide to clear, including React
+      // Navigation's own screen-transition animation — if that transition's
+      // completion signal doesn't fire cleanly (a known flaky spot), this
+      // callback would sit queued forever, hanging the loading screen
+      // indefinitely with no exception ever thrown (nothing here to catch).
+      // setTimeout always fires on the next tick regardless of any other
+      // subsystem's state, while still deferring this off the current render.
+      const steps = await new Promise<ExerciseStep[]>((resolve, reject) => {
+        setTimeout(() => {
+          try {
+            let s: ExerciseStep[];
+            if (exercisesData && exercisesData.exercises.length > 0) {
+              s = buildStepsFromExerciseOut(exercisesData.exercises, group.ayahs);
+              if (isListenOnlyLesson(s)) s = buildLessonSteps(group.ayahs);
+            } else {
+              s = buildLessonSteps(group.ayahs);
+            }
+            resolve(s);
+          } catch (e) {
+            reject(e);
           }
-          resolve(s);
-        });
+        }, 0);
       });
-      if (myGen !== storeGeneration) return; // superseded while building steps
+      if (myGen !== storeGeneration) {
+        addBreadcrumb('loadGroup: superseded after steps built', { groupId });
+        return;
+      }
+      addBreadcrumb('loadGroup: steps built', { groupId, stepCount: steps.length });
       set({ group, steps, stepIndex: 0, loading: false });
       const audioUrls = [...new Set(
         steps.flatMap(s => {
@@ -103,8 +125,10 @@ export const useLessonStore = create<LessonState>((set, get) => ({
       )];
       void preloadAudioUrls(audioUrls);
     } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load lesson';
+      addBreadcrumb('loadGroup: failed', { groupId, error: message });
       if (myGen !== storeGeneration) return;
-      set({ loading: false, error: e instanceof Error ? e.message : 'Failed to load lesson' });
+      set({ loading: false, error: message });
     }
   },
 
@@ -114,11 +138,15 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     if (sessionId && !result) return;
     if (startSessionInFlight) return startSessionInFlight;
     const myGen = storeGeneration; // snapshot: if loadGroup fires again we self-abort
+    addBreadcrumb('startSession: start', { groupId: group.id, initialStepIndex });
     startSessionInFlight = (async () => {
       set({ loading: true, error: null });
       try {
         await abandonPendingLessonSessionFromStorage();
-        if (myGen !== storeGeneration) return; // a newer loadGroup already took over
+        if (myGen !== storeGeneration) {
+          addBreadcrumb('startSession: superseded before request', { groupId: group.id });
+          return; // a newer loadGroup already took over
+        }
         // Use the groupId the caller passed to loadGroup(), not group.id from the
         // backend response, which may still carry the old "114_stg1_g1" format.
         const canonicalId = get().groupId ?? group.id;
@@ -128,13 +156,18 @@ export const useLessonStore = create<LessonState>((set, get) => ({
           session = await startOnce();
         } catch (e) {
           if (e instanceof ApiError && e.status === 409) {
+            addBreadcrumb('startSession: 409 conflict, abandoning + retrying', { groupId: canonicalId });
             await abandonActiveLessonSession().catch(() => null);
             session = await startOnce();
           } else {
             throw e;
           }
         }
-        if (myGen !== storeGeneration) return; // superseded while awaiting backend
+        if (myGen !== storeGeneration) {
+          addBreadcrumb('startSession: superseded after request', { groupId: canonicalId });
+          return; // superseded while awaiting backend
+        }
+        addBreadcrumb('startSession: session created', { groupId: canonicalId, sessionId: session.session_id, hasFirstExercise: !!session.first_exercise });
         await setPendingLessonSession({ sessionId: session.session_id, groupId: canonicalId, mistakes: 0, stepIndex: initialStepIndex });
         set({
           sessionId: session.session_id,
@@ -150,8 +183,9 @@ export const useLessonStore = create<LessonState>((set, get) => ({
         });
         void logAnalyticsEvent(AnalyticsEvents.LESSON_START, { lesson_group_id: group.id, surah_number: group.surah_number });
       } catch (e) {
-        if (myGen !== storeGeneration) return; // stale error — swallow it
         const message = e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Could not start session';
+        addBreadcrumb('startSession: failed', { groupId: group.id, error: message });
+        if (myGen !== storeGeneration) return; // stale error — swallow it
         set({ loading: false, error: message });
         throw e;
       } finally {
@@ -174,7 +208,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     await Promise.all([sessionAttempt, srsAttempt]);
     void getPendingLessonSession().then(pending => {
       if (pending?.sessionId === sessionId) void setPendingLessonSession({ ...pending, mistakes: get().mistakes });
-    });
+    }).catch(() => {});
   },
 
   nextStep: () => {

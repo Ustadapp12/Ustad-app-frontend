@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
-import { Text, View, StyleSheet } from 'react-native';
+import { Text, View, Image, StyleSheet } from 'react-native';
 import MapScreen from '../screens/home/MapScreen';
 import DailyQuestScreen from '../screens/quests/DailyQuestScreen';
 import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
@@ -21,22 +21,34 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   );
 }
 
+// Profile uses Lumo (the app's own mascot character) instead of a generic
+// person-outline emoji, which some fonts render as a plain unclear glyph.
+function ProfileTabIcon({ focused }: { focused: boolean }) {
+  return (
+    <View style={[styles.iconWrap, focused && styles.iconFocused]}>
+      <Image
+        source={require('../../assets/images/lumo_transparent.png')}
+        style={styles.profileIcon}
+        resizeMode="contain"
+      />
+    </View>
+  );
+}
+
 export default function MainTabs() {
-  // NEVER show the Map/tabs without an authenticated user — levels aren't loaded
-  // without a real session, no matter how this screen was reached.
-  const navigation = useNavigation<RootNavProp>();
+  // Defense-in-depth: nothing should be able to navigate an unauthenticated
+  // user onto the map, but if a future navigation bug ever does, catch it
+  // here instead of silently rendering the map for a guest. This only
+  // redirects — it deliberately does NOT early-return null, because doing so
+  // unmounts the whole Tab.Navigator (including whichever screen is on
+  // screen, e.g. Profile) the instant `user` goes null, which raced with and
+  // broke the normal logout flow's own explicit navigation call.
   const user = useAuthStore(s => s.user);
-  const isHydrated = useAuthStore(s => s.isHydrated);
+  const navigation = useNavigation<RootNavProp>();
 
   useEffect(() => {
-    if (isHydrated && !user) {
-      navigation.reset({ index: 0, routes: [{ name: 'SignUp' }] });
-    }
-  }, [isHydrated, user, navigation]);
-
-  if (!user) {
-    return null;
-  }
+    if (!user) navigation.replace('SignUp');
+  }, [user, navigation]);
 
   return (
     <Tab.Navigator
@@ -77,7 +89,7 @@ export default function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          tabBarIcon: ({ focused }) => <ProfileTabIcon focused={focused} />,
         }}
       />
       <Tab.Screen
@@ -118,6 +130,10 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 18,
+  },
+  profileIcon: {
+    width: 22,
+    height: 22,
   },
   label: {
     fontSize: 11,

@@ -6,6 +6,7 @@ import {
 import { Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
+import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -14,6 +15,7 @@ interface Props { navigation: RootNavProp }
 export default function SignUpScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const register = useAuthStore(s => s.register);
+  const login = useAuthStore(s => s.login);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,10 +29,28 @@ export default function SignUpScreen({ navigation }: Props) {
   async function handleRegister() {
     if (!canSubmit) return;
     setLoading(true);
+    const normalizedEmail = email.trim().toLowerCase();
     try {
-      await register(email.trim().toLowerCase(), password, name.trim());
+      await register(normalizedEmail, password, name.trim());
       navigation.replace('OnboardGoal');
     } catch (e: any) {
+      // A previous attempt can time out client-side (e.g. a cold-started
+      // backend taking >15s to hash + write) while actually completing on
+      // the server — the account gets created but the client never sees the
+      // success response. Retrying registration then correctly reports
+      // "already registered" for something that never appeared to succeed.
+      // Rather than dead-end there, try logging in with what was just
+      // typed — if this is really the account that just got created, this
+      // succeeds transparently instead of confusing the user.
+      if (e instanceof ApiError && e.status === 409) {
+        try {
+          await login(normalizedEmail, password);
+          navigation.replace('OnboardGoal');
+          return;
+        } catch {
+          // Not the same account/password — fall through to the real error.
+        }
+      }
       Alert.alert('Registration failed', e?.message ?? 'Please try again.');
     } finally {
       setLoading(false);

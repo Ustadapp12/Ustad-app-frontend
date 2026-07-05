@@ -15,7 +15,12 @@ export class ApiError extends Error {
   }
 }
 
-const API_TIMEOUT_MS = 15_000;
+// 15s was too tight for cold-started serverless endpoints (Vercel) doing
+// real work (bcrypt hashing on register, DB writes) — the client would abort
+// and show "request timed out" while the server kept running and completed
+// the operation anyway, so a retry then hit "already registered"/"already
+// exists" for something that never appeared to succeed client-side.
+const API_TIMEOUT_MS = 30_000;
 
 function fetchWithTimeout(url: string, opts: RequestInit): Promise<Response> {
   const controller = new AbortController();

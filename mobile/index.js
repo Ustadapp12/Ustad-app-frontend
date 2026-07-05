@@ -15,6 +15,14 @@ try {
     release: sentryConfig.release,
     dist: sentryConfig.dist,
     tracesSampleRate: 1.0,
+    // Auto-performance instrumentation (app-start/native-frames/stall
+    // tracking) adds native-bridge overhead at startup for data nothing in
+    // this app reads (no startTransaction/startSpan calls anywhere) — off,
+    // but error/crash reporting above is unaffected.
+    enableAutoPerformanceTracing: false,
+    enableAppStartTracking: false,
+    enableNativeFramesTracking: false,
+    enableStallTracking: false,
     // debug: true triggers NativeEventEmitter.addListener which crashes on Android
     // with "addListener of NativeEventEmitter can't be used on Android" — keep false
     debug: false,
