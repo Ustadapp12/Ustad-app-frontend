@@ -44,6 +44,22 @@ async function refreshAccess(): Promise<string> {
   return pair.access_token;
 }
 
+// Dedup concurrent refreshes — the backend rotates refresh tokens (single-use),
+// so if N requests 401 at the same moment (e.g. the Map screen's parallel
+// per-surah fetches after the app sat backgrounded long enough for the access
+// token to expire), each independently calling refreshAccess() would race:
+// the first to land wins and rotates the token, every other concurrent call
+// gets rejected as using an already-revoked refresh token, and those requests
+// fail outright (surfacing as "every level unavailable"). Sharing one in-flight
+// promise means N concurrent 401s trigger exactly one real refresh call.
+let refreshInFlight: Promise<string> | null = null;
+function refreshAccessOnce(): Promise<string> {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshAccess().finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
+}
+
 export async function api<T>(
   path: string,
   options: RequestInit = {},
@@ -82,7 +98,7 @@ export async function api<T>(
 
   if (res.status === 401 && auth) {
     try {
-      const access = await refreshAccess();
+      const access = await refreshAccessOnce();
       headers.Authorization = `Bearer ${access}`;
       res = await fetchWithTimeout(`${API_BASE}${API_PREFIX}${path}`, {
         ...options,

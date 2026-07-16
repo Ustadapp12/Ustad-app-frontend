@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { Text, View, Image, StyleSheet } from 'react-native';
@@ -6,7 +6,7 @@ import MapScreen from '../screens/home/MapScreen';
 import DailyQuestScreen from '../screens/quests/DailyQuestScreen';
 import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
-import HelpScreen from '../screens/help/HelpScreen';
+import AuthRequiredModal from '../components/AuthRequiredModal';
 import { colors } from '../theme/colors';
 import { useAuthStore } from '../store/authStore';
 import type { RootNavProp, TabParamList } from './types';
@@ -45,12 +45,19 @@ export default function MainTabs() {
   // broke the normal logout flow's own explicit navigation call.
   const user = useAuthStore(s => s.user);
   const navigation = useNavigation<RootNavProp>();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
-    if (!user) navigation.replace('SignUp');
-  }, [user, navigation]);
+    if (!user) setShowAuthModal(true);
+  }, [user]);
+
+  function handleContinue() {
+    setShowAuthModal(false);
+    navigation.replace('SignUp');
+  }
 
   return (
+    <>
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
@@ -92,15 +99,9 @@ export default function MainTabs() {
           tabBarIcon: ({ focused }) => <ProfileTabIcon focused={focused} />,
         }}
       />
-      <Tab.Screen
-        name="Help"
-        component={HelpScreen}
-        options={{
-          tabBarLabel: 'Help',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="❓" focused={focused} />,
-        }}
-      />
     </Tab.Navigator>
+    <AuthRequiredModal visible={showAuthModal} onContinue={handleContinue} />
+    </>
   );
 }
 

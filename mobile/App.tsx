@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initAnalytics } from './src/services/analytics';
 import { abandonActiveLessonSessionSilent } from './src/services/lessonSession';
 import { useAuthStore } from './src/store/authStore';
+import { useLessonStore } from './src/store/lessonStore';
 import RootNavigator from './src/navigation/RootNavigator';
 
 const LEARNING_ME_POLL_MS = 60_000;
@@ -16,6 +17,11 @@ function App() {
 
   useEffect(() => {
     const id = setInterval(() => {
+      // Skip while backgrounded or mid-lesson — this poll has no reason to
+      // compete with an in-flight recitation upload or run at all while the
+      // user isn't looking at the app.
+      if (AppState.currentState !== 'active') return;
+      if (useLessonStore.getState().sessionId) return;
       const { user } = useAuthStore.getState();
       if (user) {
         void useAuthStore.getState().refreshLearning();

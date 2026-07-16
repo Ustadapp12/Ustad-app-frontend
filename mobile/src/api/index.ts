@@ -8,9 +8,12 @@ import type {
   ExerciseOut,
   FormulaAttemptIn,
   FormulaAttemptOut,
+  HifzAssessmentStartResponse,
+  HifzAssessmentSubmitResponse,
   JuzOut,
   LearningMe,
   LearningStats,
+  LeaderboardOut,
   LessonGroupDetail,
   LessonGroupExercises,
   LessonGroupSummary,
@@ -68,9 +71,20 @@ export const authApi = {
     ),
 
   forgotPassword: (email: string) =>
-    api<{ sent: boolean }>(
+    api<{ sent: boolean; retry_after_seconds?: number }>(
       '/auth/forgot-password',
       { method: 'POST', body: JSON.stringify({ email }) },
+      false,
+    ),
+
+  // Checks the code without consuming it — safe to call as the code-entry
+  // screen's own "Confirm" step before the user ever sees the new-password
+  // screen. The code is still re-validated (and this time consumed) by
+  // resetPassword below.
+  verifyResetCode: (email: string, code: string) =>
+    api<{ valid: boolean }>(
+      '/auth/verify-reset-code',
+      { method: 'POST', body: JSON.stringify({ email, code }) },
       false,
     ),
 
@@ -97,6 +111,18 @@ export const usersApi = {
     api<void>('/users/me/delete', {
       method: 'POST',
       body: JSON.stringify({ password }),
+    }),
+
+  updateGender: (gender: 'male' | 'female') =>
+    api<{ gender: string }>('/users/me/gender', {
+      method: 'PATCH',
+      body: JSON.stringify({ gender }),
+    }),
+
+  updateAge: (age: number) =>
+    api<{ age: number }>('/users/me/age', {
+      method: 'PATCH',
+      body: JSON.stringify({ age }),
     }),
 };
 
@@ -250,6 +276,26 @@ export const learningApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  hifzAssessmentStart: () =>
+    api<HifzAssessmentStartResponse>('/onboarding/hifz-assessment', {
+      method: 'GET',
+    }),
+
+  hifzAssessmentSubmit: (body: {
+    answers: Array<{ question_id: string; user_answer: string | string[]; time_seconds: number }>;
+    total_time_seconds: number;
+  }) =>
+    api<HifzAssessmentSubmitResponse>('/onboarding/hifz-assessment/submit', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+};
+
+// ── Leaderboard ──────────────────────────────────────────────────
+
+export const leaderboardApi = {
+  top: () => api<LeaderboardOut>('/leaderboard'),
 };
 
 // ── Revision ─────────────────────────────────────────────────────

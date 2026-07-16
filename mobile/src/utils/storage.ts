@@ -10,6 +10,8 @@ const KEYS = {
   onboardingDone: '@ustadapp/onboarding/done',
   reciterId: '@ustadapp/reciter',
   script: '@ustadapp/script',
+  seasonsUnlocked: '@ustadapp/map/seasonsUnlocked',
+  lastEmailHint: '@ustadapp/auth/lastEmailHint',
 } as const;
 
 // In-memory cache + in-flight dedup: getTokens() is called once per parallel
@@ -77,8 +79,52 @@ export async function setOnboardingDone(done: boolean): Promise<void> {
   await AsyncStorage.setItem(KEYS.onboardingDone, done ? 'true' : 'false');
 }
 
+// Season 0 is never stored — it's always implicitly unlocked. Only explicit
+// user-confirmed unlocks (Season 2, Season 3) live here.
+export async function getUnlockedSeasons(): Promise<number[]> {
+  const raw = await AsyncStorage.getItem(KEYS.seasonsUnlocked);
+  return raw ? (JSON.parse(raw) as number[]) : [];
+}
+
+export async function unlockSeason(seasonIdx: number): Promise<number[]> {
+  const current = await getUnlockedSeasons();
+  if (current.includes(seasonIdx)) return current;
+  const next = [...current, seasonIdx];
+  await AsyncStorage.setItem(KEYS.seasonsUnlocked, JSON.stringify(next));
+  return next;
+}
+
 export async function getReciterId(): Promise<string> {
   return (await AsyncStorage.getItem(KEYS.reciterId)) ?? 'husary';
+}
+
+/**
+ * Get the next onboarding screen to show when resuming incomplete onboarding.
+ *
+ * Onboarding is split into two atomic checkpoints — leaving mid-checkpoint
+ * always resumes at that checkpoint's first screen, never mid-way:
+ *   A. "About you"   — Age, Gender, Goal, Script
+ *   B. "Placement"   — Path ("do you already know some?") + the hifz
+ *                       assessment exercises
+ * Reaching `currentStep: 'path'` means checkpoint A is fully done (the
+ * screens only ever advance in one direction), so from that point on —
+ * whether the user only just answered Path, or is mid-exercise — resume
+ * goes back to OnboardPath. Exercise progress is in-memory only and is
+ * never meant to survive a restart.
+ * A user who picks "beginner" is marked done immediately (OnboardPathScreen)
+ * and never reaches this function again.
+ */
+export async function getNextOnboardingScreen(): Promise<'OnboardAge' | 'OnboardPath' | null> {
+  const onboarding = await getOnboarding();
+  const isDone = await isOnboardingDone();
+
+  if (isDone) return null; // Onboarding complete
+
+  if (onboarding.currentStep === 'path' || onboarding.currentStep === 'assessment') {
+    return 'OnboardPath'; // Checkpoint B — always restart at the placement question
+  }
+
+  return 'OnboardAge'; // Checkpoint A incomplete (or never started) — restart from the top
 }
 
 export async function setReciterId(id: string): Promise<void> {
@@ -107,5 +153,16 @@ export async function setScriptPreference(script: ScriptPreference): Promise<voi
   useScriptStore.getState().setScript(script);
   await AsyncStorage.setItem(KEYS.script, script);
   await saveOnboarding({ script });
+}
+
+// Last email the user typed on the Login screen — used only to build the
+// masked "ah***@gmail.com" hint on the Forgot Password screen so the user
+// knows which address they're expected to type, never shown in full.
+export async function getLastEmailHint(): Promise<string | null> {
+  return AsyncStorage.getItem(KEYS.lastEmailHint);
+}
+
+export async function setLastEmailHint(email: string): Promise<void> {
+  await AsyncStorage.setItem(KEYS.lastEmailHint, email);
 }
 

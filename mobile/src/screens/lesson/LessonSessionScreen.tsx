@@ -1,14 +1,14 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Animated, ActivityIndicator, Platform, Modal, Alert, Image, Pressable,
-  type ImageSourcePropType,
+  Animated, Easing, ActivityIndicator, Platform, Modal, Alert, Image, Pressable,
+  useWindowDimensions, type ImageSourcePropType,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   playAudioUrl, pauseAudio, resumeAudio, stopAudio,
-  preloadAudioUrls, evictPreloadedUrls,
+  preloadAudioUrls, evictPreloadedUrls, onPlayingChange,
 } from '../../services/audioPlayer';
 import {
   requestMicPermission, startRecording as startRecordingSvc, stopRecording as stopRecordingSvc,
@@ -18,6 +18,9 @@ import { useAuthStore } from '../../store/authStore';
 import { learningApi, progressApi } from '../../api';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
 import { colors } from '../../theme/colors';
+import PredictedProgressBar from '../../components/PredictedProgressBar';
+import PlayPauseIcon from '../../components/PlayPauseIcon';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import type { ExerciseDict, ExpectedWordResult, FormulaAttemptOut, SegmentStatus } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -56,6 +59,7 @@ async function playUrlSequenceFast(urls: string[], onDone?: () => void) {
   await playUrlSequence(urls, onDone);
 }
 
+
 async function pauseCurrentAudio() {
   pauseAudio();
 }
@@ -63,13 +67,6 @@ async function pauseCurrentAudio() {
 async function resumeCurrentAudio() {
   resumeAudio();
 }
-
-// ── System audio playing state ─────────────────────────────────────
-// No-op now — this used to notify the WaveBar (wave animation shown while
-// audio played), which was removed. Left as a stub since call sites are
-// threaded through the recording/playback flow below and don't need to
-// change just because there's no more listener.
-function notifySystemPlaying(_playing: boolean) {}
 
 // ── Audio recording helpers (speak exercises) ──────────────────────
 // Backed by services/audioRecorder.ts (react-native-audio-recorder-player).
@@ -95,8 +92,8 @@ async function stopRecording(): Promise<string | null> {
 }
 
 function PlayPauseBtn({
-  url, urls, label = 'Listen', darkMode = false,
-}: { url?: string | null; urls?: string[] | null; label?: string; darkMode?: boolean }) {
+  url, urls, label = 'Listen', darkMode = false, disabled = false,
+}: { url?: string | null; urls?: string[] | null; label?: string; darkMode?: boolean; disabled?: boolean }) {
   const [state, setState] = useState<'idle' | 'playing' | 'paused'>('idle');
   const mountedRef = useRef(true);
 
@@ -106,32 +103,33 @@ function PlayPauseBtn({
   useEffect(() => { setState('idle'); }, [url]);
 
   const handlePress = async () => {
+    if (disabled) return;
     if (state === 'idle') {
+      setState('playing'); // set before awaiting — playUrl only resolves once playback finishes
       if (url) {
         await playUrl(url, () => { if (mountedRef.current) setState('idle'); });
       } else if (urls?.length) {
         void playUrlSequence(urls, () => { if (mountedRef.current) setState('idle'); });
       }
-      if (mountedRef.current) setState('playing');
     } else if (state === 'playing') {
+      setState('paused');
       await pauseCurrentAudio();
-      if (mountedRef.current) setState('paused');
     } else {
+      setState('playing');
       await resumeCurrentAudio();
-      if (mountedRef.current) setState('playing');
     }
   };
 
-  const icon = state === 'playing' ? '⏸' : '▶';
   const btnLabel = state === 'playing' ? 'Pause' : state === 'paused' ? 'Resume' : label;
 
   if (!hasAudio) return null;
   return (
     <TouchableOpacity
-      style={[PP.btn, darkMode && PP.btnDark]}
+      style={[PP.btn, darkMode && PP.btnDark, disabled && PP.btnDisabled]}
       onPress={handlePress}
+      disabled={disabled}
     >
-      <Text style={[PP.icon, darkMode && PP.iconDark]}>{icon}</Text>
+      <PlayPauseIcon playing={state === 'playing'} size={14} color={darkMode ? '#E0BC4E' : colors.primary} />
       <Text style={[PP.text, darkMode && PP.textDark]}>{`  ${btnLabel}`}</Text>
     </TouchableOpacity>
   );
@@ -140,8 +138,7 @@ function PlayPauseBtn({
 const PP = StyleSheet.create({
   btn:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(42,125,79,0.12)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'center', marginBottom: 14 },
   btnDark: { backgroundColor: 'rgba(224,188,78,0.15)' },
-  icon:    { fontSize: 14, color: colors.primary },
-  iconDark:{ color: '#E0BC4E' },
+  btnDisabled: { opacity: 0.4 },
   text:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
   textDark:{ color: '#E0BC4E' },
 });
@@ -241,11 +238,11 @@ function HintButton({
   const handlePlayPause = async () => {
     if (!url) return;
     if (playing) {
+      setPlaying(false);
       await pauseCurrentAudio();
-      if (mountedRef.current) setPlaying(false);
     } else {
+      setPlaying(true); // set before awaiting — playUrl only resolves once playback finishes
       await playUrl(url, () => { if (mountedRef.current) setPlaying(false); });
-      if (mountedRef.current) setPlaying(true);
     }
   };
 
@@ -284,15 +281,10 @@ function HintButton({
               style={[HB.playBtn, playing && HB.playBtnActive]}
               onPress={handlePlayPause}
             >
-              {playing ? (
-                <View style={HB.pauseRow}>
-                  <View style={HB.pauseBar} />
-                  <View style={HB.pauseBar} />
-                  <Text style={HB.playText}>  Pause</Text>
-                </View>
-              ) : (
-                <Text style={HB.playText}>▶  Hear the Ayah</Text>
-              )}
+              <View style={HB.pauseRow}>
+                <PlayPauseIcon playing={playing} size={16} color="white" />
+                <Text style={HB.playText}>  {playing ? 'Pause' : 'Hear the Ayah'}</Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity style={HB.cancelBtn} onPress={() => setVisible(false)}>
@@ -321,14 +313,13 @@ const HB = StyleSheet.create({
   playBtnActive:{ backgroundColor: '#1A5C3A' },
   playText:     { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
   pauseRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  pauseBar:     { width: 4, height: 16, backgroundColor: 'white', borderRadius: 2 },
   cancelBtn:    { width: '100%', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
   cancelText:   { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
 });
 
 // ── Character rotation ────────────────────────────────────────────
-interface Character { src: ImageSourcePropType; name: string }
-const CHARACTERS: Character[] = [
+export interface Character { src: ImageSourcePropType; name: string }
+export const CHARACTERS: Character[] = [
   { src: require('../../../assets/characters/ayesha.png'),   name: 'Ayesha' },
   { src: require('../../../assets/characters/farah.png'),    name: 'Farah' },
   { src: require('../../../assets/characters/fatima.png'),   name: 'Fatima' },
@@ -337,7 +328,7 @@ const CHARACTERS: Character[] = [
   { src: require('../../../assets/characters/umar.png'),     name: 'Umar' },
   { src: require('../../../assets/characters/waleed.png'),   name: 'Waleed' },
 ];
-function shuffleIndices(len: number): number[] {
+export function shuffleIndices(len: number): number[] {
   const arr = Array.from({ length: len }, (_, i) => i);
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -345,74 +336,44 @@ function shuffleIndices(len: number): number[] {
   }
   return arr;
 }
-function characterForIndex(shuffled: number[], idx: number): Character {
+export function characterForIndex(shuffled: number[], idx: number): Character {
   return CHARACTERS[shuffled[idx % shuffled.length]];
 }
 
-// ── Luma loading state ─────────────────────────────────────────────
+// ── Hearts ─────────────────────────────────────────────────────────
+// 5 heart icons, each worth 2 half-heart units (full -> half -> empty), so
+// the session actually ends at 10 total mistakes, not 5 — these two numbers
+// must move together or the "out of hearts" trigger silently drifts out of
+// sync with what the heart icons are visually showing.
+const MAX_HEARTS = 5;
+const MAX_MISTAKES = MAX_HEARTS * 2;
 
-function LumaLoading({ message, insetTop, onBack }: { message: string; insetTop: number; onBack?: () => void }) {
-  const flipAnim = useRef(new Animated.Value(0)).current;
-  const bounceAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    // Hourglass flips over (180°) and back, pausing at each end — reads as
-    // "still working," not a spinner that implies near-instant completion.
-    Animated.loop(Animated.sequence([
-      Animated.timing(flipAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.delay(500),
-      Animated.timing(flipAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
-      Animated.delay(500),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(bounceAnim, { toValue: 1, duration: 650, useNativeDriver: true }),
-      Animated.timing(bounceAnim, { toValue: 0, duration: 650, useNativeDriver: true }),
-    ])).start();
-  }, []);
-
-  const rotate = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
-  const lumaY = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
-
-  return (
-    <View style={[LL.container, { paddingTop: insetTop }]}>
-      {onBack && (
-        <TouchableOpacity style={[LL.backBtn, { top: insetTop + 10 }]} onPress={onBack}>
-          <Text style={LL.backText}>←  Map</Text>
-        </TouchableOpacity>
-      )}
-      <Animated.Image
-        source={require('../../../assets/images/lumo_transparent.png')}
-        style={[LL.luma, { transform: [{ translateY: lumaY }] }]}
-        resizeMode="contain"
-      />
-      <Animated.Text style={[LL.hourglass, { transform: [{ rotate }] }]}>⏳</Animated.Text>
-      <View style={LL.bubble}><Text style={LL.bubbleText}>{message}</Text></View>
-    </View>
-  );
-}
-
+// Back button used as a safety net on the blank loading state below.
 const LL = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg, alignItems: 'center', justifyContent: 'center' },
-  luma: { width: 140, height: 140 },
-  hourglass: { fontSize: 40, marginTop: 4 },
-  bubble: { backgroundColor: 'white', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginTop: 16, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3, maxWidth: '88%' },
-  bubbleText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, textAlign: 'center' },
   backBtn: { position: 'absolute', left: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
   backText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
 });
 
+// ── Between-exercise loading — a spinning green dial + "Loading" label,
+// shown briefly while an answer submits and the next exercise is fetched. ──
+function SubmittingSpinner() {
+  return <LoadingSpinner size={40} label="Loading…" />;
+}
+
 // ── Segment play button with waveform signal ─────────────────────
-// url: the full segment / ayah audio (NOT word-by-word)
+// url: the full segment / ayah audio; urls: word-by-word clips played in
+// sequence when no single url is given (mirrors PlayPauseBtn's pattern).
 
 const BAR_HEIGHTS = [7, 13, 20, 13, 7]; // waveform bar heights in px
 
-function SegmentPlayBtn({ url }: { url?: string | null }) {
+function SegmentPlayBtn({ url, urls }: { url?: string | null; urls?: string[] | null }) {
   const [playing, setPlaying] = useState(false);
   const mountedRef = useRef(true);
   const pulseAnims = useRef(BAR_HEIGHTS.map(() => new Animated.Value(1))).current;
+  const hasAudio = !!(url || urls?.length);
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-  useEffect(() => { setPlaying(false); }, [url]);
+  useEffect(() => { setPlaying(false); }, [url, urls]);
 
   useEffect(() => {
     if (playing) {
@@ -430,20 +391,24 @@ function SegmentPlayBtn({ url }: { url?: string | null }) {
   }, [playing]);
 
   const handle = async () => {
-    if (!url) return;
+    if (!hasAudio) return;
     if (playing) {
+      setPlaying(false);
       await pauseCurrentAudio();
-      if (mountedRef.current) setPlaying(false);
     } else {
-      await playUrl(url, () => { if (mountedRef.current) setPlaying(false); });
-      if (mountedRef.current) setPlaying(true);
+      setPlaying(true); // set before awaiting — resolves only once playback finishes
+      if (url) {
+        await playUrl(url, () => { if (mountedRef.current) setPlaying(false); });
+      } else if (urls?.length) {
+        await playUrlSequenceFast(urls, () => { if (mountedRef.current) setPlaying(false); });
+      }
     }
   };
 
   return (
-    <TouchableOpacity style={SPB.row} onPress={handle} disabled={!url}>
-      <View style={[SPB.btn, !url && { opacity: 0.4 }]}>
-        <Text style={SPB.icon}>{playing ? '⏸' : '▶'}</Text>
+    <TouchableOpacity style={SPB.row} onPress={handle} disabled={!hasAudio}>
+      <View style={[SPB.btn, !hasAudio && { opacity: 0.4 }]}>
+        <PlayPauseIcon playing={playing} size={11} color="white" />
       </View>
       {/* Waveform signal bars — always visible, animate when playing */}
       <View style={SPB.waveform}>
@@ -461,7 +426,6 @@ function SegmentPlayBtn({ url }: { url?: string | null }) {
 const SPB = StyleSheet.create({
   row:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   btn:      { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  icon:     { fontSize: 11, color: 'white' },
   waveform: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   bar:      { width: 4, backgroundColor: colors.primary, borderRadius: 2 },
 });
@@ -474,10 +438,12 @@ function BismillahIntro({
   const floatAnim = useRef(new Animated.Value(0)).current;
   const arabicFont = useArabicFont();
   useEffect(() => {
-    Animated.loop(Animated.sequence([
+    const loop = Animated.loop(Animated.sequence([
       Animated.timing(floatAnim, { toValue: 1, duration: 1600, useNativeDriver: true }),
       Animated.timing(floatAnim, { toValue: 0, duration: 1600, useNativeDriver: true }),
-    ])).start();
+    ]));
+    loop.start();
+    return () => loop.stop();
   }, []);
   const ty = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
   return (
@@ -522,7 +488,7 @@ const BI = StyleSheet.create({
 
 // ── Exercise progress bar ─────────────────────────────────────────
 
-function ProgressBar({ fraction }: { fraction: number }) {
+export function ProgressBar({ fraction }: { fraction: number }) {
   const animW = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(animW, { toValue: Math.max(0, Math.min(fraction, 1)), duration: 600, useNativeDriver: false }).start();
@@ -560,11 +526,11 @@ function AyahDisplay({
 
   const handlePlayPause = async () => {
     if (playing) {
+      setPlaying(false);
       await pauseCurrentAudio();
-      if (mountedRef.current) setPlaying(false);
     } else {
+      setPlaying(true); // set before awaiting — playUrl only resolves once playback finishes
       await playUrl(ex.ayah_audio_url, () => { if (mountedRef.current) setPlaying(false); });
-      if (mountedRef.current) setPlaying(true);
     }
   };
 
@@ -599,10 +565,7 @@ function AyahDisplay({
 
       {/* Big play button */}
       <TouchableOpacity style={[AD.playBtn, playing && AD.playBtnActive]} onPress={handlePlayPause}>
-        {playing
-          ? <View style={AD.pauseIcon}><View style={AD.pauseBar} /><View style={AD.pauseBar} /></View>
-          : <Text style={AD.playIconText}>▶</Text>
-        }
+        <PlayPauseIcon playing={playing} size={26} color="white" />
       </TouchableOpacity>
 
       {/* Tip */}
@@ -632,9 +595,6 @@ const AD = StyleSheet.create({
   translation: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', fontStyle: 'italic' },
   playBtn: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 24, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
   playBtnActive: { backgroundColor: '#1A5C3A' },
-  playIconText: { fontSize: 24, color: 'white' },
-  pauseIcon: { flexDirection: 'row', gap: 5, alignItems: 'center' },
-  pauseBar:  { width: 5, height: 22, backgroundColor: 'white', borderRadius: 2 },
   lumoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10, width: '100%' },
   lumoImg: { width: 70, height: 70 },
   lumoBubble: { flex: 1, backgroundColor: '#E8F5EE', borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, position: 'relative' },
@@ -647,14 +607,18 @@ const AD = StyleSheet.create({
   continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
 });
 
-// EX.blankBox has a fixed size tuned for the default Naskh font. Scripts like
-// nastaliq render noticeably taller/wider glyphs (see scriptFontScale), so the
-// blank must grow with them — otherwise the filled-in word clips against the box.
-function scaledBlankBox(scale: number): { height: number; minWidth: number } {
-  return { height: Math.round(40 * scale), minWidth: Math.round(70 * scale) };
+// EX.blankBox has a fixed size tuned for the default Naskh font. Nastaliq
+// needs a narrower box (scale shrinks glyph width) but a taller one
+// (lineHeightScale — its letterforms stack vertically) — see arabicFont.ts
+// for why these can't be the same single factor.
+function scaledBlankBox(font: { scale: number; lineHeightScale: number }): { height: number; minWidth: number } {
+  return {
+    height: Math.round(40 * font.scale * font.lineHeightScale),
+    minWidth: Math.round(70 * font.scale),
+  };
 }
 
-function FillBlankOrNextWord({
+export function FillBlankOrNextWord({
   ex, surahName, character, locked, onSubmit,
 }: {
   ex: ExerciseDict;
@@ -712,7 +676,7 @@ function FillBlankOrNextWord({
           <View style={EX.tokensRow}>
             {ex.tokens.map((t, i) =>
               t.blank
-                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont.scale), selected && EX.blankFilled]}>
+                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont), selected && EX.blankFilled]}>
                     {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>{selected}</Text> : null}
                   </View>
                 : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
@@ -751,7 +715,7 @@ function FillBlankOrNextWord({
   );
 }
 
-function ReorderOrSequence({
+export function ReorderOrSequence({
   ex, surahName, character, locked, onSubmit,
 }: { ex: ExerciseDict; surahName: string; character: Character; locked?: boolean; onSubmit: (ans: string[]) => void }) {
   const tiles = (ex.tiles ?? []).filter(t => t.ar != null) as Array<{ ar: string; audio_url?: string | null }>;
@@ -856,7 +820,7 @@ function ReorderOrSequence({
   );
 }
 
-function SegmentRecall({
+export function SegmentRecall({
   ex, surahName, character, locked, onSubmit,
 }: {
   ex: ExerciseDict;
@@ -918,7 +882,7 @@ function SegmentRecall({
 // Drag full ayah tiles into numbered dotted slots in the correct order.
 // Tiles are plain strings (not ExerciseTile objects). No audio on tiles.
 
-function SequenceExercise({
+export function SequenceExercise({
   ex, surahName, character, locked, onSubmit,
 }: { ex: ExerciseDict; surahName: string; character: Character; locked?: boolean; onSubmit: (ans: string[]) => void }) {
   const rawTiles = (ex.tiles ?? []) as unknown as string[];
@@ -1009,7 +973,7 @@ function SequenceExercise({
 // ── Audio Fill exercise ───────────────────────────────────────────
 // Same layout as fill_blank but options show play buttons only — no Arabic text visible.
 
-function AudioFill({
+export function AudioFill({
   ex, surahName, character, locked, onSubmit,
 }: {
   ex: ExerciseDict;
@@ -1085,7 +1049,7 @@ function AudioFill({
           <View style={EX.tokensRow}>
             {ex.tokens.map((t, i) =>
               t.blank
-                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont.scale), selected ? EX.blankFilled : null]}>
+                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont), selected ? EX.blankFilled : null]}>
                     {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>?</Text> : null}
                   </View>
                 : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
@@ -1131,9 +1095,9 @@ const AF = StyleSheet.create({
   hearBtnIcon:       { fontSize: 18 },
   hearBtnLabel:      { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
   optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 24 },
-  optionBtn:         { width: '45%', backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 18, alignItems: 'center', gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  optionBtn:         { width: '45%', backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 14, alignItems: 'center', gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   optionSelected:    { borderColor: colors.primary, backgroundColor: colors.primaryBg },
-  playCircle:        { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primaryBg, borderWidth: 2, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  playCircle:        { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primaryBg, borderWidth: 2, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   playCircleSelected:{ backgroundColor: colors.primary },
   playCirclePlaying: { backgroundColor: colors.primaryDark },
   playIcon:          { fontSize: 18, color: colors.primary },
@@ -1145,7 +1109,7 @@ const AF = StyleSheet.create({
 // ── Ayat Then Order exercise ──────────────────────────────────────
 // Shows first ayah as a read-only header. User then reorders tiles of the next ayah.
 
-function AyatThenOrder({
+export function AyatThenOrder({
   ex, surahName, character, locked, onSubmit,
 }: { ex: ExerciseDict; surahName: string; character: Character; locked?: boolean; onSubmit: (ans: string[]) => void }) {
   const tiles = (ex.tiles ?? []).filter(t => (t as any).ar != null) as Array<{ ar: string; audio_url?: string | null }>;
@@ -1258,6 +1222,8 @@ interface SpeakResult {
   score_pct: number;
   transcript: string;
   correctAyah?: string | null;
+  ayahAudioUrl?: string | null;
+  segmentAudioUrls?: string[] | null;
   expectedWords?: ExpectedWordResult[];
 }
 
@@ -1272,7 +1238,7 @@ function DiffAyahText({ words, fallbackText, style, wrongStyle }: {
 }) {
   if (!words?.length) return <AyahText text={fallbackText} style={style} />;
   return (
-    <Text style={style}>
+    <Text style={style} allowFontScaling={false}>
       {words.map((w, i) => (
         <React.Fragment key={w.index ?? i}>
           <Text style={!w.correct ? wrongStyle : undefined}>{w.word}</Text>
@@ -1286,7 +1252,7 @@ function DiffAyahText({ words, fallbackText, style, wrongStyle }: {
 // Full bottom-sheet result — rendered at screen level (like FeedbackBanner)
 // so it always has enough room to show the score, XP pill, and Continue button.
 function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvance: () => void }) {
-  const { passed, score_pct, correctAyah, transcript, expectedWords } = result;
+  const { passed, score_pct, correctAyah, ayahAudioUrl, segmentAudioUrls, transcript, expectedWords } = result;
   const arabicFont = useArabicFont();
   // Show the correction whenever any word was marked wrong — not only on
   // fail. A 75% pass still has mistakes worth pointing out.
@@ -1296,59 +1262,76 @@ function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvan
       {/* Top row: badge + title/subtitle */}
       <View style={SRB.topRow}>
         <View style={[SRB.badge, !passed && SRB.badgeFail]}>
-          <Text style={SRB.badgeText}>{passed ? '★' : '~'}</Text>
+          <Text style={SRB.badgeText} allowFontScaling={false}>{passed ? '★' : '~'}</Text>
         </View>
         <View style={SRB.topText}>
-          <Text style={[SRB.title, !passed && SRB.titleFail]}>
+          <Text style={[SRB.title, !passed && SRB.titleFail]} allowFontScaling={false}>
             {passed ? 'Great job!' : 'Keep practicing!'}
           </Text>
-          <Text style={[SRB.sub, !passed && SRB.subFail]}>
+          <Text style={[SRB.sub, !passed && SRB.subFail]} allowFontScaling={false}>
             {passed ? `YOU SCORED ${score_pct}%` : `SCORE: ${score_pct}% — AIM FOR 60%+`}
           </Text>
         </View>
       </View>
 
-      {/* XP pill — only shown when the user passed (earned it) */}
-      {passed && (
-        <View style={SRB.xpPill}>
-          <Image source={require('../../../assets/images/lumo_xp.png')} style={SRB.xpLumo} resizeMode="contain" />
-          <Text style={SRB.xpText}>+2 XP</Text>
-        </View>
-      )}
+      {/* Scrollable so a long ayah / many mistake words / a long transcript
+          grows inside the capped sheet instead of pushing it over the
+          screen — the score header above and Continue button below stay
+          fixed and always visible. */}
+      <ScrollView style={SRB.scroll} showsVerticalScrollIndicator={false}>
+        {/* XP pill — only shown when the user passed (earned it) */}
+        {passed && (
+          <View style={SRB.xpPill}>
+            <Image source={require('../../../assets/images/lumo_xp.png')} style={SRB.xpLumo} resizeMode="contain" />
+            <Text style={SRB.xpText} allowFontScaling={false}>+2 XP</Text>
+          </View>
+        )}
 
-      {/* Correct ayah — shown whenever there's a mistake to point out, with the wrong word(s) highlighted */}
-      {!!correctAyah && (hasMistakes || !passed) && (
-        <View style={SRB.transcriptBox}>
-          <Text style={SRB.transcriptLabel}>CORRECT AYAH</Text>
-          <DiffAyahText
-            words={expectedWords}
-            fallbackText={correctAyah}
-            style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any}
-            wrongStyle={SRB.wrongWord}
-          />
-        </View>
-      )}
+        {/* Correct ayah — shown whenever there's a mistake to point out, with the wrong word(s) highlighted */}
+        {!!correctAyah && (hasMistakes || !passed) && (
+          <View style={SRB.transcriptBox}>
+            <Text style={SRB.transcriptLabel} allowFontScaling={false}>CORRECT AYAH</Text>
+            <SegmentPlayBtn
+              urls={segmentAudioUrls?.length ? segmentAudioUrls : undefined}
+              url={segmentAudioUrls?.length ? undefined : ayahAudioUrl}
+            />
+            <DiffAyahText
+              words={expectedWords}
+              fallbackText={correctAyah}
+              style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any}
+              wrongStyle={SRB.wrongWord}
+            />
+          </View>
+        )}
 
-      {/* What we heard you say — makes the transcription visible to the user */}
-      {!!transcript && (hasMistakes || !passed) && (
-        <View style={SRB.transcriptBox}>
-          <Text style={SRB.transcriptLabel}>YOU SAID</Text>
-          <Text style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any}>{transcript}</Text>
-        </View>
-      )}
+        {/* What we heard you say — makes the transcription visible to the user */}
+        {!!transcript && (hasMistakes || !passed) && (
+          <View style={SRB.transcriptBox}>
+            <Text style={SRB.transcriptLabel} allowFontScaling={false}>YOU SAID</Text>
+            <Text style={arabicTextStyle(SRB.ayahText as any, arabicFont) as any} allowFontScaling={false}>{transcript}</Text>
+          </View>
+        )}
+      </ScrollView>
 
       <TouchableOpacity style={[SRB.btn, !passed && SRB.btnFail]} onPress={onAdvance}>
-        <Text style={SRB.btnText}>Continue  →</Text>
+        <Text style={SRB.btnText} allowFontScaling={false}>Continue  →</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const SRB = StyleSheet.create({
-  // Matches FeedbackBanner: absolute bottom sheet with rounded top corners
-  sheet:           { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#D1FAE5', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 36, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 }, elevation: 4 },
+  // Matches FeedbackBanner: absolute bottom sheet with rounded top corners.
+  // Capped at 65% of the screen — with more mistakes/a longer ayah than
+  // fits, the inner ScrollView scrolls instead of the sheet covering the
+  // whole screen (this content is otherwise unbounded auto-height).
+  sheet:           { position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '65%', overflow: 'hidden', backgroundColor: '#D1FAE5', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 36, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 }, elevation: 4 },
   sheetFail:       { backgroundColor: '#FFF3E0' },
   topRow:          { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  // flexShrink lets this pane give up space to the fixed header/button
+  // above and below when content would exceed the sheet's maxHeight,
+  // instead of the sheet growing past its cap.
+  scroll:          { flexShrink: 1 },
   badge:           { width: 44, height: 44, borderRadius: 22, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
   badgeFail:       { backgroundColor: '#F97316' },
   badgeText:       { fontSize: 20, color: 'white', fontWeight: '700' },
@@ -1458,7 +1441,7 @@ function ReadAyahAndSpeak({
 
           if (mountedRef.current) {
             setSpeakState('done');
-            onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.ayah_ar ?? ex.expected_arabic ?? null, expectedWords: scored.expected_words });
+            onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.ayah_ar ?? ex.expected_arabic ?? null, ayahAudioUrl: ex.ayah_audio_url ?? null, segmentAudioUrls: ex.segment_audio_urls ?? null, expectedWords: scored.expected_words });
           }
         } catch (e) {
           console.warn('[ReadAyahAndSpeak] speak-attempt failed:', e);
@@ -1498,11 +1481,14 @@ function ReadAyahAndSpeak({
           />
         </View>
 
-        {/* Hear it first — prefer full ayah URL, fall back to segment URLs */}
+        {/* Hear it first — prefer full ayah URL, fall back to segment URLs.
+            Disabled while recording: playback would get picked up by the
+            mic and corrupt the recitation being scored. */}
         <PlayPauseBtn
           url={ex.ayah_audio_url}
           urls={ex.segment_audio_urls}
           label="Hear the Ayah"
+          disabled={speakState === 'recording'}
         />
 
       </ScrollView>
@@ -1520,7 +1506,7 @@ function ReadAyahAndSpeak({
           </Text>
 
           {speakState === 'scoring' ? (
-            <ActivityIndicator color={colors.primary} size="large" style={RAS.spinner} />
+            <RecitationScoringFeedback />
           ) : (
             <Pressable
               onPress={handleMicTap}
@@ -1662,7 +1648,8 @@ function ReadAndSpeak({
 
           if (mountedRef.current) {
             setSpeakState('done');
-            onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.expected_arabic ?? null, expectedWords: scored.expected_words });
+            const wordAudioUrls = ex.tokens?.map(t => t.audio_url).filter((u): u is string => !!u?.trim()) ?? null;
+            onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.expected_arabic ?? null, ayahAudioUrl: ex.ayah_audio_url ?? null, segmentAudioUrls: wordAudioUrls, expectedWords: scored.expected_words });
           }
         } catch (e) {
           console.warn('[ReadAndSpeak] speak-attempt failed:', e);
@@ -1697,13 +1684,16 @@ function ReadAndSpeak({
           </View>
         </View>
 
-        {/* Word chips — displayed RTL (right-to-left, Arabic reading order) */}
+        {/* Word chips — displayed RTL (right-to-left, Arabic reading order).
+            Disabled while recording: playback would get picked up by the
+            mic and corrupt the recitation being scored. */}
         <View style={RANS.wordRow}>
           {tokens.map((token, i) => (
             <TouchableOpacity
               key={i}
-              style={RANS.wordChip}
+              style={[RANS.wordChip, speakState === 'recording' && RANS.wordChipDisabled]}
               onPress={() => { void playUrl(token.audio_url); }}
+              disabled={speakState === 'recording'}
             >
               <Text style={arabicTextStyle(RANS.wordText as any, arabicFont) as any}>
                 {token.ar}
@@ -1712,11 +1702,13 @@ function ReadAndSpeak({
           ))}
         </View>
 
-        {/* "Hear" — pre-loads all word audio then plays in rapid succession */}
+        {/* "Hear" — pre-loads all word audio then plays in rapid succession.
+            Disabled while recording for the same reason as the word chips. */}
         {allAudioUrls.length > 0 && (
           <TouchableOpacity
-            style={RANS.hearAllBtn}
+            style={[RANS.hearAllBtn, speakState === 'recording' && RANS.hearAllBtnDisabled]}
             onPress={() => { void playUrlSequenceFast(allAudioUrls); }}
+            disabled={speakState === 'recording'}
           >
             <Text style={RANS.hearAllIcon}>🔊</Text>
             <Text style={RANS.hearAllText}>Hear</Text>
@@ -1728,16 +1720,16 @@ function ReadAndSpeak({
       {/* Mic area pinned below scroll — always visible on all screen sizes */}
       {speakState !== 'done' && (
         <View style={RANS.micArea}>
-          <Text style={RANS.micInstruction}>
-            {speakState === 'recording'
-              ? 'Recording… tap to stop'
-              : speakState === 'scoring'
-              ? 'Scoring your recitation…'
-              : 'Tap the mic to start, tap again to stop and check'}
-          </Text>
+          {speakState !== 'scoring' && (
+            <Text style={RANS.micInstruction}>
+              {speakState === 'recording'
+                ? 'Recording… tap to stop'
+                : 'Tap the mic to start, tap again to stop and check'}
+            </Text>
+          )}
 
           {speakState === 'scoring' ? (
-            <ActivityIndicator color={colors.primary} size="large" style={RANS.spinner} />
+            <RecitationScoringFeedback />
           ) : (
             <Pressable
               onPress={handleMicTap}
@@ -1781,9 +1773,11 @@ const RANS = StyleSheet.create({
   // Words wrap into multiple lines for longer ayahs
   wordRow:        { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 16, width: '100%' },
   wordChip:       { backgroundColor: '#FFFBF0', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1.5, borderColor: '#E8D8A0' },
+  wordChipDisabled: { opacity: 0.4 },
   wordText:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText },
   // "Hear them all" button — plays the full phrase sequence
   hearAllBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 18, marginBottom: 8, borderWidth: 1, borderColor: colors.primary },
+  hearAllBtnDisabled: { opacity: 0.4 },
   hearAllIcon:    { fontSize: 14 },
   hearAllText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
   micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
@@ -1801,11 +1795,49 @@ const RANS = StyleSheet.create({
   retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
 });
 
+// ── Recitation Scoring Feedback ───────────────────────────────────
+// During recitation scoring, show Lumo mascot + rotating hourglass + text
+function RecitationScoringFeedback() {
+  const lottieRef = useRef<LottieView>(null);
+  useEffect(() => {
+    // autoPlay can silently fail to kick in for a LottieView mounted inside
+    // a conditional branch during a batched re-render (this one appears
+    // exactly when speakState flips to 'scoring') — explicitly start
+    // playback too rather than relying on autoPlay alone.
+    lottieRef.current?.play();
+  }, []);
+  return (
+    <View style={RSF.container}>
+      <Image
+        source={require('../../../assets/images/lumo_transparent.png')}
+        style={RSF.lumo}
+        resizeMode="contain"
+      />
+      <LottieView
+        ref={lottieRef}
+        source={require('../../../assets/animations/loading.json')}
+        autoPlay
+        loop
+        style={RSF.hourglass}
+        renderMode="SOFTWARE"
+      />
+      <Text style={RSF.text}>Scoring your recitation please</Text>
+    </View>
+  );
+}
+
+const RSF = StyleSheet.create({
+  container: { alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16, marginBottom: 16 },
+  lumo: { width: 60, height: 60 },
+  hourglass: { width: 70, height: 70 },
+  text: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText, marginTop: 4 },
+});
+
 // ── Hear and Select exercise ──────────────────────────────────────
 // Auto-plays segment audio on mount. Big speaker button to replay.
 // Tap option = select. Long-press option = hear its audio. Submit = ar string.
 
-function HearAndSelect({
+export function HearAndSelect({
   ex, surahName, character, locked, onSubmit,
 }: {
   ex: ExerciseDict;
@@ -1904,14 +1936,14 @@ function HearAndSelect({
 const HAS = StyleSheet.create({
   speakerBtn: {
     alignSelf: 'center', alignItems: 'center', justifyContent: 'center',
-    width: 150, height: 150, borderRadius: 75,
+    width: 120, height: 120, borderRadius: 60,
     backgroundColor: colors.primaryBg, borderWidth: 3, borderColor: colors.primary,
     marginBottom: 24,
     shadowColor: colors.primary, shadowOpacity: 0.28, shadowRadius: 18,
     shadowOffset: { width: 0, height: 6 }, elevation: 8,
   },
   speakerBtnActive: { backgroundColor: colors.primary },
-  speakerIcon:  { fontSize: 46, textAlign: 'center', color: colors.primary },
+  speakerIcon:  { fontSize: 36, textAlign: 'center', color: colors.primary },
   speakerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.primary, marginTop: 6, textAlign: 'center' },
   pauseIcon:    { flexDirection: 'row', gap: 7, alignItems: 'center' },
   pauseBar:     { width: 7, height: 30, backgroundColor: 'white', borderRadius: 3 },
@@ -1970,7 +2002,7 @@ const EX = StyleSheet.create({
   continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
   // Sequence (ayah ordering) exercise styles
   seqAnswerZone: { flexDirection: 'row-reverse' as const, gap: 12, justifyContent: 'center' as const, marginVertical: 20, paddingHorizontal: 16 },
-  seqBank:       { flexDirection: 'row-reverse' as const, gap: 12, justifyContent: 'center' as const, marginBottom: 24, paddingHorizontal: 16 },
+  seqBank:       { flexDirection: 'row-reverse' as const, flexWrap: 'nowrap' as const, gap: 12, justifyContent: 'center' as const, marginBottom: 24, paddingHorizontal: 16 },
   seqBox:        { flex: 1, minHeight: 90, borderRadius: 16,
                    alignItems: 'center' as const, justifyContent: 'center' as const,
                    paddingHorizontal: 10, paddingVertical: 12,
@@ -1999,7 +2031,7 @@ function FeedbackBanner({
       <View style={FB.sheet}>
         <View style={FB.correctRow}>
           <View style={FB.correctBadge}><Text style={FB.correctBadgeText}>✓</Text></View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={FB.correctTitle}>Correct!</Text>
             <Text style={FB.correctSub}>YOU'RE GOING STRONG!</Text>
           </View>
@@ -2021,7 +2053,7 @@ function FeedbackBanner({
     <View style={[FB.sheet, FB.wrongSheet]}>
       <View style={FB.wrongRow}>
         <View style={FB.wrongBadge}><Text style={FB.wrongBadgeText}>✕</Text></View>
-        <Text style={FB.wrongTitle}>Incorrect</Text>
+        <Text style={[FB.wrongTitle, { flex: 1 }]}>Incorrect</Text>
       </View>
       {showAnswer && (
         <>
@@ -2062,6 +2094,20 @@ const FB = StyleSheet.create({
   gotItBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white', letterSpacing: 0.5 },
 });
 
+// ── Exercise slide-in — mounts fresh (via the `key={exercise.ex_id}` on its
+// parent) every time the current exercise changes, so each new exercise
+// animates in from the right instead of just popping into place. ──
+export function ExerciseSlide({ children }: { children: React.ReactNode }) {
+  const { width } = useWindowDimensions();
+  const translateX = useRef(new Animated.Value(width)).current;
+  useEffect(() => {
+    Animated.timing(translateX, {
+      toValue: 0, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+    }).start();
+  }, []);
+  return <Animated.View style={{ flex: 1, transform: [{ translateX }] }}>{children}</Animated.View>;
+}
+
 // ── Main screen ────────────────────────────────────────────────────
 
 interface Props {
@@ -2073,7 +2119,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const { groupId, surahName, surahNumber } = route.params;
   const insets = useSafeAreaInsets();
 
-  const { sessionId, heartsAtStart, firstExercise, error, loading, group, steps, reset, loadGroup, startSession, completeSession, abandonSession, groupId: storeGroupId, progressPct: storeProgressPct } = useLessonStore();
+  const { sessionId, firstExercise, error, loading, group, reset, loadGroup, startSession, completeSession, abandonSession, groupId: storeGroupId, progressPct: storeProgressPct } = useLessonStore();
   const { user } = useAuthStore();
 
   const [exercise, setExercise] = useState<ExerciseDict | null>(null);
@@ -2083,7 +2129,12 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const [mistakes, setMistakes] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  // Tracks real system-audio play/pause/stop state (audioPlayer.ts pub-sub)
+  // so the wave animation shows exactly while audio is audibly playing.
+  const [systemPlaying, setSystemPlaying] = useState(false);
+  useEffect(() => onPlayingChange(setSystemPlaying), []);
   const [noHeartsVisible, setNoHeartsVisible] = useState(false);
+  const [exitConfirmVisible, setExitConfirmVisible] = useState(false);
   const [exercisesCompleted, setExercisesCompleted] = useState(0);
   const [progressPct, setProgressPct] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -2094,6 +2145,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const pendingAdvanceFn = useRef<(() => void) | null>(null);
   const ayahDisplayCountRef = useRef(0);
   const totalXpRef = useRef(0); // accumulates xp_awarded across all formulaAttempt calls
+  const confettiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mount: reset store, load group, start session
   useEffect(() => {
@@ -2109,10 +2161,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       cancelled = true;
       pendingAdvanceFn.current = null;
       stopAudio();
-      notifySystemPlaying(false);
       void stopRecording().catch(() => {});
+      if (confettiTimerRef.current) clearTimeout(confettiTimerRef.current);
     };
   }, [groupId]);
+
 
   // Silently skip any exercise type the app doesn't handle yet — user never sees it
   useEffect(() => {
@@ -2125,7 +2178,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   useEffect(() => {
     const unsub = navigation.addListener('blur', () => {
       stopAudio();
-      notifySystemPlaying(false);
       // Also abort any in-flight recording
       void stopRecording().catch(() => {});
     });
@@ -2161,15 +2213,19 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       // passed in as correctOverride) since formulaAttempt gets no user_answer to grade.
       const effectiveCorrect = correctOverride !== undefined ? correctOverride : result.correct;
 
-      // remediation_up = reinforcement phase, no hearts lost even on wrong
-      const isNoMistake = exercise.phase === 'mistakes_review' || exercise.phase === 'remediation_up';
+      // remediation_up = reinforcement phase, no hearts lost even on wrong.
+      // ayah_display is a listen-along card, not a gradable exercise — never
+      // cut a heart for it regardless of what the backend reports, so this
+      // doesn't depend on the backend always grading it as correct.
+      const isNoMistake = exercise.phase === 'mistakes_review' || exercise.phase === 'remediation_up' || exercise.type === 'ayah_display';
       const snapCorrect  = correctCount + (effectiveCorrect ? 1 : 0);
       const snapMistakes = mistakes + (!effectiveCorrect && !isNoMistake ? 1 : 0);
 
       // Track cumulative XP earned across all exercises for the session-end screen
       totalXpRef.current += result.xp_awarded ?? 0;
 
-      // Server-computed accuracy bar (main + review testers) — see session_engine.py.
+      // Server-computed, monotonic % of the level's total work done (NOT an
+      // accuracy score) — see session_engine.py's _progress_snapshot().
       if (typeof result.progress_pct === 'number') setProgressPct(result.progress_pct);
 
       if (!effectiveCorrect && !isNoMistake) setMistakes(snapMistakes);
@@ -2180,14 +2236,15 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         const isSpeakExercise = exercise.type === 'read_ayah_and_speak' || exercise.type === 'read_and_speak';
         if ((result.xp_awarded ?? 0) > 0 && exercise.type !== 'ayah_display' && !isSpeakExercise && !result.done) {
           setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 1500);
+          if (confettiTimerRef.current) clearTimeout(confettiTimerRef.current);
+          confettiTimerRef.current = setTimeout(() => setShowConfetti(false), 1500);
         }
       }
 
       if (result.segments.length) setSegments(result.segments);
 
       // Hearts exhausted — end attempt immediately (skip in no-mistake phases)
-      if (!effectiveCorrect && !isNoMistake && snapMistakes >= 5) {
+      if (!effectiveCorrect && !isNoMistake && snapMistakes >= MAX_MISTAKES) {
         setSubmitting(false);
         setNoHeartsVisible(true);
         return;
@@ -2203,18 +2260,36 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           try {
             const summary = await completeSession();
             console.warn('[Lesson] completeSession OK. totalXpRef:', totalXpRef.current, 'summary:', JSON.stringify(summary));
+            // Merge the fresh streak/XP straight from this response into the
+            // shared learning store — refreshLearning() is throttled and
+            // nothing else calls it after a lesson, so without this the Map
+            // HUD's flame/XP silently stayed stale until the next cold launch.
+            if (typeof summary.current_streak === 'number') {
+              const currentLearning = useAuthStore.getState().learning;
+              if (currentLearning) {
+                useAuthStore.setState({
+                  learning: {
+                    ...currentLearning,
+                    current_streak: summary.current_streak,
+                    xp_total: currentLearning.xp_total + (totalXpRef.current || summary.xp_awarded),
+                  },
+                });
+              }
+            }
             navigation.replace('LessonComplete', {
               xp: totalXpRef.current || summary.xp_awarded,
               scorePct: summary.passed ? Math.max(scorePct, 70) : scorePct,
               stars: 3,
-              heartsRemaining: summary.hearts_remaining,
+              // Backend fields not deployed yet fall back safely to "no
+              // celebration" rather than crashing on an undefined summary field.
+              streakIncremented: summary.streak_incremented ?? false,
+              currentStreak: summary.current_streak,
             });
           } catch (e) {
             console.warn('[Lesson] completeSession FAILED. totalXpRef:', totalXpRef.current, 'error:', e);
             navigation.replace('LessonComplete', {
               xp: totalXpRef.current || 20, scorePct,
               stars: 3,
-              heartsRemaining: Math.max(0, 5 - snapMistakes),
             });
           }
         } else if (result.next_exercise) {
@@ -2244,11 +2319,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       setSubmitting(false);
       if (e?.status === 404 || e?.status === 400) {
         navigation.replace('LessonComplete', {
-          xp: 0, scorePct: 0, stars: 1, heartsRemaining: heartsAtStart,
+          xp: 0, scorePct: 0, stars: 1,
         });
       }
     }
-  }, [sessionId, exercise, submitting, correctCount, mistakes, heartsAtStart]);
+  }, [sessionId, exercise, submitting, correctCount, mistakes]);
 
   const handleBack = () => {
     abandonSession({ silent: true }).catch(() => {});
@@ -2290,7 +2365,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           autoPlay loop
           style={{ width: 140, height: 140 }}
         />
-        <Text style={S.errorTitle}>Creating Your Training</Text>
+        <Text style={S.errorTitle}>Creating your custom environment</Text>
         <Text style={S.errorMsg}>Your exercises are being prepared. This usually takes a moment.</Text>
         <TouchableOpacity style={S.retryBtn} onPress={() => {
           reset();
@@ -2323,27 +2398,39 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     );
   }
 
-  // ── Loading state ────────────────────────────────────────────────
+  // ── Loading state — same Lottie + copy as the "not ready" state above,
+  // unified so the user never sees two different-sounding loading messages
+  // back to back for what's effectively the same wait. Back button kept as
+  // a safety net in case a load ever hangs; no retry button here (unlike the
+  // "not ready" state) since this one resolves on its own once the fetch
+  // completes. ──
   if (!exercise || loading) {
     return (
-      <LumaLoading
-        message={loading ? `Loading ${surahName}…` : 'Preparing your lesson…'}
-        insetTop={insets.top}
-        onBack={() => {
-          abandonSession({ silent: true }).catch(() => {});
-          navigation.goBack();
-        }}
-      />
+      <View style={S.center}>
+        <TouchableOpacity
+          style={[LL.backBtn, { top: insets.top + 10 }]}
+          onPress={() => { abandonSession({ silent: true }).catch(() => {}); navigation.goBack(); }}
+        >
+          <Text style={LL.backText}>←  Map</Text>
+        </TouchableOpacity>
+        <LottieView
+          renderMode="SOFTWARE"
+          source={require('../../../assets/animations/loading.json')}
+          autoPlay loop
+          style={{ width: 140, height: 140 }}
+        />
+        <Text style={S.errorTitle}>Creating your custom environment</Text>
+      </View>
     );
   }
 
   // ── Exercise header ──────────────────────────────────────────────
-  const maxHearts = 5;
-  const heartsLeft = Math.max(0, maxHearts - mistakes);
+  const heartsLeftHalf = MAX_MISTAKES - mistakes; // in half-heart units (0-10)
 
-  // Bar is the server-computed accuracy score (correct - wrong) / base_total
-  // from session_engine.py — covers main phase AND review, not raw exercise
-  // count or lesson structure. See session_engine.py's _progress_snapshot().
+  // Bar is a server-computed, monotonic % of the level's total work done —
+  // NOT an accuracy/score value. It only ever moves forward (a mistake adds
+  // remediation work but holds the bar rather than dipping it) and hits 100%
+  // only when the session is done. See session_engine.py's _progress_snapshot().
   const progressFraction = Math.min(Math.max(progressPct / 100, 0), 1);
   const character = characterForIndex(charOrderRef.current, exerciseIndexRef.current);
 
@@ -2351,16 +2438,25 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     <View style={[S.screen, { paddingTop: insets.top }]}>
       {/* Top bar: X + progress bar + 4 hearts + Hint */}
       <View style={S.header}>
-        <TouchableOpacity style={S.backBtn} onPress={handleBack}>
+        <TouchableOpacity style={S.backBtn} onPress={() => setExitConfirmVisible(true)}>
           <Text style={S.backText}>✕</Text>
         </TouchableOpacity>
 
         <ProgressBar fraction={progressFraction} />
 
         <View style={S.heartsRow}>
-          {Array.from({ length: maxHearts }).map((_, i) => (
-            <Text key={i} style={[S.heartIcon, i >= heartsLeft && { opacity: 0.2 }]}>❤️</Text>
-          ))}
+          {Array.from({ length: MAX_HEARTS }).map((_, i) => {
+            const heartsFromThisIcon = heartsLeftHalf - i * 2; // each icon is worth 2 half-hearts
+            const src =
+              heartsFromThisIcon >= 2 ? require('../../../assets/map/redh.png') :
+              heartsFromThisIcon === 1 ? require('../../../assets/map/halfh.png') :
+              require('../../../assets/map/whiteh.png');
+            return (
+              <View key={i} style={S.heartWrapper}>
+                <Image source={src} style={S.heartImage} resizeMode="contain" />
+              </View>
+            );
+          })}
         </View>
 
         {(() => {
@@ -2378,6 +2474,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
 
       {/* Exercise content */}
       <View style={S.exerciseArea}>
+       <ExerciseSlide key={exercise.ex_id}>
         {exercise.type === 'ayah_display' && (
           <AyahDisplay
             key={exercise.ex_id}
@@ -2386,6 +2483,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             transliteration={group?.ayahs.find(a => a.ayah_number === exercise.ayah_no)?.transliteration ?? null}
             showLumo={ayahDisplayCountRef.current < 3}
             onContinue={() => {
+              stopAudio();
               ayahDisplayCountRef.current += 1;
               submitAnswer(null);
             }}
@@ -2465,13 +2563,13 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             onSpeakScored={setSpeakResult}
           />
         )}
-
+       </ExerciseSlide>
       </View>
 
       {/* Submitting spinner */}
       {submitting && !feedback && (
         <View style={S.spinnerOverlay}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <SubmittingSpinner />
         </View>
       )}
 
@@ -2543,6 +2641,63 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           </View>
         </View>
       )}
+
+      {/* Exit-level confirmation */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={exitConfirmVisible}
+        onRequestClose={() => setExitConfirmVisible(false)}
+      >
+        <View style={S.noHeartsOverlay}>
+          <View style={S.noHeartsCard}>
+            <Image
+              source={require('../../../assets/images/lumo_transparent.png')}
+              style={S.exitConfirmLumo}
+              resizeMode="contain"
+            />
+            <Text style={S.noHeartsTitle}>Leave the lesson?</Text>
+            <Text style={S.noHeartsBody}>
+              Your progress this level won't be saved — you'll start fresh next time.
+            </Text>
+            <View style={S.exitConfirmBtnRow}>
+              <TouchableOpacity
+                style={S.exitConfirmCancelBtn}
+                onPress={() => setExitConfirmVisible(false)}
+              >
+                <Text style={S.exitConfirmCancelText}>Keep practicing</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={S.exitConfirmLeaveBtn}
+                onPress={() => {
+                  setExitConfirmVisible(false);
+                  handleBack();
+                }}
+              >
+                <Text style={S.exitConfirmLeaveText}>Yes, leave</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Wave animation — shows exactly while system audio is audibly
+          playing (see audioPlayer.ts's onPlayingChange), gone the instant
+          it's paused or stopped. Suppressed during recitation exercises —
+          the green SegmentPlayBtn waveform in SpeakResultBanner already
+          gives audio feedback there, so this bar is redundant/distracting.
+          Also suppressed for audio_fill — each option's playCircle already
+          shows its own play/pause state, same reasoning. */}
+      {systemPlaying && exercise?.type !== 'read_ayah_and_speak' && exercise?.type !== 'read_and_speak' && exercise?.type !== 'audio_fill' && (
+        <View pointerEvents="none" style={[S.waveBar, { bottom: insets.bottom + 8 }]}>
+          <LottieView
+            renderMode="SOFTWARE"
+            source={require('../../../assets/animations/wave.json')}
+            autoPlay loop
+            style={S.waveLottie}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -2554,7 +2709,8 @@ const S = StyleSheet.create({
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
   backText: { fontSize: 14, color: colors.mutedText },
   heartsRow: { flexDirection: 'row', gap: 3 },
-  heartIcon: { fontSize: 16 },
+  heartImage: { width: 20, height: 20 },
+  heartWrapper: { alignItems: 'center', justifyContent: 'center', width: 20, height: 20 },
   exerciseArea: { flex: 1 },
   spinnerOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,244,248,0.6)' },
   confettiOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
@@ -2574,4 +2730,13 @@ const S = StyleSheet.create({
   noHeartsRetryBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   noHeartsRetryText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white' },
   noHeartsLumo: { width: 120, height: 120, marginBottom: 8 },
+  // Exit-level confirmation
+  exitConfirmLumo: { width: 90, height: 90, marginBottom: 8 },
+  exitConfirmBtnRow: { flexDirection: 'row', gap: 10, width: '100%' },
+  exitConfirmCancelBtn: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
+  exitConfirmCancelText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
+  exitConfirmLeaveBtn: { flex: 1, backgroundColor: colors.red, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
+  exitConfirmLeaveText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
+  waveBar: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  waveLottie: { width: 220, height: 60 },
 });

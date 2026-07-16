@@ -92,6 +92,13 @@ export function setCachedProfile(profile: UserProfile): void {
   _profile = stamp(profile);
 }
 
+/** Call after re-fetching recommendedNext() directly (bypassing prefetchAll)
+ * so later reads of getCachedRecommended() — e.g. MapScreen's Lumo placement —
+ * see the fresh value instead of staying null until the next app launch. */
+export function setCachedRecommended(data: RecommendedNext | null): void {
+  _recommended = stamp(data);
+}
+
 // ── Invalidation ──────────────────────────────────────────────────
 
 /** Call after a lesson completes so HomeScreen re-fetches fresh levels. */
@@ -133,8 +140,9 @@ export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
     learningApi.recommendedNext()
       .then(d => { _recommended = stamp(d); return d; }),
 
-    learningApi.stats()
-      .then(d => { _stats = stamp(d); }),
+    // TODO: stats() currently unused on frontend — re-enable if needed for profile/dashboard
+    // learningApi.stats()
+    //   .then(d => { _stats = stamp(d); }),
 
     authApi.me()
       .then(res => { _profile = stamp(res.profile); }),

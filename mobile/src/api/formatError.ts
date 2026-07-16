@@ -3,6 +3,11 @@ export function formatApiError(body: unknown, fallback: string): string {
   if (!body || typeof body !== 'object') {
     return fallback;
   }
+  // Structured `AppError` responses: { success: false, error: { code, message } }
+  const structuredError = (body as { error?: { message?: unknown } }).error;
+  if (structuredError && typeof structuredError.message === 'string') {
+    return structuredError.message;
+  }
   const detail = (body as { detail?: unknown }).detail;
   if (typeof detail === 'string') {
     return detail;
@@ -32,6 +37,9 @@ export function messageForStatus(status: number, body: unknown): string {
   }
   if (status === 404) {
     return formatApiError(body, 'Content not found for this surah or lesson.');
+  }
+  if (status === 429) {
+    return formatApiError(body, 'Too many attempts — please wait a bit and try again.');
   }
   return formatApiError(body, `Request failed (${status})`);
 }

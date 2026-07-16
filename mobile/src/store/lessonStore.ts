@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { lessonsApi, learningApi, exerciseTypeForApi } from '../api';
+import { lessonsApi, learningApi } from '../api';
 import { loadLessonGroup } from '../services/cachedContent';
 import { preloadAudioUrls, clearPreloadedAudio } from '../services/audioPlayer';
 import { ApiError } from '../api/client';
@@ -7,12 +7,12 @@ import { addBreadcrumb } from '../services/crashReporter';
 import { buildLessonSteps, buildStepsFromExerciseOut } from '../lesson/buildSteps';
 import { isListenOnlyLesson } from '../lesson/mergeSteps';
 import { AnalyticsEvents, logAnalyticsEvent } from '../services/analytics';
+import { invalidateLevels } from '../services/bootCache';
 import {
   abandonActiveLessonSession,
   abandonLessonSessionById,
   abandonPendingLessonSessionFromStorage,
   clearPendingLessonSession,
-  getPendingLessonSession,
   setPendingLessonSession,
 } from '../services/lessonSession';
 import type { ExerciseStep } from '../lesson/types';
@@ -23,13 +23,6 @@ let startSessionInFlight: Promise<void> | null = null;
 // for an older generation (i.e. a previous lesson tap) will self-abort when
 // it resumes after an await and sees the generation has moved on.
 let storeGeneration = 0;
-
-function isEndedSessionError(e: unknown): boolean {
-  if (!(e instanceof ApiError)) return false;
-  if (e.status === 404) return true;
-  if (e.status === 400) return /session.*end|already ended|not active/i.test(e.message);
-  return false;
-}
 
 interface LessonState {
   group: LessonGroupDetail | null;
@@ -46,12 +39,16 @@ interface LessonState {
   stepStartedAt: number;
   firstExercise: ExerciseDict | null;
   progressPct: number;
+  // Surah number of the level just completed, for MapScreen to pick up on its
+  // next focus — MapScreen only remounts once for the app's lifetime (it sits
+  // underneath the lesson screens in the same stack), so its own cached level
+  // data for that surah otherwise never gets told to refresh.
+  lastCompletedSurah: number | null;
   loadGroup: (groupId: string) => Promise<void>;
   startSession: (initialStepIndex?: number) => Promise<void>;
-  recordAttempt: (exerciseType: string, correct: boolean, mistakeCount?: number) => Promise<void>;
-  nextStep: () => void;
   completeSession: () => Promise<SessionCompleteOut>;
   abandonSession: (opts?: { silent?: boolean }) => Promise<void>;
+  clearLastCompletedSurah: () => void;
   reset: () => void;
 }
 
@@ -70,6 +67,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   stepStartedAt: Date.now(),
   firstExercise: null,
   progressPct: 0,
+  lastCompletedSurah: null,
 
   loadGroup: async groupId => {
     const myGen = ++storeGeneration;
@@ -195,31 +193,8 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     return startSessionInFlight;
   },
 
-  recordAttempt: async (exerciseType, correct, mistakeCount = 0) => {
-    const { sessionId, mistakes, correctCount, steps, stepIndex, stepStartedAt, result } = get();
-    if (!sessionId || result) return;
-    const response_ms = Date.now() - stepStartedAt;
-    if (!correct) set({ mistakes: mistakes + (mistakeCount || 1) });
-    else set({ correctCount: correctCount + 1 });
-    const sessionAttempt = learningApi.attempt(sessionId, { exercise_type: exerciseTypeForApi(exerciseType), correct, mistake_count: mistakeCount }).catch(e => { if (isEndedSessionError(e)) return null; throw e; });
-    const step = steps[stepIndex];
-    const exercise_id = step?.exercise_id ?? null;
-    const srsAttempt = exercise_id ? learningApi.exerciseAttempt({ exercise_id, session_id: sessionId, correct, response_ms, mistake_count: mistakeCount }).catch(() => null) : Promise.resolve(null);
-    await Promise.all([sessionAttempt, srsAttempt]);
-    void getPendingLessonSession().then(pending => {
-      if (pending?.sessionId === sessionId) void setPendingLessonSession({ ...pending, mistakes: get().mistakes });
-    }).catch(() => {});
-  },
-
-  nextStep: () => {
-    const newIndex = get().stepIndex + 1;
-    set({ stepIndex: newIndex, stepStartedAt: Date.now() });
-    const { sessionId, group, mistakes } = get();
-    if (sessionId && group) void setPendingLessonSession({ sessionId, groupId: group.id, mistakes, stepIndex: newIndex });
-  },
-
   completeSession: async () => {
-    const { sessionId, steps, correctCount, mistakes, result } = get();
+    const { sessionId, steps, correctCount, mistakes, result, group } = get();
     if (result) return result;
     if (!sessionId) throw new Error('No session');
     const answerableSteps = steps.filter(s => s.type !== 'listen' && s.type !== 'interstitial').length;
@@ -228,6 +203,14 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     const completed = await learningApi.complete(sessionId, { passed, score_pct, mistakes });
     await clearPendingLessonSession();
     set({ result: completed, sessionId: null });
+    // The completed group's status/stars just changed server-side — drop the
+    // stale cached levels so the map re-fetches instead of continuing to show
+    // pre-completion statuses (was never invalidated, so the map/next node
+    // silently kept showing whatever was cached before this lesson started).
+    if (group?.surah_number != null) {
+      invalidateLevels([group.surah_number]);
+      set({ lastCompletedSurah: group.surah_number });
+    }
     void logAnalyticsEvent(AnalyticsEvents.LESSON_COMPLETE, { passed: passed ? 1 : 0, score_pct, mistakes });
     return completed;
   },
@@ -248,9 +231,11 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     }
   },
 
+  clearLastCompletedSurah: () => set({ lastCompletedSurah: null }),
+
   reset: () => {
     clearPreloadedAudio();
-    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0 });
+    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0, lastCompletedSurah: null });
   },
 }));
 

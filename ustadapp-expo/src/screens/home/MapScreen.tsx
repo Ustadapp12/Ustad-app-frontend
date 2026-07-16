@@ -24,15 +24,13 @@ const TREE_SRCS = [
 const MOSQUE_SRC   = require('../../../assets/mosque.png');
 const BIRDS_SRC    = require('../../../assets/birds.png');
 const CLOUD_SRC    = require('../../../assets/clouds.png');
-const LANTERN_SRC  = require('../../../assets/map4.png');
 const START_SRC    = require('../../../assets/start.png');
 const BRIDGE_SRC   = require('../../../assets/map/bridge.png');
 const SCROLL_SRC   = require('../../../assets/map/scroll2.png');
 const GRASS_SRC    = require('../../../assets/map/grass.jpg');
-const GRASS_PATCH_SRCS = [
-  require('../../../assets/map/grass_patch1.jpg'),
-  require('../../../assets/map/grass_patch2.jpg'),
-] as const;
+// grass_patch1.jpg was a yellow-green/khaki texture that read as "yellow
+// ellipses" scattered on the grass — dropped, only the green patch remains.
+const GRASS_PATCH_SRC = require('../../../assets/map/grass_patch2.jpg');
 const BRICK_SRC    = require('../../../assets/map/bricks.jpg');
 const POND_SRC     = require('../../../assets/map/pond.png');
 const SKY_SRC      = require('../../../assets/map/sky.jpg');
@@ -174,7 +172,6 @@ function stageToNodeStatus(s: string): NodeStatus {
 interface DecorMosque  { y: number; x: number }
 interface DecorTree    { y: number; x: number; src: (typeof TREE_SRCS)[number] }
 interface DecorBird    { y: number; x: number }
-interface DecorLantern { y: number; x: number }
 interface DecorBridge  { y: number; x: number; w: number; h: number }
 interface ParallaxLayer { puffs: { x: number; y: number; w: number; h: number; opacity: number }[]; speed: number; blur: number }
 interface LabelBox { x: number; y: number; w: number; h: number; isLeft: boolean }
@@ -185,13 +182,13 @@ interface MapModel {
   NODE_SIZE: number; NODE_GAP: number; SECTION_EXTRA: number; TOP_MARGIN: number; FOOTER_PAD: number;
   BASE_SECTIONS: Section[]; MAP_H: number; ALL_NODES: SectionNode[];
   PATH_D: string;
-  DECORATIONS: { mosques: DecorMosque[]; trees: DecorTree[]; birds: DecorBird[]; lanterns: DecorLantern[]; bridges: DecorBridge[] };
+  DECORATIONS: { mosques: DecorMosque[]; trees: DecorTree[]; birds: DecorBird[]; bridges: DecorBridge[] };
   PARALLAX_FAR: ParallaxLayer; PARALLAX_MID: ParallaxLayer; PARALLAX_NEAR: ParallaxLayer;
   SKY_BOUNDARY_Y: number;
   GRASS_EDGE_D: string;
   SKY_CLOUDS: { x: number; y: number; w: number; h: number }[];
   SKY_BIRDS: { x: number; y: number; w: number; flip: boolean }[];
-  GRASS_PATCHES: { x: number; y: number; rx: number; ry: number; variant: 0 | 1 }[];
+  GRASS_PATCHES: { x: number; y: number; rx: number; ry: number }[];
   AYAH_PILLS: Record<string, PillBox>;
   SURAH_LABELS: Record<number, LabelBox>;
 }
@@ -446,14 +443,6 @@ function buildMapModel(mapW: number): MapModel {
     if (p) { placed.push({ y: p.y, side: p.side, height: birdH }); birds.push({ y: p.y, x: p.x }); }
   });
 
-  const lanternW = sc(36), lanternH = sc(60);
-  const lanterns: DecorLantern[] = [];
-  secMidYs.forEach((midY, i) => {
-    const side: 'left' | 'right' = i % 2 === 0 ? 'right' : 'left';
-    const p = placeSide(midY + sc(10), lanternW, lanternH, side, placed, 4);
-    if (p) { placed.push({ y: p.y, side: p.side, height: lanternH }); lanterns.push({ y: p.y, x: p.x }); }
-  });
-
   // Bridge — a riverside landmark beside the road, not a crossing laid over
   // it. Placed once, near the first season boundary, on whichever side has
   // real room (zone-checked like everything else).
@@ -511,7 +500,7 @@ function buildMapModel(mapW: number): MapModel {
   // Rejection-sampled so patches never land on top of each other — stacked
   // semi-transparent ellipses were compositing into solid dark blobs instead
   // of a light texture accent.
-  const GRASS_PATCHES: { x: number; y: number; rx: number; ry: number; variant: 0 | 1 }[] = [];
+  const GRASS_PATCHES: { x: number; y: number; rx: number; ry: number }[] = [];
   {
     const patchCount = Math.max(6, BASE_SECTIONS.length * 2);
     for (let i = 0; i < patchCount; i++) {
@@ -523,7 +512,7 @@ function buildMapModel(mapW: number): MapModel {
         const y = Math.round(SKY_BOUNDARY_Y + hash(seed + 6) * Math.max(1, MAP_H - SKY_BOUNDARY_Y - sc(40)));
         const overlaps = GRASS_PATCHES.some(p => Math.abs(p.x - x) < (p.rx + rx) * 0.9 && Math.abs(p.y - y) < (p.ry + ry) * 0.9);
         if (!overlaps) {
-          GRASS_PATCHES.push({ x, y, rx, ry, variant: (i % 2) as 0 | 1 });
+          GRASS_PATCHES.push({ x, y, rx, ry });
           break;
         }
       }
@@ -552,7 +541,7 @@ function buildMapModel(mapW: number): MapModel {
     NODE_SIZE, NODE_GAP, SECTION_EXTRA, TOP_MARGIN, FOOTER_PAD,
     BASE_SECTIONS, MAP_H, ALL_NODES,
     PATH_D,
-    DECORATIONS: { mosques, trees, birds, lanterns, bridges },
+    DECORATIONS: { mosques, trees, birds, bridges },
     PARALLAX_FAR, PARALLAX_MID, PARALLAX_NEAR,
     SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS, GRASS_PATCHES,
     AYAH_PILLS, SURAH_LABELS,
@@ -1001,11 +990,8 @@ export default function MapScreen({ navigation }: Props) {
               <Pattern id="grassPattern" patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>
                 <SvgImage href={GRASS_SRC} x={0} y={0} width={sc(140)} height={sc(140)} preserveAspectRatio="xMidYMid slice" />
               </Pattern>
-              <Pattern id="grassPatch0" patternUnits="userSpaceOnUse" width={sc(90)} height={sc(90)}>
-                <SvgImage href={GRASS_PATCH_SRCS[0]} x={0} y={0} width={sc(90)} height={sc(90)} preserveAspectRatio="xMidYMid slice" />
-              </Pattern>
-              <Pattern id="grassPatch1" patternUnits="userSpaceOnUse" width={sc(90)} height={sc(90)}>
-                <SvgImage href={GRASS_PATCH_SRCS[1]} x={0} y={0} width={sc(90)} height={sc(90)} preserveAspectRatio="xMidYMid slice" />
+              <Pattern id="grassPatch" patternUnits="userSpaceOnUse" width={sc(90)} height={sc(90)}>
+                <SvgImage href={GRASS_PATCH_SRC} x={0} y={0} width={sc(90)} height={sc(90)} preserveAspectRatio="xMidYMid slice" />
               </Pattern>
               <Pattern id="brickPattern" patternUnits="userSpaceOnUse" width={sc(46)} height={sc(46)}>
                 <SvgImage href={BRICK_SRC} x={0} y={0} width={sc(46)} height={sc(46)} preserveAspectRatio="xMidYMid slice" />
@@ -1033,11 +1019,11 @@ export default function MapScreen({ navigation }: Props) {
                 it meets the sky. Fully opaque — this is the actual ground,
                 not a faded overlay. */}
             <Path d={GRASS_EDGE_D} fill="url(#grassPattern)" />
-            {/* Scattered patches of two other grass textures for variety */}
+            {/* Scattered patches of a second grass texture for variety */}
             {GRASS_PATCHES.map((p, i) => (
               <Ellipse
                 key={`gp${i}`} cx={p.x} cy={p.y} rx={p.rx} ry={p.ry}
-                fill={p.variant === 0 ? 'url(#grassPatch0)' : 'url(#grassPatch1)'}
+                fill="url(#grassPatch)"
                 opacity={0.65}
               />
             ))}
@@ -1051,9 +1037,6 @@ export default function MapScreen({ navigation }: Props) {
             ))}
             {DECORATIONS.mosques.map((m, i) => (
               <Ellipse key={`msh${i}`} cx={m.x + sc(36)} cy={m.y + sc(82)} rx={sc(30)} ry={sc(7)} fill="rgba(0,0,0,0.22)" />
-            ))}
-            {DECORATIONS.lanterns.map((l, i) => (
-              <Ellipse key={`lsh${i}`} cx={l.x + sc(18)} cy={l.y + sc(80)} rx={sc(12)} ry={sc(4)} fill="rgba(0,0,0,0.18)" />
             ))}
           </Svg>
 
@@ -1102,16 +1085,6 @@ export default function MapScreen({ navigation }: Props) {
               key={`bird${i}`}
               source={BIRDS_SRC}
               style={{ position: 'absolute', left: b.x, top: b.y, width: sc(96), height: sc(48), opacity: 1.0 }}
-              resizeMode="contain"
-            />
-          ))}
-
-          {/* Lanterns */}
-          {DECORATIONS.lanterns.map((l, i) => (
-            <Image
-              key={`lantern${i}`}
-              source={LANTERN_SRC}
-              style={{ position: 'absolute', left: l.x, top: l.y, width: sc(36), height: sc(60), opacity: 0.90 - i * 0.04 }}
               resizeMode="contain"
             />
           ))}

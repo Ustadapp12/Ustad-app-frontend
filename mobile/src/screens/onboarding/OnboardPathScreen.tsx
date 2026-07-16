@@ -1,7 +1,7 @@
 ﻿import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { saveOnboarding } from '../../utils/storage';
+import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
 import { colors } from '../../theme/colors';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -16,14 +16,21 @@ export default function OnboardPathScreen({ navigation }: Props) {
 
   async function handleContinue() {
     if (!selected) return;
-    await saveOnboarding({ pathChoice: PATH_MAP[selected] });
-    navigation.navigate('OnboardScript');
+    await saveOnboarding({ pathChoice: PATH_MAP[selected], currentStep: 'path' });
+
+    if (selected === 'beginner') {
+      await saveOnboarding({ completedAt: new Date().toISOString() });
+      await setOnboardingDone(true);
+      navigation.replace('MainTabs');
+    } else {
+      navigation.navigate('OnboardAssessment');
+    }
   }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('OnboardGoal')}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <View style={styles.dots}>
@@ -34,6 +41,7 @@ export default function OnboardPathScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
         <Text style={styles.badge}>SETUP · STEP 2 OF 3</Text>
         <Text style={styles.heading}>Choose your path</Text>
         <Text style={styles.sub}>How would you describe yourself?</Text>
@@ -55,7 +63,7 @@ export default function OnboardPathScreen({ navigation }: Props) {
           </View>
           <View style={[styles.badge2, { backgroundColor: colors.primaryBg }]}>
             <Text style={{ fontSize: 12 }}>⚡</Text>
-            <Text style={[styles.badge2Text, { color: colors.primary }]}>+100 XP starter bonus</Text>
+            <Text style={[styles.badge2Text, { color: colors.primary }]}>+30 XP</Text>
           </View>
         </TouchableOpacity>
 
@@ -76,7 +84,7 @@ export default function OnboardPathScreen({ navigation }: Props) {
           </View>
           <View style={[styles.badge2, { backgroundColor: colors.blueBg }]}>
             <Text style={{ fontSize: 12 }}>⚡</Text>
-            <Text style={[styles.badge2Text, { color: colors.blue }]}>+50 XP for testing</Text>
+            <Text style={[styles.badge2Text, { color: colors.blue }]}>+50 XP if you attempt</Text>
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -108,12 +116,13 @@ const styles = StyleSheet.create({
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
   scroll: { paddingHorizontal: 22, paddingBottom: 20 },
+  luma: { width: 84, height: 84, alignSelf: 'center', marginBottom: 4 },
   badge: {
     fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText,
-    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8,
+    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',
   },
-  heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, lineHeight: 30, marginBottom: 6 },
-  sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, marginBottom: 24 },
+  heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, lineHeight: 30, marginBottom: 6, textAlign: 'center' },
+  sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, marginBottom: 24, textAlign: 'center' },
   card: {
     backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
     borderRadius: 18, padding: 16, marginBottom: 14,

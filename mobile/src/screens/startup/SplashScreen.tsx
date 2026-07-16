@@ -2,10 +2,10 @@
 import {
   View, Text, Image, StyleSheet, Animated, TouchableOpacity, Dimensions,
 } from 'react-native';
-import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
-import { isOnboardingDone } from '../../utils/storage';
+import { getNextOnboardingScreen, isOnboardingDone } from '../../utils/storage';
+import { healthCheck } from '../../api/client';
 import type { RootNavProp } from '../../navigation/types';
 
 const { width } = Dimensions.get('window');
@@ -45,15 +45,21 @@ export default function SplashScreen({ navigation }: Props) {
     Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
 
     // Luma float loop
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(lumaY, { toValue: -9, duration: 1500, useNativeDriver: true }),
         Animated.timing(lumaY, { toValue: 0, duration: 1500, useNativeDriver: true }),
       ]),
-    ).start();
+    );
+    loop.start();
 
-    const timer = setTimeout(() => setMinDelayDone(true), 2200);
-    return () => clearTimeout(timer);
+    // Warm the (serverless, cold-start-prone) backend the instant Splash
+    // mounts, well before the user reaches Login/Lesson and actually needs
+    // a real response. Fire-and-forget — result doesn't matter here.
+    void healthCheck();
+
+    const timer = setTimeout(() => setMinDelayDone(true), 1000);
+    return () => { clearTimeout(timer); loop.stop(); };
   }, []);
 
   // Auto-navigate once both hydration and the minimum brand delay are done
@@ -63,7 +69,16 @@ export default function SplashScreen({ navigation }: Props) {
 
   async function navigate() {
     if (user) {
-      navigation.replace('MainTabs');
+      if (!user.email_verified) {
+        navigation.replace('VerifyEmail', { email: user.email });
+        return;
+      }
+      // An account can exist (tokens persisted) while onboarding is still
+      // mid-flight — e.g. the user quit the app between SignUp and the final
+      // onboarding step. Resume where they left off instead of dropping them
+      // straight onto the map with onboarding never marked done.
+      const nextOnboardingScreen = await getNextOnboardingScreen();
+      navigation.replace(nextOnboardingScreen ?? 'MainTabs');
     } else {
       const done = await isOnboardingDone();
       navigation.replace(done ? 'Login' : 'SignUp');
@@ -98,14 +113,9 @@ export default function SplashScreen({ navigation }: Props) {
           {/* Bismillah */}
           <Text style={styles.bismillah}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</Text>
 
-          {/* Welcome animation */}
+          {/* Welcome */}
           <View style={styles.welcomeCard}>
-            <LottieView
-              source={require('../../../assets/animations/Welcome.json')}
-              autoPlay loop
-              resizeMode="contain"
-              style={styles.welcomeAnim}
-            />
+            <Text style={styles.welcomeText}>Welcome</Text>
           </View>
 
           {/* Luma */}
@@ -171,12 +181,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 6,
   },
-  welcomeAnim: {
-    // Matches the Lottie's native 428x123 aspect ratio (~3.48:1) — the old
-    // 160x80 box (2:1) squished it non-uniformly every frame, reading as a
-    // "vibrating" jitter.
-    width: 160,
-    height: 46,
+  welcomeText: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 20,
+    color: '#C4A84C',
+    letterSpacing: 1,
   },
   luma: {
     width: 180,

@@ -1,8 +1,9 @@
-﻿import React, { useRef, useEffect } from 'react';
+﻿import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
+import { useResponsiveScale } from '../../utils/responsive';
 
 const MOCK_PLAYERS = [
   { rank: 1, name: 'Aisha Rahman', xp: 4820, avatar: '🧕', isMe: false },
@@ -25,6 +26,8 @@ const MEDAL_COLOR: Record<number, string> = {
 export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
+  const sc = useResponsiveScale();
+  const styles = useMemo(() => makeStyles(sc), [sc]);
 
   const floatAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -99,49 +102,51 @@ export default function LeaderboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg },
-  statusBar: { paddingHorizontal: 24, paddingVertical: 6 },
-  time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 22, paddingBottom: 4,
-  },
-  headerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.5 },
-  headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.darkText },
-  lumaImg: { width: 62, height: 62 },
-  weekBadge: { backgroundColor: colors.primaryBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
-  weekText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary },
-  podium: {
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end',
-    paddingHorizontal: 20, paddingVertical: 14,
-    backgroundColor: 'white', marginHorizontal: 16, borderRadius: 20, marginBottom: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-  },
-  podiumItem: { flex: 1, alignItems: 'center', gap: 3 },
-  podiumAvatar: { fontSize: 28 },
-  podiumAvatarLarge: { fontSize: 36 },
-  podiumBadge: {
-    width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginTop: -6,
-  },
-  podiumBadgeLarge: { width: 28, height: 28, borderRadius: 14 },
-  podiumRankText: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: 'white' },
-  podiumRankTextLarge: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
-  podiumName: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.darkText, textAlign: 'center', marginTop: 4 },
-  podiumXP: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText },
-  scroll: { paddingHorizontal: 16, paddingBottom: 30 },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: colors.white, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8,
-    borderWidth: 1.5, borderColor: colors.border,
-  },
-  rowMe: { borderColor: colors.primary, backgroundColor: '#F0FAF5' },
-  rowRank: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.mutedText, width: 28, textAlign: 'center' },
-  rowAvatar: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: colors.lightBg,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rowName: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.darkText },
-  rowXP: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText },
-});
+function makeStyles(sc: (n: number) => number) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.lightBg },
+    statusBar: { paddingHorizontal: sc(24), paddingVertical: sc(6) },
+    time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
+    header: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: sc(22), paddingBottom: sc(4),
+    },
+    headerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.5 },
+    headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.darkText },
+    lumaImg: { width: 62, height: 62 },
+    weekBadge: { backgroundColor: colors.primaryBg, borderRadius: 12, paddingHorizontal: sc(12), paddingVertical: sc(6) },
+    weekText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary },
+    podium: {
+      flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end',
+      paddingHorizontal: sc(20), paddingVertical: sc(14),
+      backgroundColor: 'white', marginHorizontal: sc(16), borderRadius: 20, marginBottom: sc(12),
+      shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+    },
+    podiumItem: { flex: 1, alignItems: 'center', gap: 3 },
+    podiumAvatar: { fontSize: 28 },
+    podiumAvatarLarge: { fontSize: 36 },
+    podiumBadge: {
+      width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginTop: -6,
+    },
+    podiumBadgeLarge: { width: 28, height: 28, borderRadius: 14 },
+    podiumRankText: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: 'white' },
+    podiumRankTextLarge: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
+    podiumName: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.darkText, textAlign: 'center', marginTop: 4 },
+    podiumXP: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText },
+    scroll: { paddingHorizontal: sc(16), paddingBottom: sc(30) },
+    row: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: colors.white, borderRadius: 14, paddingHorizontal: sc(14), paddingVertical: sc(12), marginBottom: sc(8),
+      borderWidth: 1.5, borderColor: colors.border,
+    },
+    rowMe: { borderColor: colors.primary, backgroundColor: '#F0FAF5' },
+    rowRank: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.mutedText, width: 28, textAlign: 'center' },
+    rowAvatar: {
+      width: 38, height: 38, borderRadius: 19, backgroundColor: colors.lightBg,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    rowName: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.darkText },
+    rowXP: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText },
+  });
+}
 

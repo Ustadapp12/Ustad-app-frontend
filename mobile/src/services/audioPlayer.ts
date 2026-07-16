@@ -16,6 +16,31 @@ type SoundLike = {
 
 let activeSound: SoundLike | null = null;
 
+// ── System-audio playing state ──────────────────────────────────────
+// A simple pub-sub so UI (e.g. the wave animation) can react to actual
+// playback start/stop without every call site having to thread state
+// through manually. "Playing" here means audibly playing right now — not
+// merely loaded (see isSoundActive for that weaker check).
+type PlayingListener = (playing: boolean) => void;
+let playingListeners: PlayingListener[] = [];
+let systemPlaying = false;
+
+function setSystemPlaying(playing: boolean): void {
+  if (systemPlaying === playing) return;
+  systemPlaying = playing;
+  playingListeners.forEach(l => l(playing));
+}
+
+/** Subscribe to play/pause/stop changes. Returns an unsubscribe function. */
+export function onPlayingChange(listener: PlayingListener): () => void {
+  playingListeners.push(listener);
+  return () => { playingListeners = playingListeners.filter(l => l !== listener); };
+}
+
+export function isAudioPlaying(): boolean {
+  return systemPlaying;
+}
+
 /** Set the playback speed for all subsequent play() calls. 0.75 / 1 / 1.25. */
 export function setPlaybackSpeed(speed: number): void {
   currentSpeed = speed;
@@ -33,6 +58,7 @@ function stopActiveSound() {
   }
   activeSound = null;
   activeSoundIsPreloaded = false;
+  setSystemPlaying(false);
 }
 
 function logAudioIssue(
@@ -97,12 +123,14 @@ export function stopAudio(): void {
 export function pauseAudio(): void {
   if (!activeSound) return;
   try { (activeSound as unknown as { pause: () => void }).pause(); } catch { /* ignore */ }
+  setSystemPlaying(false);
 }
 
 /** Resume a paused sound (no-op if nothing paused). */
 export function resumeAudio(): void {
   if (!activeSound) return;
   try { activeSound.play(() => {}); } catch { /* ignore */ }
+  setSystemPlaying(true);
 }
 
 /** Release all pre-loaded sounds. Call when the lesson ends or is abandoned. */
@@ -161,6 +189,7 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
       activeSound = preloaded;
       activeSoundIsPreloaded = true;
       onStart?.();
+      setSystemPlaying(true);
       // react-native-sound's play() completion callback is not always
       // reliable on a reused/preloaded Sound instance — when it never fires,
       // a multi-word sequence (playUrlSequence) would hang forever after the
@@ -180,6 +209,7 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
         }),
         new Promise<void>(resolve => setTimeout(resolve, durationMs)),
       ]);
+      setSystemPlaying(false);
     } catch (err) {
       logAudioIssue('play', url, err);
     }
@@ -205,8 +235,9 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
         activeSound = s;
         activeSoundIsPreloaded = false;
         onStart?.();
+        setSystemPlaying(true);
         let done = false;
-        const finish = () => { if (!done) { done = true; resolve(); } };
+        const finish = () => { if (!done) { done = true; setSystemPlaying(false); resolve(); } };
         s.play((success: boolean) => {
           if (!success) {
             logAudioIssue('play', url);

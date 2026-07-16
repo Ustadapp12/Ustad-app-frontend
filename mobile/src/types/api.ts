@@ -9,6 +9,7 @@ export interface User {
   email: string;
   role: string;
   name?: string; // populated from profile.display_name after login
+  email_verified: boolean;
 }
 
 export interface AuthResponse {
@@ -26,6 +27,17 @@ export interface LearningMe {
   gem_balance: number;
   mvp_surah_numbers: number[];
   script_preference?: ScriptPreference | null; // optional, returned by some endpoints
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  display_name: string;
+  xp: number;
+  gender?: 'male' | 'female' | null;
+}
+
+export interface LeaderboardOut {
+  entries: LeaderboardEntry[];
 }
 
 export interface SurahBrief {
@@ -118,6 +130,8 @@ export interface SessionCompleteOut {
   hearts_remaining: number;
   stars: number;
   completion_saved: boolean;
+  streak_incremented: boolean;
+  current_streak: number;
 }
 
 export interface RevisionNext {
@@ -153,6 +167,8 @@ export interface UserProfile {
   daily_goal_minutes: number | null;
   streak_goal_days: number | null;
   motivation: string | null;
+  gender: 'male' | 'female' | null;
+  age: number | null;
 }
 
 export interface AuthMeResponse {
@@ -190,6 +206,27 @@ export interface RecommendedNext {
 export interface PlacementSubmitResponse {
   placement_saved: boolean;
   xp_awarded: number;
+}
+
+export interface HifzAssessmentStartResponse {
+  assessment_id: string;
+  total_questions: number;
+  exercises: ExerciseDict[];
+}
+
+export interface HifzAssessmentSubmitResponse {
+  assessment_id: string;
+  total_questions: number;
+  accuracy: number;
+  accuracy_pct: number;
+  time_total: number;
+  time_avg: number;
+  results: Array<{
+    question_id: string;
+    type: string;
+    correct: boolean;
+    time_seconds: number;
+  }>;
 }
 
 export interface WordTiming {
@@ -381,6 +418,8 @@ export interface OnboardingAnswers {
   pathChoice?: 'fresh' | 'placement';
   placementLevel?: PlacementLevel;
   startSurah?: number;
+  hifzAssessmentScore?: number;
   completedAt?: string;
+  currentStep?: 'goal' | 'script' | 'path' | 'assessment';
 }
 

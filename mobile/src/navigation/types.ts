@@ -6,16 +6,26 @@ export type RootStackParamList = {
   Splash: undefined;
   Login: undefined;
   SignUp: undefined;
+  VerifyEmail: { email?: string } | undefined;
+  ForgotPassword: undefined;
+  VerifyResetCode: { email: string };
+  ResetPassword: { email: string; code: string };
+  OnboardAge: undefined;
+  OnboardGender: undefined;
+  OnboardWelcome: { gender: 'male' | 'female' };
   OnboardGoal: undefined;
-  OnboardPath: undefined;
   OnboardScript: undefined;
+  OnboardPath: undefined;
+  OnboardAssessment: undefined;
   MainTabs: undefined;
   // Lesson flow (Phase 2)
-  LessonStart: { groupId: string; surahName: string; surahNumber: number };
   LessonSession: { groupId: string; surahName: string; surahNumber: number };
-  LessonComplete: { xp: number; scorePct: number; stars: number; gems?: number; heartsRemaining?: number };
+  LessonComplete: {
+    xp: number; scorePct: number; stars: number; gems?: number;
+    streakIncremented?: boolean; currentStreak?: number;
+  };
   // Modals
-  Streak: undefined;
+  Streak: { justIncremented?: boolean; currentStreak?: number } | undefined;
 };
 
 export type TabParamList = {

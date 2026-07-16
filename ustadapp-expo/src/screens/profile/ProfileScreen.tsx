@@ -1,10 +1,11 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { useScriptStore } from '../../store/scriptStore';
 import { setScriptPreference } from '../../utils/storage';
 import { colors } from '../../theme/colors';
+import { useResponsiveScale } from '../../utils/responsive';
 import type { ScriptPreference } from '../../types/api';
 import type { ProfileNavProp } from '../../navigation/types';
 
@@ -22,6 +23,8 @@ export default function ProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { user, learning, logout, deleteAccount } = useAuthStore();
   const { script, setScript } = useScriptStore();
+  const sc = useResponsiveScale();
+  const styles = useMemo(() => makeStyles(sc), [sc]);
 
   const displayName = user?.name ?? 'Learner';
   const initials = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -258,89 +261,91 @@ export default function ProfileScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg },
-  statusBar: { paddingHorizontal: 24, paddingVertical: 6 },
-  time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
-  avatarCard: {
-    alignItems: 'center', paddingVertical: 20, paddingHorizontal: 22,
-    backgroundColor: colors.white, marginHorizontal: 16, borderRadius: 20, marginBottom: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3,
-  },
-  avatarWrap: { position: 'relative', marginBottom: 10 },
-  avatar: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
-  },
-  initials: { fontFamily: 'Nunito_700Bold', fontSize: 28, color: 'white' },
-  editBadge: {
-    position: 'absolute', right: -4, bottom: -4,
-    width: 26, height: 26, borderRadius: 13, backgroundColor: colors.gold,
-    borderWidth: 2, borderColor: 'white', alignItems: 'center', justifyContent: 'center',
-  },
-  displayName: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, marginBottom: 4 },
-  levelTag: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText },
-  statsGrid: {
-    flexDirection: 'row', backgroundColor: colors.white,
-    marginHorizontal: 16, borderRadius: 18, marginBottom: 14, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-  },
-  statCell: { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 3 },
-  statCellBorder: { borderLeftWidth: 1, borderLeftColor: colors.border },
-  statEmoji: { fontSize: 18 },
-  statValue: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText },
-  statLabel: { fontFamily: 'Nunito_400Regular', fontSize: 9, color: colors.mutedText, letterSpacing: 0.3 },
-  section: {
-    marginHorizontal: 16, marginBottom: 12,
-    backgroundColor: colors.white, borderRadius: 18, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-  },
-  sectionTitle: {
-    fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText,
-    letterSpacing: 1.5, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 6,
-  },
-  settingRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 18, paddingVertical: 13,
-    borderTopWidth: 1, borderTopColor: colors.border,
-  },
-  settingEmoji: { fontSize: 16 },
-  settingContent: { flex: 1 },
-  settingLabel: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText },
-  settingValue: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: colors.mutedText, marginTop: 1 },
-  settingArrow: { fontSize: 18, color: colors.border, fontWeight: '600' },
-  logoutBtn: {
-    marginHorizontal: 16, marginBottom: 8, borderRadius: 16, paddingVertical: 16,
-    alignItems: 'center', backgroundColor: colors.redBg, borderWidth: 1.5, borderColor: '#FCA5A5',
-  },
-  logoutText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.red },
-  deleteBtn: {
-    marginHorizontal: 16, marginBottom: 8, borderRadius: 16, paddingVertical: 14,
-    alignItems: 'center',
-  },
-  deleteText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText },
-  // Delete modal
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-  modalCard: { backgroundColor: colors.white, borderRadius: 20, padding: 24, width: '100%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
-  modalTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8 },
-  modalBody: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 16 },
-  modalInput: {
-    borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-    fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.darkText,
-    marginBottom: 20,
-  },
-  modalBtns: { flexDirection: 'row', gap: 10 },
-  modalCancel: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  modalCancelText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
-  modalConfirm: { flex: 1, backgroundColor: colors.red, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  modalConfirmText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
-  // Font picker
-  fontOption: { backgroundColor: colors.lightBg, borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  fontOptionLabel: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText, marginBottom: 6 },
-  fontOptionPreview: { textAlign: 'right', lineHeight: 38 },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  radioDot: { width: 11, height: 11, borderRadius: 6 },
-});
+function makeStyles(sc: (n: number) => number) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.lightBg },
+    statusBar: { paddingHorizontal: sc(24), paddingVertical: sc(6) },
+    time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
+    avatarCard: {
+      alignItems: 'center', paddingVertical: sc(20), paddingHorizontal: sc(22),
+      backgroundColor: colors.white, marginHorizontal: sc(16), borderRadius: 20, marginBottom: sc(14),
+      shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3,
+    },
+    avatarWrap: { position: 'relative', marginBottom: 10 },
+    avatar: {
+      width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primary,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
+    },
+    initials: { fontFamily: 'Nunito_700Bold', fontSize: 28, color: 'white' },
+    editBadge: {
+      position: 'absolute', right: -4, bottom: -4,
+      width: 26, height: 26, borderRadius: 13, backgroundColor: colors.gold,
+      borderWidth: 2, borderColor: 'white', alignItems: 'center', justifyContent: 'center',
+    },
+    displayName: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, marginBottom: 4 },
+    levelTag: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText },
+    statsGrid: {
+      flexDirection: 'row', backgroundColor: colors.white,
+      marginHorizontal: sc(16), borderRadius: 18, marginBottom: sc(14), overflow: 'hidden',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+    },
+    statCell: { flex: 1, alignItems: 'center', paddingVertical: sc(14), gap: 3 },
+    statCellBorder: { borderLeftWidth: 1, borderLeftColor: colors.border },
+    statEmoji: { fontSize: 18 },
+    statValue: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText },
+    statLabel: { fontFamily: 'Nunito_400Regular', fontSize: 9, color: colors.mutedText, letterSpacing: 0.3 },
+    section: {
+      marginHorizontal: sc(16), marginBottom: sc(12),
+      backgroundColor: colors.white, borderRadius: 18, overflow: 'hidden',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+    },
+    sectionTitle: {
+      fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText,
+      letterSpacing: 1.5, paddingHorizontal: sc(18), paddingTop: sc(14), paddingBottom: sc(6),
+    },
+    settingRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      paddingHorizontal: sc(18), paddingVertical: sc(13),
+      borderTopWidth: 1, borderTopColor: colors.border,
+    },
+    settingEmoji: { fontSize: 16 },
+    settingContent: { flex: 1 },
+    settingLabel: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText },
+    settingValue: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: colors.mutedText, marginTop: 1 },
+    settingArrow: { fontSize: 18, color: colors.border, fontWeight: '600' },
+    logoutBtn: {
+      marginHorizontal: sc(16), marginBottom: sc(8), borderRadius: 16, paddingVertical: sc(16),
+      alignItems: 'center', backgroundColor: colors.redBg, borderWidth: 1.5, borderColor: '#FCA5A5',
+    },
+    logoutText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.red },
+    deleteBtn: {
+      marginHorizontal: sc(16), marginBottom: sc(8), borderRadius: 16, paddingVertical: sc(14),
+      alignItems: 'center',
+    },
+    deleteText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText },
+    // Delete modal
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: sc(24) },
+    modalCard: { backgroundColor: colors.white, borderRadius: 20, padding: sc(24), width: '100%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
+    modalTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8 },
+    modalBody: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 16 },
+    modalInput: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
+      paddingHorizontal: sc(14), paddingVertical: sc(12),
+      fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.darkText,
+      marginBottom: 20,
+    },
+    modalBtns: { flexDirection: 'row', gap: 10 },
+    modalCancel: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: sc(14), alignItems: 'center' },
+    modalCancelText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
+    modalConfirm: { flex: 1, backgroundColor: colors.red, borderRadius: 14, paddingVertical: sc(14), alignItems: 'center' },
+    modalConfirmText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
+    // Font picker
+    fontOption: { backgroundColor: colors.lightBg, borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, padding: sc(14), marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
+    fontOptionLabel: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText, marginBottom: 6 },
+    fontOptionPreview: { textAlign: 'right', lineHeight: 38 },
+    radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+    radioDot: { width: 11, height: 11, borderRadius: 6 },
+  });
+}
 

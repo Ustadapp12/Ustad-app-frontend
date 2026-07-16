@@ -53,10 +53,12 @@ export default function HelpScreen() {
   const lumaY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(Animated.sequence([
+    const loop = Animated.loop(Animated.sequence([
       Animated.timing(lumaY, { toValue: -8, duration: 1400, useNativeDriver: true }),
       Animated.timing(lumaY, { toValue: 0,  duration: 1400, useNativeDriver: true }),
-    ])).start();
+    ]));
+    loop.start();
+    return () => loop.stop();
   }, []);
 
   return (

@@ -1,33 +1,60 @@
-﻿import React, { useRef, useEffect } from 'react';
+﻿import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
-import type { RootNavProp } from '../../navigation/types';
+import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
-interface Props { navigation: RootNavProp }
+interface Props {
+  navigation: RootNavProp;
+  route: RouteProp<RootStackParamList, 'Streak'>;
+}
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-export default function StreakScreen({ navigation }: Props) {
+export default function StreakScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { learning } = useAuthStore();
-  const streak = learning?.current_streak ?? 0;
+  const streak = route.params?.currentStreak ?? learning?.current_streak ?? 0;
+  const justIncremented = route.params?.justIncremented ?? false;
 
   const floatAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const lumaScaleAnim = useRef(new Animated.Value(0)).current;
+  const numberScaleAnim = useRef(new Animated.Value(1)).current;
+  // Celebration entrance: hold on streak-1, let Lumo + the flame settle in,
+  // then pop the number up to the real total. A plain open (from the Map
+  // HUD's streak pill) skips all of this and just shows the final number.
+  const [displayedStreak, setDisplayedStreak] = useState(
+    justIncremented ? Math.max(streak - 1, 0) : streak,
+  );
 
   useEffect(() => {
     Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6 }).start();
-    Animated.loop(Animated.sequence([
+    const loop = Animated.loop(Animated.sequence([
       Animated.timing(floatAnim, { toValue: -8, duration: 1200, useNativeDriver: true }),
       Animated.timing(floatAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
-    ])).start();
+    ]));
+    loop.start();
+
+    if (justIncremented) {
+      Animated.spring(lumaScaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6, delay: 300 }).start();
+      const timer = setTimeout(() => {
+        setDisplayedStreak(streak);
+        Animated.sequence([
+          Animated.spring(numberScaleAnim, { toValue: 1.35, useNativeDriver: true, tension: 200, friction: 5 }),
+          Animated.spring(numberScaleAnim, { toValue: 1, useNativeDriver: true, tension: 200, friction: 6 }),
+        ]).start();
+      }, 900);
+      return () => { loop.stop(); clearTimeout(timer); };
+    }
+    return () => loop.stop();
   }, []);
 
   // How many days filled this week (up to current streak, max 7)
-  const filledDays = Math.min(streak, 7);
+  const filledDays = Math.min(displayedStreak, 7);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -41,6 +68,14 @@ export default function StreakScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {justIncremented && (
+          <Animated.Image
+            source={require('../../../assets/images/lumo_transparent.png')}
+            style={[styles.celebrationLuma, { transform: [{ scale: lumaScaleAnim }] }]}
+            resizeMode="contain"
+          />
+        )}
+
         {/* Streak fire animation */}
         <Animated.View style={{ transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
           <LottieView
@@ -51,12 +86,14 @@ export default function StreakScreen({ navigation }: Props) {
           />
         </Animated.View>
 
-        <Text style={styles.streakNum}>{streak}</Text>
+        <Animated.Text style={[styles.streakNum, { transform: [{ scale: numberScaleAnim }] }]}>{displayedStreak}</Animated.Text>
         <Text style={styles.streakLabel}>day streak!</Text>
         <Text style={styles.streakSub}>
-          {streak === 0
+          {justIncremented
+            ? "MashaAllah! You've kept your streak alive."
+            : displayedStreak === 0
             ? 'Start your streak today — practice for just 5 minutes!'
-            : streak < 7
+            : displayedStreak < 7
             ? 'MashaAllah! Keep going, you are building a great habit.'
             : 'SubhanAllah! A full week streak — incredible dedication!'}
         </Text>
@@ -64,7 +101,7 @@ export default function StreakScreen({ navigation }: Props) {
         {/* XP earned badge */}
         <View style={styles.xpBadge}>
           <Text style={{ fontSize: 14 }}>⚡</Text>
-          <Text style={styles.xpBadgeText}>+{streak * 5} XP earned from streaks</Text>
+          <Text style={styles.xpBadgeText}>+{displayedStreak * 5} XP earned from streaks</Text>
         </View>
 
         {/* This week */}
@@ -127,6 +164,7 @@ const styles = StyleSheet.create({
   closeBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
   headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: colors.darkText },
   scroll: { alignItems: 'center', paddingHorizontal: 22, paddingBottom: 16 },
+  celebrationLuma: { width: 90, height: 90, marginBottom: 4 },
   streakAnim: { width: 140, height: 140 },
   streakNum: { fontFamily: 'Nunito_700Bold', fontSize: 64, color: '#EA580C', lineHeight: 68 },
   streakLabel: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, marginBottom: 6 },

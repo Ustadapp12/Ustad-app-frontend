@@ -1,5 +1,5 @@
 /**
- * Generate launcher icons + splash assets from assets/images/mascot.png
+ * Generate launcher icons + splash assets from assets/images/lumo_transparent.png
  * Run: node scripts/generate-android-icons.mjs
  */
 import sharp from 'sharp';
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const src = path.join(root, 'assets', 'images', 'mascot.png');
+const src = path.join(root, 'assets', 'images', 'lumo_transparent.png');
 const res = path.join(root, 'android', 'app', 'src', 'main', 'res');
 
 const densities = {
@@ -25,7 +25,7 @@ async function writePng(buffer, outPath) {
   await fs.promises.writeFile(outPath, buffer);
 }
 
-async function icon(size, padding = 0.12) {
+async function icon(size, padding = 0.20) {
   const inner = Math.round(size * (1 - padding * 2));
   const mascot = await sharp(src)
     .resize(inner, inner, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
@@ -57,8 +57,26 @@ async function main() {
     console.log('wrote', folder, size);
   }
 
-  const fg432 = await sharp(src)
-    .resize(280, 280, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  // Android adaptive-icon safe zone: only the inner 66dp of the 108dp
+  // foreground layer survives launcher masking (circle/squircle/etc.) — fill
+  // the full 280x280 canvas edge-to-edge and every launcher crops the
+  // mascot's extremities. Resize to ~66/108 of the canvas and composite
+  // centered on a transparent 280x280 canvas instead.
+  const FOREGROUND_SIZE = 280;
+  const SAFE_ZONE_SIZE = Math.round(FOREGROUND_SIZE * (66 / 108));
+  const mascotFg = await sharp(src)
+    .resize(SAFE_ZONE_SIZE, SAFE_ZONE_SIZE, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+  const fg432 = await sharp({
+    create: {
+      width: FOREGROUND_SIZE,
+      height: FOREGROUND_SIZE,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([{ input: mascotFg, gravity: 'centre' }])
     .png()
     .toBuffer();
   await writePng(fg432, path.join(res, 'drawable', 'ic_launcher_foreground.png'));

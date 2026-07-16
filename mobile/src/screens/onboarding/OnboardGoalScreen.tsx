@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { saveOnboarding } from '../../utils/storage';
 import { colors } from '../../theme/colors';
@@ -24,15 +24,15 @@ export default function OnboardGoalScreen({ navigation }: Props) {
 
   async function handleContinue() {
     if (!selected) return;
-    await saveOnboarding({ motivation: selected });
-    navigation.navigate('OnboardPath');
+    await saveOnboarding({ motivation: selected, currentStep: 'goal' });
+    navigation.navigate('OnboardScript');
   }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header row */}
       <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('SignUp')}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <View style={styles.dots}>
@@ -43,6 +43,7 @@ export default function OnboardGoalScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>
         <Text style={styles.heading}>Why do you want to memorise the Quran?</Text>
         <Text style={styles.sub}>This helps us personalise your learning journey</Text>
@@ -104,12 +105,14 @@ const styles = StyleSheet.create({
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
   scroll: { paddingHorizontal: 22, paddingBottom: 20 },
+  luma: { width: 84, height: 84, alignSelf: 'center', marginBottom: 4 },
   badge: {
     fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.primary,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8,
+    textAlign: 'center',
   },
-  heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, lineHeight: 30, marginBottom: 6 },
-  sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, marginBottom: 16 },
+  heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, lineHeight: 30, marginBottom: 6, textAlign: 'center' },
+  sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, marginBottom: 16, textAlign: 'center' },
   xpBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: colors.goldBg, borderWidth: 1.5, borderColor: colors.goldBorder,

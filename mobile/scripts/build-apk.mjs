@@ -18,11 +18,15 @@ if (!fs.existsSync(gradlew)) {
   process.exit(1);
 }
 
-const result = spawnSync(gradlew, ['assembleRelease'], {
-  cwd: androidDir,
-  stdio: 'inherit',
-  shell: isWin,
-});
+const result = isWin
+  ? spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `& '${gradlew}' assembleRelease`], {
+      cwd: androidDir,
+      stdio: 'inherit',
+    })
+  : spawnSync(gradlew, ['assembleRelease'], {
+      cwd: androidDir,
+      stdio: 'inherit',
+    });
 
 if (result.status !== 0) {
   process.exit(result.status ?? 1);

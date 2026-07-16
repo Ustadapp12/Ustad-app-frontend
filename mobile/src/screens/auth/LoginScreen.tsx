@@ -1,13 +1,18 @@
 ﻿import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+  ScrollView, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
+import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
+import PasswordInput from '../../components/PasswordInput';
+import { LoadingRing } from '../../components/LoadingSpinner';
 import type { RootNavProp } from '../../navigation/types';
+import { validateEmail, normalizeEmail } from '../../utils/validators';
+import { setLastEmailHint } from '../../utils/storage';
 
 interface Props { navigation: RootNavProp }
 
@@ -18,14 +23,31 @@ export default function LoginScreen({ navigation }: Props) {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
+
+  const emailValidationError = validateEmail(email);
+  const emailError = emailTouched ? emailValidationError : null;
+  const canSubmit = !emailValidationError && password.length > 0;
+
+  function handleEmailChange(t: string) {
+    setEmail(t);
+    setEmailTouched(true);
+    setFormError(null);
+    setShowCreateAccount(false);
+  }
+
+  function handlePasswordChange(t: string) {
+    setPassword(t);
+    setFormError(null);
+    setShowCreateAccount(false);
+  }
+
   async function handleLogin() {
-    if (!email.trim() || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
-      return;
-    }
+    if (!canSubmit || loading) return;
     // Dev bypass: any email + password "expo" skips the API
     if (__DEV__ && password === 'expo') {
       setDevUser?.(email.trim());
@@ -33,11 +55,27 @@ export default function LoginScreen({ navigation }: Props) {
       return;
     }
     setLoading(true);
+    setFormError(null);
+    const normalizedEmail = normalizeEmail(email);
+    void setLastEmailHint(normalizedEmail);
     try {
-      await login(email.trim().toLowerCase(), password);
-      navigation.replace('MainTabs');
-    } catch (e: any) {
-      Alert.alert('Login failed', e?.message ?? 'Please check your credentials.');
+      await login(normalizedEmail, password);
+      if (useAuthStore.getState().user?.email_verified) {
+        navigation.replace('MainTabs');
+      } else {
+        navigation.replace('VerifyEmail', { email: normalizedEmail });
+      }
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'TOO_MANY_REQUESTS' || e.status === 429)) {
+        setFormError(e.message || 'Too many attempts. Please wait a bit and try again.');
+      } else if (e instanceof ApiError && e.code === 'USER_NOT_FOUND') {
+        setFormError(e.message);
+        setShowCreateAccount(true);
+      } else if (e instanceof ApiError && (e.code === 'INVALID_PASSWORD' || e.status === 401)) {
+        setFormError(e.message || 'Incorrect password.');
+      } else {
+        setFormError(e instanceof Error ? e.message : 'Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -64,12 +102,13 @@ export default function LoginScreen({ navigation }: Props) {
               placeholder="ahmad@example.com"
               placeholderTextColor={colors.placeholderText}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={handleEmailChange}
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
             />
           </View>
+          {emailError && <Text style={styles.fieldError}>{emailError}</Text>}
         </View>
 
         {/* Password */}
@@ -77,30 +116,46 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.fieldLabel}>PASSWORD</Text>
           <View style={styles.inputRow}>
             <Text style={styles.inputIcon}>🔒</Text>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="••••••••"
-              placeholderTextColor={colors.placeholderText}
+            <PasswordInput
               value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPass}
+              onChangeText={handlePasswordChange}
+              placeholder="••••••••"
               autoComplete="password"
+              containerStyle={{ flex: 1 }}
             />
-            <TouchableOpacity onPress={() => setShowPass(v => !v)}>
-              <Text style={styles.showHide}>{showPass ? 'HIDE' : 'SHOW'}</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Forgot */}
-        <TouchableOpacity style={styles.forgotWrap}>
-          <Text style={styles.forgot}>Forgot password?</Text>
-        </TouchableOpacity>
+        {/* Forgot — only shown once a syntactically valid email is entered */}
+        {!emailValidationError && (
+          <TouchableOpacity
+            style={styles.forgotWrap}
+            onPress={() => {
+              const normalized = normalizeEmail(email);
+              if (normalized) void setLastEmailHint(normalized);
+              navigation.navigate('ForgotPassword');
+            }}
+          >
+            <Text style={styles.forgot}>Forgot password?</Text>
+          </TouchableOpacity>
+        )}
+
+        {formError && <Text style={styles.error}>{formError}</Text>}
 
         {/* CTA */}
-        <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleLogin} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Log In</Text>}
+        <TouchableOpacity
+          style={[styles.btn, (!canSubmit || loading) && styles.btnDisabled]}
+          onPress={handleLogin}
+          disabled={!canSubmit || loading}
+        >
+          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Log In</Text>}
         </TouchableOpacity>
+
+        {showCreateAccount && (
+          <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.inlineCreateWrap}>
+            <Text style={styles.switchLink}>Create Account</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Register link */}
         <View style={styles.switchRow}>
@@ -132,7 +187,9 @@ const styles = StyleSheet.create({
   },
   inputIcon: { fontSize: 16 },
   input: { flex: 1, fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText },
-  showHide: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.placeholderText },
+  fieldError: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.red, marginTop: 4 },
+  error: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
+  inlineCreateWrap: { alignItems: 'center', marginBottom: 12 },
   forgotWrap: { alignItems: 'flex-end', marginBottom: 24 },
   forgot: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
   btn: {
