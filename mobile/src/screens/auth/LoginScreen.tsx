@@ -151,19 +151,18 @@ export default function LoginScreen({ navigation }: Props) {
           {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Log In</Text>}
         </TouchableOpacity>
 
-        {showCreateAccount && (
+        {showCreateAccount ? (
           <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.inlineCreateWrap}>
-            <Text style={styles.switchLink}>Create Account</Text>
+            <Text style={styles.switchLink}>Create an account!</Text>
           </TouchableOpacity>
+        ) : (
+          <View style={styles.switchRow}>
+            <Text style={styles.switchText}>New to Ustad? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+              <Text style={styles.switchLink}>Create account</Text>
+            </TouchableOpacity>
+          </View>
         )}
-
-        {/* Register link */}
-        <View style={styles.switchRow}>
-          <Text style={styles.switchText}>New to Ustad? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-            <Text style={styles.switchLink}>Create account</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

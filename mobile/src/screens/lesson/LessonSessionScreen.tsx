@@ -2001,16 +2001,16 @@ const EX = StyleSheet.create({
   continueBtnDisabled: { opacity: 0.35 },
   continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
   // Sequence (ayah ordering) exercise styles
-  seqAnswerZone: { flexDirection: 'row-reverse' as const, gap: 12, justifyContent: 'center' as const, marginVertical: 20, paddingHorizontal: 16 },
-  seqBank:       { flexDirection: 'row-reverse' as const, flexWrap: 'nowrap' as const, gap: 12, justifyContent: 'center' as const, marginBottom: 24, paddingHorizontal: 16 },
-  seqBox:        { flex: 1, minHeight: 90, borderRadius: 16,
+  seqAnswerZone: { flexDirection: 'column' as const, gap: 12, marginVertical: 20, paddingHorizontal: 16 },
+  seqBank:       { flexDirection: 'column' as const, gap: 12, marginBottom: 24, paddingHorizontal: 16 },
+  seqBox:        { minHeight: 64, borderRadius: 16,
                    alignItems: 'center' as const, justifyContent: 'center' as const,
-                   paddingHorizontal: 10, paddingVertical: 12,
+                   paddingHorizontal: 16, paddingVertical: 14,
                    backgroundColor: 'white', borderWidth: 2, borderColor: colors.primary },
   seqBoxFilled:  { backgroundColor: 'rgba(55,161,104,0.1)' },
   seqBoxEmpty:   { borderStyle: 'dashed' as const, borderColor: 'rgba(55,161,104,0.4)', backgroundColor: 'rgba(55,161,104,0.03)' },
   seqSlotNum:    { fontFamily: 'Nunito_700Bold', fontSize: 18, color: 'rgba(55,161,104,0.25)' },
-  seqTileText:   { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: '#1A3A2A', textAlign: 'center' as const },
+  seqTileText:   { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: '#1A3A2A', textAlign: 'right' as const, lineHeight: 32 },
 });
 
 // ── Feedback overlay ───────────────────────────────────────────────

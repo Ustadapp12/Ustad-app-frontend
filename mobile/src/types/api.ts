@@ -169,6 +169,7 @@ export interface UserProfile {
   motivation: string | null;
   gender: 'male' | 'female' | null;
   age: number | null;
+  timezone: string | null;
 }
 
 export interface AuthMeResponse {

@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initAnalytics } from './src/services/analytics';
+import { syncDeviceTimezone } from './src/api';
 import { abandonActiveLessonSessionSilent } from './src/services/lessonSession';
 import { useAuthStore } from './src/store/authStore';
 import { useLessonStore } from './src/store/lessonStore';
@@ -37,13 +38,21 @@ function App() {
     // if the app stays away for a real amount of time without coming back.
     const ABANDON_GRACE_MS = 60_000;
     let graceTimer: ReturnType<typeof setTimeout> | null = null;
+    let wasBackgrounded = false;
 
     const sub = AppState.addEventListener('change', state => {
       if (state === 'active') {
         if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
+        // Re-sync the device timezone on a real background→active return —
+        // users travel, and their streak day boundary should follow them.
+        if (wasBackgrounded) {
+          wasBackgrounded = false;
+          if (useAuthStore.getState().user) void syncDeviceTimezone();
+        }
         return;
       }
       if ((state === 'background' || state === 'inactive') && !graceTimer) {
+        wasBackgrounded = true;
         graceTimer = setTimeout(() => {
           abandonActiveLessonSessionSilent();
           graceTimer = null;

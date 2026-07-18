@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, KeyboardAvoidingView, Platform, Image,
+  Modal, Animated, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
@@ -31,6 +31,10 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const submittingRef = useRef(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebXp, setCelebXp] = useState(0);
+  const lumaScaleAnim = useRef(new Animated.Value(0)).current;
 
   // Reached via the global 403 safety net (api/client.ts) with no email in
   // hand — /auth/me is gate-exempt, safe to call even while unverified.
@@ -40,6 +44,13 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
   }, [email]);
 
   useEffect(() => () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); }, []);
+
+  useEffect(() => {
+    if (showCelebration) {
+      lumaScaleAnim.setValue(0);
+      Animated.spring(lumaScaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6, delay: 200 }).start();
+    }
+  }, [showCelebration]);
 
   function startCooldown() {
     setCooldown(RESEND_COOLDOWN_S);
@@ -55,16 +66,16 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
   }
 
   async function handleVerify() {
-    if (code.length !== 6 || loading) return;
+    if (code.length !== 6 || loading || submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     setError(null);
     try {
       const res = await authApi.verifyEmail(email, code);
       await completeEmailVerification();
       if (res.xp_awarded > 0) {
-        Alert.alert('Email verified! 🎉', `+${res.xp_awarded} XP`, [
-          { text: 'Continue', onPress: () => navigation.replace('OnboardAge') },
-        ]);
+        setCelebXp(res.xp_awarded);
+        setShowCelebration(true);
       } else {
         navigation.replace('OnboardAge');
       }
@@ -79,11 +90,14 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
       }
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   }
 
   async function handleResend() {
     if (cooldown > 0 || !email) return;
+    setCode('');
+    setError(null);
     startCooldown(); // starts regardless of the response — backend rate-limits silently (always returns sent:true)
     try {
       await authApi.resendVerification(email);
@@ -98,6 +112,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
   }
 
   return (
+    <>
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <TouchableOpacity
         onPress={handleSignOut}
@@ -145,6 +160,32 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+
+    <Modal
+      visible={showCelebration}
+      transparent
+      animationType="fade"
+      onRequestClose={() => { setShowCelebration(false); navigation.replace('OnboardAge'); }}
+    >
+      <View style={styles.celebBackdrop}>
+        <View style={styles.celebCard}>
+          <Animated.Image
+            source={require('../../../assets/images/lumo_xp.png')}
+            style={[styles.celebLuma, { transform: [{ scale: lumaScaleAnim }] }]}
+            resizeMode="contain"
+          />
+          <Text style={styles.celebTitle}>Email verified! 🎉</Text>
+          <Text style={styles.celebXp}>+{celebXp} XP</Text>
+          <TouchableOpacity
+            style={styles.celebBtn}
+            onPress={() => { setShowCelebration(false); navigation.replace('OnboardAge'); }}
+          >
+            <Text style={styles.celebBtnText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -177,4 +218,11 @@ const styles = StyleSheet.create({
   resendWrap: { marginBottom: 24 },
   resend: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
   resendDisabled: { color: colors.mutedText },
+  celebBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  celebCard: { backgroundColor: colors.white, borderRadius: 20, padding: 24, width: '100%', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
+  celebLuma: { width: 84, height: 84, marginBottom: 12 },
+  celebTitle: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, textAlign: 'center', marginBottom: 6 },
+  celebXp: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.gold, marginBottom: 20 },
+  celebBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  celebBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.white },
 });

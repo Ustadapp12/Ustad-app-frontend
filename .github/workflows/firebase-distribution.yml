@@ -3,10 +3,10 @@ name: Firebase App Distribution
 on:
   push:
     branches:
-      - production
+      - main
   pull_request:
     branches:
-      - production
+      - main
     types:
       - closed
 
@@ -110,7 +110,7 @@ jobs:
           appId: ${{ secrets.FIREBASE_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
           # Group alias (not display name "TesterUstadTeam")
-          groups: testerustadteam
+          groups: ustad-app-beta
           file: mobile/android/app/build/outputs/apk/release/app-release.apk
           releaseNotes: |
             Build #${{ github.run_number }} (${{ github.sha }})

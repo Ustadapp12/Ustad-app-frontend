@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { authApi, learningApi, usersApi } from '../api';
+import { authApi, learningApi, usersApi, syncDeviceTimezone } from '../api';
 import { getTokens, setTokens, setStoredUser } from '../utils/storage';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
 import { setCrashUser } from '../services/crashReporter';
@@ -76,6 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     const user: User = { ...me.user, name: me.profile?.display_name ?? me.user.email.split('@')[0] };
     await setStoredUser(user);
     set({ isHydrated: true, user, learning: null, profile: me.profile ?? null });
+    void syncDeviceTimezone();
     if (user.email_verified && learning) {
       await finishAuthSetup(user, learning);
     }
@@ -90,6 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     void logAnalyticsEvent(AnalyticsEvents.LOGIN, { method: 'email' });
     const user: User = { ...res.user, name: res.user.email.split('@')[0] };
     set({ user, learning: null });
+    void syncDeviceTimezone();
 
     // /auth/me is gate-exempt — this enrichment can always run regardless
     // of verification status.
@@ -124,6 +126,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     const enrichedUser: User = { ...res.user, name: displayName ?? res.user.email.split('@')[0] };
     await setStoredUser(enrichedUser);
     set({ user: enrichedUser, learning: null });
+    void syncDeviceTimezone();
 
     // A brand-new registration is always unverified — this returns here on
     // every normal signup, and the caller routes to the verify-email screen.
@@ -175,6 +178,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       profile: {
         display_name: null, avatar_url: null, learner_mode: null, script_preference: null,
         daily_goal_minutes: null, streak_goal_days: null, motivation: null, gender: null, age: null,
+        timezone: null,
         ...state.profile,
         ...patch,
       },

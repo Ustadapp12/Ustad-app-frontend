@@ -1,5 +1,6 @@
 import { api } from './client';
 import { getTokens } from '../utils/storage';
+import { getDeviceTimezone } from '../utils/timezone';
 import type {
   AuthMeResponse,
   AuthResponse,
@@ -131,6 +132,12 @@ export async function updateProfileIfAuthed(body: ProfilePatch): Promise<void> {
   const tokens = await getTokens();
   if (!tokens?.access_token) return;
   await usersApi.updateProfile(body).catch(() => undefined);
+}
+
+/** Best-effort sync of the device's IANA timezone — keeps streak day boundaries
+ * anchored to the user's real local day. Call on login/register and app foreground. */
+export function syncDeviceTimezone(): Promise<void> {
+  return updateProfileIfAuthed({ timezone: getDeviceTimezone() });
 }
 
 // ── Content ──────────────────────────────────────────────────────
