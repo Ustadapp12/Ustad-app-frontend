@@ -55,6 +55,9 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      - name: Upgrade npm
+        run: npm install -g npm@11.9.0
+
       - name: Install npm dependencies
         run: npm ci
 
