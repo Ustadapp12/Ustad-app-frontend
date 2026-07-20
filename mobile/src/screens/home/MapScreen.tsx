@@ -885,7 +885,7 @@ function LumaFloat({ style, speech, floatAnim, S, SB }: { style?: object; speech
 // ── Main screen ───────────────────────────────────────────────────
 export default function MapScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { learning } = useAuthStore();
+  const { learning, refreshLearning } = useAuthStore();
   const { width, height } = useWindowDimensions();
   const M = useMemo(() => {
     console.time('[MAP] buildMapModel');
@@ -928,6 +928,14 @@ export default function MapScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const autoScrolledNodeIdRef = useRef<string | null>(null);
+
+  // If learning is still null when this screen becomes active (hydrate's
+  // retries exhausted, or a stale session), nudge one refresh rather than
+  // leaving the HUD stuck on the "not loaded" placeholder indefinitely.
+  // Self-limiting: learning is only ever nulled at logout.
+  useEffect(() => {
+    if (!learning) void refreshLearning({ force: true });
+  }, [learning, refreshLearning]);
 
   // Backend has no explicit level-number/order field on SurahLevel — nodes
   // are indexed by raw array position (see enrichedSections below), so sort
@@ -1306,11 +1314,11 @@ export default function MapScreen({ navigation }: Props) {
         <View style={S.hudRow}>
           <View style={S.hudPill}>
             <Text style={S.hudStreakEmoji}>🔥</Text>
-            <Text style={[S.hudVal, { color: '#EA580C' }]}>{learning?.current_streak ?? 0}</Text>
+            <Text style={[S.hudVal, { color: '#EA580C' }]}>{learning ? learning.current_streak : '—'}</Text>
           </View>
           <View style={S.hudPill}>
             <Text>⚡</Text>
-            <Text style={[S.hudVal, { color: '#2A7D4F' }]}>{learning?.xp_total ?? 0} XP</Text>
+            <Text style={[S.hudVal, { color: '#2A7D4F' }]}>{learning ? `${learning.xp_total} XP` : '— XP'}</Text>
           </View>
         </View>
       </View>

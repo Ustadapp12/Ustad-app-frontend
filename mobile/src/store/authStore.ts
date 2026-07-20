@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { authApi, learningApi, usersApi, syncDeviceTimezone } from '../api';
 import { getTokens, setTokens, setStoredUser } from '../utils/storage';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
-import { setCrashUser } from '../services/crashReporter';
+import { setCrashUser, addBreadcrumb } from '../services/crashReporter';
 import { warmAudioUrlCache } from '../services/audioUrls';
 import { prefetchAll, invalidateAll } from '../services/bootCache';
 import { abandonActiveLessonSession, abandonPendingLessonSessionFromStorage } from '../services/lessonSession';
@@ -63,9 +63,32 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // verified user this is no slower than before (both requests always ran
     // concurrently); for an unverified user learningApi.me() will 403, which
     // is caught and discarded rather than aborting hydrate() entirely.
+    //
+    // learningApi.me() gets a bounded retry here: a single transient failure
+    // (network blip, cold-start race) used to leave `learning` null for the
+    // rest of the session, which the HUD renders indistinguishably from a
+    // real XP/streak reset.
+    const fetchLearningWithRetry = async (): Promise<LearningMe | null> => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          return await learningApi.me();
+        } catch (e) {
+          if (attempt === 2) {
+            addBreadcrumb('hydrate: learningApi.me() failed after retries', {
+              attempts: attempt + 1,
+              error: e instanceof Error ? e.message : String(e),
+            });
+            return null;
+          }
+          await new Promise(res => setTimeout(res, 500 * (attempt + 1)));
+        }
+      }
+      return null;
+    };
+
     const [me, learning] = await Promise.all([
       authApi.me().catch(() => null),
-      learningApi.me().catch(() => null),
+      fetchLearningWithRetry(),
     ]);
     if (!me) {
       await setTokens(null);
@@ -204,7 +227,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const learning = await learningApi.me();
       lastLearningMeFetchAt = now;
       set({ learning });
-    } catch { /* ignore when offline */ }
+    } catch (e) {
+      addBreadcrumb('refreshLearning: learningApi.me() failed', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   },
   };
 });

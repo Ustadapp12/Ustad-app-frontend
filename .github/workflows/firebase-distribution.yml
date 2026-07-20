@@ -115,6 +115,7 @@ jobs:
           # Group alias (not display name "TesterUstadTeam")
           groups: ustad-app-beta
           file: mobile/android/app/build/outputs/apk/release/app-release.apk
+          debug: true
           releaseNotes: |
             Build #${{ github.run_number }} (${{ github.sha }})
             Ref: ${{ github.ref_name }}

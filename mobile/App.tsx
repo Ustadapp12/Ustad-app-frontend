@@ -47,7 +47,10 @@ function App() {
         // users travel, and their streak day boundary should follow them.
         if (wasBackgrounded) {
           wasBackgrounded = false;
-          if (useAuthStore.getState().user) void syncDeviceTimezone();
+          if (useAuthStore.getState().user) {
+            void syncDeviceTimezone();
+            void useAuthStore.getState().refreshLearning({ force: true });
+          }
         }
         return;
       }
