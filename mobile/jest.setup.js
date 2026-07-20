@@ -1,5 +1,5 @@
 jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+  require('@react-native-async-storage/async-storage/jest'),
 );
 
 jest.mock('react-native-keychain', () => ({
@@ -36,6 +36,28 @@ jest.mock('react-native-safe-area-context', () => {
     SafeAreaProvider: ({ children }) => children,
     SafeAreaView: ({ children }) => children,
     useSafeAreaInsets: () => inset,
+  };
+});
+
+jest.mock('react-native-screens', () => {
+  const { View } = require('react-native');
+  return {
+    ScreenStack: View,
+    ScreenStackItem: View,
+    ScreenFooter: View,
+    compatibilityFlags: {
+      isNewBackTitleImplementation: true,
+      usesHeaderFlexboxImplementation: true,
+      usesNewAndroidHeaderHeightImplementation: true,
+      usesStableTabsApi: true,
+    },
+    isSearchBarAvailableForCurrentPlatform: false,
+    ScreenStackHeaderBackButtonImage: View,
+    ScreenStackHeaderCenterView: View,
+    ScreenStackHeaderLeftView: View,
+    ScreenStackHeaderRightView: View,
+    ScreenStackHeaderSearchBarView: View,
+    SearchBar: View,
   };
 });
 

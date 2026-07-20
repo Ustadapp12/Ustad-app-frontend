@@ -6,7 +6,8 @@ import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 
 jest.mock('../src/navigation/RootNavigator', () => ({
-  RootNavigator: () => null,
+  __esModule: true,
+  default: () => null,
 }));
 
 jest.mock('../src/store/authStore', () => ({
