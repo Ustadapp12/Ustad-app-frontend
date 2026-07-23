@@ -348,6 +348,16 @@ export function characterForIndex(shuffled: number[], idx: number): Character {
 const MAX_HEARTS = 5;
 const MAX_MISTAKES = MAX_HEARTS * 2;
 
+// Stars shown on the completion screen, derived from real accuracy (not the
+// hardcoded 3 this used to be) — kept in sync with the backend's own
+// _stars_from_score() thresholds (app/learning/service.py) so the number
+// shown here never disagrees with the stars persisted for the level on the map.
+function starsFromAccuracy(scorePct: number): number {
+  if (scorePct >= 90) return 3;
+  if (scorePct >= 60) return 2;
+  return 1; // floor of 1 star for any completed attempt, including <30%
+}
+
 // Back button used as a safety net on the blank loading state below.
 const LL = StyleSheet.create({
   backBtn: { position: 'absolute', left: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
@@ -2278,8 +2288,8 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             }
             navigation.replace('LessonComplete', {
               xp: totalXpRef.current || summary.xp_awarded,
-              scorePct: summary.passed ? Math.max(scorePct, 70) : scorePct,
-              stars: 3,
+              scorePct,
+              stars: starsFromAccuracy(scorePct),
               // Backend fields not deployed yet fall back safely to "no
               // celebration" rather than crashing on an undefined summary field.
               streakIncremented: summary.streak_incremented ?? false,
@@ -2289,7 +2299,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             console.warn('[Lesson] completeSession FAILED. totalXpRef:', totalXpRef.current, 'error:', e);
             navigation.replace('LessonComplete', {
               xp: totalXpRef.current || 20, scorePct,
-              stars: 3,
+              stars: starsFromAccuracy(scorePct),
             });
           }
         } else if (result.next_exercise) {

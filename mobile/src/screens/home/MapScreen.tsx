@@ -16,6 +16,7 @@ import { learningApi } from '../../api';
 import { colors } from '../../theme/colors';
 import { groupIntoPhases } from '../../utils/mapPhases';
 import { getCachedRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel } from '../../services/bootCache';
+import { loadLessonGroup } from '../../services/cachedContent';
 import { getUnlockedSeasons, unlockSeason } from '../../utils/storage';
 import type { SurahLevel } from '../../types/api';
 import type { MapNavProp } from '../../navigation/types';
@@ -917,6 +918,11 @@ export default function MapScreen({ navigation }: Props) {
   const [unlockedSeasons, setUnlockedSeasons] = useState<Set<number>>(new Set());
   // Which season-gate's tap message is currently showing (null = none).
   const [gateTapped, setGateTapped] = useState<number | null>(null);
+  // Which completed node's "retry?" prompt is currently showing on the map
+  // (null = none). Tapping a completed node no longer navigates straight
+  // into LessonSession — that's what triggers the expensive exercise-build
+  // fetch — it just surfaces this prompt; only confirming pays that cost.
+  const [retryNodeId, setRetryNodeId] = useState<string | null>(null);
   // Which season index is currently having its previous-season eligibility
   // re-checked on demand (see handleGatePress) — null when no check in flight.
   const [checkingGate, setCheckingGate] = useState<number | null>(null);
@@ -1158,6 +1164,16 @@ export default function MapScreen({ navigation }: Props) {
           // just not confirmed yet. Tappable; see handleNodePress.
           return { ...node, status: 'pending' as NodeStatus, resolved: false };
         }
+        // Later levels of a surah whose first level already reads 'completed'
+        // have no fetch mechanism of their own once the surah stops being
+        // "current" (recommendedNext moves on) — without this they'd default
+        // to the layout's baseline 'locked' forever, even after the user
+        // actually finished them. Assume completed (3 stars, unconfirmed) —
+        // resolved:false marks it as a guess, so handleNodePress verifies the
+        // real status on tap before deciding retry-prompt vs. direct-start.
+        if (first?.status === 'completed') {
+          return { ...node, status: 'completed' as NodeStatus, stars: 3, resolved: false };
+        }
         return { ...node, resolved: false }; // stays computeLayout's default 'locked' — a real gate
       }),
     };
@@ -1165,12 +1181,57 @@ export default function MapScreen({ navigation }: Props) {
 
   async function handleNodePress(section: Section, node: SectionNode) {
     if (node.status === 'locked') return; // real gate — previous level not completed
+    if (node.status === 'completed') {
+      // Always warm the lesson-content cache the instant a completed node is
+      // tapped (loadLessonGroup is cache-first over disk — see
+      // cachedContent.ts), so if the user does confirm "Retry", LessonSession
+      // hits a warm cache instead of the network.
+      void loadLessonGroup(node.id).catch(() => {});
+      if (!node.resolved) {
+        // Assumed-completed (the enrichedSections heuristic guessed this from
+        // the surah's first level, with no real per-group data) — verify
+        // before trusting it. A surah can be genuinely finished (show the
+        // retry prompt) or only partially done and skipped past (this
+        // specific node is actually the real next 'available' level) — in
+        // that case skip the prompt and start it directly instead.
+        try {
+          const levels = await learningApi.levels(section.surahNum);
+          const sorted = sortedLevels(levels);
+          setFullLevels(prev => ({ ...prev, [section.surahNum]: sorted }));
+          const real = sorted[node.levelNum - 1];
+          if (real && real.status !== 'completed') {
+            navigation.navigate('LessonSession', { groupId: real.lesson_group_id, surahName: section.name, surahNumber: section.surahNum });
+            return;
+          }
+        } catch (e) {
+          console.warn('[MapScreen] completed-node status verify failed:', e);
+          // Fall through and treat it as completed per the heuristic —
+          // start_session() already allows (re)starting a "completed" group,
+          // so worst case here is just a misleading "Retry" label.
+        }
+      }
+      // Already done — tapping it is just Browse, not intent to redo the
+      // lesson. Surface the retry prompt on the map instead of immediately
+      // navigating (tap again to dismiss). The node stays 'completed' the
+      // whole time; only handleRetryConfirm below actually navigates.
+      setGateTapped(null);
+      setRetryNodeId(prev => (prev === node.id ? null : node.id));
+      return;
+    }
+    setRetryNodeId(null);
     if (node.status === 'pending') {
       const lvl = await fetchFirstLevelNow(section.surahNum);
       if (!lvl) return; // fetch failed — stay put rather than navigating with a bad id
       navigation.navigate('LessonSession', { groupId: lvl.lesson_group_id, surahName: section.name, surahNumber: section.surahNum });
       return;
     }
+    navigation.navigate('LessonSession', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum });
+  }
+
+  // Only reached by the retry-prompt's "Retry" button — the one place a
+  // completed node's tap actually navigates (and pays for the exercise fetch).
+  function handleRetryConfirm(section: Section, node: SectionNode) {
+    setRetryNodeId(null);
     navigation.navigate('LessonSession', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum });
   }
 
@@ -1204,6 +1265,7 @@ export default function MapScreen({ navigation }: Props) {
   // surah on demand, right when the gate is tapped, instead.
   async function handleGatePress(seasonIdx: number) {
     if (isSeasonUnlocked(seasonIdx)) return; // already unlocked — pure scenery now
+    setRetryNodeId(null);
     setGateTapped(seasonIdx);
     const prevSeasonSurahs = PHASE_GROUPS[seasonIdx - 1] ?? [];
     const lastSurah = prevSeasonSurahs[prevSeasonSurahs.length - 1];
@@ -1626,6 +1688,32 @@ export default function MapScreen({ navigation }: Props) {
                     <Text style={S.unlockDismissText}>OK</Text>
                   </TouchableOpacity>
                 )}
+              </View>
+            );
+          })()}
+
+          {/* Completed-node "retry?" prompt — the on-map popout described in
+              the perf fix: tapping a gold/completed node no longer jumps
+              straight into LessonSession (that's the expensive
+              exercise-build fetch). It just shows this, positioned above the
+              tapped node; only "Retry →" pays that cost. */}
+          {retryNodeId != null && (() => {
+            let target: { section: Section; node: SectionNode } | null = null;
+            for (const s of gatedSections) {
+              const n = s.nodes.find(nn => nn.id === retryNodeId);
+              if (n) { target = { section: s, node: n }; break; }
+            }
+            if (!target) return null;
+            const { section, node } = target;
+            return (
+              <View style={{ position: 'absolute', left: node.x + NODE_SIZE / 2 - sc(70), top: node.y - sc(112), alignItems: 'center', zIndex: 5 }}>
+                <LumaFloat speech="Want to retry this level?" floatAnim={floatAnim} S={S} SB={SB} />
+                <TouchableOpacity style={S.unlockBtn} onPress={() => handleRetryConfirm(section, node)}>
+                  <Text style={S.unlockBtnText}>Retry →</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={S.unlockDismiss} onPress={() => setRetryNodeId(null)}>
+                  <Text style={S.unlockDismissText}>Not now</Text>
+                </TouchableOpacity>
               </View>
             );
           })()}
