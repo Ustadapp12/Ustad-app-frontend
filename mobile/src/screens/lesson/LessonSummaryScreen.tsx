@@ -4,6 +4,8 @@ import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
+import { useAuthStore } from '../../store/authStore';
+import { addPendingGuestProgress, isGuest } from '../../utils/guest';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props {
@@ -64,6 +66,19 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
       xpCountAnim.removeAllListeners();
     };
   }, []);
+
+  // A guest was shown this XP but the server never banked it (see
+  // utils/guest.ts). Park it locally so claiming the account can hand it back;
+  // declining the prompt clears it and the XP is genuinely forfeited.
+  // Latched, because addPendingGuestProgress accumulates: a re-run would credit
+  // the same level's XP twice over.
+  const isGuestUser = isGuest(useAuthStore(s => s.user));
+  const bankedRef = useRef(false);
+  useEffect(() => {
+    if (!isGuestUser || bankedRef.current) return;
+    bankedRef.current = true;
+    void addPendingGuestProgress(xp, currentStreak ?? 0);
+  }, [isGuestUser, xp, currentStreak]);
 
   const grade = scorePct >= 90 ? 'Excellent!' : scorePct >= 70 ? 'Great job!' : scorePct >= 50 ? 'Good effort!' : 'Keep practicing!';
   const gradeColor = scorePct >= 90 ? colors.gold : scorePct >= 70 ? colors.primary : scorePct >= 50 ? colors.blue : colors.mutedText;

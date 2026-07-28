@@ -16,7 +16,7 @@ try {
     dist: sentryConfig.dist,
     tracesSampleRate: 1.0,
     // Auto-performance instrumentation (app-start/native-frames/stall
-    // tracking) adds native-bridge overhead at startup for data nothing in
+    // tracking) defef adds native-bridge overhead at startup for data nothing in
     // this app reads (no startTransaction/startSpan calls anywhere) — off,
     // but error/crash reporting above is unaffected.
     enableAutoPerformanceTracing: false,

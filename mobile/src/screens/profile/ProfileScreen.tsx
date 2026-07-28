@@ -8,6 +8,8 @@ import { scriptFontScale, scriptLineHeightScale } from '../../utils/arabicFont';
 import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import { useResponsiveScale } from '../../utils/responsive';
+import { isGuest } from '../../utils/guest';
+import GuestGate from '../../components/GuestGate';
 import type { ScriptPreference } from '../../types/api';
 import type { ProfileNavProp } from '../../navigation/types';
 
@@ -25,7 +27,15 @@ const PREVIEW = 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّ
 const AYESHA_SRC = require('../../../assets/characters/ayesha.png');
 const HAMZA_SRC = require('../../../assets/characters/hamza.png');
 
-export default function ProfileScreen({ navigation }: Props) {
+export default function ProfileScreen(props: Props) {
+  const user = useAuthStore(s => s.user);
+  // Split in two so the guard sits above every hook in the real screen —
+  // an early return inside ProfileContent would change hook order.
+  if (isGuest(user)) return <GuestGate feature="Your profile" />;
+  return <ProfileContent {...props} />;
+}
+
+function ProfileContent({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { user, learning, profile, logout, deleteAccount } = useAuthStore();
   const { script, setScript } = useScriptStore();

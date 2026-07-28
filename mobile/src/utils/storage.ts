@@ -12,6 +12,7 @@ const KEYS = {
   script: '@ustadapp/script',
   seasonsUnlocked: '@ustadapp/map/seasonsUnlocked',
   lastEmailHint: '@ustadapp/auth/lastEmailHint',
+  tourSeen: '@ustadapp/tour/seen',
 } as const;
 
 // In-memory cache + in-flight dedup: getTokens() is called once per parallel
@@ -92,6 +93,25 @@ export async function unlockSeason(seasonIdx: number): Promise<number[]> {
   const next = [...current, seasonIdx];
   await AsyncStorage.setItem(KEYS.seasonsUnlocked, JSON.stringify(next));
   return next;
+}
+
+// Whether the guided tour has been offered. Set on *either* answer — being
+// asked a second time reads as the app having forgotten you said no.
+export async function wasTourOffered(): Promise<boolean> {
+  return (await AsyncStorage.getItem(KEYS.tourSeen)) === 'true';
+}
+
+export async function setTourOffered(): Promise<void> {
+  await AsyncStorage.setItem(KEYS.tourSeen, 'true');
+}
+
+// The tour is an app-wide first-run thing, not a guest-only one — every new
+// account should be offered it once. The flag above lives in device storage
+// though, so without this a second account created on the same device (e.g.
+// logout, then sign up fresh) would inherit the first account's "already
+// seen" state. Called wherever a brand-new account is minted.
+export async function resetTourOffered(): Promise<void> {
+  await AsyncStorage.removeItem(KEYS.tourSeen);
 }
 
 export async function getReciterId(): Promise<string> {

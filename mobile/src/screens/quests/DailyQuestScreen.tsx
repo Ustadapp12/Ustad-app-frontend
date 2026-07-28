@@ -3,8 +3,19 @@ import { View, Text, StyleSheet, Animated, Image } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
+import { useAuthStore } from '../../store/authStore';
+import { isGuest } from '../../utils/guest';
+import GuestGate from '../../components/GuestGate';
 
 export default function DailyQuestScreen() {
+  const user = useAuthStore(s => s.user);
+  // Split in two so the guard sits above every hook in the real screen —
+  // an early return inside DailyQuestContent would change hook order.
+  if (isGuest(user)) return <GuestGate feature="Daily Quests" />;
+  return <DailyQuestContent />;
+}
+
+function DailyQuestContent() {
   const insets = useSafeAreaInsets();
   const floatAnim = useRef(new Animated.Value(0)).current;
 

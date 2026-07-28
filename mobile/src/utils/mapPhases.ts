@@ -5,7 +5,7 @@
  * even before its phase has been proactively fetched (see MapScreen).
  */
 
-export const PHASE_SIZES = [3, 3, 1];
+export const PHASE_SIZES = [3, 3, 3, 3, 3, 3, 3];
 
 export function groupIntoPhases<T>(items: T[]): T[][] {
   const phases: T[][] = [];

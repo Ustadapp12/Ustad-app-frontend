@@ -1,4 +1,4 @@
-import { addBreadcrumb } from '../services/crashReporter';
+import { addBreadcrumb, captureError } from '../services/crashReporter';
 import { API_BASE, API_PREFIX } from '../config';
 import { getTokens, setTokens } from '../utils/storage';
 import { messageForStatus } from './formatError';
@@ -77,6 +77,7 @@ export async function api<T>(
   path: string,
   options: RequestInit = {},
   auth = true,
+  { retryOnNetworkError = false }: { retryOnNetworkError?: boolean } = {},
 ): Promise<T> {
   // Don't set Content-Type for FormData — fetch will add the correct multipart boundary
   const isFormData = options.body instanceof FormData;
@@ -92,21 +93,44 @@ export async function api<T>(
     }
   }
 
+  const doFetch = () =>
+    fetchWithTimeout(`${API_BASE}${API_PREFIX}${path}`, { ...options, headers });
+
   let res: Response;
   try {
-    res = await fetchWithTimeout(`${API_BASE}${API_PREFIX}${path}`, {
-      ...options,
-      headers,
-    });
+    res = await doFetch();
   } catch (err) {
     const isAbort = err instanceof Error && err.name === 'AbortError';
-    throw new ApiError(
-      isAbort
-        ? 'Request timed out — check your connection.'
-        : 'Cannot reach server — check your network or local API settings.',
-      0,
-      null,
-    );
+    // The backend is a serverless function that can take 5-15s to open its DB
+    // connections on a cold start, and the platform can kill it before that
+    // finishes — fetch() then throws with no HTTP response at all, well before
+    // our own 30s timeout. By the time that happens the instance is normally
+    // warm, so silently retrying once (only for callers that opt in, since a
+    // blind retry isn't safe for every endpoint) resolves it without the user
+    // needing to notice or tap again.
+    if (retryOnNetworkError && !isAbort) {
+      addBreadcrumb('network error, retrying once', { path });
+      try {
+        res = await doFetch();
+      } catch (err2) {
+        captureError(err2, { path, api_base: API_BASE });
+        throw new ApiError('Cannot reach server — check your internet connection.', 0, null);
+      }
+    } else {
+      if (!isAbort) {
+        // fetch() threw before any HTTP response arrived — capture the real
+        // underlying error (DNS failure, TLS failure, connection refused, …),
+        // since the generic message shown to the user can't say which it was.
+        captureError(err, { path, api_base: API_BASE });
+      }
+      throw new ApiError(
+        isAbort
+          ? 'Request timed out — check your connection.'
+          : 'Cannot reach server — check your internet connection.',
+        0,
+        null,
+      );
+    }
   }
 
   if (res.status === 401 && auth) {

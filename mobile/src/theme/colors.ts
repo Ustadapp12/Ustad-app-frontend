@@ -64,6 +64,14 @@ export const colors = {
   // Warning
   warning: '#92660A',
   warningBg: '#FFFBEB',
+
+  // Map node action cards ("start a new level" / "repeat the lesson" popouts)
+  levelCardOffWhite: '#F5F7FA',
+  levelStartAccent: '#00855D',
+  levelStartAccentText: '#05966A',
+  levelRepeatBg: '#FFF4DA',
+  levelRepeatBorder: '#FFCC00',
+  levelRepeatAccent: '#E9C468',
 } as const;
 
 export type ColorKey = keyof typeof colors;

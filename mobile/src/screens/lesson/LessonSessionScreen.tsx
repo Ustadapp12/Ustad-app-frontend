@@ -91,7 +91,7 @@ async function stopRecording(): Promise<string | null> {
   }
 }
 
-function PlayPauseBtn({
+export function PlayPauseBtn({
   url, urls, label = 'Listen', darkMode = false, disabled = false,
 }: { url?: string | null; urls?: string[] | null; label?: string; darkMode?: boolean; disabled?: boolean }) {
   const [state, setState] = useState<'idle' | 'playing' | 'paused'>('idle');
@@ -208,7 +208,7 @@ function AyahText({ text, style }: { text: string; style: any }) {
 }
 
 // ── Hint button (glowing lightbulb, top-right) with Lumo modal ─────
-function HintButton({
+export function HintButton({
   url, ayahAr, ayahTranslation,
 }: { url?: string | null; ayahAr?: string | null; ayahTranslation?: string | null }) {
   const glowAnim   = useRef(new Animated.Value(0.5)).current;
@@ -246,7 +246,10 @@ function HintButton({
     }
   };
 
-  if (!url) return null;
+  // A hint is worth showing if there's either audio or text — previously an
+  // exercise that carried the ayah and its translation but no audio url hid the
+  // button entirely, throwing away a perfectly good hint.
+  if (!url && !ayahAr) return null;
 
   return (
     <>
@@ -276,16 +279,18 @@ function HintButton({
               </View>
             ) : null}
 
-            {/* Play / Pause button */}
-            <TouchableOpacity
-              style={[HB.playBtn, playing && HB.playBtnActive]}
-              onPress={handlePlayPause}
-            >
-              <View style={HB.pauseRow}>
-                <PlayPauseIcon playing={playing} size={16} color="white" />
-                <Text style={HB.playText}>  {playing ? 'Pause' : 'Hear the Ayah'}</Text>
-              </View>
-            </TouchableOpacity>
+            {/* Play / Pause button — omitted when the hint is text-only */}
+            {url ? (
+              <TouchableOpacity
+                style={[HB.playBtn, playing && HB.playBtnActive]}
+                onPress={handlePlayPause}
+              >
+                <View style={HB.pauseRow}>
+                  <PlayPauseIcon playing={playing} size={16} color="white" />
+                  <Text style={HB.playText}>  {playing ? 'Pause' : 'Hear the Ayah'}</Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
 
             <TouchableOpacity style={HB.cancelBtn} onPress={() => setVisible(false)}>
               <Text style={HB.cancelText}>Got it</Text>
@@ -376,7 +381,7 @@ function SubmittingSpinner() {
 
 const BAR_HEIGHTS = [7, 13, 20, 13, 7]; // waveform bar heights in px
 
-function SegmentPlayBtn({ url, urls }: { url?: string | null; urls?: string[] | null }) {
+export function SegmentPlayBtn({ url, urls }: { url?: string | null; urls?: string[] | null }) {
   const [playing, setPlaying] = useState(false);
   const mountedRef = useRef(true);
   const pulseAnims = useRef(BAR_HEIGHTS.map(() => new Animated.Value(1))).current;
@@ -512,6 +517,89 @@ export function ProgressBar({ fraction }: { fraction: number }) {
   );
 }
 
+// ── Exercise header ───────────────────────────────────────────────
+// The ✕ / progress bar / hearts / hint strip that sits above every exercise.
+//
+// Extracted (rather than left inline in the main screen) so the guided tour can
+// render the genuine article instead of a mock-up of it. The tour is meant to
+// show new users what the real lesson screen looks like, and a hand-copied
+// lookalike would start lying the first time this changed. Same component, same
+// hearts, same bar, same hint modal — they cannot drift apart.
+export interface LessonHeaderTargets {
+  progress?: React.Ref<View>;
+  hearts?: React.Ref<View>;
+  hint?: React.Ref<View>;
+}
+
+export function LessonHeader({
+  mistakes,
+  progressFraction,
+  hintUrl,
+  hintAyahAr,
+  hintAyahTranslation,
+  onExit,
+  targets,
+}: {
+  /** In half-heart units — see MAX_MISTAKES. */
+  mistakes: number;
+  progressFraction: number;
+  hintUrl?: string | null;
+  hintAyahAr?: string | null;
+  hintAyahTranslation?: string | null;
+  onExit: () => void;
+  /** Optional refs so the tour can measure what it's about to spotlight. */
+  targets?: LessonHeaderTargets;
+}) {
+  const heartsLeftHalf = MAX_MISTAKES - mistakes;
+
+  return (
+    <View style={LH.header}>
+      <TouchableOpacity style={LH.backBtn} onPress={onExit}>
+        <Text style={LH.backText}>✕</Text>
+      </TouchableOpacity>
+
+      <View ref={targets?.progress} collapsable={false} style={LH.progressSlot}>
+        <ProgressBar fraction={progressFraction} />
+      </View>
+
+      <View ref={targets?.hearts} collapsable={false} style={LH.heartsRow}>
+        {Array.from({ length: MAX_HEARTS }).map((_, i) => {
+          const heartsFromThisIcon = heartsLeftHalf - i * 2; // each icon is worth 2 half-hearts
+          const src =
+            heartsFromThisIcon >= 2 ? require('../../../assets/map/redh.png') :
+            heartsFromThisIcon === 1 ? require('../../../assets/map/halfh.png') :
+            require('../../../assets/map/whiteh.png');
+          return (
+            <View key={i} style={LH.heartWrapper}>
+              <Image source={src} style={LH.heartImage} resizeMode="contain" />
+            </View>
+          );
+        })}
+      </View>
+
+      <View ref={targets?.hint} collapsable={false}>
+        <HintButton url={hintUrl} ayahAr={hintAyahAr} ayahTranslation={hintAyahTranslation} />
+      </View>
+    </View>
+  );
+}
+
+const LH = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 8 },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  backText: { fontSize: 14, color: colors.mutedText },
+  // ProgressBar itself carries flex:1; this wrapper only exists so the tour has
+  // something measurable to point at, so it has to pass that through. Needs its
+  // own flexDirection:'row' — a plain View defaults to column, which put
+  // ProgressBar's flex:1 on the vertical axis instead of the horizontal one
+  // it had when it sat directly in this row-direction header, before this
+  // wrapper existed.
+  progressSlot: { flex: 1, flexDirection: 'row' },
+  heartsRow: { flexDirection: 'row', gap: 3 },
+  heartImage: { width: 20, height: 20 },
+  heartWrapper: { alignItems: 'center', justifyContent: 'center', width: 20, height: 20 },
+});
+
 const PBR = StyleSheet.create({
   track: { flex: 1, height: 10, backgroundColor: '#E5E7EB', borderRadius: 6, overflow: 'hidden', marginHorizontal: 10 },
   fill:  { height: '100%', backgroundColor: colors.primary, borderRadius: 6 },
@@ -519,7 +607,7 @@ const PBR = StyleSheet.create({
 
 // ── Exercise renderers ─────────────────────────────────────────────
 
-function AyahDisplay({
+export function AyahDisplay({
   ex, surahName, transliteration, showLumo, onContinue,
 }: {
   ex: ExerciseDict;
@@ -1492,13 +1580,16 @@ function ReadAyahAndSpeak({
         </View>
 
         {/* Hear it first — prefer full ayah URL, fall back to segment URLs.
-            Disabled while recording: playback would get picked up by the
-            mic and corrupt the recitation being scored. */}
+            Disabled from the moment recording starts through scoring/done —
+            not just while actively recording: once an attempt has been
+            submitted there's nothing left to prepare for, so replaying the
+            hint no longer makes sense (and during recording it'd get picked
+            up by the mic and corrupt the recitation being scored). */}
         <PlayPauseBtn
           url={ex.ayah_audio_url}
           urls={ex.segment_audio_urls}
           label="Hear the Ayah"
-          disabled={speakState === 'recording'}
+          disabled={speakState !== 'idle'}
         />
 
       </ScrollView>
@@ -1581,12 +1672,16 @@ const RAS = StyleSheet.create({
 // Press-and-hold the mic to record reading all the words aloud.
 // Scores via speak-attempt API and shows result inline.
 
-function ReadAndSpeak({
+export function ReadAndSpeak({
   ex, surahName, character, onSpeakScored,
 }: { ex: ExerciseDict; surahName: string; character: Character; onSpeakScored: (result: SpeakResult) => void }) {
   const arabicFont = useArabicFont();
   const [speakState, setSpeakState] = useState<SpeakState>('idle');
   const [error, setError]           = useState<string | null>(null);
+  // True once "Hear" (the whole-phrase button) has been tapped — hides the
+  // individual word chips outright rather than just disabling them, since
+  // hearing the full phrase is meant to replace picking through it word by word.
+  const [heardAll, setHeardAll]     = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -1605,6 +1700,7 @@ function ReadAndSpeak({
   useEffect(() => {
     setSpeakState('idle');
     setError(null);
+    setHeardAll(false);
     recordedUriRef.current = null;
   }, [ex.ex_id]);
 
@@ -1695,30 +1791,38 @@ function ReadAndSpeak({
         </View>
 
         {/* Word chips — displayed RTL (right-to-left, Arabic reading order).
-            Disabled while recording: playback would get picked up by the
-            mic and corrupt the recitation being scored. */}
-        <View style={RANS.wordRow}>
-          {tokens.map((token, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[RANS.wordChip, speakState === 'recording' && RANS.wordChipDisabled]}
-              onPress={() => { void playUrl(token.audio_url); }}
-              disabled={speakState === 'recording'}
-            >
-              <Text style={arabicTextStyle(RANS.wordText as any, arabicFont) as any}>
-                {token.ar}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+            Gone entirely once "Hear" has been used (see heardAll) rather than
+            just disabled, since the whole-phrase listen replaces picking
+            through it word by word. Otherwise disabled from the moment
+            recording starts through scoring/done: mid-recording it'd get
+            picked up by the mic, and once an attempt is submitted there's
+            nothing left to prepare for. */}
+        {!heardAll && (
+          <View style={RANS.wordRow}>
+            {tokens.map((token, i) => (
+              <TouchableOpacity
+                key={i}
+                style={[RANS.wordChip, speakState !== 'idle' && RANS.wordChipDisabled]}
+                onPress={() => { void playUrl(token.audio_url); }}
+                disabled={speakState !== 'idle'}
+              >
+                <Text style={arabicTextStyle(RANS.wordText as any, arabicFont) as any}>
+                  {token.ar}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* "Hear" — pre-loads all word audio then plays in rapid succession.
-            Disabled while recording for the same reason as the word chips. */}
+            Tapping it hides the word chips above (see heardAll). Disabled
+            from the moment recording starts through scoring/done, same as
+            the word chips. */}
         {allAudioUrls.length > 0 && (
           <TouchableOpacity
-            style={[RANS.hearAllBtn, speakState === 'recording' && RANS.hearAllBtnDisabled]}
-            onPress={() => { void playUrlSequenceFast(allAudioUrls); }}
-            disabled={speakState === 'recording'}
+            style={[RANS.hearAllBtn, speakState !== 'idle' && RANS.hearAllBtnDisabled]}
+            onPress={() => { setHeardAll(true); void playUrlSequenceFast(allAudioUrls); }}
+            disabled={speakState !== 'idle'}
           >
             <Text style={RANS.hearAllIcon}>🔊</Text>
             <Text style={RANS.hearAllText}>Hear</Text>
@@ -2025,7 +2129,7 @@ const EX = StyleSheet.create({
 
 // ── Feedback overlay ───────────────────────────────────────────────
 
-function FeedbackBanner({
+export function FeedbackBanner({
   result, onAdvance,
 }: { result: FormulaAttemptOut; onAdvance: () => void }) {
   const correct = result.correct;
@@ -2331,6 +2435,19 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         navigation.replace('LessonComplete', {
           xp: 0, scorePct: 0, stars: 1,
         });
+      } else if (e?.status === 0) {
+        // status 0 = fetch never got an HTTP response (client.ts) — no signal,
+        // DNS/TLS failure, or our own 30s timeout. Answer was never scored, so
+        // there's no partial progress to protect; bail out to the home screen
+        // rather than leaving the exercise frozen on a submit that'll never resolve.
+        Alert.alert(
+          'Connection lost',
+          'You lost connection. Please check your internet and try again.',
+          [{ text: 'OK', onPress: () => {
+            abandonSession({ silent: true }).catch(() => {});
+            navigation.navigate('MainTabs');
+          } }],
+        );
       }
     }
   }, [sessionId, exercise, submitting, correctCount, mistakes]);
@@ -2435,8 +2552,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   }
 
   // ── Exercise header ──────────────────────────────────────────────
-  const heartsLeftHalf = MAX_MISTAKES - mistakes; // in half-heart units (0-10)
-
   // Bar is a server-computed, monotonic % of the level's total work done —
   // NOT an accuracy/score value. It only ever moves forward (a mistake adds
   // remediation work but holds the bar rather than dipping it) and hits 100%
@@ -2446,41 +2561,21 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
 
   return (
     <View style={[S.screen, { paddingTop: insets.top }]}>
-      {/* Top bar: X + progress bar + 4 hearts + Hint */}
-      <View style={S.header}>
-        <TouchableOpacity style={S.backBtn} onPress={() => setExitConfirmVisible(true)}>
-          <Text style={S.backText}>✕</Text>
-        </TouchableOpacity>
-
-        <ProgressBar fraction={progressFraction} />
-
-        <View style={S.heartsRow}>
-          {Array.from({ length: MAX_HEARTS }).map((_, i) => {
-            const heartsFromThisIcon = heartsLeftHalf - i * 2; // each icon is worth 2 half-hearts
-            const src =
-              heartsFromThisIcon >= 2 ? require('../../../assets/map/redh.png') :
-              heartsFromThisIcon === 1 ? require('../../../assets/map/halfh.png') :
-              require('../../../assets/map/whiteh.png');
-            return (
-              <View key={i} style={S.heartWrapper}>
-                <Image source={src} style={S.heartImage} resizeMode="contain" />
-              </View>
-            );
-          })}
-        </View>
-
-        {(() => {
-          const hintAyah = group?.ayahs.find(a => a.ayah_number === exercise.ayah_no);
-          const showHint = exercise.type !== 'ayah_display' && exercise.type !== 'hear_and_select' && exercise.type !== 'sequence';
-          return (
-            <HintButton
-              url={showHint ? exercise.ayah_audio_url : null}
-              ayahAr={showHint ? (exercise.ayah_ar ?? hintAyah?.arabic ?? null) : null}
-              ayahTranslation={showHint ? (exercise.ayah_translation ?? hintAyah?.translation_en ?? null) : null}
-            />
-          );
-        })()}
-      </View>
+      {/* Top bar: X + progress bar + 5 hearts + Hint */}
+      {(() => {
+        const hintAyah = group?.ayahs.find(a => a.ayah_number === exercise.ayah_no);
+        const showHint = exercise.type !== 'ayah_display' && exercise.type !== 'hear_and_select' && exercise.type !== 'sequence';
+        return (
+          <LessonHeader
+            mistakes={mistakes}
+            progressFraction={progressFraction}
+            hintUrl={showHint ? exercise.ayah_audio_url : null}
+            hintAyahAr={showHint ? (exercise.ayah_ar ?? hintAyah?.arabic ?? null) : null}
+            hintAyahTranslation={showHint ? (exercise.ayah_translation ?? hintAyah?.translation_en ?? null) : null}
+            onExit={() => setExitConfirmVisible(true)}
+          />
+        );
+      })()}
 
       {/* Exercise content */}
       <View style={S.exerciseArea}>
@@ -2715,12 +2810,8 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
 const S = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.lightBg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.lightBg, padding: 28 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 8 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
-  backText: { fontSize: 14, color: colors.mutedText },
-  heartsRow: { flexDirection: 'row', gap: 3 },
-  heartImage: { width: 20, height: 20 },
-  heartWrapper: { alignItems: 'center', justifyContent: 'center', width: 20, height: 20 },
+  // Header styles now live with LessonHeader (see LH above), which both this
+  // screen and the guided tour render.
   exerciseArea: { flex: 1 },
   spinnerOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,244,248,0.6)' },
   confettiOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 50 },

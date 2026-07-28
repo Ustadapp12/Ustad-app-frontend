@@ -33,6 +33,7 @@ const StreakScreen = lazy(() => import('../screens/gamification/StreakScreen'));
 const LessonSummaryScreen = lazy(() => import('../screens/lesson/LessonSummaryScreen'));
 const MainTabs = lazy(() => import('./MainTabs'));
 const LessonSessionScreen = lazy(() => import('../screens/lesson/LessonSessionScreen'));
+const TourLessonScreen = lazy(() => import('../screens/tour/TourLessonScreen'));
 
 function withSuspense<P extends object>(LazyComponent: React.LazyExoticComponent<React.ComponentType<P>>) {
   return function SuspendedScreen(props: P) {
@@ -60,6 +61,7 @@ const StreakScreenLazy = withSuspense(StreakScreen);
 const LessonSummaryScreenLazy = withSuspense(LessonSummaryScreen);
 const MainTabsLazy = withSuspense(MainTabs);
 const LessonSessionScreenLazy = withSuspense(LessonSessionScreen);
+const TourLessonScreenLazy = withSuspense(TourLessonScreen);
 
 export default function RootNavigator() {
   const hydrate = useAuthStore(s => s.hydrate);
@@ -96,6 +98,7 @@ export default function RootNavigator() {
         <Stack.Screen name="OnboardPath" component={OnboardPathScreenLazy} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="OnboardAssessment" component={OnboardAssessmentScreenLazy} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="MainTabs" component={MainTabsLazy} options={{ animation: 'fade' }} />
+        <Stack.Screen name="GuidedTour" component={TourLessonScreenLazy} options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen
           name="Streak"
           component={StreakScreenLazy}

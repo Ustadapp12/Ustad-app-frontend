@@ -1,12 +1,15 @@
 import { create } from 'zustand';
 import { authApi, learningApi, usersApi, syncDeviceTimezone } from '../api';
-import { getTokens, setTokens, setStoredUser } from '../utils/storage';
+import { getTokens, setTokens, setStoredUser, resetTourOffered } from '../utils/storage';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
 import { setCrashUser, addBreadcrumb } from '../services/crashReporter';
 import { warmAudioUrlCache } from '../services/audioUrls';
 import { prefetchAll, invalidateAll } from '../services/bootCache';
 import { abandonActiveLessonSession, abandonPendingLessonSessionFromStorage } from '../services/lessonSession';
 import { useLessonStore } from './lessonStore';
+import {
+  clearPendingGuestProgress, displayNameFor, getPendingGuestProgress, resetGuestState,
+} from '../utils/guest';
 import type { LearningMe, User, UserProfile } from '../types/api';
 
 interface AuthState {
@@ -21,6 +24,8 @@ interface AuthState {
   hydrate: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
+  startGuestSession: () => Promise<void>;
+  upgradeGuest: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
   refreshLearning: (opts?: { force?: boolean }) => Promise<void>;
@@ -96,7 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       set({ isHydrated: true, user: null, learning: null });
       return;
     }
-    const user: User = { ...me.user, name: me.profile?.display_name ?? me.user.email.split('@')[0] };
+    const user: User = { ...me.user, name: displayNameFor(me.user, me.profile?.display_name) };
     await setStoredUser(user);
     set({ isHydrated: true, user, learning: null, profile: me.profile ?? null });
     void syncDeviceTimezone();
@@ -112,7 +117,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     setCrashUser(res.user.id, res.user.email);
     await setAnalyticsUserId(res.user.id);
     void logAnalyticsEvent(AnalyticsEvents.LOGIN, { method: 'email' });
-    const user: User = { ...res.user, name: res.user.email.split('@')[0] };
+    const user: User = { ...res.user, name: displayNameFor(res.user) };
     set({ user, learning: null });
     void syncDeviceTimezone();
 
@@ -145,8 +150,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
     await setStoredUser(res.user);
     setCrashUser(res.user.id, res.user.email);
     await setAnalyticsUserId(res.user.id);
+    await resetTourOffered();
     void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'email' });
-    const enrichedUser: User = { ...res.user, name: displayName ?? res.user.email.split('@')[0] };
+    const enrichedUser: User = { ...res.user, name: displayNameFor(res.user, displayName) };
     await setStoredUser(enrichedUser);
     set({ user: enrichedUser, learning: null });
     void syncDeviceTimezone();
@@ -156,6 +162,49 @@ export const useAuthStore = create<AuthState>((set, get) => {
     if (!res.user.email_verified) return;
     const learning = await learningApi.me();
     await finishAuthSetup(enrichedUser, learning);
+  },
+
+  // First launch: mint a real (unclaimed) account so the map, levels and the
+  // lesson engine all work before the user has committed an email. Unlike
+  // register(), there's nothing to verify, so the gated setup runs immediately.
+  startGuestSession: async () => {
+    const res = await authApi.guest();
+    await setTokens(res.tokens);
+    await setStoredUser(res.user);
+    setCrashUser(res.user.id, null);
+    await resetGuestState();
+    await resetTourOffered();
+    const user: User = { ...res.user, name: displayNameFor(res.user) };
+    await setStoredUser(user);
+    set({ user, learning: null });
+    void syncDeviceTimezone();
+    const learning = await learningApi.me();
+    await finishAuthSetup(user, learning);
+  },
+
+  // Claims the current guest account. Same user row on the server, so level
+  // progress carries over; the XP/streak the guest was shown but never had
+  // banked rides along in the request body.
+  upgradeGuest: async (email, password, displayName) => {
+    const pending = await getPendingGuestProgress();
+    const res = await authApi.upgradeGuest({
+      email,
+      password,
+      display_name: displayName,
+      pending_xp: pending.xp,
+      pending_streak: pending.streak,
+    });
+    await setTokens(res.tokens);
+    setCrashUser(res.user.id, res.user.email);
+    void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'guest_upgrade' });
+    await clearPendingGuestProgress();
+    const user: User = { ...res.user, name: displayName };
+    await setStoredUser(user);
+    // `learning` is deliberately left as-is: the carried-over XP/streak land
+    // server-side during this call, and refreshLearning() below re-reads them
+    // once the email is verified.
+    set({ user });
+    void syncDeviceTimezone();
   },
 
   // Called by VerifyEmailScreen right after a successful authApi.verifyEmail()

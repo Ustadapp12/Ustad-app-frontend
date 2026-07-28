@@ -10,6 +10,7 @@ import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import { isGuest } from '../../utils/guest';
 import type { RootNavProp } from '../../navigation/types';
 import {
   validateName,
@@ -19,19 +20,27 @@ import {
   getPasswordStrength,
   isPasswordValid,
 } from '../../utils/validators';
+import { useCyclingMessage } from '../../hooks/useCyclingMessage';
 
 interface Props { navigation: RootNavProp }
+
+const SIGNUP_MESSAGES = ['Creating your account…', 'Connecting to the server…', 'Almost there…'];
 
 export default function SignUpScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const register = useAuthStore(s => s.register);
   const login = useAuthStore(s => s.login);
+  const upgradeGuest = useAuthStore(s => s.upgradeGuest);
+  // Arriving here as a guest means claiming the account they're already using,
+  // not creating a second one — same user row, so their levels survive.
+  const guest = isGuest(useAuthStore(s => s.user));
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+  const loadingMessage = useCyclingMessage(loading, SIGNUP_MESSAGES);
 
   const [nameTouched, setNameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
@@ -80,7 +89,11 @@ export default function SignUpScreen({ navigation }: Props) {
     setFormError(null);
     const normalizedEmail = normalizeEmail(email);
     try {
-      await register(normalizedEmail, password, name.trim());
+      if (guest) {
+        await upgradeGuest(normalizedEmail, password, name.trim());
+      } else {
+        await register(normalizedEmail, password, name.trim());
+      }
       if (useAuthStore.getState().user?.email_verified) {
         navigation.replace('OnboardAge');
       } else {
@@ -95,6 +108,25 @@ export default function SignUpScreen({ navigation }: Props) {
       // Rather than dead-end there, try logging in with what was just
       // typed — if this is really the account that just got created, this
       // succeeds transparently instead of confusing the user.
+      // Same failure mode on the guest path: the upgrade landed server-side but
+      // the response never arrived, so the local session still looks like a
+      // guest and a retry hits "this account already has an email". The
+      // credentials from that first attempt are live, so signing in with them
+      // recovers cleanly instead of stranding the user on a claimed account
+      // they can't get into.
+      if (e instanceof ApiError && e.code === 'ALREADY_REGISTERED') {
+        try {
+          await login(normalizedEmail, password);
+          if (useAuthStore.getState().user?.email_verified) {
+            navigation.replace('OnboardAge');
+          } else {
+            navigation.replace('VerifyEmail', { email: normalizedEmail });
+          }
+          return;
+        } catch {
+          // Fall through and surface the original error.
+        }
+      }
       if (e instanceof ApiError && (e.code === 'EMAIL_ALREADY_EXISTS' || e.status === 409)) {
         try {
           await login(normalizedEmail, password);
@@ -126,7 +158,11 @@ export default function SignUpScreen({ navigation }: Props) {
         </View>
 
         <Text style={styles.heading}>Create account</Text>
-        <Text style={styles.sub}>Start your free Hifz journey today</Text>
+        <Text style={styles.sub}>
+          {guest
+            ? 'Your streak, XP and progress will be saved to this account'
+            : 'Start your free Hifz journey today'}
+        </Text>
 
         {/* Full name */}
         <View style={styles.fieldWrap}>
@@ -246,7 +282,7 @@ export default function SignUpScreen({ navigation }: Props) {
       {loading && (
         <View style={styles.loadingOverlay}>
           <LoadingRing size={64} />
-          <Text style={styles.loadingText}>Creating your account…</Text>
+          <Text style={styles.loadingText}>{loadingMessage}</Text>
         </View>
       )}
     </KeyboardAvoidingView>

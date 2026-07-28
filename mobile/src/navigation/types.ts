@@ -18,6 +18,8 @@ export type RootStackParamList = {
   OnboardPath: undefined;
   OnboardAssessment: undefined;
   MainTabs: undefined;
+  // Lesson half of the guided tour — a display-only clone of the lesson screen.
+  GuidedTour: undefined;
   // Lesson flow (Phase 2)
   LessonSession: { groupId: string; surahName: string; surahNumber: number };
   LessonComplete: {

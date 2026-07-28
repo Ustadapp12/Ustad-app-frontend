@@ -46,6 +46,7 @@ export const authApi = {
       '/auth/register',
       { method: 'POST', body: JSON.stringify(body) },
       false,
+      { retryOnNetworkError: true },
     ),
 
   login: (body: { email: string; password: string }) =>
@@ -53,7 +54,28 @@ export const authApi = {
       '/auth/login',
       { method: 'POST', body: JSON.stringify(body) },
       false,
+      { retryOnNetworkError: true },
     ),
+
+  // Starts an unclaimed account (email null) so a first-time user can play
+  // immediately. Unauthenticated — this is what mints the first token pair.
+  guest: () =>
+    api<AuthResponse>('/auth/guest', { method: 'POST' }, false),
+
+  // Claims the *current* guest account by attaching credentials to the same
+  // user row, so level progress survives. pending_xp/pending_streak hand back
+  // what the guest earned but was never banked (the server clamps them).
+  upgradeGuest: (body: {
+    email: string;
+    password: string;
+    display_name: string;
+    pending_xp: number;
+    pending_streak: number;
+  }) =>
+    api<AuthResponse>('/auth/guest/upgrade', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }, true, { retryOnNetworkError: true }),
 
   me: () => api<AuthMeResponse>('/auth/me'),
 

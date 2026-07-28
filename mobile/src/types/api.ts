@@ -6,7 +6,12 @@ export interface Tokens {
 
 export interface User {
   id: string;
-  email: string;
+  /**
+   * null for a guest — an account that exists on the server but hasn't been
+   * claimed with an email yet. `isGuest(user)` in src/utils/guest.ts is the
+   * single place that check should be spelled out.
+   */
+  email: string | null;
   role: string;
   name?: string; // populated from profile.display_name after login
   email_verified: boolean;

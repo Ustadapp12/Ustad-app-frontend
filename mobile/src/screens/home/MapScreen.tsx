@@ -4,8 +4,9 @@ import {
   ScrollView, RefreshControl, type ImageSourcePropType,
 } from 'react-native';
 import Svg, {
-  Defs, LinearGradient, Stop, Rect, Ellipse, Path, G, Pattern, Image as SvgImage,
+  Defs, Ellipse, Path, G, Pattern, Image as SvgImage,
 } from 'react-native-svg';
+import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import PredictedProgressBar from '../../components/PredictedProgressBar';
@@ -17,9 +18,16 @@ import { colors } from '../../theme/colors';
 import { groupIntoPhases } from '../../utils/mapPhases';
 import { getCachedRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel } from '../../services/bootCache';
 import { loadLessonGroup } from '../../services/cachedContent';
-import { getUnlockedSeasons, unlockSeason } from '../../utils/storage';
+import { getUnlockedSeasons, setTourOffered, unlockSeason, wasTourOffered } from '../../utils/storage';
+import { useTourStore } from '../../store/tourStore';
+import TourOfferModal from '../../components/tour/TourOfferModal';
+import TourOverlay from '../../components/tour/TourOverlay';
 import type { SurahLevel } from '../../types/api';
 import type { MapNavProp } from '../../navigation/types';
+
+// Incrementing per-mount id for the grass/brick SVG pattern defs — see
+// mapInstanceId in MapScreen for why this exists.
+let mapSvgInstanceCounter = 0;
 
 // ── Asset refs (static, so Metro can bundle them) ──────────────────
 const TREE_SRCS = [
@@ -40,10 +48,19 @@ const BUSH_SRC     = require('../../../assets/map/bush.png');
 // Pre-engraved signs — the season number is baked into the art itself, one
 // file per season, keyed by season number (1-indexed, matching the label on
 // the sign) rather than composed at runtime from a blank sign + overlaid text.
+// Season 1 has no gate (it's unlocked from the start, see isSeasonUnlocked)
+// so its sign is never actually rendered on a gate — kept in the map anyway
+// since gate → sign lookup below falls back to it if a season is ever added
+// without matching art. Every other gate renders the sign for the season it
+// unlocks (unlocksSeasonIdx is 0-indexed — see the seasonGates render below).
 const SEASON_SIGN_SRCS: Record<number, ImageSourcePropType> = {
   1: require('../../../assets/map/s1.png'),
   2: require('../../../assets/map/s2.png'),
   3: require('../../../assets/map/s3.png'),
+  4: require('../../../assets/map/s4.png'),
+  5: require('../../../assets/map/s5.png'),
+  6: require('../../../assets/map/s6.png'),
+  7: require('../../../assets/map/s7.png'),
 };
 // Real aspect ratio of the sign art (186x326). All three files share it.
 const SEASON_GATE_ASPECT = 186 / 326;
@@ -87,6 +104,26 @@ interface SectionDef {
   surahNum: number; name: string; arabicName: string; ayahCount: number;
   levels: Array<{ id: string; levelNum: number }>;
   xFractions: number[];  // x position of each level's node as fraction of map width
+}
+
+// Deterministic left/right zigzag fallback for surahs without a hand-tuned
+// xFractions array (see the module note below `SECTIONS_DEF`) — same
+// sine-hash trick the decoration placement code uses further down, kept
+// local since this runs before that code is defined.
+function defaultXFractions(surahNum: number, count: number): number[] {
+  return Array.from({ length: count }, (_, i) => {
+    const raw = Math.sin((surahNum * 100 + i + 1) * 12.9898) * 43758.5453;
+    const frac = raw - Math.floor(raw);
+    const base = i % 2 === 0 ? 0.62 : 0.28;
+    return Math.round(Math.min(0.74, Math.max(0.20, base + (frac - 0.5) * 0.34)) * 100) / 100;
+  });
+}
+// CHUNK_SIZE=2 group builder — must match the backend's own lesson-group
+// seeding exactly (see [[project-map-levels]] memory), or node count/ayah
+// ranges on the map won't line up with real backend groups.
+function buildLevels(surahNum: number, ayahCount: number): Array<{ id: string; levelNum: number }> {
+  const groupCount = Math.ceil(ayahCount / 2);
+  return Array.from({ length: groupCount }, (_, i) => ({ id: `${surahNum}_g${i + 1}`, levelNum: i + 1 }));
 }
 
 const SECTIONS_DEF: SectionDef[] = [
@@ -157,6 +194,41 @@ const SECTIONS_DEF: SectionDef[] = [
     ],
     xFractions: [0.45, 0.72],
   },
+  // ── Below this point: surahs added when the backend expanded the MVP
+  // curriculum from 10 to 21 surahs. No hand-tuned xFractions yet — these
+  // use the deterministic defaultXFractions() fallback instead (see note
+  // above). Season grouping is 3 surahs/season (see PHASE_SIZES in
+  // mapPhases.ts), continuing the same top-to-bottom, highest-to-lowest
+  // surah-number order as the original 7. ──
+  { surahNum: 107, name: "Al-Ma'un", arabicName: 'الماعون', ayahCount: 7,
+    levels: buildLevels(107, 7), xFractions: defaultXFractions(107, 4) },
+  { surahNum: 106, name: 'Quraysh', arabicName: 'قريش', ayahCount: 4,
+    levels: buildLevels(106, 4), xFractions: defaultXFractions(106, 2) },
+  { surahNum: 105, name: 'Al-Fil', arabicName: 'الفيل', ayahCount: 5,
+    levels: buildLevels(105, 5), xFractions: defaultXFractions(105, 3) },
+  { surahNum: 104, name: 'Al-Humazah', arabicName: 'الهمزة', ayahCount: 9,
+    levels: buildLevels(104, 9), xFractions: defaultXFractions(104, 5) },
+  { surahNum: 103, name: "Al-'Asr", arabicName: 'العصر', ayahCount: 3,
+    levels: buildLevels(103, 3), xFractions: defaultXFractions(103, 2) },
+  { surahNum: 102, name: 'At-Takathur', arabicName: 'التكاثر', ayahCount: 8,
+    levels: buildLevels(102, 8), xFractions: defaultXFractions(102, 4) },
+  { surahNum: 101, name: "Al-Qari'ah", arabicName: 'القارعة', ayahCount: 11,
+    levels: buildLevels(101, 11), xFractions: defaultXFractions(101, 6) },
+  { surahNum: 100, name: "Al-'Adiyat", arabicName: 'العاديات', ayahCount: 11,
+    levels: buildLevels(100, 11), xFractions: defaultXFractions(100, 6) },
+  { surahNum: 99, name: 'Az-Zalzalah', arabicName: 'الزلزلة', ayahCount: 8,
+    levels: buildLevels(99, 8), xFractions: defaultXFractions(99, 4) },
+  { surahNum: 98, name: 'Al-Bayyinah', arabicName: 'البينة', ayahCount: 8,
+    levels: buildLevels(98, 8), xFractions: defaultXFractions(98, 4) },
+  { surahNum: 97, name: 'Al-Qadr', arabicName: 'القدر', ayahCount: 5,
+    levels: buildLevels(97, 5), xFractions: defaultXFractions(97, 3) },
+  // 96 (Al-'Alaq) intentionally excluded from the MVP curriculum.
+  { surahNum: 95, name: 'At-Tin', arabicName: 'التين', ayahCount: 8,
+    levels: buildLevels(95, 8), xFractions: defaultXFractions(95, 4) },
+  { surahNum: 94, name: 'Ash-Sharh', arabicName: 'الشرح', ayahCount: 8,
+    levels: buildLevels(94, 8), xFractions: defaultXFractions(94, 4) },
+  { surahNum: 93, name: 'Ad-Duha', arabicName: 'الضحى', ayahCount: 11,
+    levels: buildLevels(93, 11), xFractions: defaultXFractions(93, 6) },
 ];
 
 // Seasons (phases) — pure loading/pacing grouping, not an access gate. Pure
@@ -190,6 +262,10 @@ function stageToNodeStatus(s: string): NodeStatus {
   return 'locked';
 }
 
+function formatAyahRange(from: number, to: number): string {
+  return from === to ? `Ayah ${from}` : `Ayahs ${from}–${to}`;
+}
+
 // ── Types for the fully-computed, width-dependent map model ────────
 interface DecorMosque  { y: number; x: number }
 interface DecorTree    { y: number; x: number; src: (typeof TREE_SRCS)[number] }
@@ -205,6 +281,7 @@ interface PillBox { x: number; y: number; w: number; h: number }
 interface MapModel {
   MAP_W: number; SCALE: number; sc: (n: number) => number;
   NODE_SIZE: number; NODE_GAP: number; SECTION_EXTRA: number; TOP_MARGIN: number; FOOTER_PAD: number;
+  ACTION_CARD_W: number; ACTION_CARD_H: number;
   BASE_SECTIONS: Section[]; MAP_H: number; ALL_NODES: SectionNode[];
   PATH_D: string;
   DECORATIONS: { mosques: DecorMosque[]; trees: DecorTree[]; birds: DecorBird[]; bridges: DecorBridge[]; bushes: DecorBush[]; ponds: DecorPond[]; seasonGates: DecorSeasonGate[] };
@@ -216,6 +293,16 @@ interface MapModel {
   AYAH_PILLS: Record<string, PillBox>;
   SURAH_LABELS: Record<number, LabelBox>;
 }
+
+// Fixed aspect ratio for the "start a new level" / "repeat the lesson" cards —
+// height as a fraction of width, measured off the source design's card rect
+// (392×179, i.e. the rounded-rect shape itself, not its viewBox — the
+// viewBox padding is just drop-shadow bleed, which an RN shadow doesn't need
+// extra canvas for). Every internal element (title, subtitle, button) is then
+// positioned as a percentage of this fixed box in makeStyles/LevelActionCard,
+// so scaling ACTION_CARD_W scales the whole card uniformly instead of each
+// piece being sized off its own independent sc() constant.
+const ACTION_CARD_ASPECT = 179 / 392;
 
 // ── ONE function: real device width in → every pixel of the map's layout
 // out. Nothing derived here is a module-level constant anymore — it's all
@@ -380,13 +467,26 @@ function buildMapModel(mapW: number): MapModel {
   const placed: Zone[] = [];
 
   // Ayah pill — real offset derived from NODE_SIZE (not implicit flow-stacking).
-  const PILL_W = sc(80), PILL_H = sc(26);
+  const PILL_H = sc(26);
   const AYAH_PILLS: Record<string, PillBox> = {};
   BASE_SECTIONS.forEach(section => {
     section.nodes.forEach((node, nodeIdx) => {
-      const px = Math.max(0, Math.min(mapW - PILL_W, node.x + NODE_SIZE / 2 - PILL_W / 2));
+      // Width follows the actual range text instead of one fixed size for
+      // every node — same fix as SURAH_LABELS' labelW below. A fixed sc(80)
+      // fit "Ayah 1" fine but let double-digit ranges ("Ayahs 19–20") run
+      // wider than their reserved zone, leaking text into whatever
+      // tree/mosque/bush got placed beside it assuming only sc(80) was
+      // taken. levelNum/ayahCount are the same inputs the render's ayahFrom/
+      // ayahTo fallback uses, so this sizes against the label that will
+      // actually show even before any backend start/endAyah override lands.
+      const levelNum = node.levelNum ?? 1;
+      const ayahFrom = (levelNum - 1) * 2 + 1;
+      const ayahTo = Math.min(levelNum * 2, section.ayahCount);
+      const rangeLabel = formatAyahRange(ayahFrom, ayahTo);
+      const pillW = Math.round(Math.max(sc(50), Math.min(sc(105), sc(38) + rangeLabel.length * sc(5.5))));
+      const px = Math.max(0, Math.min(mapW - pillW, node.x + NODE_SIZE / 2 - pillW / 2));
       const py = node.y + NODE_SIZE + sc(6);
-      AYAH_PILLS[`${section.surahNum}_${nodeIdx}`] = { x: px, y: py, w: PILL_W, h: PILL_H };
+      AYAH_PILLS[`${section.surahNum}_${nodeIdx}`] = { x: px, y: py, w: pillW, h: PILL_H };
       placed.push({ y: py, side: 'left', height: PILL_H });
       placed.push({ y: py, side: 'right', height: PILL_H });
     });
@@ -471,20 +571,29 @@ function buildMapModel(mapW: number): MapModel {
     const x = prefer === 'left' ? Math.max(0, pathX - CLEARANCE - w) : Math.min(mapW - w, pathX + CLEARANCE);
     return { side: prefer, x: Math.round(x), y: Math.round(midY - h / 2), w, h };
   };
-  if (secMidYs.length > 5) {
-    // Gate 1 — Season 1 → Season 2 boundary. Prefers 'right', deliberately
-    // opposite the bridge's hardcoded 'left' preference (anchored at this
-    // same secMidYs[2] boundary below) so the two landmarks land on
-    // opposite sides instead of competing for one spot.
-    const p1 = placeGate(secMidYs[2] - sc(20), 'right');
-    placed.push({ y: p1.y, side: p1.side, height: p1.h });
-    seasonGates.push({ x: p1.x, y: p1.y, w: p1.w, h: p1.h, unlocksSeasonIdx: 1 });
-
-    // Gate 2 — Season 2 → Season 3 boundary. No competing landmark here.
-    const p2 = placeGate(secMidYs[5], 'left');
-    placed.push({ y: p2.y, side: p2.side, height: p2.h });
-    seasonGates.push({ x: p2.x, y: p2.y, w: p2.w, h: p2.h, unlocksSeasonIdx: 2 });
-  }
+  // A gate at every season boundary (wherever SURAH_TO_SEASON changes from
+  // one section to the next) instead of two hardcoded indices — generalizes
+  // from the original 3-season map to however many PHASE_SIZES defines
+  // (currently 7, see mapPhases.ts). secMidYs[i] is the midpoint between
+  // BASE_SECTIONS[i] and [i+1], so a boundary lands at index i whenever
+  // section i's season differs from section i+1's.
+  const seasonBoundaryIdxs: number[] = [];
+  BASE_SECTIONS.forEach((sec, i) => {
+    if (i === 0) return;
+    const prevSeason = SURAH_TO_SEASON[BASE_SECTIONS[i - 1].surahNum] ?? 0;
+    const thisSeason = SURAH_TO_SEASON[sec.surahNum] ?? 0;
+    if (thisSeason !== prevSeason) seasonBoundaryIdxs.push(i - 1);
+  });
+  seasonBoundaryIdxs.forEach((secIdx, gateIdx) => {
+    // Alternate side + a small y-offset per gate, same as the original two
+    // gates, so consecutive gates don't all lean the same direction/height.
+    const prefer: 'left' | 'right' = gateIdx % 2 === 0 ? 'right' : 'left';
+    const yOffset = gateIdx % 2 === 0 ? -sc(20) : 0;
+    const unlocksSeasonIdx = SURAH_TO_SEASON[BASE_SECTIONS[secIdx + 1].surahNum] ?? gateIdx + 1;
+    const p = placeGate(secMidYs[secIdx] + yOffset, prefer);
+    placed.push({ y: p.y, side: p.side, height: p.h });
+    seasonGates.push({ x: p.x, y: p.y, w: p.w, h: p.h, unlocksSeasonIdx });
+  });
 
   // Lesson nodes themselves — previously never registered here, so nothing
   // stopped a decoration from landing on top of a node as long as it cleared
@@ -624,8 +733,8 @@ function buildMapModel(mapW: number): MapModel {
   }
   GRASS_EDGE_D += ` L ${mapW} ${SKY_BOUNDARY_Y} L ${mapW} ${MAP_H} L 0 ${MAP_H} Z`;
 
-  // More clouds scattered across the sky band itself (not just 2 under the
-  // Bismillah card), varied size/position so the sky doesn't look empty.
+  // More clouds scattered across the sky band itself, varied size/position
+  // so the sky doesn't look empty.
   const SKY_CLOUDS = Array.from({ length: 6 }, (_, i) => {
     const w = sc(110 + hash(i * 9 + 3) * 70);
     return {
@@ -664,6 +773,13 @@ function buildMapModel(mapW: number): MapModel {
   return {
     MAP_W: mapW, SCALE, sc,
     NODE_SIZE, NODE_GAP, SECTION_EXTRA, TOP_MARGIN, FOOTER_PAD,
+    // Width + height for the "start a new level" / "repeat the lesson"
+    // popout cards — computed once here (not re-derived in makeStyles or the
+    // tap handler) so the card's rendered size and its position-beside-the-
+    // node math never disagree. Height is derived from width via the fixed
+    // ACTION_CARD_ASPECT rather than measured from content.
+    ACTION_CARD_W: sc(230),
+    ACTION_CARD_H: Math.round(sc(230) * ACTION_CARD_ASPECT),
     BASE_SECTIONS, MAP_H, ALL_NODES,
     PATH_D,
     DECORATIONS: { mosques, trees, birds, bridges, bushes, ponds, seasonGates },
@@ -676,7 +792,15 @@ function buildMapModel(mapW: number): MapModel {
 // ── Styles that depend on the model's `sc()` — rebuilt via useMemo whenever
 // the model changes (i.e. whenever screen width changes). ──
 function makeStyles(M: MapModel) {
-  const { sc, NODE_SIZE } = M;
+  const { sc, NODE_SIZE, ACTION_CARD_W, ACTION_CARD_H } = M;
+  // Fractions of ACTION_CARD_W, not independent sc() constants — every piece
+  // of the action card scales off the same one number, so it can never drift
+  // out of proportion with the fixed card box the way separately-tuned sc()
+  // values could. RN doesn't accept percentage strings for fontSize/
+  // borderRadius/shadowRadius, so those are computed here as plain numbers;
+  // layout box positions below (top/left/width/height) use real percentage
+  // strings since RN resolves those against the card's own fixed dimensions.
+  const acw = (fraction: number) => Math.round(ACTION_CARD_W * fraction);
   const S = StyleSheet.create({
     // Ground green, not sky blue — this is the fallback fill for whatever
     // isn't covered by the sky backdrop or the map's own content (e.g.
@@ -693,15 +817,6 @@ function makeStyles(M: MapModel) {
     },
     hudVal: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: '#DC2626' },
     hudStreakEmoji: { fontSize: sc(16) },
-    bismillahCard: {
-      marginHorizontal: sc(12), marginTop: sc(4), marginBottom: sc(6),
-      paddingHorizontal: sc(20), paddingVertical: sc(14),
-      backgroundColor: 'rgba(4,20,10,0.93)', borderRadius: sc(18), alignItems: 'center',
-      borderWidth: 1.5, borderColor: 'rgba(224,188,78,0.45)',
-      shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.55, shadowRadius: 10, elevation: 8,
-    },
-    bismillahText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: sc(30), color: '#E0BC4E', textAlign: 'center', lineHeight: sc(46) },
-    bismillahSub:  { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: sc(2) },
     loadingOverlay: {
       position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
       alignItems: 'center', justifyContent: 'center',
@@ -747,6 +862,35 @@ function makeStyles(M: MapModel) {
       paddingHorizontal: sc(16), paddingVertical: sc(8),
     },
     unlockDismissText: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.midText },
+    actionCard: {
+      width: ACTION_CARD_W, height: ACTION_CARD_H,
+      borderRadius: acw(0.087), borderWidth: 1.5,
+      shadowColor: '#000', shadowOffset: { width: 0, height: acw(0.043) }, shadowOpacity: 0.25, shadowRadius: acw(0.061), elevation: 10,
+    },
+    actionCardStart: { backgroundColor: colors.levelStartAccent, borderColor: colors.levelStartAccent },
+    actionCardRepeat: { backgroundColor: colors.levelRepeatBg, borderColor: colors.levelRepeatBorder },
+    actionCardClose: {
+      position: 'absolute', top: '5%', right: '5%', width: acw(0.09), height: acw(0.09),
+      alignItems: 'center', justifyContent: 'center', zIndex: 1,
+    },
+    actionCardCloseText: { fontSize: acw(0.05), fontFamily: 'Nunito_700Bold' },
+    // Title/subtitle/button all sit in absolutely-positioned percentage boxes
+    // (percentages resolved against the fixed actionCard width/height above)
+    // instead of normal flex flow, so their position stays locked to the
+    // card's proportions no matter how long the surah name or ayah range is.
+    // Title is narrower than subtitle/button (78% vs 92%) so a long surah
+    // name shrinks-to-fit within its own lane instead of running under the
+    // close button sitting in the top-right corner.
+    actionCardTitleBox: { position: 'absolute', left: '4%', top: '14%', width: '78%' },
+    actionCardTitle: { fontFamily: 'Nunito_700Bold', fontSize: acw(0.07) },
+    actionCardSubtitleBox: { position: 'absolute', left: '4%', top: '34%', width: '92%' },
+    actionCardSubtitle: { fontFamily: 'Nunito_700Bold', fontSize: acw(0.052), opacity: 0.7 },
+    actionCardBtn: {
+      position: 'absolute', left: '4%', top: '51%', width: '92%', height: '31%',
+      borderRadius: acw(0.052), alignItems: 'center', justifyContent: 'center',
+      shadowColor: '#000', shadowOffset: { width: 0, height: acw(0.017) }, shadowOpacity: 0.2, shadowRadius: acw(0.026), elevation: 4,
+    },
+    actionCardBtnText: { fontFamily: 'Nunito_700Bold', fontSize: acw(0.057), letterSpacing: 0.3 },
   });
   const SL = StyleSheet.create({
     // width:'100%' + alignItems:'stretch' (not 'center') is required, not
@@ -808,7 +952,7 @@ function SurahLabel({ name, box, SL }: {
 // One function so the whole road is a single reusable unit; every dimension
 // comes from `sc()`, so it resizes with the model instead of being frozen at
 // whatever width the app first mounted at. ──
-function Pathway({ d, sc }: { d: string; sc: (n: number) => number }) {
+function Pathway({ d, sc, patternId }: { d: string; sc: (n: number) => number; patternId: string }) {
   return (
     <G>
       {/* Beveled undercoat so the road reads as carved into the ground —
@@ -816,7 +960,7 @@ function Pathway({ d, sc }: { d: string; sc: (n: number) => number }) {
       <Path d={d} stroke="rgba(60,38,8,0.14)" strokeWidth={sc(64)} fill="none" strokeLinecap="round" strokeLinejoin="round" />
       <Path d={d} stroke="rgba(60,38,8,0.18)" strokeWidth={sc(50)} fill="none" strokeLinecap="round" strokeLinejoin="round" transform={`translate(0, ${sc(2)})`} />
       {/* Brick texture — the actual walkable surface */}
-      <Path d={d} stroke="url(#brickPattern)" strokeWidth={sc(40)} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={d} stroke={`url(#${patternId})`} strokeWidth={sc(40)} fill="none" strokeLinecap="round" strokeLinejoin="round" />
       <Path d={d} stroke="rgba(20,10,4,0.14)" strokeWidth={sc(3)} fill="none" strokeLinecap="round" strokeLinejoin="round" transform={`translate(0, ${sc(2)})`} />
       {/* Thin top-edge highlight for a subtle 3D pop */}
       <Path d={d} stroke="rgba(255,248,220,0.32)" strokeWidth={sc(3)} fill="none" strokeLinecap="round" strokeLinejoin="round" transform={`translate(0, ${-sc(1)})`} />
@@ -866,6 +1010,82 @@ function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, isFetching, S }
   );
 }
 
+// ── Level action card — the on-map popout for "start a new level" (fresh
+// node tap) and "repeat the lesson" (completed node tap), replacing what used
+// to be an instant navigate / a plain text prompt. Fixed width AND height
+// (see ACTION_CARD_ASPECT), with title/subtitle/button/close each positioned
+// as a percentage box of that fixed frame (see makeStyles) — matches the
+// source design's fixed card exactly rather than sizing to content.
+//
+// Scales in on mount and scales+fades out before either the close button or
+// the confirm button actually does anything — the parent only clears the
+// state that unmounts this (retryNodeId/startPrompt) once the shrink
+// animation's callback fires, so it never just pops out of existence. ──
+function LevelActionCard({
+  variant, surahName, ayahFrom, ayahTo, onConfirm, onDismiss, S,
+}: {
+  variant: 'start' | 'repeat';
+  surahName: string;
+  ayahFrom: number;
+  ayahTo: number;
+  onConfirm: () => void;
+  onDismiss: () => void;
+  S: Styles['S'];
+}) {
+  const isStart = variant === 'start';
+  const accent = isStart ? colors.levelCardOffWhite : colors.levelRepeatAccent;
+
+  const anim = useRef(new Animated.Value(0)).current;
+  const closingRef = useRef(false);
+  useEffect(() => {
+    Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 7, tension: 60 }).start();
+  }, []);
+
+  // Guarded so a close-then-confirm double-tap during the 140ms shrink can't
+  // fire both actions — only the first tap's action ever runs.
+  function animateOutThen(action: () => void) {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    Animated.timing(anim, { toValue: 0, duration: 140, useNativeDriver: true }).start(() => action());
+  }
+
+  return (
+    <Animated.View
+      style={[
+        S.actionCard, isStart ? S.actionCardStart : S.actionCardRepeat,
+        { opacity: anim, transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] }) }] },
+      ]}
+    >
+      <TouchableOpacity
+        style={S.actionCardClose}
+        onPress={() => animateOutThen(onDismiss)}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Text style={[S.actionCardCloseText, { color: accent }]}>✕</Text>
+      </TouchableOpacity>
+      <View style={S.actionCardTitleBox}>
+        <Text style={[S.actionCardTitle, { color: accent }]} numberOfLines={1} adjustsFontSizeToFit>
+          Surah {surahName}
+        </Text>
+      </View>
+      <View style={S.actionCardSubtitleBox}>
+        <Text style={[S.actionCardSubtitle, { color: accent }]} numberOfLines={1} adjustsFontSizeToFit>
+          {formatAyahRange(ayahFrom, ayahTo)}
+        </Text>
+      </View>
+      <TouchableOpacity
+        style={[S.actionCardBtn, { backgroundColor: isStart ? colors.levelCardOffWhite : colors.levelRepeatAccent }]}
+        onPress={() => animateOutThen(onConfirm)}
+        activeOpacity={0.85}
+      >
+        <Text style={[S.actionCardBtnText, { color: isStart ? colors.levelStartAccentText : colors.white }]}>
+          {isStart ? 'START A NEW LEVEL' : 'REPEAT THE LESSON'}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 // ── Luma mascot ───────────────────────────────────────────────────
 function LumaFloat({ style, speech, floatAnim, S, SB }: { style?: object; speech?: string; floatAnim: Animated.Value; S: Styles['S']; SB: Styles['SB'] }) {
   const ty = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
@@ -885,6 +1105,11 @@ function LumaFloat({ style, speech, floatAnim, S, SB }: { style?: object; speech
 
 // ── Main screen ───────────────────────────────────────────────────
 export default function MapScreen({ navigation }: Props) {
+  // Per-mount-unique so SVG pattern ids below never collide with a previous
+  // mount's — react-native-svg mis-resolves url(#id) refs when the same id
+  // exists more than once at once, which happens on remount (leave the map,
+  // come back) since tileIdx alone always restarts at 0. See usage below.
+  const mapInstanceId = useRef(++mapSvgInstanceCounter).current;
   const insets = useSafeAreaInsets();
   const { learning, refreshLearning } = useAuthStore();
   const { width, height } = useWindowDimensions();
@@ -900,7 +1125,66 @@ export default function MapScreen({ navigation }: Props) {
     MAP_W, MAP_H, sc, NODE_SIZE, TOP_MARGIN, BASE_SECTIONS, DECORATIONS,
     PARALLAX_FAR, PARALLAX_MID, PARALLAX_NEAR,
     SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS, AYAH_PILLS, SURAH_LABELS, PATH_D,
+    ACTION_CARD_W, ACTION_CARD_H,
   } = M;
+
+  // Beside the node — level with it (not above, like the old retry bubble),
+  // on whichever side of the road actually has room. "Parallel to the node"
+  // always: same vertical center as the node, never stacked over it. The
+  // card's fixed height means this centers exactly, not an approximation.
+  function actionCardPosition(node: SectionNode): { left: number; top: number } {
+    const margin = sc(14);
+    const spaceRight = MAP_W - (node.x + NODE_SIZE + margin + ACTION_CARD_W);
+    const left = spaceRight >= 0
+      ? node.x + NODE_SIZE + margin
+      : Math.max(sc(8), Math.min(MAP_W - ACTION_CARD_W - sc(8), node.x - margin - ACTION_CARD_W));
+    const top = node.y + NODE_SIZE / 2 - ACTION_CARD_H / 2;
+    return { left, top };
+  }
+
+  // ── Guided tour ──────────────────────────────────────────────────
+  // Offered once, on a first-time user's first sight of the map. Declining
+  // leaves them here with Level 1 already in reach, which is the point of
+  // asking rather than imposing.
+  const [tourOfferVisible, setTourOfferVisible] = useState(false);
+  const hudRef = useRef<View>(null);
+  const startTour = useTourStore(s => s.start);
+  const setTourRect = useTourStore(s => s.setRect);
+
+  useEffect(() => {
+    void (async () => {
+      if (await wasTourOffered()) return;
+      await setTourOffered();
+      setTourOfferVisible(true);
+    })();
+  }, []);
+
+  function measureTourTargets() {
+    hudRef.current?.measureInWindow((x, y, w, h) => {
+      if (w > 0 && h > 0) setTourRect('hud', { x, y, width: w, height: h });
+    });
+    // The tab bar belongs to the navigator, not this tree, so there's no ref to
+    // measure. Its geometry is fixed though — full width, the 80pt height set
+    // in MainTabs' styles, sitting on the bottom inset — so deriving it is both
+    // simpler and steadier than threading a ref through the navigator.
+    const TAB_BAR_H = 80;
+    setTourRect('tabBar', {
+      x: 0,
+      y: height - insets.bottom - TAB_BAR_H,
+      width,
+      height: TAB_BAR_H,
+    });
+  }
+
+  function handleAcceptTour() {
+    setTourOfferVisible(false);
+    measureTourTargets();
+    startTour();
+  }
+
+  function handleDeclineTour() {
+    setTourOfferVisible(false);
+  }
 
   // fullLevels: every group of a surah (only fetched for the current surah).
   // firstLevel: just the first group's status (fetched for every other surah,
@@ -923,6 +1207,14 @@ export default function MapScreen({ navigation }: Props) {
   // into LessonSession — that's what triggers the expensive exercise-build
   // fetch — it just surfaces this prompt; only confirming pays that cost.
   const [retryNodeId, setRetryNodeId] = useState<string | null>(null);
+  // "Start a new level" prompt for a fresh (non-completed) node tap — the
+  // counterpart to retryNodeId above. Carries the real lesson_group_id and
+  // ayah range resolved at tap time rather than read back off `node` at
+  // render time, because a 'pending' node's own fields are still empty until
+  // fetchFirstLevelNow resolves them (see handleNodePress).
+  const [startPrompt, setStartPrompt] = useState<{
+    section: Section; node: SectionNode; groupId: string; ayahFrom: number; ayahTo: number;
+  } | null>(null);
   // Which season index is currently having its previous-season eligibility
   // re-checked on demand (see handleGatePress) — null when no check in flight.
   const [checkingGate, setCheckingGate] = useState<number | null>(null);
@@ -1180,7 +1472,7 @@ export default function MapScreen({ navigation }: Props) {
   });
 
   async function handleNodePress(section: Section, node: SectionNode) {
-    if (node.status === 'locked') return; // real gate — previous level not completed
+    if (node.status === 'locked') { shakeLockedNode(node.id); return; } // real gate — previous level not completed
     if (node.status === 'completed') {
       // Always warm the lesson-content cache the instant a completed node is
       // tapped (loadLessonGroup is cache-first over disk — see
@@ -1215,17 +1507,39 @@ export default function MapScreen({ navigation }: Props) {
       // navigating (tap again to dismiss). The node stays 'completed' the
       // whole time; only handleRetryConfirm below actually navigates.
       setGateTapped(null);
+      setStartPrompt(null);
       setRetryNodeId(prev => (prev === node.id ? null : node.id));
       return;
     }
     setRetryNodeId(null);
-    if (node.status === 'pending') {
-      const lvl = await fetchFirstLevelNow(section.surahNum);
-      if (!lvl) return; // fetch failed — stay put rather than navigating with a bad id
-      navigation.navigate('LessonSession', { groupId: lvl.lesson_group_id, surahName: section.name, surahNumber: section.surahNum });
+    setGateTapped(null);
+    // Tapping the node whose "start" card is already open closes it. Keyed
+    // by surah+levelNum rather than node.id — a 'pending' node's id is a
+    // placeholder that gets swapped for the real lesson_group_id the moment
+    // fetchFirstLevelNow below resolves it, so node.id itself isn't stable
+    // across the two taps a close-by-retapping needs to compare.
+    if (startPrompt?.section.surahNum === section.surahNum && startPrompt?.node.levelNum === node.levelNum) {
+      setStartPrompt(null);
       return;
     }
-    navigation.navigate('LessonSession', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum });
+    if (node.status === 'pending') {
+      const lvl = await fetchFirstLevelNow(section.surahNum);
+      if (!lvl) return; // fetch failed — stay put rather than showing a prompt with a bad id
+      setStartPrompt({ section, node, groupId: lvl.lesson_group_id, ayahFrom: lvl.start_ayah, ayahTo: lvl.end_ayah });
+      return;
+    }
+    const ayahFrom = node.startAyah ?? ((node.levelNum ?? 1) - 1) * 2 + 1;
+    const ayahTo = node.endAyah ?? Math.min((node.levelNum ?? 1) * 2, section.ayahCount);
+    setStartPrompt({ section, node, groupId: node.id, ayahFrom, ayahTo });
+  }
+
+  // Only reached by the "start" card's confirm button — same shape as
+  // handleRetryConfirm below, just for the not-yet-completed path.
+  function handleStartConfirm() {
+    if (!startPrompt) return;
+    const { section, groupId } = startPrompt;
+    setStartPrompt(null);
+    navigation.navigate('LessonSession', { groupId, surahName: section.name, surahNumber: section.surahNum });
   }
 
   // Only reached by the retry-prompt's "Retry" button — the one place a
@@ -1309,6 +1623,22 @@ export default function MapScreen({ navigation }: Props) {
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const goldAnim  = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
+  // One shared value (mirrors pulseAnim/goldAnim above) driving a shake on
+  // whichever locked node was just tapped — the tap itself is a no-op
+  // otherwise, which reads as the app ignoring you rather than as "locked."
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const [shakingNodeId, setShakingNodeId] = useState<string | null>(null);
+  function shakeLockedNode(nodeId: string) {
+    setShakingNodeId(nodeId);
+    shakeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 1, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -1, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 1, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -1, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 55, useNativeDriver: true }),
+    ]).start(() => setShakingNodeId(null));
+  }
   const scrollY   = useRef(new Animated.Value(0)).current;
   const onScroll  = Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -1360,24 +1690,29 @@ export default function MapScreen({ navigation }: Props) {
 
   const skyPct = Math.min(95, (SKY_BOUNDARY_Y / MAP_H) * 100);
 
+  // Conservative even at high density/scale (see the tiling comment below the
+  // background Svg) — safely under Android's ~100MB single-bitmap ceiling.
+  const SVG_BG_TILE_H = 3000;
+  const svgBgTileCount = Math.max(1, Math.ceil(MAP_H / SVG_BG_TILE_H));
+
   return (
     <View style={S.container}>
-      {/* Sky backdrop — fixed behind the HUD and the Bismillah card so the
-          sky reads as one continuous surface from the very top of the
-          screen, instead of cutting from a flat color to the photo sky only
-          once the map canvas begins. Bounded height (not the whole
-          container), so scrolling past it correctly reveals the green
-          container fallback rather than sky bleeding into the ground. */}
+      {/* Sky backdrop — fixed behind the HUD so the sky reads as one
+          continuous surface from the very top of the screen, instead of
+          cutting from a flat color to the photo sky only once the map canvas
+          begins. Bounded height (not the whole container), so scrolling past
+          it correctly reveals the green container fallback rather than sky
+          bleeding into the ground. */}
       <Image source={SKY_SRC} resizeMode="cover" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: sc(320) }} />
 
       {/* HUD — streak (emoji) top-left, XP top-right. Hearts hidden on the
           map for now (still shown in-lesson). */}
       <View style={[S.hud, { paddingTop: insets.top + sc(4) }]}>
-        <View style={S.hudRow}>
-          <View style={S.hudPill}>
+        <View ref={hudRef} collapsable={false} style={S.hudRow}>
+          <TouchableOpacity style={S.hudPill} activeOpacity={0.7} onPress={() => navigation.navigate('Streak')}>
             <Text style={S.hudStreakEmoji}>🔥</Text>
             <Text style={[S.hudVal, { color: '#EA580C' }]}>{learning ? learning.current_streak : '—'}</Text>
-          </View>
+          </TouchableOpacity>
           <View style={S.hudPill}>
             <Text>⚡</Text>
             <Text style={[S.hudVal, { color: '#2A7D4F' }]}>{learning ? `${learning.xp_total} XP` : '— XP'}</Text>
@@ -1401,73 +1736,122 @@ export default function MapScreen({ navigation }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary]} />
         }
       >
-        {/* Bismillah card */}
-        <View style={S.bismillahCard}>
-          <Text style={S.bismillahText}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</Text>
-          <Text style={S.bismillahSub}>In the Name of Allah, the Most Gracious, the Most Merciful</Text>
-        </View>
-
         {/* Map canvas — height computed from layout, not hardcoded */}
         <View style={{ width: MAP_W, height: MAP_H, position: 'relative', overflow: 'hidden' }}>
 
-          {/* SVG background */}
-          <Svg width={MAP_W} height={MAP_H} viewBox={`0 0 ${MAP_W} ${MAP_H}`} style={StyleSheet.absoluteFill}>
-            <Defs>
-              <LinearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0%" stopColor="#4FB3E8" />
-                <Stop offset={`${skyPct}%`} stopColor="#8ED2F0" />
-                <Stop offset={`${Math.min(98, skyPct + 3)}%`} stopColor={colors.mapBg} />
-                <Stop offset="100%" stopColor={colors.mapBg} />
-              </LinearGradient>
-              <Pattern id="grassPattern" patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>
-                <SvgImage href={GRASS_SRC} x={0} y={0} width={sc(140)} height={sc(140)} preserveAspectRatio="xMidYMid slice" />
-              </Pattern>
-              <Pattern id="brickPattern" patternUnits="userSpaceOnUse" width={sc(46)} height={sc(46)}>
-                <SvgImage href={BRICK_SRC} x={0} y={0} width={sc(46)} height={sc(46)} preserveAspectRatio="xMidYMid slice" />
-              </Pattern>
-            </Defs>
-            <Rect width={MAP_W} height={MAP_H} fill="url(#bg)" />
-            {/* Real sky photo — fills the sky band; the jagged grass edge
-                below overlaps its bottom edge so the seam isn't a hard line */}
-            <SvgImage
-              href={SKY_SRC} x={0} y={0} width={MAP_W} height={SKY_BOUNDARY_Y + sc(24)}
-              preserveAspectRatio="xMidYMid slice"
-            />
+          {/* Sky-to-ground backdrop. Plain (react-native-linear-gradient), not
+              an SVG Rect+LinearGradient — it used to live inside each tile's
+              <Svg>, drawn first there so the sky/mountain images (below, in
+              document order within that same Svg) painted over it. Once the
+              images moved out to plain RN Images so they'd render only once
+              instead of once per tile, they had to move BEFORE this in the
+              tree to still sit on top of it — but an svg Rect can only stack
+              against *other elements inside its own <Svg>*, not against a
+              plain Image sibling positioned before that Svg. Moving the
+              gradient out here too — as the bottommost layer, before
+              anything else — sidesteps that entirely. */}
+          <LinearGradient
+            colors={['#4FB3E8', '#8ED2F0', colors.mapBg, colors.mapBg]}
+            locations={[0, skyPct / 100, Math.min(0.98, skyPct / 100 + 0.03), 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={{ position: 'absolute', left: 0, top: 0, width: MAP_W, height: MAP_H }}
+          />
 
-            {/* Distant mountain range on the horizon. Runs from the very top
-                of the canvas down well past SKY_BOUNDARY_Y so the grass
-                texture (drawn after this, below) overlaps its base with no
-                gap of bare sky between them. The jagged grass edge oscillates
-                ±sc(9) around SKY_BOUNDARY_Y (see GRASS_EDGE_D below), and
-                mountains.png itself has only a thin ground strip baked into
-                its own bottom edge — sc(20) left just ~11px of guaranteed
-                overlap in the worst case, thin enough to read as a sliver of
-                bare sky on some widths/scales. sc(40) gives real headroom. */}
-            <SvgImage
-              href={MOUNTAINS_SRC} x={0} y={0} width={MAP_W} height={SKY_BOUNDARY_Y + sc(40)}
-              preserveAspectRatio="xMidYMid slice"
-              opacity={0.9}
-            />
+          {/* Real sky photo — fills the sky band; the jagged grass edge in the
+              Svg tiles below overlaps its bottom edge so the seam isn't a
+              hard line. Plain Image, not SvgImage — it only ever needs to
+              appear once at the true top of the map, not once per tile, and
+              plain Image doesn't carry the remount bug per-tile SvgImages
+              had. Must render BEFORE the Svg tiles below (earlier siblings
+              sit underneath), so their grass/road painting still overlaps
+              and masks this image's bottom edge — after them, this covered
+              the grass/road instead of blending under it. */}
+          <Image
+            source={SKY_SRC}
+            resizeMode="cover"
+            style={{ position: 'absolute', left: 0, top: 0, width: MAP_W, height: SKY_BOUNDARY_Y + sc(24) }}
+          />
 
-            {/* Grass texture wash — a jagged/torn edge (not a flat cut) where
-                it meets the sky. Fully opaque — this is the actual ground,
-                not a faded overlay. */}
-            <Path d={GRASS_EDGE_D} fill="url(#grassPattern)" />
+          {/* Distant mountain range on the horizon. Runs from the very top of
+              the canvas down well past SKY_BOUNDARY_Y so the grass texture
+              (drawn after this, in the Svg tiles below) overlaps its base
+              with no gap of bare sky between them. The jagged grass edge
+              oscillates ±sc(9) around SKY_BOUNDARY_Y (see GRASS_EDGE_D
+              below), and mountains.png itself has only a thin ground strip
+              baked into its own bottom edge — sc(20) left just ~11px of
+              guaranteed overlap in the worst case, thin enough to read as a
+              sliver of bare sky on some widths/scales. sc(28) keeps real
+              headroom (still well clear of that sc(20) floor) while sizing
+              the range down from the previous sc(40) so it doesn't dominate
+              the screen. Do not go below sc(20) — that's the documented
+              bleed-through point. */}
+          <Image
+            source={MOUNTAINS_SRC}
+            resizeMode="cover"
+            style={{ position: 'absolute', left: 0, top: 0, width: MAP_W, height: SKY_BOUNDARY_Y + sc(28), opacity: 0.9 }}
+          />
 
-            {/* Road path — brick-textured, carved-in look */}
-            <Pathway d={PATH_D} sc={sc} />
+          {/* SVG background — tiled vertically. react-native-svg rasterizes
+              each <Svg> into a single Android bitmap sized to its own
+              width×height, and Canvas has a hard ~100MB-per-bitmap ceiling
+              (RecordingCanvas.throwIfCannotDraw). A single MAP_W×MAP_H Svg
+              blows past that once the map gets tall enough (it did, at 21
+              surahs — "Canvas: trying to draw too large bitmap", crashing
+              every open). Splitting into fixed-height tiles, each its own
+              <Svg> with a viewBox offset into the same coordinate space,
+              keeps every individual bitmap small while every child below
+              keeps its original absolute x/y — content outside a tile's
+              viewBox is simply clipped, so nothing else here needed to
+              change. */}
+          {Array.from({ length: svgBgTileCount }, (_, tileIdx) => {
+            const tileTop = tileIdx * SVG_BG_TILE_H;
+            const tileH = Math.min(SVG_BG_TILE_H, MAP_H - tileTop);
+            return (
+              <Svg
+                key={`bgtile-${tileIdx}`}
+                width={MAP_W}
+                height={tileH}
+                viewBox={`0 ${tileTop} ${MAP_W} ${tileH}`}
+                style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH }]}
+              >
+                {/* Defs ids scoped per tile AND per mount (mapInstanceId) —
+                    react-native-svg mis-resolves url(#id) references (patterns
+                    silently stop painting, falling back to a flat fill) when
+                    the same id exists more than once at once. tileIdx alone
+                    isn't enough: it always restarts at 0, so a REmount (leave
+                    the map, come back) recreates ids identical to the
+                    previous mount's, which is exactly the collision this
+                    guards against. */}
+                <Defs>
+                  <Pattern id={`grassPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>
+                    <SvgImage href={GRASS_SRC} x={0} y={0} width={sc(140)} height={sc(140)} preserveAspectRatio="xMidYMid slice" />
+                  </Pattern>
+                  <Pattern id={`brickPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(46)} height={sc(46)}>
+                    <SvgImage href={BRICK_SRC} x={0} y={0} width={sc(46)} height={sc(46)} preserveAspectRatio="xMidYMid slice" />
+                  </Pattern>
+                </Defs>
 
-            {/* Ground shadows under grounded decorations */}
-            {DECORATIONS.trees.map((t, i) => (
-              <Ellipse key={`tsh${i}`} cx={t.x + sc(29)} cy={t.y + sc(74)} rx={sc(20)} ry={sc(6)} fill="rgba(0,0,0,0.22)" />
-            ))}
-            {DECORATIONS.mosques.map((m, i) => (
-              <Ellipse key={`msh${i}`} cx={m.x + sc(36)} cy={m.y + sc(82)} rx={sc(30)} ry={sc(7)} fill="rgba(0,0,0,0.22)" />
-            ))}
-          </Svg>
+                {/* Grass texture wash — a jagged/torn edge (not a flat cut) where
+                    it meets the sky. Fully opaque — this is the actual ground,
+                    not a faded overlay. */}
+                <Path d={GRASS_EDGE_D} fill={`url(#grassPattern-${mapInstanceId}-${tileIdx})`} />
 
-          {/* Static sky clouds — right below the Bismillah card, marking the
-              sky before the road begins */}
+                {/* Road path — brick-textured, carved-in look */}
+                <Pathway d={PATH_D} sc={sc} patternId={`brickPattern-${mapInstanceId}-${tileIdx}`} />
+
+                {/* Ground shadows under grounded decorations */}
+                {DECORATIONS.trees.map((t, i) => (
+                  <Ellipse key={`tsh${i}`} cx={t.x + sc(29)} cy={t.y + sc(74)} rx={sc(20)} ry={sc(6)} fill="rgba(0,0,0,0.22)" />
+                ))}
+                {DECORATIONS.mosques.map((m, i) => (
+                  <Ellipse key={`msh${i}`} cx={m.x + sc(36)} cy={m.y + sc(82)} rx={sc(30)} ry={sc(7)} fill="rgba(0,0,0,0.22)" />
+                ))}
+              </Svg>
+            );
+          })}
+
+          {/* Static sky clouds — marking the sky before the road begins */}
           {SKY_CLOUDS.map((c, i) => (
             <Image key={`skycloud${i}`} source={CLOUD_SRC} resizeMode="contain" style={{ position: 'absolute', left: c.x, top: c.y, width: c.w, height: c.h, opacity: 0.9 }} />
           ))}
@@ -1549,10 +1933,11 @@ export default function MapScreen({ navigation }: Props) {
 
           {/* Season-gate signs — huge landmarks, zone-checked beside the
               road like everything else. Tappable while locked to surface a
-              Lumo message; the season number is baked into the art itself
-              (see SEASON_SIGN_SRCS), so no overlaid text is needed. */}
+              Lumo message. Pre-engraved art only exists for the season-1
+              sign so far (s2/s3 predate the 7-season expansion and don't
+              match the new season boundaries) — every gate uses that same
+              sign as a placeholder until unique per-season art is ready. */}
           {DECORATIONS.seasonGates.map((g, i) => {
-            const seasonNum = g.unlocksSeasonIdx + 1;
             return (
               <TouchableOpacity
                 key={`gate${i}`}
@@ -1560,7 +1945,11 @@ export default function MapScreen({ navigation }: Props) {
                 activeOpacity={0.85}
                 onPress={() => void handleGatePress(g.unlocksSeasonIdx)}
               >
-                <Image source={SEASON_SIGN_SRCS[seasonNum]} resizeMode="contain" style={{ width: g.w, height: g.h }} />
+                <Image
+                  source={SEASON_SIGN_SRCS[g.unlocksSeasonIdx + 1] ?? SEASON_SIGN_SRCS[1]}
+                  resizeMode="contain"
+                  style={{ width: g.w, height: g.h }}
+                />
               </TouchableOpacity>
             );
           })}
@@ -1585,11 +1974,20 @@ export default function MapScreen({ navigation }: Props) {
                 const pill = AYAH_PILLS[`${section.surahNum}_${nodeIdx}`];
                 const ayahFrom = node.startAyah ?? ((node.levelNum ?? 1) - 1) * 2 + 1;
                 const ayahTo = node.endAyah ?? Math.min((node.levelNum ?? 1) * 2, section.ayahCount);
-                const rangeLabel = ayahFrom === ayahTo ? `Ayah ${ayahFrom}` : `Ayahs ${ayahFrom}–${ayahTo}`;
+                const rangeLabel = formatAyahRange(ayahFrom, ayahTo);
                 return (
                   <React.Fragment key={node.id}>
+                    <Animated.View
+                      style={[
+                        { position: 'absolute', left: node.x, top: node.y },
+                        shakingNodeId === node.id && {
+                          transform: [{
+                            translateX: shakeAnim.interpolate({ inputRange: [-1, 1], outputRange: [-6, 6] }),
+                          }],
+                        },
+                      ]}
+                    >
                     <TouchableOpacity
-                      style={{ position: 'absolute', left: node.x, top: node.y }}
                       activeOpacity={node.status === 'locked' ? 1 : 0.85}
                       onPress={() => void handleNodePress(section, node)}
                     >
@@ -1603,6 +2001,7 @@ export default function MapScreen({ navigation }: Props) {
                         S={S}
                       />
                     </TouchableOpacity>
+                    </Animated.View>
                     {pill && (
                       <View pointerEvents="none" style={[S.ayahPill, { position: 'absolute', left: pill.x, top: pill.y, width: pill.w, height: pill.h }]}>
                         <Text style={S.ayahPillText} numberOfLines={1} adjustsFontSizeToFit>{rangeLabel}</Text>
@@ -1668,7 +2067,11 @@ export default function MapScreen({ navigation }: Props) {
           {gateTapped != null && (() => {
             const g = DECORATIONS.seasonGates.find(sg => sg.unlocksSeasonIdx === gateTapped);
             if (!g) return null;
-            const seasonLabel = `Season ${gateTapped}`;
+            // gateTapped is the 0-indexed PHASE_GROUPS entry being unlocked
+            // (see storage.ts's getUnlockedSeasons comment: "Season 0 is
+            // never stored — only explicit user-confirmed unlocks (Season 2,
+            // Season 3)..." lives there) — the human-facing number is +1.
+            const seasonLabel = `Season ${gateTapped + 1}`;
             const checking = checkingGate === gateTapped;
             const eligible = !checking && isSeasonComplete(gateTapped - 1);
             return (
@@ -1692,11 +2095,11 @@ export default function MapScreen({ navigation }: Props) {
             );
           })()}
 
-          {/* Completed-node "retry?" prompt — the on-map popout described in
-              the perf fix: tapping a gold/completed node no longer jumps
-              straight into LessonSession (that's the expensive
-              exercise-build fetch). It just shows this, positioned above the
-              tapped node; only "Retry →" pays that cost. */}
+          {/* Completed-node "repeat the lesson" card — the on-map popout
+              described in the perf fix: tapping a gold/completed node no
+              longer jumps straight into LessonSession (that's the expensive
+              exercise-build fetch). It just shows this, positioned beside the
+              tapped node; only its button pays that cost. */}
           {retryNodeId != null && (() => {
             let target: { section: Section; node: SectionNode } | null = null;
             for (const s of gatedSections) {
@@ -1705,15 +2108,41 @@ export default function MapScreen({ navigation }: Props) {
             }
             if (!target) return null;
             const { section, node } = target;
+            const ayahFrom = node.startAyah ?? ((node.levelNum ?? 1) - 1) * 2 + 1;
+            const ayahTo = node.endAyah ?? Math.min((node.levelNum ?? 1) * 2, section.ayahCount);
+            const { left, top } = actionCardPosition(node);
             return (
-              <View style={{ position: 'absolute', left: node.x + NODE_SIZE / 2 - sc(70), top: node.y - sc(112), alignItems: 'center', zIndex: 5 }}>
-                <LumaFloat speech="Want to retry this level?" floatAnim={floatAnim} S={S} SB={SB} />
-                <TouchableOpacity style={S.unlockBtn} onPress={() => handleRetryConfirm(section, node)}>
-                  <Text style={S.unlockBtnText}>Retry →</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={S.unlockDismiss} onPress={() => setRetryNodeId(null)}>
-                  <Text style={S.unlockDismissText}>Not now</Text>
-                </TouchableOpacity>
+              <View style={{ position: 'absolute', left, top, zIndex: 5 }}>
+                <LevelActionCard
+                  variant="repeat"
+                  surahName={section.name}
+                  ayahFrom={ayahFrom}
+                  ayahTo={ayahTo}
+                  onConfirm={() => handleRetryConfirm(section, node)}
+                  onDismiss={() => setRetryNodeId(null)}
+                  S={S}
+                />
+              </View>
+            );
+          })()}
+
+          {/* "Start a new level" card — the non-completed-node counterpart
+              above. Position/ayah data was already resolved into startPrompt
+              at tap time (see handleNodePress), so this just renders it. */}
+          {startPrompt != null && (() => {
+            const { section, node, ayahFrom, ayahTo } = startPrompt;
+            const { left, top } = actionCardPosition(node);
+            return (
+              <View style={{ position: 'absolute', left, top, zIndex: 5 }}>
+                <LevelActionCard
+                  variant="start"
+                  surahName={section.name}
+                  ayahFrom={ayahFrom}
+                  ayahTo={ayahTo}
+                  onConfirm={handleStartConfirm}
+                  onDismiss={() => setStartPrompt(null)}
+                  S={S}
+                />
               </View>
             );
           })()}
@@ -1725,6 +2154,17 @@ export default function MapScreen({ navigation }: Props) {
           </View>
         </View>
       </Animated.ScrollView>
+
+      <TourOfferModal
+        visible={tourOfferVisible}
+        onAccept={handleAcceptTour}
+        onDecline={handleDeclineTour}
+      />
+      <TourOverlay
+        screen="map"
+        onFinish={() => { /* already back on the map — nothing to unwind */ }}
+        onEnterLesson={() => navigation.navigate('GuidedTour')}
+      />
     </View>
   );
 }

@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
+import { isGuest } from '../../utils/guest';
 import { getNextOnboardingScreen, isOnboardingDone } from '../../utils/storage';
 import { healthCheck } from '../../api/client';
 import type { RootNavProp } from '../../navigation/types';
@@ -31,7 +32,7 @@ interface Props {
 
 export default function SplashScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { user, isHydrated } = useAuthStore();
+  const { user, isHydrated, startGuestSession } = useAuthStore();
 
   const lumaY = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -64,13 +65,35 @@ export default function SplashScreen({ navigation }: Props) {
 
   // Auto-navigate once both hydration and the minimum brand delay are done
   useEffect(() => {
-    if (isHydrated && minDelayDone) navigate();
+    if (isHydrated && minDelayDone) void navigate();
   }, [isHydrated, minDelayDone]);
 
+  // navigate() is also reachable by tapping the screen, and on first launch it
+  // now performs a slow network call (minting the guest account). Without this
+  // latch, impatient tapping during that window would fire startGuestSession()
+  // repeatedly and leave behind an orphaned account per extra tap.
+  const navigatingRef = useRef(false);
+
   async function navigate() {
+    if (navigatingRef.current) return;
+    navigatingRef.current = true;
+    try {
+      await route();
+    } finally {
+      navigatingRef.current = false;
+    }
+  }
+
+  async function route() {
     if (user) {
+      // A guest has no email to verify and hasn't done onboarding (they answer
+      // those questions after claiming the account) — straight to the map.
+      if (isGuest(user)) {
+        navigation.replace('MainTabs');
+        return;
+      }
       if (!user.email_verified) {
-        navigation.replace('VerifyEmail', { email: user.email });
+        navigation.replace('VerifyEmail', { email: user.email ?? undefined });
         return;
       }
       // An account can exist (tokens persisted) while onboarding is still
@@ -79,14 +102,31 @@ export default function SplashScreen({ navigation }: Props) {
       // straight onto the map with onboarding never marked done.
       const nextOnboardingScreen = await getNextOnboardingScreen();
       navigation.replace(nextOnboardingScreen ?? 'MainTabs');
-    } else {
-      const done = await isOnboardingDone();
-      navigation.replace(done ? 'Login' : 'SignUp');
+      return;
+    }
+
+    // Someone who has been through onboarding but has no session signed out —
+    // send them back to Login rather than minting them a fresh guest account,
+    // which would look like their progress had vanished.
+    if (await isOnboardingDone()) {
+      navigation.replace('Login');
+      return;
+    }
+
+    // First launch. Everyone starts as a guest so the app is usable before any
+    // email is committed. If this fails (offline, backend cold) there's nothing
+    // to show — fall back to the old signup-first behaviour rather than
+    // dropping the user onto a map with no levels in it.
+    try {
+      await startGuestSession();
+      navigation.replace('MainTabs');
+    } catch {
+      navigation.replace('SignUp');
     }
   }
 
   return (
-    <TouchableOpacity style={styles.container} activeOpacity={1} onPress={() => isHydrated && navigate()}>
+    <TouchableOpacity style={styles.container} activeOpacity={1} onPress={() => { if (isHydrated) void navigate(); }}>
       <View style={[styles.inner, { paddingTop: insets.top + 8 }]}>
 
         {/* Decorative Arabic letters */}

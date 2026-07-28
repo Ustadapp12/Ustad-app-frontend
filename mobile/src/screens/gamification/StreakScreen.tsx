@@ -1,9 +1,13 @@
 ﻿import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Image } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
+import AuthRequiredModal from '../../components/AuthRequiredModal';
+import {
+  clearPendingGuestProgress, isGuest, setUpgradePrompted, wasUpgradePrompted,
+} from '../../utils/guest';
 import { colors } from '../../theme/colors';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
@@ -16,9 +20,43 @@ const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export default function StreakScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { learning } = useAuthStore();
+  const { learning, user } = useAuthStore();
   const streak = route.params?.currentStreak ?? learning?.current_streak ?? 0;
   const justIncremented = route.params?.justIncremented ?? false;
+
+  // The conversion moment. A guest has just watched a streak land that the
+  // server deliberately didn't keep — so ask for the account here, while the
+  // thing they'd lose is on screen, rather than at some abstract later point.
+  // Only after a genuine increment, and only once ever: asking again after
+  // every level would cheapen it.
+  const [upgradePromptVisible, setUpgradePromptVisible] = useState(false);
+  const guest = isGuest(user);
+  const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!guest || !justIncremented) return;
+    void (async () => {
+      if (await wasUpgradePrompted()) return;
+      // Held back until the celebration has actually played.
+      promptTimerRef.current = setTimeout(() => setUpgradePromptVisible(true), 2200);
+    })();
+    return () => { if (promptTimerRef.current) clearTimeout(promptTimerRef.current); };
+  }, [guest, justIncremented]);
+
+  async function handleCreateAccount() {
+    await setUpgradePrompted();
+    setUpgradePromptVisible(false);
+    navigation.replace('SignUp');
+  }
+
+  async function handleDeclineUpgrade() {
+    // Declining forfeits it for real — that's the deal the copy makes, and
+    // keeping the totals around would quietly credit them on a later signup.
+    await setUpgradePrompted();
+    await clearPendingGuestProgress();
+    setUpgradePromptVisible(false);
+    navigation.navigate('MainTabs');
+  }
 
   const floatAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -139,6 +177,27 @@ export default function StreakScreen({ navigation, route }: Props) {
             </View>
           ))}
         </View>
+
+        {/* Persistent reminder, not just the one-time post-increment modal
+            below — a guest coming back to this screen later (e.g. tapping
+            the streak HUD pill on the map) never triggers that modal at
+            all, since it only fires right after a genuine increment. */}
+        {guest && (
+          <View style={styles.guestCard}>
+            <Image
+              source={require('../../../assets/images/lumo_transparent.png')}
+              style={styles.guestCardLuma}
+              resizeMode="contain"
+            />
+            <View style={styles.guestCardText}>
+              <Text style={styles.guestCardTitle}>Save your progress</Text>
+              <Text style={styles.guestCardBody}>This streak and XP aren't saved yet — create a free account to keep them.</Text>
+            </View>
+            <TouchableOpacity style={styles.guestCardBtn} onPress={() => navigation.navigate('SignUp')}>
+              <Text style={styles.guestCardBtnText}>Create account</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* CTA */}
@@ -147,6 +206,16 @@ export default function StreakScreen({ navigation, route }: Props) {
           <Text style={styles.btnText}>{streak === 0 ? 'Start Today!' : 'Keep it up!'}</Text>
         </TouchableOpacity>
       </View>
+
+      <AuthRequiredModal
+        visible={upgradePromptVisible}
+        title="Save your streak"
+        body={`Your ${streak}-day streak and the XP you just earned aren't saved yet. Create a free account to keep them — otherwise they'll be gone.`}
+        ctaLabel="Create account"
+        dismissLabel="Skip"
+        onContinue={() => void handleCreateAccount()}
+        onDismiss={() => void handleDeclineUpgrade()}
+      />
     </View>
   );
 }
@@ -205,6 +274,17 @@ const styles = StyleSheet.create({
     width: 22, height: 22, borderRadius: 11, backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
+  guestCard: {
+    width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16, marginTop: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
+  },
+  guestCardLuma: { width: 44, height: 44 },
+  guestCardText: { flex: 1 },
+  guestCardTitle: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.darkText, marginBottom: 2 },
+  guestCardBody: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: colors.mutedText, lineHeight: 15 },
+  guestCardBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  guestCardBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.white },
   footer: { paddingHorizontal: 22, paddingTop: 10 },
   btn: {
     backgroundColor: '#EA580C', borderRadius: 16, paddingVertical: 16, alignItems: 'center',

@@ -77,9 +77,10 @@ export function captureError(
  * Set the Sentry user — mirrors what authStore does after login/register.
  * Call this from crashReporter only; authStore still owns the Sentry.setUser call.
  */
-export function setCrashUser(userId: string | null, email?: string): void {
+// `email` is nullable because guests are real users who simply don't have one.
+export function setCrashUser(userId: string | null, email?: string | null): void {
   try {
-    Sentry.setUser(userId ? { id: userId, email } : null);
+    Sentry.setUser(userId ? { id: userId, email: email ?? undefined } : null);
   } catch { /* ignore */ }
 }
 

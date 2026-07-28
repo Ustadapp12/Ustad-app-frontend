@@ -6,6 +6,8 @@ import { useAuthStore } from '../../store/authStore';
 import { leaderboardApi } from '../../api';
 import { colors } from '../../theme/colors';
 import { useResponsiveScale } from '../../utils/responsive';
+import { isGuest } from '../../utils/guest';
+import GuestGate from '../../components/GuestGate';
 import type { LeaderboardEntry } from '../../types/api';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -29,6 +31,14 @@ function avatarForGender(gender: string | null | undefined): string {
 const MAX_CONTENT_W = 520;
 
 export default function LeaderboardScreen() {
+  const user = useAuthStore(s => s.user);
+  // Split in two so the guard sits above every hook in the real screen —
+  // an early return inside LeaderboardContent would change hook order.
+  if (isGuest(user)) return <GuestGate feature="The leaderboard" />;
+  return <LeaderboardContent />;
+}
+
+function LeaderboardContent() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const sc = useResponsiveScale();

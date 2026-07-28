@@ -40,7 +40,9 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
   // hand — /auth/me is gate-exempt, safe to call even while unverified.
   useEffect(() => {
     if (email) return;
-    authApi.me().then(me => setEmail(me.user.email)).catch(() => null);
+    // `email` is null only for a guest, who can never reach this screen —
+    // claiming the account sets it before we navigate here.
+    authApi.me().then(me => setEmail(me.user.email ?? '')).catch(() => null);
   }, [email]);
 
   useEffect(() => () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); }, []);

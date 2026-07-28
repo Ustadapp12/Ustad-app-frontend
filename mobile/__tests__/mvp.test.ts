@@ -7,16 +7,19 @@ import {
 } from '../src/constants/mvp';
 
 describe('MVP surah scope', () => {
-  it('covers surahs 105–114', () => {
-    expect(MVP_SURAH_MIN).toBe(105);
+  it('covers surahs 93–114, excluding 96', () => {
+    expect(MVP_SURAH_MIN).toBe(93);
     expect(MVP_SURAH_MAX).toBe(114);
     expect(MVP_SURAH_NUMBERS).toEqual([
+      93, 94, 95, 97, 98, 99, 100, 101, 102, 103, 104,
       105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
     ]);
   });
 
-  it('excludes surah 78 from MVP', () => {
+  it('excludes surah 78 and surah 96 from MVP', () => {
     expect(isMvpSurah(78)).toBe(false);
+    expect(isMvpSurah(96)).toBe(false);
+    expect(isMvpSurah(93)).toBe(true);
     expect(isMvpSurah(105)).toBe(true);
     expect(isMvpSurah(114)).toBe(true);
   });
