@@ -2,6 +2,8 @@
 
 Gamified Quran memorization (Hifz) for iOS and Android. This repo contains the **React Native mobile app** (bare workflow, TypeScript) and product/design docs. The backend is a separate FastAPI service.
 
+> **Branching:** `Ahmad/dev` is the active working branch. **Never push directly to `main`** — open a PR from `Ahmad/dev` (or a feature branch) instead.
+
 ## Repository layout
 
 | Path | Purpose |
