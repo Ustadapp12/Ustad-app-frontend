@@ -2,7 +2,7 @@
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Animated, Easing, ActivityIndicator, Platform, Modal, Alert, Image, Pressable,
-  useWindowDimensions, type ImageSourcePropType,
+  useWindowDimensions, BackHandler, type ImageSourcePropType,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +24,30 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import type { ExerciseDict, ExpectedWordResult, FormulaAttemptOut, SegmentStatus } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 
+// ── Tour-only glow ───────────────────────────────────────────────────
+// The guided tour highlights a real element by asking that element to glow
+// itself, rather than drawing a separate ring on top of it at measured
+// coordinates (see TourOverlay's own comment for why: a drawn ring can
+// disagree with the real shape, drift out of sync with a timing race, or
+// simply be wrong). Every glow-capable prop below defaults to falsy and is
+// only ever set by TourLessonScreen/TourOfferModal call sites — a normal
+// lesson never passes them, so this is invisible outside the tour.
+//
+// Two variants:
+// - TOUR_GLOW has no radius of its own, so it inherits whatever the host
+//   element already declares (Check's borderRadius:16, the mic's 54, the
+//   feedback sheet's top-only 24) — same pattern EX.optionGlow already used
+//   for the pre-picked option, just generalised.
+// - TOUR_GLOW_ROUND is for the handful of targets whose ref sits on a bare
+//   wrapper View with no shape of its own (the hint icon, the hearts row,
+//   the progress slot) — borderRadius: 999 clamps to a perfect circle/pill
+//   at whatever size that wrapper actually renders, on any device.
+export const TOUR_GLOW = {
+  borderWidth: 2, borderColor: colors.gold,
+  shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
+  elevation: 8,
+} as const;
+export const TOUR_GLOW_ROUND = { ...TOUR_GLOW, borderRadius: 999 } as const;
 
 // ── Audio helper ───────────────────────────────────────────────────
 // Thin wrappers around services/audioPlayer.ts (react-native-sound) that
@@ -539,6 +563,7 @@ export function LessonHeader({
   hintAyahTranslation,
   onExit,
   targets,
+  glowTarget,
 }: {
   /** In half-heart units — see MAX_MISTAKES. */
   mistakes: number;
@@ -549,6 +574,8 @@ export function LessonHeader({
   onExit: () => void;
   /** Optional refs so the tour can measure what it's about to spotlight. */
   targets?: LessonHeaderTargets;
+  /** Tour-only: which of this header's own elements should glow itself. */
+  glowTarget?: 'hint' | 'hearts' | 'progress' | null;
 }) {
   const heartsLeftHalf = MAX_MISTAKES - mistakes;
 
@@ -558,11 +585,19 @@ export function LessonHeader({
         <Text style={LH.backText}>✕</Text>
       </TouchableOpacity>
 
-      <View ref={targets?.progress} collapsable={false} style={LH.progressSlot}>
+      <View
+        ref={targets?.progress}
+        collapsable={false}
+        style={[LH.progressSlot, glowTarget === 'progress' && TOUR_GLOW_ROUND]}
+      >
         <ProgressBar fraction={progressFraction} />
       </View>
 
-      <View ref={targets?.hearts} collapsable={false} style={LH.heartsRow}>
+      <View
+        ref={targets?.hearts}
+        collapsable={false}
+        style={[LH.heartsRow, glowTarget === 'hearts' && TOUR_GLOW_ROUND]}
+      >
         {Array.from({ length: MAX_HEARTS }).map((_, i) => {
           const heartsFromThisIcon = heartsLeftHalf - i * 2; // each icon is worth 2 half-hearts
           const src =
@@ -577,7 +612,7 @@ export function LessonHeader({
         })}
       </View>
 
-      <View ref={targets?.hint} collapsable={false}>
+      <View ref={targets?.hint} collapsable={false} style={glowTarget === 'hint' ? TOUR_GLOW_ROUND : undefined}>
         <HintButton url={hintUrl} ayahAr={hintAyahAr} ayahTranslation={hintAyahTranslation} />
       </View>
     </View>
@@ -717,21 +752,35 @@ function scaledBlankBox(font: { scale: number; lineHeightScale: number }): { hei
 }
 
 export function FillBlankOrNextWord({
-  ex, surahName, character, locked, onSubmit,
+  ex, surahName, character, locked, onSubmit, previewSelected, checkButtonRef, selectedOptionRef,
+  glowCheck,
 }: {
   ex: ExerciseDict;
   surahName: string;
   character: Character;
   locked?: boolean;
   onSubmit: (ans: string) => void;
+  /**
+   * Tour-only: pre-fills `selected` so the Check button reads as enabled
+   * instead of permanently greyed out, in a screen where taps never reach
+   * the options (see TourLessonScreen). Never passed by the real lesson
+   * flow, so `selected` still starts `null` there exactly as before.
+   */
+  previewSelected?: string;
+  /** Tour-only: lets TourLessonScreen measure the real Check button, for the cutout hole. */
+  checkButtonRef?: React.Ref<View>;
+  /** Tour-only: lets TourLessonScreen measure the pre-selected option, for the cutout hole. */
+  selectedOptionRef?: React.Ref<View>;
+  /** Tour-only: glow the real Check button itself. */
+  glowCheck?: boolean;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(previewSelected ?? null);
   const arabicFont = useArabicFont();
 
   useEffect(() => {
     if (ex.word_audio_url) { void playUrl(ex.word_audio_url); }
-    setSelected(null);
-  }, [ex.ex_id]);
+    setSelected(previewSelected ?? null);
+  }, [ex.ex_id, previewSelected]);
 
   // Show "Hear words" only when the blank is the first or last token (corner position)
   const blankIdx = ex.tokens?.findIndex(t => t.blank) ?? -1;
@@ -789,26 +838,47 @@ export function FillBlankOrNextWord({
 
       {/* Options: tap once = select, long-press = audio; locked after Check */}
       <View style={EX.optionsGrid}>
-        {ex.options?.map((o, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[EX.optionBtn, selected === o.ar && EX.optionSelected, locked && { opacity: 0.7 }]}
-            onPress={() => { if (!locked) setSelected(o.ar); }}
-            onLongPress={() => { if (o.audio_url && !locked) void playUrl(o.audio_url); }}
-            delayLongPress={400}
-          >
-            <Text style={[arabicTextStyle(EX.optionText as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
-          </TouchableOpacity>
-        ))}
+        {ex.options?.map((o, i) => {
+          // Gated on the immutable prop, not the `selected` state — `selected`
+          // is seeded from `previewSelected` via useState/useEffect, so for a
+          // beat across renders it can lag behind, and the ref detaching then
+          // reattaching is exactly what let a stale rect from the wrong
+          // option survive in the tour store (confirmed: the tour's "Pick
+          // your answer" tail pointed at the wrong option). `previewSelected`
+          // itself never changes after the exercise mounts, so gating on it
+          // directly is stable from the very first render.
+          const isPreviewPick = previewSelected != null && o.ar === previewSelected;
+          return (
+            <TouchableOpacity
+              key={i}
+              ref={isPreviewPick ? selectedOptionRef : undefined}
+              style={[
+                EX.optionBtn,
+                selected === o.ar && EX.optionSelected,
+                // Tour-only: glow the auto-picked option so it's obvious why
+                // Check is enabled, since no real tap ever lands here.
+                isPreviewPick && EX.optionGlow,
+                locked && { opacity: 0.7 },
+              ]}
+              onPress={() => { if (!locked) setSelected(o.ar); }}
+              onLongPress={() => { if (o.audio_url && !locked) void playUrl(o.audio_url); }}
+              delayLongPress={400}
+            >
+              <Text style={[arabicTextStyle(EX.optionText as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      <TouchableOpacity
-        style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (selected && !locked) onSubmit(selected); }}
-        disabled={!selected || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
+      <View ref={checkButtonRef} collapsable={false}>
+        <TouchableOpacity
+          style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled, glowCheck && TOUR_GLOW]}
+          onPress={() => { if (selected && !locked) onSubmit(selected); }}
+          disabled={!selected || locked}
+        >
+          <Text style={EX.continueBtnText}>Check</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -1673,8 +1743,14 @@ const RAS = StyleSheet.create({
 // Scores via speak-attempt API and shows result inline.
 
 export function ReadAndSpeak({
-  ex, surahName, character, onSpeakScored,
-}: { ex: ExerciseDict; surahName: string; character: Character; onSpeakScored: (result: SpeakResult) => void }) {
+  ex, surahName, character, onSpeakScored, micButtonRef, glowMic,
+}: {
+  ex: ExerciseDict; surahName: string; character: Character; onSpeakScored: (result: SpeakResult) => void;
+  /** Tour-only: lets TourLessonScreen measure the real mic button, for the cutout hole. */
+  micButtonRef?: React.Ref<View>;
+  /** Tour-only: glow the real mic button itself. */
+  glowMic?: boolean;
+}) {
   const arabicFont = useArabicFont();
   const [speakState, setSpeakState] = useState<SpeakState>('idle');
   const [error, setError]           = useState<string | null>(null);
@@ -1845,26 +1921,28 @@ export function ReadAndSpeak({
           {speakState === 'scoring' ? (
             <RecitationScoringFeedback />
           ) : (
-            <Pressable
-              onPress={handleMicTap}
-              style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive]}
-            >
-              {speakState === 'recording' ? (
-                <LottieView
-        renderMode="SOFTWARE"
-                  source={require('../../../assets/animations/listen.json')}
-                  autoPlay
-                  loop
-                  style={RANS.listenAnim}
-                />
-              ) : (
-                <Image
-                  source={require('../../../assets/images/mic.png')}
-                  style={RANS.micImage}
-                  resizeMode="contain"
-                />
-              )}
-            </Pressable>
+            <View ref={micButtonRef} collapsable={false}>
+              <Pressable
+                onPress={handleMicTap}
+                style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive, glowMic && TOUR_GLOW]}
+              >
+                {speakState === 'recording' ? (
+                  <LottieView
+          renderMode="SOFTWARE"
+                    source={require('../../../assets/animations/listen.json')}
+                    autoPlay
+                    loop
+                    style={RANS.listenAnim}
+                  />
+                ) : (
+                  <Image
+                    source={require('../../../assets/images/mic.png')}
+                    style={RANS.micImage}
+                    resizeMode="contain"
+                  />
+                )}
+              </Pressable>
+            </View>
           )}
 
           {!!error && (
@@ -2099,6 +2177,11 @@ const EX = StyleSheet.create({
   optionBtn: { backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', minWidth: '45%', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   optionBtnFull: { backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, marginBottom: 10, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   optionSelected: { borderColor: colors.primary, backgroundColor: colors.primaryBg },
+  optionGlow: {
+    borderColor: colors.gold, borderWidth: 2,
+    shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
   optionText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: colors.darkText },
   optionTextArabic: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 18, color: colors.darkText, textAlign: 'center' },
   optionTextSelected: { color: colors.primary },
@@ -2130,8 +2213,14 @@ const EX = StyleSheet.create({
 // ── Feedback overlay ───────────────────────────────────────────────
 
 export function FeedbackBanner({
-  result, onAdvance,
-}: { result: FormulaAttemptOut; onAdvance: () => void }) {
+  result, onAdvance, bannerRef, glow,
+}: {
+  result: FormulaAttemptOut; onAdvance: () => void;
+  /** Tour-only: lets TourLessonScreen measure the real feedback sheet, for the cutout hole. */
+  bannerRef?: React.Ref<View>;
+  /** Tour-only: glow the real feedback sheet itself. */
+  glow?: boolean;
+}) {
   const correct = result.correct;
   const arabicFont = useArabicFont();
   const xpAwarded = result.xp_awarded ?? 0;
@@ -2142,7 +2231,7 @@ export function FeedbackBanner({
 
   if (correct) {
     return (
-      <View style={FB.sheet}>
+      <View ref={bannerRef} collapsable={false} style={[FB.sheet, glow && TOUR_GLOW]}>
         <View style={FB.correctRow}>
           <View style={FB.correctBadge}><Text style={FB.correctBadgeText}>✓</Text></View>
           <View style={{ flex: 1 }}>
@@ -2164,7 +2253,7 @@ export function FeedbackBanner({
   }
 
   return (
-    <View style={[FB.sheet, FB.wrongSheet]}>
+    <View ref={bannerRef} collapsable={false} style={[FB.sheet, FB.wrongSheet, glow && TOUR_GLOW]}>
       <View style={FB.wrongRow}>
         <View style={FB.wrongBadge}><Text style={FB.wrongBadgeText}>✕</Text></View>
         <Text style={[FB.wrongTitle, { flex: 1 }]}>Incorrect</Text>
@@ -2456,6 +2545,33 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     abandonSession({ silent: true }).catch(() => {});
     navigation.goBack();
   };
+
+  // Hardware back during a live exercise must ask before throwing progress
+  // away, exactly like the X button does — not silently pop the screen (the
+  // previous default) or land on some other screen entirely. While the
+  // exit-confirm Modal is already open, Android routes the back press to its
+  // own onRequestClose directly (RN Modals capture hardware back at the
+  // native window level ahead of any BackHandler listener), so this only
+  // fires for that case when it's not yet open.
+  //
+  // The no-hearts overlay is a plain absolutely-positioned View, not a
+  // Modal — it doesn't get that native interception, and today it has no
+  // leave affordance at all (Buy Hearts is a coming-soon no-op, Retry starts
+  // the level over). Back is the only way out of it, so it skips the confirm
+  // (there's no fresh progress left to protect at that point) and leaves
+  // straight away.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (noHeartsVisible) {
+        setNoHeartsVisible(false);
+        handleBack();
+        return true;
+      }
+      setExitConfirmVisible(true);
+      return true;
+    });
+    return () => sub.remove();
+  }, [noHeartsVisible]);
 
   // ── Error state ──────────────────────────────────────────────────
   if (error && !loading) {

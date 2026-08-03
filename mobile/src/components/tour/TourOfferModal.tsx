@@ -25,8 +25,8 @@ export default function TourOfferModal({ visible, onAccept, onDecline }: Props) 
           />
           <Text style={styles.title}>Want a quick tour?</Text>
           <Text style={styles.body}>
-            I can show you how levels, streaks and hints work — about a minute. Or dive
-            straight into your first level, whichever you prefer.
+            I can show you how levels, streaks and hints work, it takes about a minute.
+            Or dive straight into your first level, whichever you prefer.
           </Text>
 
           <TouchableOpacity style={styles.primaryBtn} onPress={onAccept} activeOpacity={0.85}>

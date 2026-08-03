@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
+import { characterSrcFor } from '../../utils/avatar';
 import { colors } from '../../theme/colors';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
@@ -11,14 +12,12 @@ interface Props {
   route: RouteProp<RootStackParamList, 'OnboardWelcome'>;
 }
 
-const AYESHA_SRC = require('../../../assets/characters/ayesha.png');
-const HAMZA_SRC = require('../../../assets/characters/hamza.png');
-
 export default function OnboardWelcomeScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const name = useAuthStore(s => s.user?.name) ?? 'there';
+  const userId = useAuthStore(s => s.user?.id);
   const { gender } = route.params;
-  const avatarSrc = gender === 'female' ? AYESHA_SRC : HAMZA_SRC;
+  const avatarSrc = characterSrcFor(userId ?? '', gender);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

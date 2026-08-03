@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { TOUR_STEPS } from '../components/tour/tourSteps';
 import type { TourTargetKey } from '../components/tour/tourSteps';
 
 export interface TourRect {
@@ -20,6 +21,7 @@ interface TourState {
   rects: Partial<Record<TourTargetKey, TourRect>>;
   start: () => void;
   next: () => void;
+  prev: () => void;
   stop: () => void;
   setRect: (key: TourTargetKey, rect: TourRect) => void;
 }
@@ -30,7 +32,8 @@ export const useTourStore = create<TourState>(set => ({
   rects: {},
 
   start: () => set({ active: true, stepIndex: 0 }),
-  next: () => set(s => ({ stepIndex: s.stepIndex + 1 })),
+  next: () => set(s => ({ stepIndex: Math.min(TOUR_STEPS.length - 1, s.stepIndex + 1) })),
+  prev: () => set(s => ({ stepIndex: Math.max(0, s.stepIndex - 1) })),
   // Rects are deliberately kept on stop: the same targets get re-measured on
   // the next run anyway, and clearing them mid-teardown makes the overlay
   // flash an un-spotlit frame on its way out.

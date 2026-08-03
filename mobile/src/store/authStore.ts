@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { authApi, learningApi, usersApi, syncDeviceTimezone } from '../api';
-import { getTokens, setTokens, setStoredUser, resetTourOffered } from '../utils/storage';
+import { getTokens, setTokens, setStoredUser, getStoredUser, resetTourOffered } from '../utils/storage';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
 import { setCrashUser, addBreadcrumb } from '../services/crashReporter';
 import { warmAudioUrlCache } from '../services/audioUrls';
@@ -91,9 +91,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
       return null;
     };
 
-    const [me, learning] = await Promise.all([
+    const [me, learning, previouslyStored] = await Promise.all([
       authApi.me().catch(() => null),
       fetchLearningWithRetry(),
+      getStoredUser(),
     ]);
     if (!me) {
       await setTokens(null);
@@ -101,7 +102,18 @@ export const useAuthStore = create<AuthState>((set, get) => {
       set({ isHydrated: true, user: null, learning: null });
       return;
     }
-    const user: User = { ...me.user, name: displayNameFor(me.user, me.profile?.display_name) };
+    // Prefer profile.display_name, but fall back to whatever name this same
+    // account was last shown under locally before reaching for the
+    // email-username derivation — register()/upgradeGuest() already set the
+    // real typed name correctly the moment the account was created, so this
+    // is only ever a real name or nothing, never a stale/wrong one. Without
+    // this, a backend response that omits display_name (or hasn't caught up
+    // yet) would silently regress "Ahmad Al-Rashid" to "ahmad.alrashid" on
+    // every subsequent app launch.
+    const user: User = {
+      ...me.user,
+      name: displayNameFor(me.user, me.profile?.display_name ?? previouslyStored?.name),
+    };
     await setStoredUser(user);
     set({ isHydrated: true, user, learning: null, profile: me.profile ?? null });
     void syncDeviceTimezone();
@@ -196,6 +208,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
     });
     await setTokens(res.tokens);
     setCrashUser(res.user.id, res.user.email);
+    // The guest session this account is upgrading from may already have
+    // dismissed/completed the tour offer before the user ever signed up —
+    // that flag belongs to the guest's throwaway history, not to the new
+    // account's actual first run, so it's reset here the same as register()
+    // and startGuestSession() already do.
+    await resetTourOffered();
     void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'guest_upgrade' });
     await clearPendingGuestProgress();
     const user: User = { ...res.user, name: displayName };

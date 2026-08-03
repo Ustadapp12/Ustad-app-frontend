@@ -8,6 +8,7 @@ import { abandonActiveLessonSessionSilent } from './src/services/lessonSession';
 import { useAuthStore } from './src/store/authStore';
 import { useLessonStore } from './src/store/lessonStore';
 import RootNavigator from './src/navigation/RootNavigator';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 const LEARNING_ME_POLL_MS = 60_000;
 
@@ -71,7 +72,9 @@ function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <RootNavigator />
+        <ErrorBoundary>
+          <RootNavigator />
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -9,6 +9,7 @@ import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import { useResponsiveScale } from '../../utils/responsive';
 import { isGuest } from '../../utils/guest';
+import { characterSrcFor } from '../../utils/avatar';
 import GuestGate from '../../components/GuestGate';
 import type { ScriptPreference } from '../../types/api';
 import type { ProfileNavProp } from '../../navigation/types';
@@ -24,8 +25,6 @@ const BASE_FONT_SIZE = 22;
 const BASE_LINE_HEIGHT = 38;
 
 const PREVIEW = 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ';
-const AYESHA_SRC = require('../../../assets/characters/ayesha.png');
-const HAMZA_SRC = require('../../../assets/characters/hamza.png');
 
 export default function ProfileScreen(props: Props) {
   const user = useAuthStore(s => s.user);
@@ -57,8 +56,11 @@ function ProfileContent({ navigation }: Props) {
   }, [sc]);
 
   // No gender saved yet (pre-existing accounts from before this feature) —
-  // falls back to hamza.png rather than always defaulting to ayesha.png.
-  const avatarSrc = profile?.gender === 'female' ? AYESHA_SRC : HAMZA_SRC;
+  // characterSrcFor falls back to the male pool rather than always
+  // defaulting to one specific character. Same user id it was assigned
+  // under at Welcome, so this is always the one they were introduced to,
+  // never a fresh pick.
+  const avatarSrc = characterSrcFor(user?.id ?? '', profile?.gender);
 
   const displayName = user?.name ?? 'Learner';
   const initials = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();

@@ -1,7 +1,7 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform,
+  ScrollView, KeyboardAvoidingView, Platform, BackHandler,
 } from 'react-native';
 import { Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -54,6 +54,17 @@ export default function SignUpScreen({ navigation }: Props) {
   const checklist = getPasswordChecklist(password);
   const strength = getPasswordStrength(checklist);
   const passwordOk = isPasswordValid(password);
+
+  // Same rule as Login: back closes the app rather than popping to whatever
+  // sits behind this screen in the stack (Splash on a fresh install, or
+  // MainTabs when a guest opened this from the "Create an account" gate).
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      BackHandler.exitApp();
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
 
   // Terms deliberately isn't part of canSubmit — unlike name/email/password,
   // there's no field to show an inline error next to, so instead the button

@@ -30,6 +30,7 @@ const OnboardScriptScreen = lazy(() => import('../screens/onboarding/OnboardScri
 const OnboardPathScreen = lazy(() => import('../screens/onboarding/OnboardPathScreen'));
 const OnboardAssessmentScreen = lazy(() => import('../screens/onboarding/OnboardAssessmentScreen'));
 const StreakScreen = lazy(() => import('../screens/gamification/StreakScreen'));
+const StreakCelebrationScreen = lazy(() => import('../screens/gamification/StreakCelebrationScreen'));
 const LessonSummaryScreen = lazy(() => import('../screens/lesson/LessonSummaryScreen'));
 const MainTabs = lazy(() => import('./MainTabs'));
 const LessonSessionScreen = lazy(() => import('../screens/lesson/LessonSessionScreen'));
@@ -58,6 +59,7 @@ const OnboardScriptScreenLazy = withSuspense(OnboardScriptScreen);
 const OnboardPathScreenLazy = withSuspense(OnboardPathScreen);
 const OnboardAssessmentScreenLazy = withSuspense(OnboardAssessmentScreen);
 const StreakScreenLazy = withSuspense(StreakScreen);
+const StreakCelebrationScreenLazy = withSuspense(StreakCelebrationScreen);
 const LessonSummaryScreenLazy = withSuspense(LessonSummaryScreen);
 const MainTabsLazy = withSuspense(MainTabs);
 const LessonSessionScreenLazy = withSuspense(LessonSessionScreen);
@@ -98,12 +100,13 @@ export default function RootNavigator() {
         <Stack.Screen name="OnboardPath" component={OnboardPathScreenLazy} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="OnboardAssessment" component={OnboardAssessmentScreenLazy} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="MainTabs" component={MainTabsLazy} options={{ animation: 'fade' }} />
-        <Stack.Screen name="GuidedTour" component={TourLessonScreenLazy} options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="GuidedTour" component={TourLessonScreenLazy} options={{ animation: 'slide_from_right', gestureEnabled: false }} />
         <Stack.Screen
           name="Streak"
           component={StreakScreenLazy}
           options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
         />
+        <Stack.Screen name="StreakCelebration" component={StreakCelebrationScreenLazy} options={{ animation: 'fade' }} />
         <Stack.Screen name="LessonSession"  component={LessonSessionScreenLazy}  options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="LessonComplete" component={LessonSummaryScreenLazy} options={{ animation: 'fade' }} />
       </Stack.Navigator>

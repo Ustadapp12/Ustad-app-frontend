@@ -4,9 +4,10 @@ import {
   ScrollView, RefreshControl, type ImageSourcePropType,
 } from 'react-native';
 import Svg, {
-  Defs, Ellipse, Path, G, Pattern, Image as SvgImage,
+  Defs, Path, G, Pattern, Image as SvgImage, Symbol as SvgSymbol, Use, Ellipse,
 } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
+import { BlurView } from '@react-native-community/blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import PredictedProgressBar from '../../components/PredictedProgressBar';
@@ -20,31 +21,29 @@ import { getCachedRecommended, setCachedRecommended, getCachedLevels, getCachedF
 import { loadLessonGroup } from '../../services/cachedContent';
 import { getUnlockedSeasons, setTourOffered, unlockSeason, wasTourOffered } from '../../utils/storage';
 import { useTourStore } from '../../store/tourStore';
+import { TOUR_STEPS } from '../../components/tour/tourSteps';
+import { TOUR_GLOW } from '../lesson/LessonSessionScreen';
 import TourOfferModal from '../../components/tour/TourOfferModal';
 import TourOverlay from '../../components/tour/TourOverlay';
 import type { SurahLevel } from '../../types/api';
 import type { MapNavProp } from '../../navigation/types';
 
-// Incrementing per-mount id for the grass/brick SVG pattern defs — see
-// mapInstanceId in MapScreen for why this exists.
-let mapSvgInstanceCounter = 0;
-
 // ── Asset refs (static, so Metro can bundle them) ──────────────────
-const TREE_SRCS = [
-  require('../../../assets/tree1.png'),
-  require('../../../assets/tree2.png'),
-  require('../../../assets/tree3.png'),
-] as const;
-const MOSQUE_SRC   = require('../../../assets/mosque.png');
+// Both baked into the SVG background tiles as <Symbol>s (see "Map
+// decorations" below), not plain overlay Images — mosque.png (2000x2000)
+// and the original tree.png (palette-mode) both failed RNSVG's Android image
+// decoder ("RNSVG: fetchDecodedImage failed!" in logcat), silently rendering
+// nothing. mosque_svg.png is that same source art downscaled to 360x360;
+// new_Tree.png is already 512x512 32bpp (no palette), comfortably clear of
+// both failure modes — confirmed rendering correctly on-device.
+const TREE_SVG_SRC   = require('../../../assets/map/new_Tree.png');
+const MOSQUE_SVG_SRC = require('../../../assets/map/mosque_svg.png');
 const BIRDS_SRC    = require('../../../assets/birds.png');
 const CLOUD_SRC    = require('../../../assets/clouds.png');
 const START_SRC    = require('../../../assets/start.png');
-const BRIDGE_SRC   = require('../../../assets/map/bridge.png');
 const SCROLL_SRC   = require('../../../assets/map/scroll2.png');
 const GRASS_SRC    = require('../../../assets/map/grass.jpg');
 const BRICK_SRC    = require('../../../assets/map/bricks.jpg');
-const POND_SRC     = require('../../../assets/map/pond.png');
-const BUSH_SRC     = require('../../../assets/map/bush.png');
 // Pre-engraved signs — the season number is baked into the art itself, one
 // file per season, keyed by season number (1-indexed, matching the label on
 // the sign) rather than composed at runtime from a blank sign + overlaid text.
@@ -65,7 +64,18 @@ const SEASON_SIGN_SRCS: Record<number, ImageSourcePropType> = {
 // Real aspect ratio of the sign art (186x326). All three files share it.
 const SEASON_GATE_ASPECT = 186 / 326;
 const SKY_SRC      = require('../../../assets/map/sky.jpg');
-const MOUNTAINS_SRC = require('../../../assets/map/mountains.png');
+// Cropped from the original mountains.png (1400x443 → 1400x385): the source
+// art's foreground isn't a flat line — a lake dips as low as y≈442 on the
+// left while the right side's tree line ends by y≈387, a 55px wobble in the
+// baseline. Left uncropped, "cover"-scaling that into a wide/short band and
+// overlapping it with the grass's flat boundary meant the required overlap
+// margin had to cover the worst-case dip everywhere, capping how big the
+// band could get before risking a gap ("leakage") on the shallow side.
+// Cropping at 385 — just under the true minimum content-bottom (387,
+// verified across the full width) — keeps every column opaque right to the
+// bottom edge, so the mountain reads as one consistent skyline instead of
+// forcing an oversized safety margin.
+const MOUNTAINS_SRC = require('../../../assets/map/mountains_crop.png');
 const NODE_SRCS = {
   locked: require('../../../assets/map/node_locked.png'),
   current: require('../../../assets/map/node_current.png'),
@@ -268,24 +278,19 @@ function formatAyahRange(from: number, to: number): string {
 
 // ── Types for the fully-computed, width-dependent map model ────────
 interface DecorMosque  { y: number; x: number }
-interface DecorTree    { y: number; x: number; src: (typeof TREE_SRCS)[number] }
+interface DecorTree    { y: number; x: number }
 interface DecorBird    { y: number; x: number }
-interface DecorBridge  { y: number; x: number; w: number; h: number }
-interface DecorBush    { y: number; x: number }
-interface DecorPond    { y: number; x: number }
 interface DecorSeasonGate { x: number; y: number; w: number; h: number; unlocksSeasonIdx: number }
-interface ParallaxLayer { puffs: { x: number; y: number; w: number; h: number; opacity: number }[]; speed: number; blur: number }
 interface LabelBox { x: number; y: number; w: number; h: number; isLeft: boolean }
 interface PillBox { x: number; y: number; w: number; h: number }
 
 interface MapModel {
   MAP_W: number; SCALE: number; sc: (n: number) => number;
-  NODE_SIZE: number; NODE_GAP: number; SECTION_EXTRA: number; TOP_MARGIN: number; FOOTER_PAD: number;
+  NODE_SIZE: number; NODE_GAP: number; TOP_MARGIN: number; FOOTER_PAD: number;
   ACTION_CARD_W: number; ACTION_CARD_H: number;
   BASE_SECTIONS: Section[]; MAP_H: number; ALL_NODES: SectionNode[];
-  PATH_D: string;
-  DECORATIONS: { mosques: DecorMosque[]; trees: DecorTree[]; birds: DecorBird[]; bridges: DecorBridge[]; bushes: DecorBush[]; ponds: DecorPond[]; seasonGates: DecorSeasonGate[] };
-  PARALLAX_FAR: ParallaxLayer; PARALLAX_MID: ParallaxLayer; PARALLAX_NEAR: ParallaxLayer;
+  pathDForYRange: (startY: number, endY: number) => string;
+  DECORATIONS: { mosques: DecorMosque[]; trees: DecorTree[]; birds: DecorBird[]; seasonGates: DecorSeasonGate[] };
   SKY_BOUNDARY_Y: number;
   GRASS_EDGE_D: string;
   SKY_CLOUDS: { x: number; y: number; w: number; h: number }[];
@@ -304,19 +309,19 @@ interface MapModel {
 // piece being sized off its own independent sc() constant.
 const ACTION_CARD_ASPECT = 179 / 392;
 
-// ── ONE function: real device width in → every pixel of the map's layout
-// out. Nothing derived here is a module-level constant anymore — it's all
-// recomputed whenever width changes (see useWindowDimensions in the
-// component), so split-screen/foldable/rotation resizes actually relayout
-// instead of leaving a stale frozen width baked in from first mount.
-function buildMapModel(mapW: number): MapModel {
+// ── ONE function: real device width (+ viewport height) in → every pixel of
+// the map's layout out. Nothing derived here is a module-level constant
+// anymore — it's all recomputed whenever width/height change (see
+// useWindowDimensions in the component), so split-screen/foldable/rotation
+// resizes actually relayout instead of leaving a stale frozen width baked in
+// from first mount.
+function buildMapModel(mapW: number, viewportH: number): MapModel {
   const BASELINE_W = 393;
   const SCALE = Math.min(1.3, Math.max(0.82, mapW / BASELINE_W));
   const sc = (n: number) => Math.round(n * SCALE);
 
   const NODE_SIZE     = sc(56);
   const NODE_GAP      = sc(170);
-  const SECTION_EXTRA = sc(90);
   const TOP_MARGIN    = sc(220);
   const FOOTER_PAD    = sc(200);
   // Real visual gap from the road's widest visible (glow) stroke, not just
@@ -334,8 +339,15 @@ function buildMapModel(mapW: number): MapModel {
   const ROAD_HALF_WIDTH = sc(32);
 
   // ── Layout: section defs → pixel positions ──
+  // Every consecutive pair of things along the road — node to node, node to
+  // season-sign, sign to node — sits exactly NODE_GAP apart. A season
+  // boundary gets one extra NODE_GAP step inserted for the sign, never a
+  // bigger single jump, so the whole path reads at one predictable rhythm
+  // instead of surah transitions feeling arbitrarily longer than a normal
+  // node-to-node step.
   let y = TOP_MARGIN;
-  const BASE_SECTIONS: Section[] = SECTIONS_DEF.map(def => {
+  const seasonGateCenterYs: Record<number, number> = {};
+  const BASE_SECTIONS: Section[] = SECTIONS_DEF.map((def, secIdx) => {
     const nodes: SectionNode[] = def.levels.map((lvl, nIdx) => ({
       id: lvl.id,
       x: Math.round(def.xFractions[nIdx] * mapW - NODE_SIZE / 2),
@@ -345,7 +357,20 @@ function buildMapModel(mapW: number): MapModel {
       levelNum: lvl.levelNum,
     }));
     const lastNodeY = y + (def.levels.length - 1) * NODE_GAP;
-    y = lastNodeY + NODE_GAP + SECTION_EXTRA;
+    const nextDef = SECTIONS_DEF[secIdx + 1];
+    const isSeasonBoundary = !!nextDef
+      && (SURAH_TO_SEASON[nextDef.surahNum] ?? 0) !== (SURAH_TO_SEASON[def.surahNum] ?? 0);
+    if (isSeasonBoundary) {
+      // Same "center" convention a node's own y implies (node.y + NODE_SIZE/2)
+      // — the sign occupies the slot exactly one NODE_GAP past the last
+      // node's center, and the next section's first node sits one more
+      // NODE_GAP past that, treating the sign as a full extra step rather
+      // than widening the gap around it.
+      seasonGateCenterYs[secIdx] = lastNodeY + NODE_SIZE / 2 + NODE_GAP;
+      y = lastNodeY + NODE_GAP * 2;
+    } else {
+      y = lastNodeY + NODE_GAP;
+    }
     return { surahNum: def.surahNum, name: def.name, arabicName: def.arabicName, ayahCount: def.ayahCount, nodes };
   });
   const lastSec = BASE_SECTIONS[BASE_SECTIONS.length - 1];
@@ -354,18 +379,35 @@ function buildMapModel(mapW: number): MapModel {
 
   // ── Path string + geometry through all node centres ──
   const PATH_PTS = ALL_NODES.map(n => ({ x: n.x + NODE_SIZE / 2, y: n.y + NODE_SIZE / 2 }));
-  let PATH_D = '';
-  if (PATH_PTS.length >= 2) {
-    PATH_D = `M ${PATH_PTS[0].x} ${PATH_PTS[0].y}`;
+
+  // Per-tile slice of the road path — see the SVG background tiling further
+  // down (the ~100MB-per-bitmap comment): every tile is its own <Svg> clipped
+  // to its own viewBox. This used to build one PATH_D string spanning every
+  // node and hand the FULL thing to every tile, which meant Skia had to
+  // scan-convert and AA-fill every node-to-node segment — stroked 5 times
+  // over for the road's shadow/edge/fill/highlight layers — once per tile,
+  // not once total. On a long map (dozens of nodes × dozens of tiles) that's
+  // enough main-thread work to freeze a frame for multiple seconds (caught
+  // live in an ANR trace: main thread stuck inside SkScan::AAAFillPath via
+  // com.horcrux.svg.RenderableView.draw). Each C segment's control points
+  // depend only on its own two endpoints, so segments are independent and can
+  // be sliced by y-range with no change of shape at the seam — a tile only
+  // ever needs the handful of segments that actually fall inside it.
+  function pathDForYRange(startY: number, endY: number): string {
+    if (PATH_PTS.length < 2) return '';
+    let d = '';
     for (let i = 1; i < PATH_PTS.length; i++) {
       const p = PATH_PTS[i - 1], c = PATH_PTS[i];
+      if (c.y < startY || p.y > endY) continue;
+      if (!d) d = `M ${p.x} ${p.y}`;
       const midY = (p.y + c.y) / 2;
-      PATH_D += ` C ${p.x} ${midY}, ${c.x} ${midY}, ${c.x} ${c.y}`;
+      d += ` C ${p.x} ${midY}, ${c.x} ${midY}, ${c.x} ${c.y}`;
     }
+    return d;
   }
 
-  // PATH_D's segments are cubic Beziers with control points pinned at the
-  // same-y midpoint (see the PATH_D loop above), which reduces to
+  // The path's segments are cubic Beziers with control points pinned at the
+  // same-y midpoint (see pathDForYRange above), which reduces to
   // y(t) = p.y + dy·h(t), h(t) = 1.5t − 1.5t² + t³, and
   // x(t) = p.x + dx·g(t), g(t) = 3t² − 2t³.
   // A plain linear interpolation of x against y (the old approach) implicitly
@@ -495,14 +537,16 @@ function buildMapModel(mapW: number): MapModel {
   // Surah label — real offset derived from firstNode.x, mirroring the
   // formula LumaFloat already used correctly (lumaLeft), not a hardcoded
   // screen-edge constant.
-  const LABEL_H = sc(60);
+  // Bumped 20% (was sc(60)) at the user's request.
+  const LABEL_H = sc(72);
   const SURAH_LABELS: Record<number, LabelBox> = {};
   BASE_SECTIONS.forEach(section => {
     const firstNode = section.nodes[0];
     // Scroll width follows the name's length instead of one fixed size for
     // every surah — "An-Nasr" and "Al-Kafirun" don't need (and don't look
-    // right in) the same box.
-    const labelW = Math.round(Math.max(sc(95), Math.min(sc(155), sc(58) + section.name.length * sc(7))));
+    // right in) the same box. Bounds and scale bumped 20% along with LABEL_H
+    // (were sc(95)/sc(155)/sc(58)/sc(7)).
+    const labelW = Math.round(Math.max(sc(114), Math.min(sc(186), sc(69.6) + section.name.length * sc(8.4))));
     // Pick whichever side actually has more room, then clamp only against
     // the screen edge on THAT side — clamping against the far edge (the old
     // behaviour) could push the label back over the node itself when the
@@ -518,65 +562,37 @@ function buildMapModel(mapW: number): MapModel {
     placed.push({ y: ly, side: isLeft ? 'left' : 'right', height: LABEL_H });
   });
 
-  // Season-gate signs — the two biggest landmarks on the map. Computed and
-  // placed *before* the lesson-node zones below (and before any
-  // mosque/tree/bird/bush/pond) so they get first pick of clear space at
-  // each season boundary — they're fixed, critical landmarks, not optional
-  // decorations that should lose a zone conflict and silently disappear.
+  // Section-boundary midpoints — decoration scatter only (mosque/tree/bush
+  // "extra pass at section boundaries" below). Season-gate signs do NOT use
+  // this: they get their own precise slot from the layout loop above
+  // (seasonGateCenterYs), not a midpoint average, so their spacing matches
+  // every other node-to-node step exactly.
   const secMidYs = BASE_SECTIONS.slice(0, -1).map((sec, i) => {
     const lastY  = sec.nodes[sec.nodes.length - 1].y + NODE_SIZE / 2;
     const firstY = BASE_SECTIONS[i + 1].nodes[0].y + NODE_SIZE / 2;
     return Math.round((lastY + firstY) / 2);
   });
 
-  const SEASON_GATE_H = sc(260); // bumped from 220 (~18% bigger) — more room for the "Season N" text
-  const SEASON_GATE_W = Math.round(SEASON_GATE_H * SEASON_GATE_ASPECT);
+  // A season gate is a node, not a decoration: centered exactly on the
+  // path's own centerline (pathXAt), sized a bit bigger than a level node so
+  // "Season N" reads clearly, sitting on the road before the new season's
+  // first level rather than parked off to one side like a tree or mosque.
+  // No placeSide/zone-registry involvement — it can't lose a collision
+  // check and silently disappear the way a cosmetic decoration could.
+  // Based on the road's own visible width (ROAD_HALF_WIDTH*2), scaled up
+  // 56% so "Season N" reads clearly — intentionally wider than the path
+  // it's sitting on (unlike a level node, which stays within it). (Was 30%;
+  // bumped another 20% at the user's request.)
+  const SEASON_GATE_W = Math.round(ROAD_HALF_WIDTH * 2 * 1.56);
+  const SEASON_GATE_H = Math.round(SEASON_GATE_W / SEASON_GATE_ASPECT);
   const seasonGates: DecorSeasonGate[] = [];
-  // Tries full size, then a shrunk size (both fully collision-checked via
-  // placeSide — real road clearance AND other decorations). If neither
-  // fits, the fallback below still requires real road clearance (mirrors
-  // placeSide's own pathNormalAt/CLEARANCE+extra math and roadClearAcross
-  // check) — the only thing it's allowed to skip is the other-decoration
-  // zone registry (isBlocked), so worst case it sits closer to a tree/bush
-  // than ideal, never overlapping the actual road. Only if nothing clears
-  // the road at any margin (should be exceedingly rare) does it fall back
-  // to a flat offset with no check at all, as an absolute last resort —
-  // still never silently dropping one of "the two biggest landmarks on the
-  // map" the way a cosmetic decoration is allowed to.
-  const placeGate = (midY: number, prefer: 'left' | 'right') => {
-    for (const scaleDown of [1, 0.8]) {
-      const w = Math.round(SEASON_GATE_W * scaleDown);
-      const h = Math.round(SEASON_GATE_H * scaleDown);
-      const p = placeSide(midY, w, h, prefer, placed, 10);
-      if (p) return { ...p, w, h };
-    }
-    const w = Math.round(SEASON_GATE_W * 0.8), h = Math.round(SEASON_GATE_H * 0.8);
-    for (const side of [prefer, prefer === 'left' ? 'right' : 'left'] as const) {
-      const dir = side === 'left' ? -1 : 1;
-      for (const extra of [0, sc(16), sc(32), sc(64), sc(96)]) {
-        const pathX = pathXAt(midY);
-        const { nx, ny } = pathNormalAt(midY);
-        const clearance = CLEARANCE + extra;
-        const anchorX = pathX + nx * clearance * dir;
-        const anchorY = midY + ny * clearance * dir;
-        const x = side === 'left' ? anchorX - w : anchorX;
-        const py = anchorY - h / 2;
-        const fits = side === 'left' ? x >= 0 : x + w <= mapW;
-        if (fits && roadClearAcross(py, py + h, x, x + w, 10)) {
-          return { side, x: Math.round(x), y: Math.round(py), w, h };
-        }
-      }
-    }
-    const pathX = pathXAt(midY);
-    const x = prefer === 'left' ? Math.max(0, pathX - CLEARANCE - w) : Math.min(mapW - w, pathX + CLEARANCE);
-    return { side: prefer, x: Math.round(x), y: Math.round(midY - h / 2), w, h };
-  };
   // A gate at every season boundary (wherever SURAH_TO_SEASON changes from
   // one section to the next) instead of two hardcoded indices — generalizes
   // from the original 3-season map to however many PHASE_SIZES defines
-  // (currently 7, see mapPhases.ts). secMidYs[i] is the midpoint between
-  // BASE_SECTIONS[i] and [i+1], so a boundary lands at index i whenever
-  // section i's season differs from section i+1's.
+  // (currently 7, see mapPhases.ts). seasonGateCenterYs[i] is the exact slot
+  // the layout loop reserved for it — one NODE_GAP past section i's last
+  // node — so a boundary lands at index i whenever section i's season
+  // differs from section i+1's.
   const seasonBoundaryIdxs: number[] = [];
   BASE_SECTIONS.forEach((sec, i) => {
     if (i === 0) return;
@@ -585,14 +601,19 @@ function buildMapModel(mapW: number): MapModel {
     if (thisSeason !== prevSeason) seasonBoundaryIdxs.push(i - 1);
   });
   seasonBoundaryIdxs.forEach((secIdx, gateIdx) => {
-    // Alternate side + a small y-offset per gate, same as the original two
-    // gates, so consecutive gates don't all lean the same direction/height.
-    const prefer: 'left' | 'right' = gateIdx % 2 === 0 ? 'right' : 'left';
-    const yOffset = gateIdx % 2 === 0 ? -sc(20) : 0;
+    // The exact slot reserved for it in the layout loop above — one NODE_GAP
+    // past the previous section's last node — not a section-midpoint
+    // average, which could land anywhere depending on how much unrelated
+    // spacing (footer pad, etc.) happened to separate the two sections.
+    const gateY = seasonGateCenterYs[secIdx];
+    const centerX = pathXAt(gateY);
     const unlocksSeasonIdx = SURAH_TO_SEASON[BASE_SECTIONS[secIdx + 1].surahNum] ?? gateIdx + 1;
-    const p = placeGate(secMidYs[secIdx] + yOffset, prefer);
-    placed.push({ y: p.y, side: p.side, height: p.h });
-    seasonGates.push({ x: p.x, y: p.y, w: p.w, h: p.h, unlocksSeasonIdx });
+    seasonGates.push({
+      x: Math.round(centerX - SEASON_GATE_W / 2),
+      y: Math.round(gateY - SEASON_GATE_H / 2),
+      w: SEASON_GATE_W, h: SEASON_GATE_H,
+      unlocksSeasonIdx,
+    });
   });
 
   // Lesson nodes themselves — previously never registered here, so nothing
@@ -638,23 +659,23 @@ function buildMapModel(mapW: number): MapModel {
   const trees: DecorTree[] = [];
   nodeMidYs.forEach((midY, i) => {
     const pL = placeSide(midY, treeW, treeH, 'left', placed, 4);
-    if (pL) { placed.push({ y: pL.y, side: pL.side, height: treeH }); trees.push({ y: pL.y, x: pL.x, src: TREE_SRCS[i % 3] }); }
+    if (pL) { placed.push({ y: pL.y, side: pL.side, height: treeH }); trees.push({ y: pL.y, x: pL.x }); }
     const pR = placeSide(midY + sc(22), treeW, treeH, 'right', placed, 4);
-    if (pR) { placed.push({ y: pR.y, side: pR.side, height: treeH }); trees.push({ y: pR.y, x: pR.x, src: TREE_SRCS[(i + 1) % 3] }); }
+    if (pR) { placed.push({ y: pR.y, side: pR.side, height: treeH }); trees.push({ y: pR.y, x: pR.x }); }
   });
   // Extra tree pass at section boundaries — denser treeline, still
   // zone-checked so it can never land on a mosque/label/pill/etc.
   secMidYs.forEach((midY, i) => {
     const prefer: 'left' | 'right' = i % 2 === 0 ? 'right' : 'left';
     const p = placeSide(midY + sc(35), treeW, treeH, prefer, placed, 4);
-    if (p) { placed.push({ y: p.y, side: p.side, height: treeH }); trees.push({ y: p.y, x: p.x, src: TREE_SRCS[(i + 2) % 3] }); }
+    if (p) { placed.push({ y: p.y, side: p.side, height: treeH }); trees.push({ y: p.y, x: p.x }); }
   });
   // Third tree pass — even denser treeline along the grass, all still
   // zone-checked so nothing overlaps.
   nodeMidYs.forEach((midY, i) => {
     const prefer: 'left' | 'right' = i % 2 === 0 ? 'left' : 'right';
     const p = placeSide(midY - sc(38), treeW, treeH, prefer, placed, 4);
-    if (p) { placed.push({ y: p.y, side: p.side, height: treeH }); trees.push({ y: p.y, x: p.x, src: TREE_SRCS[i % 3] }); }
+    if (p) { placed.push({ y: p.y, side: p.side, height: treeH }); trees.push({ y: p.y, x: p.x }); }
   });
 
   const birdW = sc(96), birdH = sc(48);
@@ -672,51 +693,20 @@ function buildMapModel(mapW: number): MapModel {
     if (p) { placed.push({ y: p.y, side: p.side, height: birdH }); birds.push({ y: p.y, x: p.x }); }
   });
 
-  // Bridge — a riverside landmark beside the road, not a crossing laid over
-  // it. Placed once, near the first season boundary, on whichever side has
-  // real room (zone-checked like everything else).
-  const bridgeW = sc(120), bridgeH = sc(64);
-  const bridges: DecorBridge[] = [];
-  if (secMidYs.length > 2) {
-    const p = placeSide(secMidYs[2] + sc(50), bridgeW, bridgeH, 'left', placed, 6);
-    if (p) { placed.push({ y: p.y, side: p.side, height: bridgeH }); bridges.push({ y: p.y, x: p.x, w: bridgeW, h: bridgeH }); }
-  }
-
-  // Bushes/flower patches — low, wide ground accents (matches bush.png's own
-  // ~2.6:1 aspect ratio). Placed via the same placeSide + zone registry as
-  // everything else, so they land beside the road, never on it.
-  const bushW = sc(84), bushH = sc(32);
-  const bushes: DecorBush[] = [];
-  nodeMidYs.forEach((midY, i) => {
-    if (i % 2 !== 0) return;
-    const prefer: 'left' | 'right' = i % 4 === 0 ? 'left' : 'right';
-    const p = placeSide(midY - sc(10), bushW, bushH, prefer, placed, 4);
-    if (p) { placed.push({ y: p.y, side: p.side, height: bushH }); bushes.push({ y: p.y, x: p.x }); }
-  });
-  secMidYs.forEach((midY, i) => {
-    const prefer: 'left' | 'right' = i % 2 === 0 ? 'right' : 'left';
-    const p = placeSide(midY - sc(25), bushW, bushH, prefer, placed, 4);
-    if (p) { placed.push({ y: p.y, side: p.side, height: bushH }); bushes.push({ y: p.y, x: p.x }); }
-  });
-
-  // Ponds — sparser than bushes/trees, one every couple of section
-  // boundaries, same zone-checked placement (independent of the single
-  // pond already tied to the bridge above).
-  const pondW = sc(90), pondH = sc(48);
-  const ponds: DecorPond[] = [];
-  secMidYs.forEach((midY, i) => {
-    if (i % 2 !== 0) return;
-    const prefer: 'left' | 'right' = i % 4 === 0 ? 'left' : 'right';
-    const p = placeSide(midY + sc(15), pondW, pondH, prefer, placed, 6);
-    if (p) { placed.push({ y: p.y, side: p.side, height: pondH }); ponds.push({ y: p.y, x: p.x }); }
-  });
-
   // ── Ground color boundary — sky ends, ground begins. Shared by the
-  // gradient, the grass texture wash, and the static sky-cloud strip so none
-  // of them can drift out of sync with each other. Extended down to roughly
-  // the first level's node so the night sky reads for longer before the
-  // ground takes over. ──
-  const SKY_BOUNDARY_Y = Math.round(TOP_MARGIN + NODE_SIZE * 0.35);
+  // gradient, the grass texture wash, the mountain image and the static
+  // sky-cloud strip so none of them can drift out of sync with each other.
+  // Capped to a fraction of the actual viewport height (not just TOP_MARGIN,
+  // which is a pure width-based offset with no idea how tall the screen
+  // actually is) so the sky/mountain band stays a consistent slice of
+  // the visible screen on any device instead of ballooning on short
+  // viewports — the grass fills the rest. Node 1's own Y position (driven by
+  // TOP_MARGIN alone, untouched here) simply ends up sitting on the grass
+  // rather than at the boundary line once this is smaller than TOP_MARGIN.
+  // 0.19 (was 0.13) makes the mountain a more prominent band now that
+  // mountains_crop.png has a consistent baseline safe to size up without
+  // risking a gap at the bottom edge. ──
+  const SKY_BOUNDARY_Y = Math.round(Math.min(TOP_MARGIN + NODE_SIZE * 0.35, viewportH * 0.26));
 
   // Jagged grass edge — a torn/uneven line instead of a dead-flat cut, as if
   // the grass texture were cut into the sky rather than pasted under it.
@@ -754,25 +744,9 @@ function buildMapModel(mapW: number): MapModel {
 
 
   // ── Ambient parallax cloud layers (3 depths) ──
-  function buildParallaxLayer(spacingY: number, w: number, h: number, baseOpacity: number, speed: number, blur: number): ParallaxLayer {
-    const puffs: ParallaxLayer['puffs'] = [];
-    let i = 0;
-    for (let py = -h; py < MAP_H + h; py += spacingY) {
-      const px = Math.round((hash(i) * mapW * 1.4) - mapW * 0.2);
-      puffs.push({ x: px, y: Math.round(py), w, h, opacity: baseOpacity + hash(i + 50) * 0.15 });
-      i++;
-    }
-    return { puffs, speed, blur };
-  }
-  // Sparser than before — these used to crowd the road itself; now just a
-  // light ambient touch instead of a wall of clouds drifting over the path.
-  const PARALLAX_FAR  = buildParallaxLayer(sc(680), sc(90),  sc(48), 0.14, 0.5, 0);
-  const PARALLAX_MID  = buildParallaxLayer(sc(900), sc(130), sc(66), 0.16, 1.0, 0);
-  const PARALLAX_NEAR = buildParallaxLayer(sc(1150), sc(190), sc(96), 0.15, 1.6, 6);
-
   return {
     MAP_W: mapW, SCALE, sc,
-    NODE_SIZE, NODE_GAP, SECTION_EXTRA, TOP_MARGIN, FOOTER_PAD,
+    NODE_SIZE, NODE_GAP, TOP_MARGIN, FOOTER_PAD,
     // Width + height for the "start a new level" / "repeat the lesson"
     // popout cards — computed once here (not re-derived in makeStyles or the
     // tap handler) so the card's rendered size and its position-beside-the-
@@ -781,9 +755,8 @@ function buildMapModel(mapW: number): MapModel {
     ACTION_CARD_W: sc(230),
     ACTION_CARD_H: Math.round(sc(230) * ACTION_CARD_ASPECT),
     BASE_SECTIONS, MAP_H, ALL_NODES,
-    PATH_D,
-    DECORATIONS: { mosques, trees, birds, bridges, bushes, ponds, seasonGates },
-    PARALLAX_FAR, PARALLAX_MID, PARALLAX_NEAR,
+    pathDForYRange,
+    DECORATIONS: { mosques, trees, birds, seasonGates },
     SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS,
     AYAH_PILLS, SURAH_LABELS,
   };
@@ -807,7 +780,16 @@ function makeStyles(M: MapModel) {
     // bottom overscroll bounce). It should never read as "the sky leaking
     // through at the bottom."
     container: { flex: 1, backgroundColor: colors.mapBg },
-    hud: { backgroundColor: 'rgba(0,0,0,0.18)', paddingHorizontal: sc(16), paddingVertical: sc(6) },
+    // Absolute + zIndex so this sits on top of the ScrollView instead of
+    // pushing it down — the BlurView it wraps needs the real map content
+    // (sky, mountains, whatever's scrolled up under it) actually rendered
+    // behind it to blur, not a fixed patch of its own.
+    hud: {
+      position: 'absolute', top: 0, left: 0, right: 0, zIndex: 15,
+      overflow: 'hidden',
+      paddingHorizontal: sc(16), paddingVertical: sc(6),
+    },
+    hudTint: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
     hudRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     hudPill: {
       flexDirection: 'row', alignItems: 'center', gap: sc(4),
@@ -1108,24 +1090,29 @@ export default function MapScreen({ navigation }: Props) {
   // Per-mount-unique so SVG pattern ids below never collide with a previous
   // mount's — react-native-svg mis-resolves url(#id) refs when the same id
   // exists more than once at once, which happens on remount (leave the map,
-  // come back) since tileIdx alone always restarts at 0. See usage below.
-  const mapInstanceId = useRef(++mapSvgInstanceCounter).current;
+  // come back) since tileIdx alone always restarts at 0. Random rather than
+  // an incrementing counter: a counter only guards against collisions within
+  // one JS engine lifetime — if the JS context itself ever gets recreated
+  // while stale native SVG views haven't fully torn down yet (more of a risk
+  // under real-device memory pressure than in an emulator), a counter would
+  // restart at 1 and collide with the app's own earlier mount. Random has no
+  // such reset point.
+  const mapInstanceId = useRef(Math.random().toString(36).slice(2)).current;
   const insets = useSafeAreaInsets();
   const { learning, refreshLearning } = useAuthStore();
   const { width, height } = useWindowDimensions();
   const M = useMemo(() => {
     console.time('[MAP] buildMapModel');
-    const result = buildMapModel(width);
+    const result = buildMapModel(width, height);
     console.timeEnd('[MAP] buildMapModel');
     return result;
-  }, [width]);
+  }, [width, height]);
   const styles = useMemo(() => makeStyles(M), [M]);
   const { S, SL, SB } = styles;
   const {
     MAP_W, MAP_H, sc, NODE_SIZE, TOP_MARGIN, BASE_SECTIONS, DECORATIONS,
-    PARALLAX_FAR, PARALLAX_MID, PARALLAX_NEAR,
-    SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS, AYAH_PILLS, SURAH_LABELS, PATH_D,
-    ACTION_CARD_W, ACTION_CARD_H,
+    SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS, AYAH_PILLS, SURAH_LABELS,
+    pathDForYRange, ACTION_CARD_W, ACTION_CARD_H,
   } = M;
 
   // Beside the node — level with it (not above, like the old retry bubble),
@@ -1147,43 +1134,86 @@ export default function MapScreen({ navigation }: Props) {
   // leaves them here with Level 1 already in reach, which is the point of
   // asking rather than imposing.
   const [tourOfferVisible, setTourOfferVisible] = useState(false);
-  const hudRef = useRef<View>(null);
+  // Separate refs (not one ref around the whole HUD row) so the tour can
+  // glow the streak pill and the XP pill as two distinct targets, matching
+  // how they're introduced as two separate steps.
+  const streakPillRef = useRef<View>(null);
+  const xpPillRef = useRef<View>(null);
+  // Tour-only: each pill glows itself (a real border+shadow on the real
+  // pill, inheriting S.hudPill's own borderRadius) exactly while the tour's
+  // current step targets it — same pattern as the tab icons in MainTabs, so
+  // there's no drawn ring to fall out of sync with the pill's real shape.
+  const glowStreak = useTourStore(s => s.active && TOUR_STEPS[s.stepIndex]?.target === 'hudStreak');
+  const glowXp = useTourStore(s => s.active && TOUR_STEPS[s.stepIndex]?.target === 'hudXp');
+  // Real height of the streak/XP bar, measured after layout — needed so the
+  // mountain image (see MOUNTAINS_SRC below) can start right below it
+  // instead of tucking underneath and getting blurred along with the sky.
+  // Estimate before the first layout pass is close enough that there's no
+  // visible jump once the real measurement lands.
+  const [hudHeight, setHudHeight] = useState(insets.top + sc(64));
   const startTour = useTourStore(s => s.start);
   const setTourRect = useTourStore(s => s.setRect);
+
+  // Hardware back on the tour's very first step has nowhere earlier to go,
+  // so it steps back out to this same offer instead of just dropping the
+  // user on the plain map — see TourOverlay's onExitToOffer.
+  function handleExitTourToOffer() {
+    setTourOfferVisible(true);
+  }
 
   useEffect(() => {
     void (async () => {
       if (await wasTourOffered()) return;
-      await setTourOffered();
       setTourOfferVisible(true);
     })();
   }, []);
 
   function measureTourTargets() {
-    hudRef.current?.measureInWindow((x, y, w, h) => {
-      if (w > 0 && h > 0) setTourRect('hud', { x, y, width: w, height: h });
+    streakPillRef.current?.measureInWindow((x, y, w, h) => {
+      if (w > 0 && h > 0) setTourRect('hudStreak', { x, y, width: w, height: h });
+    });
+    xpPillRef.current?.measureInWindow((x, y, w, h) => {
+      if (w > 0 && h > 0) setTourRect('hudXp', { x, y, width: w, height: h });
     });
     // The tab bar belongs to the navigator, not this tree, so there's no ref to
-    // measure. Its geometry is fixed though — full width, the 80pt height set
-    // in MainTabs' styles, sitting on the bottom inset — so deriving it is both
-    // simpler and steadier than threading a ref through the navigator.
+    // measure per tab. Its overall geometry is fixed though — full width, the
+    // 80pt height set in MainTabs' styles. That height is a *custom*
+    // tabBarStyle.height, and react-navigation's bottom-tabs only pads in the
+    // safe-area inset when it's computing its own default height — a custom
+    // height is trusted as-is and rendered flush to the screen bottom, with no
+    // extra inset added on top. Subtracting insets.bottom again here (as this
+    // used to) pushed the glow rect up and shrunk it short of the real bar's
+    // bottom edge. The four tabs are equal-width flex items (MainTabs sets no
+    // per-tab width override), so each tab's own rect is an even quarter-slice
+    // of that known bar — a real position, not a guess, even though there's no
+    // ref into the navigator's own tab buttons.
     const TAB_BAR_H = 80;
-    setTourRect('tabBar', {
-      x: 0,
-      y: height - insets.bottom - TAB_BAR_H,
-      width,
-      height: TAB_BAR_H,
+    const tabBarY = height - TAB_BAR_H;
+    const tabW = width / 4;
+    (['tabHome', 'tabQuests', 'tabBoard', 'tabProfile'] as const).forEach((key, i) => {
+      setTourRect(key, { x: i * tabW, y: tabBarY, width: tabW, height: TAB_BAR_H });
     });
   }
 
   function handleAcceptTour() {
     setTourOfferVisible(false);
-    measureTourTargets();
-    startTour();
+    void setTourOffered();
+    // TourOfferModal's native Android dialog is still tearing itself down
+    // for a beat after `visible` flips to false. Opening TourOverlay's own
+    // Modal in the same tick stacks a second dialog on top of one that
+    // hasn't finished closing, and the old one keeps eating every touch
+    // meant for the new one — Next/Skip look dead even though they're
+    // wired up correctly. Waiting out the close animation first avoids the
+    // overlap entirely.
+    setTimeout(() => {
+      measureTourTargets();
+      startTour();
+    }, 350);
   }
 
   function handleDeclineTour() {
     setTourOfferVisible(false);
+    void setTourOffered();
   }
 
   // fullLevels: every group of a surah (only fetched for the current surah).
@@ -1697,23 +1727,38 @@ export default function MapScreen({ navigation }: Props) {
 
   return (
     <View style={S.container}>
-      {/* Sky backdrop — fixed behind the HUD so the sky reads as one
-          continuous surface from the very top of the screen, instead of
-          cutting from a flat color to the photo sky only once the map canvas
-          begins. Bounded height (not the whole container), so scrolling past
-          it correctly reveals the green container fallback rather than sky
-          bleeding into the ground. */}
-      <Image source={SKY_SRC} resizeMode="cover" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: sc(320) }} />
-
       {/* HUD — streak (emoji) top-left, XP top-right. Hearts hidden on the
-          map for now (still shown in-lesson). */}
-      <View style={[S.hud, { paddingTop: insets.top + sc(4) }]}>
-        <View ref={hudRef} collapsable={false} style={S.hudRow}>
-          <TouchableOpacity style={S.hudPill} activeOpacity={0.7} onPress={() => navigation.navigate('Streak')}>
+          map for now (still shown in-lesson). A real BlurView, not a fixed
+          image + fake tint: it sits above the ScrollView (see S.hud's
+          position: 'absolute') and blurs whatever's actually scrolled up
+          underneath it — sky, mountains, grass, all of it — so it fully
+          blends with the live map instead of a separate static patch that
+          can drift out of sync with it. The gradient on top is just a light
+          accent (darkest right behind the status bar for icon contrast,
+          gone by the bottom edge) so the pills stay legible without the bar
+          reading as a flat block. */}
+      <View
+        style={[S.hud, { paddingTop: insets.top + sc(4) }]}
+        onLayout={e => setHudHeight(e.nativeEvent.layout.height)}
+      >
+        <BlurView
+          style={S.hudTint}
+          blurType="light"
+          blurAmount={14}
+          reducedTransparencyFallbackColor="white"
+          overlayColor="transparent"
+        />
+        <LinearGradient
+          colors={['rgba(0,0,0,0.16)', 'rgba(0,0,0,0.05)', 'rgba(0,0,0,0)']}
+          locations={[0, 0.6, 1]}
+          style={S.hudTint}
+        />
+        <View style={S.hudRow}>
+          <TouchableOpacity ref={streakPillRef} style={[S.hudPill, glowStreak && TOUR_GLOW]} activeOpacity={0.7} onPress={() => navigation.navigate('Streak')}>
             <Text style={S.hudStreakEmoji}>🔥</Text>
             <Text style={[S.hudVal, { color: '#EA580C' }]}>{learning ? learning.current_streak : '—'}</Text>
           </TouchableOpacity>
-          <View style={S.hudPill}>
+          <View ref={xpPillRef} collapsable={false} style={[S.hudPill, glowXp && TOUR_GLOW]}>
             <Text>⚡</Text>
             <Text style={[S.hudVal, { color: '#2A7D4F' }]}>{learning ? `${learning.xp_total} XP` : '— XP'}</Text>
           </View>
@@ -1773,23 +1818,25 @@ export default function MapScreen({ navigation }: Props) {
             style={{ position: 'absolute', left: 0, top: 0, width: MAP_W, height: SKY_BOUNDARY_Y + sc(24) }}
           />
 
-          {/* Distant mountain range on the horizon. Runs from the very top of
-              the canvas down well past SKY_BOUNDARY_Y so the grass texture
-              (drawn after this, in the Svg tiles below) overlaps its base
-              with no gap of bare sky between them. The jagged grass edge
-              oscillates ±sc(9) around SKY_BOUNDARY_Y (see GRASS_EDGE_D
-              below), and mountains.png itself has only a thin ground strip
-              baked into its own bottom edge — sc(20) left just ~11px of
-              guaranteed overlap in the worst case, thin enough to read as a
-              sliver of bare sky on some widths/scales. sc(28) keeps real
-              headroom (still well clear of that sc(20) floor) while sizing
-              the range down from the previous sc(40) so it doesn't dominate
-              the screen. Do not go below sc(20) — that's the documented
-              bleed-through point. */}
+          {/* Distant mountain range on the horizon. Starts below the HUD
+              (hudHeight, measured from the real streak/XP bar) instead of
+              the canvas's very top — the HUD blurs whatever's behind it, and
+              blurring the mountain's own peaks read as a rendering glitch
+              rather than "the header sits over sky." Bottom edge stays
+              anchored at the same SKY_BOUNDARY_Y + sc(28) it always was
+              (height shrinks by however much got pushed off the top) so the
+              grass texture drawn after this still overlaps its base with no
+              gap. mountains_crop.png (see its own require() comment) is
+              pre-cropped so every column is opaque right to that bottom
+              edge, so sc(28) is a comfortable, uniform overlap margin rather
+              than a margin racing a specific worst-case dip. */}
           <Image
             source={MOUNTAINS_SRC}
             resizeMode="cover"
-            style={{ position: 'absolute', left: 0, top: 0, width: MAP_W, height: SKY_BOUNDARY_Y + sc(28), opacity: 0.9 }}
+            style={{
+              position: 'absolute', left: 0, top: hudHeight, width: MAP_W,
+              height: Math.max(0, SKY_BOUNDARY_Y + sc(28) - hudHeight), opacity: 0.9,
+            }}
           />
 
           {/* SVG background — tiled vertically. react-native-svg rasterizes
@@ -1804,52 +1851,81 @@ export default function MapScreen({ navigation }: Props) {
               keeps its original absolute x/y — content outside a tile's
               viewBox is simply clipped, so nothing else here needed to
               change. */}
-          {Array.from({ length: svgBgTileCount }, (_, tileIdx) => {
-            const tileTop = tileIdx * SVG_BG_TILE_H;
-            const tileH = Math.min(SVG_BG_TILE_H, MAP_H - tileTop);
-            return (
-              <Svg
-                key={`bgtile-${tileIdx}`}
-                width={MAP_W}
-                height={tileH}
-                viewBox={`0 ${tileTop} ${MAP_W} ${tileH}`}
-                style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH }]}
-              >
-                {/* Defs ids scoped per tile AND per mount (mapInstanceId) —
-                    react-native-svg mis-resolves url(#id) references (patterns
-                    silently stop painting, falling back to a flat fill) when
-                    the same id exists more than once at once. tileIdx alone
-                    isn't enough: it always restarts at 0, so a REmount (leave
-                    the map, come back) recreates ids identical to the
-                    previous mount's, which is exactly the collision this
-                    guards against. */}
-                <Defs>
-                  <Pattern id={`grassPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>
-                    <SvgImage href={GRASS_SRC} x={0} y={0} width={sc(140)} height={sc(140)} preserveAspectRatio="xMidYMid slice" />
-                  </Pattern>
-                  <Pattern id={`brickPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(46)} height={sc(46)}>
-                    <SvgImage href={BRICK_SRC} x={0} y={0} width={sc(46)} height={sc(46)} preserveAspectRatio="xMidYMid slice" />
-                  </Pattern>
-                </Defs>
+          {(() => {
+            // ── Map decorations (mosques + trees) ──────────────────────────
+            // Baked into these same background tiles as <Symbol>/<Use> rather
+            // than painted as separate plain-Image layers — one shared
+            // Symbol per tile, stamped out for every instance that falls in
+            // it, instead of a native ImageView per tree/mosque. Each Symbol
+            // carries its own <Ellipse> shadow (same visual language as
+            // nodeShadow's dark rgba blob elsewhere in this file), so it
+            // travels with every <Use> of it for free instead of needing a
+            // second positioned element per instance.
+            const treeW = sc(58), treeH = sc(80);
+            const mosqueSvgW = sc(72), mosqueSvgH = sc(88);
 
-                {/* Grass texture wash — a jagged/torn edge (not a flat cut) where
-                    it meets the sky. Fully opaque — this is the actual ground,
-                    not a faded overlay. */}
-                <Path d={GRASS_EDGE_D} fill={`url(#grassPattern-${mapInstanceId}-${tileIdx})`} />
+            return Array.from({ length: svgBgTileCount }, (_, tileIdx) => {
+              const tileTop = tileIdx * SVG_BG_TILE_H;
+              const tileH = Math.min(SVG_BG_TILE_H, MAP_H - tileTop);
+              const treeSymId = `treeSvgSym-${mapInstanceId}-${tileIdx}`;
+              const mosqueSymId = `mosqueSvgSym-${mapInstanceId}-${tileIdx}`;
+              const tileTrees = DECORATIONS.trees.filter(t => t.y >= tileTop && t.y < tileTop + tileH);
+              const tileMosques = DECORATIONS.mosques.filter(m => m.y >= tileTop && m.y < tileTop + tileH);
+              return (
+                <Svg
+                  key={`bgtile-${tileIdx}`}
+                  width={MAP_W}
+                  height={tileH}
+                  viewBox={`0 ${tileTop} ${MAP_W} ${tileH}`}
+                  style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH }]}
+                >
+                  {/* Defs ids scoped per tile AND per mount (mapInstanceId) —
+                      react-native-svg mis-resolves url(#id) references (patterns
+                      silently stop painting, falling back to a flat fill) when
+                      the same id exists more than once at once. tileIdx alone
+                      isn't enough: it always restarts at 0, so a REmount (leave
+                      the map, come back) recreates ids identical to the
+                      previous mount's, which is exactly the collision this
+                      guards against. */}
+                  <Defs>
+                    <Pattern id={`grassPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>
+                      <SvgImage href={GRASS_SRC} x={0} y={0} width={sc(140)} height={sc(140)} preserveAspectRatio="xMidYMid slice" />
+                    </Pattern>
+                    <Pattern id={`brickPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(46)} height={sc(46)}>
+                      <SvgImage href={BRICK_SRC} x={0} y={0} width={sc(46)} height={sc(46)} preserveAspectRatio="xMidYMid slice" />
+                    </Pattern>
+                    <SvgSymbol id={treeSymId} viewBox={`0 0 ${treeW} ${treeH}`}>
+                      <Ellipse cx={treeW / 2} cy={treeH * 0.94} rx={treeW * 0.4} ry={treeH * 0.09} fill="rgba(0,0,0,0.25)" />
+                      <SvgImage href={TREE_SVG_SRC} x={0} y={0} width={treeW} height={treeH} preserveAspectRatio="xMidYMid meet" />
+                    </SvgSymbol>
+                    <SvgSymbol id={mosqueSymId} viewBox={`0 0 ${mosqueSvgW} ${mosqueSvgH}`}>
+                      <Ellipse cx={mosqueSvgW / 2} cy={mosqueSvgH * 0.96} rx={mosqueSvgW * 0.38} ry={mosqueSvgH * 0.07} fill="rgba(0,0,0,0.28)" />
+                      <SvgImage href={MOSQUE_SVG_SRC} x={0} y={0} width={mosqueSvgW} height={mosqueSvgH} preserveAspectRatio="xMidYMid meet" />
+                    </SvgSymbol>
+                  </Defs>
 
-                {/* Road path — brick-textured, carved-in look */}
-                <Pathway d={PATH_D} sc={sc} patternId={`brickPattern-${mapInstanceId}-${tileIdx}`} />
+                  {/* Grass texture wash — a jagged/torn edge (not a flat cut) where
+                      it meets the sky. Fully opaque — this is the actual ground,
+                      not a faded overlay. */}
+                  <Path d={GRASS_EDGE_D} fill={`url(#grassPattern-${mapInstanceId}-${tileIdx})`} />
 
-                {/* Ground shadows under grounded decorations */}
-                {DECORATIONS.trees.map((t, i) => (
-                  <Ellipse key={`tsh${i}`} cx={t.x + sc(29)} cy={t.y + sc(74)} rx={sc(20)} ry={sc(6)} fill="rgba(0,0,0,0.22)" />
-                ))}
-                {DECORATIONS.mosques.map((m, i) => (
-                  <Ellipse key={`msh${i}`} cx={m.x + sc(36)} cy={m.y + sc(82)} rx={sc(30)} ry={sc(7)} fill="rgba(0,0,0,0.22)" />
-                ))}
-              </Svg>
-            );
-          })}
+                  {/* Road path — brick-textured, carved-in look. Sliced to this
+                      tile's own y-range (see pathDForYRange) rather than
+                      handing every tile the whole road — passing the full
+                      path to every tile was the actual cost, not the tiling
+                      itself. */}
+                  <Pathway d={pathDForYRange(tileTop, tileTop + tileH)} sc={sc} patternId={`brickPattern-${mapInstanceId}-${tileIdx}`} />
+
+                  {tileTrees.map((t, i) => (
+                    <Use key={`treeUse${i}`} href={`#${treeSymId}`} x={t.x} y={t.y} width={treeW} height={treeH} />
+                  ))}
+                  {tileMosques.map((m, i) => (
+                    <Use key={`mosqueUse${i}`} href={`#${mosqueSymId}`} x={m.x} y={m.y} width={mosqueSvgW} height={mosqueSvgH} />
+                  ))}
+                </Svg>
+              );
+            });
+          })()}
 
           {/* Static sky clouds — marking the sky before the road begins */}
           {SKY_CLOUDS.map((c, i) => (
@@ -1869,36 +1945,6 @@ export default function MapScreen({ navigation }: Props) {
             />
           ))}
 
-          {/* Trees — x derived from pathXAt, zone-checked */}
-          {DECORATIONS.trees.map((t, i) => (
-            <Image
-              key={`tree${i}`}
-              source={t.src}
-              style={{ position: 'absolute', left: t.x, top: t.y, width: sc(58), height: sc(80), opacity: 0.78 + (i % 3) * 0.06 }}
-              resizeMode="contain"
-            />
-          ))}
-
-          {/* Bushes/flower patches — low ground accents, zone-checked beside the road */}
-          {DECORATIONS.bushes.map((b, i) => (
-            <Image
-              key={`bush${i}`}
-              source={BUSH_SRC}
-              style={{ position: 'absolute', left: b.x, top: b.y, width: sc(84), height: sc(32), opacity: 0.85 }}
-              resizeMode="contain"
-            />
-          ))}
-
-          {/* Mosques */}
-          {DECORATIONS.mosques.map((m, i) => (
-            <Image
-              key={`mosque${i}`}
-              source={MOSQUE_SRC}
-              style={{ position: 'absolute', left: m.x, top: m.y, width: sc(72), height: sc(88), opacity: 0.82 - i * 0.04 }}
-              resizeMode="contain"
-            />
-          ))}
-
           {/* Birds — zone-checked like every other decoration */}
           {DECORATIONS.birds.map((b, i) => (
             <Image
@@ -1909,34 +1955,15 @@ export default function MapScreen({ navigation }: Props) {
             />
           ))}
 
-          {/* Bridge + pond — riverside decoration beside the road, not across it */}
-          {DECORATIONS.bridges.map((br, i) => (
-            <React.Fragment key={`bridge${i}`}>
-              <Image
-                source={POND_SRC} resizeMode="contain"
-                style={{ position: 'absolute', left: br.x - br.w * 0.15, top: br.y + br.h * 0.35, width: br.w * 1.3, height: br.h * 0.75 }}
-              />
-              <Image source={BRIDGE_SRC} resizeMode="contain" style={{ position: 'absolute', left: br.x, top: br.y, width: br.w, height: br.h }} />
-            </React.Fragment>
-          ))}
-
-          {/* Standalone ponds — scattered beside the road, zone-checked like
-              everything else (independent of the one pond paired with the bridge above) */}
-          {DECORATIONS.ponds.map((p, i) => (
-            <Image
-              key={`pond${i}`}
-              source={POND_SRC}
-              style={{ position: 'absolute', left: p.x, top: p.y, width: sc(90), height: sc(48), opacity: 0.9 }}
-              resizeMode="contain"
-            />
-          ))}
-
-          {/* Season-gate signs — huge landmarks, zone-checked beside the
-              road like everything else. Tappable while locked to surface a
-              Lumo message. Pre-engraved art only exists for the season-1
-              sign so far (s2/s3 predate the 7-season expansion and don't
-              match the new season boundaries) — every gate uses that same
-              sign as a placeholder until unique per-season art is ready. */}
+          {/* Season-gate signs — rendered like a node: centered on the path
+              (see the on-path x/y computed in buildMapModel), sitting right
+              before the new season's first level. Tappable while locked to
+              surface a Lumo message; once unlocked it's pure scenery (see
+              handleGatePress). Pre-engraved art only exists for the
+              season-1 sign so far (s2/s3 predate the 7-season expansion and
+              don't match the new season boundaries) — every gate uses that
+              same sign as a placeholder until unique per-season art is
+              ready. */}
           {DECORATIONS.seasonGates.map((g, i) => {
             return (
               <TouchableOpacity
@@ -2012,42 +2039,6 @@ export default function MapScreen({ navigation }: Props) {
               })
             );
           })()}
-
-          {/* Ambient parallax cloud layers — 3 depths reacting to scroll */}
-          {[PARALLAX_FAR, PARALLAX_MID, PARALLAX_NEAR].map((layer, li) => {
-            const translateY = scrollY.interpolate({
-              inputRange: [0, MAP_H || 1],
-              outputRange: [0, MAP_H * (1 - layer.speed)],
-              extrapolate: 'clamp',
-            });
-            const depthOpacity = scrollY.interpolate({
-              inputRange: [0, 500, 1200],
-              outputRange: li === 2 ? [0.5, 0.85, 1] : li === 0 ? [1, 0.6, 0.25] : [0.8, 0.8, 0.8],
-              extrapolate: 'clamp',
-            });
-            const depthScale = scrollY.interpolate({
-              inputRange: [0, 1200],
-              outputRange: li === 2 ? [1, 1.25] : li === 0 ? [1, 0.85] : [1, 1],
-              extrapolate: 'clamp',
-            });
-            return (
-              <Animated.View key={`plx${li}`} pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: MAP_W, height: MAP_H, transform: [{ translateY }], zIndex: 1 }}>
-                {layer.puffs.map((p, i) => (
-                  <Animated.Image
-                    key={i}
-                    source={CLOUD_SRC}
-                    resizeMode="contain"
-                    blurRadius={layer.blur}
-                    style={{
-                      position: 'absolute', left: p.x, top: p.y, width: p.w, height: p.h,
-                      opacity: Animated.multiply(depthOpacity, p.opacity),
-                      transform: [{ scale: depthScale }],
-                    }}
-                  />
-                ))}
-              </Animated.View>
-            );
-          })}
 
           {/* Luma — beside the active node, x derived from node position */}
           {firstActiveNode && (
@@ -2164,6 +2155,7 @@ export default function MapScreen({ navigation }: Props) {
         screen="map"
         onFinish={() => { /* already back on the map — nothing to unwind */ }}
         onEnterLesson={() => navigation.navigate('GuidedTour')}
+        onExitToOffer={handleExitTourToOffer}
       />
     </View>
   );

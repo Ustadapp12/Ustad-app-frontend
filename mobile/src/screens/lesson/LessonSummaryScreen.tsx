@@ -127,9 +127,9 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
           style={styles.continueBtn}
           onPress={() => {
             if (streakIncremented) {
-              // replace, not navigate — Streak's own close button goBack()s,
-              // and it shouldn't be able to land back on this congrats screen.
-              navigation.replace('Streak', { justIncremented: true, currentStreak });
+              // replace, not navigate — the celebration screen's own
+              // continue button lands on MainTabs, never back here.
+              navigation.replace('StreakCelebration', { currentStreak: currentStreak ?? 0 });
             } else {
               navigation.navigate('MainTabs');
             }

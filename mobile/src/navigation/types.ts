@@ -28,6 +28,8 @@ export type RootStackParamList = {
   };
   // Modals
   Streak: { justIncremented?: boolean; currentStreak?: number } | undefined;
+  // Post-lesson streak celebration — see StreakCelebrationScreen.
+  StreakCelebration: { currentStreak: number };
 };
 
 export type TabParamList = {
