@@ -5,10 +5,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
+import MascotShadow from '../../components/MascotShadow';
 import {
   clearPendingGuestProgress, isGuest, setUpgradePrompted, wasUpgradePrompted,
 } from '../../utils/guest';
 import { colors } from '../../theme/colors';
+import {
+  isStreakFrozen, streakColor, freezeDaysLabel, repairProgressLabel,
+  STREAK_ACTIVE_COLOR, STREAK_FROZEN_COLOR, STREAK_FROZEN_ICON,
+} from '../../utils/streak';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
 interface Props {
@@ -16,13 +21,21 @@ interface Props {
   route: RouteProp<RootStackParamList, 'Streak'>;
 }
 
-const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
 export default function StreakScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { learning, user } = useAuthStore();
   const streak = route.params?.currentStreak ?? learning?.current_streak ?? 0;
   const justIncremented = route.params?.justIncremented ?? false;
+  // Read live, not from route params — unlike the streak number itself
+  // (frozen at navigation time via currentStreak), streak_state can flip
+  // from frozen to none purely from time passing while this screen sits
+  // open (see App.tsx's foreground/poll refresh of `learning`). A missing
+  // value (stale cache, field not deployed yet) is treated as "active" —
+  // the same default the field's own type comment documents.
+  const frozen = isStreakFrozen(learning?.streak_state);
+  const freezeDaysRemaining = learning?.freeze_days_remaining ?? 0;
+  const repairRequired = learning?.repair_levels_required ?? 0;
+  const repairCompleted = learning?.repair_levels_completed ?? 0;
 
   // The conversion moment. A guest has just watched a streak land that the
   // server deliberately didn't keep — so ask for the account here, while the
@@ -62,6 +75,11 @@ export default function StreakScreen({ navigation, route }: Props) {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const lumaScaleAnim = useRef(new Animated.Value(0)).current;
   const numberScaleAnim = useRef(new Animated.Value(1)).current;
+  // Frozen state's ice placeholder used to be a static emoji — a plain PNG
+  // next to the fire Lottie's constant motion read as "broken," not "on
+  // ice." A slow breathing pulse gives it the same sense of being alive
+  // without needing a real ice Lottie asset (none exists yet).
+  const icePulseAnim = useRef(new Animated.Value(1)).current;
   // Celebration entrance: hold on streak-1, let Lumo + the flame settle in,
   // then pop the number up to the real total. A plain open (from the Map
   // HUD's streak pill) skips all of this and just shows the final number.
@@ -76,6 +94,11 @@ export default function StreakScreen({ navigation, route }: Props) {
       Animated.timing(floatAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
     ]));
     loop.start();
+    const iceLoop = Animated.loop(Animated.sequence([
+      Animated.timing(icePulseAnim, { toValue: 1.06, duration: 1400, useNativeDriver: true }),
+      Animated.timing(icePulseAnim, { toValue: 1, duration: 1400, useNativeDriver: true }),
+    ]));
+    iceLoop.start();
 
     if (justIncremented) {
       Animated.spring(lumaScaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6, delay: 300 }).start();
@@ -86,13 +109,18 @@ export default function StreakScreen({ navigation, route }: Props) {
           Animated.spring(numberScaleAnim, { toValue: 1, useNativeDriver: true, tension: 200, friction: 6 }),
         ]).start();
       }, 900);
-      return () => { loop.stop(); clearTimeout(timer); };
+      return () => { loop.stop(); iceLoop.stop(); clearTimeout(timer); };
     }
-    return () => loop.stop();
+    return () => { loop.stop(); iceLoop.stop(); };
   }, []);
 
-  // How many days filled this week (up to current streak, max 7)
-  const filledDays = Math.min(displayedStreak, 7);
+  // Single active-week card: 7 slots numbered by day-in-streak, not by
+  // weekday letter — a 10-day streak reads as "Week 2, days 8-14 (4 filled)"
+  // instead of looking identical to a 7-day streak (both fully filled at the
+  // old fixed M-S/max-7 cap). Week N covers days (N-1)*7+1 .. N*7.
+  const weekNum = displayedStreak > 0 ? Math.floor((displayedStreak - 1) / 7) + 1 : 1;
+  const weekStartDay = (weekNum - 1) * 7 + 1;
+  const weekDayNumbers = Array.from({ length: 7 }, (_, i) => weekStartDay + i);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -107,34 +135,68 @@ export default function StreakScreen({ navigation, route }: Props) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {justIncremented && (
-          <Animated.Image
-            source={require('../../../assets/images/lumo_transparent.png')}
-            style={[styles.celebrationLuma, { transform: [{ scale: lumaScaleAnim }] }]}
-            resizeMode="contain"
-          />
+          <View style={{ width: 90, height: 90, marginBottom: 4 }}>
+            <Animated.Image
+              source={require('../../../assets/images/lumo_transparent.png')}
+              style={[styles.celebrationLuma, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
+              resizeMode="contain"
+            />
+            <MascotShadow width={90} />
+          </View>
         )}
 
-        {/* Streak fire animation */}
+        {/* Streak fire animation — frozen swaps in a blue/ice placeholder.
+            No blue-fire art exists yet (product decision 2026-08-05): this
+            is a deliberate placeholder occupying the same footprint as the
+            Lottie, so dropping in a real asset/Lottie source later is a
+            change to this one spot, not a layout change. */}
         <Animated.View style={{ transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
-          <LottieView
-        renderMode="SOFTWARE"
-            source={require('../../../assets/animations/streak.json')}
-            autoPlay loop
-            style={styles.streakAnim}
-          />
+          {frozen ? (
+            <View style={[styles.streakAnim, styles.frozenIconWrap]}>
+              <Animated.Image
+                source={STREAK_FROZEN_ICON}
+                style={[styles.frozenIconImg, { transform: [{ scale: icePulseAnim }] }]}
+                resizeMode="contain"
+              />
+            </View>
+          ) : (
+            <LottieView
+              renderMode="SOFTWARE"
+              source={require('../../../assets/animations/streak.json')}
+              autoPlay loop
+              style={styles.streakAnim}
+            />
+          )}
         </Animated.View>
 
-        <Animated.Text style={[styles.streakNum, { transform: [{ scale: numberScaleAnim }] }]}>{displayedStreak}</Animated.Text>
+        <Animated.Text
+          style={[styles.streakNum, { color: streakColor(learning?.streak_state), transform: [{ scale: numberScaleAnim }] }]}
+        >
+          {displayedStreak}
+        </Animated.Text>
         <Text style={styles.streakLabel}>day streak!</Text>
         <Text style={styles.streakSub}>
-          {justIncremented
+          {frozen
+            ? 'Your streak is on ice. Complete levels today to save it.'
+            : justIncremented
             ? "MashaAllah! You've kept your streak alive."
             : displayedStreak === 0
-            ? 'Start your streak today — practice for just 5 minutes!'
+            ? 'Start your streak today, practice for just 5 minutes!'
             : displayedStreak < 7
             ? 'MashaAllah! Keep going, you are building a great habit.'
-            : 'SubhanAllah! A full week streak — incredible dedication!'}
+            : 'SubhanAllah! A full week streak, incredible dedication!'}
         </Text>
+
+        {/* Freeze/repair banner — only while frozen. Gem-cost repair and push
+            reminders are explicitly not built on the backend yet, so this
+            stays to the two numbers the API actually gives: the countdown
+            and today's distinct-level progress. */}
+        {frozen && (
+          <View style={styles.freezeCard}>
+            <Text style={styles.freezeCardTitle}>❄️ {freezeDaysLabel(freezeDaysRemaining)}</Text>
+            <Text style={styles.freezeCardBody}>{repairProgressLabel(repairCompleted, repairRequired)}</Text>
+          </View>
+        )}
 
         {/* XP earned badge */}
         <View style={styles.xpBadge}>
@@ -142,18 +204,26 @@ export default function StreakScreen({ navigation, route }: Props) {
           <Text style={styles.xpBadgeText}>+{displayedStreak * 5} XP earned from streaks</Text>
         </View>
 
-        {/* This week */}
+        {/* Active week */}
         <View style={styles.weekCard}>
-          <Text style={styles.weekTitle}>This Week</Text>
+          <Text style={styles.weekTitle}>Week {weekNum}</Text>
           <View style={styles.daysRow}>
-            {DAYS.map((day, i) => {
-              const filled = i < filledDays;
+            {weekDayNumbers.map((dayNum, i) => {
+              const filled = dayNum <= displayedStreak;
               return (
                 <View key={i} style={styles.dayCol}>
-                  <View style={[styles.dayDot, filled && styles.dayDotFilled]}>
-                    {filled && <Text style={{ fontSize: 10 }}>✓</Text>}
+                  <View style={[styles.dayDot, filled && { backgroundColor: STREAK_ACTIVE_COLOR, borderColor: STREAK_ACTIVE_COLOR }]}>
+                    {filled && (
+                      // Frozen reads via the ice-cube glyph itself, not by
+                      // recoloring the dot blue — the dot stays the normal
+                      // active color so "day completed" doesn't get
+                      // overloaded with "streak currently frozen".
+                      frozen
+                        ? <Image source={STREAK_FROZEN_ICON} style={styles.dayIceIcon} resizeMode="contain" />
+                        : <Text style={{ fontSize: 10 }}>✓</Text>
+                    )}
                   </View>
-                  <Text style={[styles.dayLabel, filled && styles.dayLabelFilled]}>{day}</Text>
+                  <Text style={[styles.dayLabel, filled && { color: STREAK_ACTIVE_COLOR }]}>{dayNum}</Text>
                 </View>
               );
             })}
@@ -191,7 +261,7 @@ export default function StreakScreen({ navigation, route }: Props) {
             />
             <View style={styles.guestCardText}>
               <Text style={styles.guestCardTitle}>Save your progress</Text>
-              <Text style={styles.guestCardBody}>This streak and XP aren't saved yet — create a free account to keep them.</Text>
+              <Text style={styles.guestCardBody}>This streak and XP aren't saved yet. Create a free account to keep them.</Text>
             </View>
             <TouchableOpacity style={styles.guestCardBtn} onPress={() => navigation.navigate('SignUp')}>
               <Text style={styles.guestCardBtnText}>Create account</Text>
@@ -210,7 +280,7 @@ export default function StreakScreen({ navigation, route }: Props) {
       <AuthRequiredModal
         visible={upgradePromptVisible}
         title="Save your streak"
-        body={`Your ${streak}-day streak and the XP you just earned aren't saved yet. Create a free account to keep them — otherwise they'll be gone.`}
+        body={`Your ${streak} day streak and the XP you just earned aren't saved yet. Create a free account to keep them, otherwise they'll be gone.`}
         ctaLabel="Create account"
         dismissLabel="Skip"
         onContinue={() => void handleCreateAccount()}
@@ -243,6 +313,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryBg, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 20,
   },
   xpBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  frozenIconWrap: { alignItems: 'center', justifyContent: 'center' },
+  frozenIconImg: { width: 84, height: 84 },
+  freezeCard: {
+    width: '100%', backgroundColor: colors.blueBg, borderRadius: 16,
+    paddingHorizontal: 16, paddingVertical: 12, marginBottom: 16,
+    borderWidth: 1, borderColor: STREAK_FROZEN_COLOR + '33', alignItems: 'center',
+  },
+  freezeCardTitle: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: STREAK_FROZEN_COLOR, marginBottom: 2, textAlign: 'center' },
+  freezeCardBody: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.midText, textAlign: 'center' },
   weekCard: {
     width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16, marginBottom: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
@@ -255,9 +334,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lightBg, borderWidth: 2, borderColor: colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  dayDotFilled: { backgroundColor: '#EA580C', borderColor: '#EA580C' },
+  dayIceIcon: { width: 20, height: 20 },
   dayLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.mutedText },
-  dayLabelFilled: { color: '#EA580C' },
   milestonesCard: {
     width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,

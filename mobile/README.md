@@ -81,11 +81,9 @@ npm run test:ci   # CI (same tests, non-interactive)
 - **Analytics:** [docs/FIREBASE_ANALYTICS.md](./docs/FIREBASE_ANALYTICS.md)
 - **App Distribution:** tester group alias `testerustadteam` (display name: TesterUstadTeam)
 
-## Sentry (crashes)
+## Crashlytics (crashes)
 
-Crashes and API errors report to Sentry; notifications go to **Slack** (configured in your Sentry project).
-
-Release APKs send `release` + `dist` metadata so issues map to CI build numbers. Details: [docs/SENTRY.md](./docs/SENTRY.md).
+Crashes and API errors report to Firebase Crashlytics — same console/login as Analytics, no separate account. Details: [docs/CRASHLYTICS.md](./docs/CRASHLYTICS.md).
 
 ## MVP content
 

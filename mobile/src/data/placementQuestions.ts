@@ -34,7 +34,7 @@ export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
     id: 'p2',
     teacher: 'sheikha',
     teacherIntro:
-      "Excellent! Now Surah Al-Ikhlas — one of the most beloved surahs. Which verse follows this one?",
+      "Excellent! Now Surah Al-Ikhlas, one of the most beloved surahs. Which verse follows this one?",
     promptLabel: 'What comes next?',
     promptAr: 'قُلْ هُوَ ٱللَّهُ أَحَدٌ',
     options: [
@@ -51,7 +51,7 @@ export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
     id: 'p3',
     teacher: 'sheikh',
     teacherIntro:
-      "Masha'Allah! You're doing great. Now Surah Al-Falaq — can you fill in the missing word?",
+      "Masha'Allah! You're doing great. Now Surah Al-Falaq, can you fill in the missing word?",
     promptLabel: 'Fill in the blank',
     promptAr: 'مِن شَرِّ مَا ____',
     options: ['غَسَقَ', 'خَلَقَ', 'نَفَثَ', 'حَسَدَ'],
@@ -63,16 +63,16 @@ export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
     id: 'p4',
     teacher: 'sheikha',
     teacherIntro:
-      'Great! A quick Tajweed question — can you identify this symbol? 📖',
+      'Great! A quick Tajweed question: can you identify this symbol? 📖',
     promptLabel: 'Match the symbol',
     promptAr: 'ّ',
     promptIsSymbol: true,
     promptNote: 'This symbol appears above letters',
     options: [
-      'Madd — Prolongation',
-      'Sukoon — No vowel',
-      'Shaddah — Emphasis',
-      'Tanween — Nunation',
+      'Madd: Prolongation',
+      'Sukoon: No vowel',
+      'Shaddah: Emphasis',
+      'Tanween: Nunation',
     ],
     correctIndex: 2,
     layout: 'column',
@@ -82,7 +82,7 @@ export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
     id: 'p5',
     teacher: 'sheikh',
     teacherIntro:
-      "Surah Al-Asr — one of the shortest but most profound Surahs. What comes after this verse?",
+      "Surah Al-Asr, one of the shortest but most profound Surahs. What comes after this verse?",
     promptLabel: 'What comes next?',
     promptAr: 'وَٱلْعَصْرِ',
     options: [
@@ -128,16 +128,16 @@ export const PLACEMENT_QUESTIONS: PlacementQuestion[] = [
     id: 'p8',
     teacher: 'sheikha',
     teacherIntro:
-      "Last one — can you identify this Tajweed symbol? Almost there! 🌟",
+      "Last one: can you identify this Tajweed symbol? Almost there! 🌟",
     promptLabel: 'Match the symbol',
     promptAr: 'ٓ',
     promptIsSymbol: true,
     promptNote: 'This small superscript mark extends the vowel sound',
     options: [
-      'Madd — Prolongation',
-      'Sukoon — No vowel',
-      'Hamza — Glottal stop',
-      'Waqf — Stopping sign',
+      'Madd: Prolongation',
+      'Sukoon: No vowel',
+      'Hamza: Glottal stop',
+      'Waqf: Stopping sign',
     ],
     correctIndex: 0,
     layout: 'column',

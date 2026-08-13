@@ -3,10 +3,10 @@ export const copy = {
   tagline: 'The gamified way to memorise the Holy Quran',
   splash: {
     loading: 'Preparing your journey…',
-    offline: 'Cannot reach API — check your connection',
+    offline: 'Cannot reach API: check your connection',
   },
   welcome: {
-    getStarted: "Get Started — it's free",
+    getStarted: "Get Started, it's free",
     hasAccount: 'I already have an account',
     features: [
       { icon: '🌙', label: 'Hifz tracking' },
@@ -95,7 +95,7 @@ export const copy = {
   },
   placement: {
     title: "Let's find your starting point",
-    body: 'A short check with your Ustad teachers — about 2 minutes.',
+    body: 'A short check with your Ustad teachers, about 2 minutes.',
     cta: 'Start the test',
     teacherHint: 'Pick the best answer. Take your time!',
     resultsTitle: 'Great work!',
@@ -194,8 +194,8 @@ export const copy = {
   journey: {
     start: 'START',
     locked: 'Complete the previous level to unlock',
-    juzTitle: 'Juz 30 — Amma',
-    mvpSubtitle: (n: number) => `MVP surahs 105–114 · ${n} chapters`,
+    juzTitle: 'Juz 30: Amma',
+    mvpSubtitle: (n: number) => `MVP surahs 105-114 · ${n} chapters`,
   },
   tabs: {
     home: 'Home',

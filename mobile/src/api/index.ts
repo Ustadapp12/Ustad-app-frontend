@@ -68,7 +68,7 @@ export const authApi = {
   upgradeGuest: (body: {
     email: string;
     password: string;
-    display_name: string;
+    display_name?: string;
     pending_xp: number;
     pending_streak: number;
   }) =>
@@ -146,6 +146,12 @@ export const usersApi = {
     api<{ age: number }>('/users/me/age', {
       method: 'PATCH',
       body: JSON.stringify({ age }),
+    }),
+
+  updateName: (name: string) =>
+    api<{ name: string }>('/users/me/name', {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
     }),
 };
 
@@ -403,6 +409,24 @@ export const progressApi = {
       body: JSON.stringify({ session_id, ayah_id, duration_ms: body.duration_ms ?? 0 }),
     });
   },
+};
+
+// ── Usage sessions ───────────────────────────────────────────────
+// App-foreground-to-background envelope, distinct from a lesson session —
+// see services/usageSession.ts for the AppState wiring that calls these.
+
+export const usageApi = {
+  startSession: (body: { platform: string; app_version?: string; device_model?: string }) =>
+    api<{ session_id: string }>('/usage/sessions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  endSession: (sessionId: string) =>
+    api<{ session_id: string; duration_s: number }>(`/usage/sessions/${sessionId}/end`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
 };
 
 // ── Helpers ──────────────────────────────────────────────────────

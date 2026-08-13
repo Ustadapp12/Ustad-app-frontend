@@ -82,7 +82,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 
         <Text style={styles.heading}>Email</Text>
         <Text style={styles.sub}>
-          Enter the email on your account — if it exists, we'll send a code to reset your password.
+          Enter the email on your account. If it exists, we'll send a code to reset your password.
         </Text>
 
         <View style={styles.fieldWrap}>

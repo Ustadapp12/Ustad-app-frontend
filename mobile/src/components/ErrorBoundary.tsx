@@ -11,8 +11,9 @@ interface State {
   hasError: boolean;
 }
 
-// Sentry.wrap(App) (see index.js) reports uncaught render errors but doesn't
-// catch them — without a real error boundary, a throw during e.g. MapScreen's
+// Crashlytics' global JS-error handler (see initCrashReporting in index.js)
+// reports uncaught errors but doesn't catch them — without a real error
+// boundary, a throw during e.g. MapScreen's first mount
 // first mount unmounts the whole tree and leaves whatever was last painted
 // (the navigator's dark contentStyle background) frozen on screen with
 // nothing the user can do but force-close. This gives that failure a visible,
@@ -37,7 +38,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
       return (
         <View style={styles.container}>
           <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.body}>Sorry about that — please try again.</Text>
+          <Text style={styles.body}>Sorry about that, please try again.</Text>
           <TouchableOpacity style={styles.button} onPress={this.handleReset}>
             <Text style={styles.buttonText}>Try again</Text>
           </TouchableOpacity>

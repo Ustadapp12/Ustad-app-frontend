@@ -5,6 +5,7 @@ apply plugin: "com.facebook.react"
 def googleServicesFile = file("google-services.json")
 if (googleServicesFile.exists()) {
     apply plugin: "com.google.gms.google-services"
+    apply plugin: "com.google.firebase.crashlytics"
 }
 
 /**
@@ -100,6 +101,15 @@ def hasReleaseSigning =
     releaseKeyAlias != null && !releaseKeyAlias.isEmpty() &&
     releaseKeyPassword != null && !releaseKeyPassword.isEmpty()
 
+// Version — overridable from CI so every distributed build is distinguishable.
+// Locally these stay at the baseline, so a dev build is always "1 / 1.0.0" and
+// nobody has to remember to bump anything by hand. The Firebase distribution
+// workflow passes VERSION_CODE=${{ github.run_number }}, which is monotonic
+// per repo, so testers can tell two builds apart from Android's own app info
+// instead of only from the release notes.
+def appVersionCode = (System.getenv("VERSION_CODE") ?: "1").toInteger()
+def appVersionName = System.getenv("VERSION_NAME") ?: "1.0.0"
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -110,13 +120,35 @@ android {
         applicationId "com.ustadapp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
-        // arm64-v8a (64-bit) + armeabi-v7a (32-bit Go / budget phones)
+        versionCode appVersionCode
+        versionName appVersionName
+        // arm64-v8a (64-bit) + armeabi-v7a (32-bit Go / budget phones).
+        //
+        // NOTE: this list does NOT control which ABIs native code is COMPILED
+        // for — `reactNativeArchitectures` in gradle.properties does, for React
+        // Native itself and for every native dependency built through the RN
+        // gradle plugin (gesture-handler, reanimated, svg, …). abiFilters only
+        // filters what gets packaged. Editing this alone changes nothing;
+        // verified by a full clean build that still produced no
+        // lib/x86_64/libgesturehandler.so.
+        //
+        // The two together are why the APK ships a PARTIAL lib/x86_64 — 17
+        // prebuilt .so files from dependencies that ship x86_64 binaries, but
+        // none of the source-built ones. That state is worse than either
+        // extreme, because SoLoader resolves against Build.SUPPORTED_ABIS[0]
+        // (x86_64 on every standard emulator) and never falls back to arm64:
+        //   - partial x86_64  -> "couldn't find DSO to load: libgesturehandler.so"
+        //   - no x86_64       -> "couldn't find DSO to load: libreactnative.so"
+        //   - complete x86_64 -> works
+        // Both failures reproduced on a Pixel_5 x86_64 AVD. Real phones are arm
+        // and pick the complete arm64-v8a set, which is why this only ever bites
+        // on emulators — to run there, build with
+        //   ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64
         ndk {
             abiFilters "arm64-v8a", "armeabi-v7a"
         }
     }
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

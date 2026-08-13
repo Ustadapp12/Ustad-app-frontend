@@ -1,5 +1,5 @@
 ﻿import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, ActivityIndicator, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { useScriptStore } from '../../store/scriptStore';
@@ -10,7 +10,9 @@ import PasswordInput from '../../components/PasswordInput';
 import { useResponsiveScale } from '../../utils/responsive';
 import { isGuest } from '../../utils/guest';
 import { characterSrcFor } from '../../utils/avatar';
+import { isStreakFrozen, STREAK_ACTIVE_EMOJI, STREAK_FROZEN_ICON, freezeDaysLabel } from '../../utils/streak';
 import GuestGate from '../../components/GuestGate';
+import MascotShadow from '../../components/MascotShadow';
 import type { ScriptPreference } from '../../types/api';
 import type { ProfileNavProp } from '../../navigation/types';
 
@@ -82,6 +84,12 @@ function ProfileContent({ navigation }: Props) {
     Alert.alert('Coming Soon', 'This feature isn\'t available yet.');
   }
 
+  function openLink(url: string) {
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'Could not open the link.');
+    });
+  }
+
   async function handleLogout() {
     Alert.alert('Log out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
@@ -128,7 +136,9 @@ function ProfileContent({ navigation }: Props) {
         {/* Stats grid */}
         <View style={styles.statsGrid}>
           <View style={styles.statCell}>
-            <Text style={styles.statEmoji}>🔥</Text>
+            {isStreakFrozen(learning?.streak_state)
+              ? <Image source={STREAK_FROZEN_ICON} style={styles.statIcon} resizeMode="contain" />
+              : <Text style={styles.statEmoji}>{STREAK_ACTIVE_EMOJI}</Text>}
             <Text style={styles.statValue}>{learning?.current_streak ?? 0}</Text>
             <Text style={styles.statLabel}>Day Streak</Text>
           </View>
@@ -151,10 +161,16 @@ function ProfileContent({ navigation }: Props) {
             <Text style={styles.settingArrow}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.settingRow} onPress={() => navigation.navigate('Streak')}>
-            <Text style={styles.settingEmoji}>🔥</Text>
+            {isStreakFrozen(learning?.streak_state)
+              ? <Image source={STREAK_FROZEN_ICON} style={styles.settingIcon} resizeMode="contain" />
+              : <Text style={styles.settingEmoji}>{STREAK_ACTIVE_EMOJI}</Text>}
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Streak & Rewards</Text>
-              <Text style={styles.settingValue}>{learning?.current_streak ?? 0} day streak</Text>
+              <Text style={styles.settingValue}>
+                {isStreakFrozen(learning?.streak_state)
+                  ? `${learning?.current_streak ?? 0} day streak: ${freezeDaysLabel(learning?.freeze_days_remaining ?? 0)}`
+                  : `${learning?.current_streak ?? 0} day streak`}
+              </Text>
             </View>
             <Text style={styles.settingArrow}>›</Text>
           </TouchableOpacity>
@@ -187,6 +203,27 @@ function ProfileContent({ navigation }: Props) {
           <TouchableOpacity style={styles.settingRow} onPress={comingSoon}>
             <Text style={styles.settingEmoji}>🔒</Text>
             <Text style={styles.settingLabel}>Change Password</Text>
+            <Text style={styles.settingArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Section: About */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>ABOUT</Text>
+          <TouchableOpacity style={styles.settingRow} onPress={() => openLink('https://ustadapp.com')}>
+            <Text style={styles.settingEmoji}>🌐</Text>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingLabel}>Visit Website</Text>
+              <Text style={styles.settingValue}>ustadapp.com</Text>
+            </View>
+            <Text style={styles.settingArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.settingRow} onPress={() => openLink('https://chat.whatsapp.com/FM4p2nZu94XJ5NGg9qKXd2')}>
+            <Text style={styles.settingEmoji}>💬</Text>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingLabel}>Send Feedback</Text>
+              <Text style={styles.settingValue}>Join our WhatsApp group</Text>
+            </View>
             <Text style={styles.settingArrow}>›</Text>
           </TouchableOpacity>
         </View>
@@ -257,11 +294,14 @@ function ProfileContent({ navigation }: Props) {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Image
-              source={require('../../../assets/images/lumo_cry.png')}
-              style={styles.deleteLumo}
-              resizeMode="contain"
-            />
+            <View style={{ width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) }}>
+              <Image
+                source={require('../../../assets/images/lumo_cry.png')}
+                style={[styles.deleteLumo, { marginBottom: 0 }]}
+                resizeMode="contain"
+              />
+              <MascotShadow width={sc(72)} />
+            </View>
             <Text style={styles.modalTitle}>Delete Account</Text>
             <Text style={styles.modalBody}>
               This will permanently delete your account and all progress. Enter your password to confirm.
@@ -332,6 +372,7 @@ function makeStyles(sc: (n: number) => number) {
     statCell: { flex: 1, alignItems: 'center', paddingVertical: sc(14), gap: 3 },
     statCellBorder: { borderLeftWidth: 1, borderLeftColor: colors.border },
     statEmoji: { fontSize: sc(18) },
+    statIcon: { width: sc(18), height: sc(18) },
     statValue: { fontFamily: 'Nunito_700Bold', fontSize: sc(18), color: colors.darkText },
     statLabel: { fontFamily: 'Nunito_400Regular', fontSize: sc(9), color: colors.mutedText, letterSpacing: 0.3 },
     section: {
@@ -349,6 +390,7 @@ function makeStyles(sc: (n: number) => number) {
       borderTopWidth: 1, borderTopColor: colors.border,
     },
     settingEmoji: { fontSize: sc(16) },
+    settingIcon: { width: sc(16), height: sc(16) },
     settingContent: { flex: 1 },
     settingLabel: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.darkText },
     settingValue: { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: colors.mutedText, marginTop: 1 },

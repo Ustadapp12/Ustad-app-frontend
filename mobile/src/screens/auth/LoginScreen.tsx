@@ -10,6 +10,7 @@ import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import MascotShadow from '../../components/MascotShadow';
 import type { RootNavProp } from '../../navigation/types';
 import { validateEmail, normalizeEmail } from '../../utils/validators';
 import { setLastEmailHint } from '../../utils/storage';
@@ -102,6 +103,7 @@ export default function LoginScreen({ navigation }: Props) {
         {/* Luma */}
         <View style={styles.lumaWrap}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+          <MascotShadow width={110} style={{ position: 'relative', marginTop: -11 }} />
         </View>
 
         <Text style={styles.heading}>Welcome back!</Text>

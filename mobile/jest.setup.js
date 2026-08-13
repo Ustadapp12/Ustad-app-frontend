@@ -8,13 +8,12 @@ jest.mock('react-native-keychain', () => ({
   resetGenericPassword: jest.fn(),
 }));
 
-jest.mock('@sentry/react-native', () => ({
-  init: jest.fn(),
-  wrap: (component) => component,
-  setUser: jest.fn(),
-  addBreadcrumb: jest.fn(),
-  captureException: jest.fn(),
-  captureMessage: jest.fn(),
+jest.mock('@react-native-firebase/crashlytics', () => () => ({
+  setCrashlyticsCollectionEnabled: jest.fn(),
+  setAttributes: jest.fn(),
+  setUserId: jest.fn(),
+  recordError: jest.fn(),
+  log: jest.fn(),
 }));
 
 jest.mock('react-native-gesture-handler', () => {

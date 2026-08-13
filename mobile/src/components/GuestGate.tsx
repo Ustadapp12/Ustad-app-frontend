@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
+import MascotShadow from './MascotShadow';
 import type { RootNavProp } from '../navigation/types';
 
 interface Props {
@@ -43,15 +44,16 @@ export default function GuestGate({ feature }: Props) {
       <Animated.View style={[styles.inner, { opacity: fadeAnim }]}>
         <Animated.Image
           source={require('../../assets/images/lumo_transparent.png')}
-          style={[styles.lumo, { transform: [{ translateY: floatAnim }] }]}
+          style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatAnim }] }]}
           resizeMode="contain"
         />
+        <MascotShadow width={150} style={{ position: 'relative', marginTop: -15, marginBottom: 12 }} />
 
         <View style={styles.card}>
           <Text style={styles.title}>Create an account to save your progress</Text>
           <Text style={styles.body}>
             {feature} needs an account. Sign up free to keep your streak, your XP and
-            everything you memorise — it takes a moment.
+            everything you memorise. It takes a moment.
           </Text>
 
           <TouchableOpacity

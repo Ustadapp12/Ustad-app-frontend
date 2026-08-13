@@ -24,7 +24,7 @@ export default function OnboardWelcomeScreen({ navigation, route }: Props) {
       <View style={styles.content}>
         <Image source={avatarSrc} style={styles.avatar} resizeMode="contain" />
         <Text style={styles.heading}>Welcome, {name}!</Text>
-        <Text style={styles.sub}>This is you from now on — you'll see yourself in your lessons and profile.</Text>
+        <Text style={styles.sub}>This is you from now on, you'll see yourself in your lessons and profile.</Text>
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>

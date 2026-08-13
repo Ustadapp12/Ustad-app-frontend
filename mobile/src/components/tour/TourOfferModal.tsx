@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '../../theme/colors';
+import MascotShadow from '../MascotShadow';
 
 interface Props {
   visible: boolean;
@@ -18,11 +19,14 @@ export default function TourOfferModal({ visible, onAccept, onDecline }: Props) 
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDecline}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Image
-            source={require('../../../assets/images/lumo_transparent.png')}
-            style={styles.lumo}
-            resizeMode="contain"
-          />
+          <View style={{ width: 96, height: 96, marginBottom: 4 }}>
+            <Image
+              source={require('../../../assets/images/lumo_transparent.png')}
+              style={[styles.lumo, { marginBottom: 0 }]}
+              resizeMode="contain"
+            />
+            <MascotShadow width={96} />
+          </View>
           <Text style={styles.title}>Want a quick tour?</Text>
           <Text style={styles.body}>
             I can show you how levels, streaks and hints work, it takes about a minute.

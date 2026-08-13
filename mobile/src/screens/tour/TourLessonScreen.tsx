@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -12,7 +12,7 @@ import { FIRST_LESSON_STEP, TOUR_STEPS } from '../../components/tour/tourSteps';
 import { useTourStore } from '../../store/tourStore';
 import { colors } from '../../theme/colors';
 import type { RootNavProp } from '../../navigation/types';
-import type { TourTargetKey } from '../../components/tour/tourSteps';
+import { useTourTarget } from '../../components/tour/useTourTarget';
 
 interface Props { navigation: RootNavProp }
 
@@ -38,41 +38,46 @@ interface Props { navigation: RootNavProp }
 export default function TourLessonScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const stepIndex = useTourStore(s => s.stepIndex);
-  const setRect = useTourStore(s => s.setRect);
-
-  const progressRef = useRef<View>(null);
-  const heartsRef = useRef<View>(null);
-  const hintRef = useRef<View>(null);
-  const exerciseRef = useRef<View>(null);
-  // Live inside the swapping exercise child (see ExerciseSlide's key below),
-  // not in the persistent LessonHeader — only one of these two is ever
-  // actually mounted at a time (FillBlankOrNextWord vs ReadAndSpeak), the
-  // other's .current stays null, which measure() already no-ops on safely.
-  const checkRef = useRef<View>(null);
-  const micRef = useRef<View>(null);
-  const selectedOptionRef = useRef<View>(null);
+  // Every tour target on this screen publishes its own measured box through
+  // useTourTarget, which re-measures on layout and again whenever the tour
+  // advances. That replaces a measure() helper here which added `insets.top`
+  // to every y: a correction derived on one device to reconcile the overlay's
+  // old Modal window with this one. The overlay renders in this same window
+  // now, so there is nothing to correct. The pair of fixed 220ms/420ms timers
+  // that used to chase ExerciseSlide's 260ms entrance animation lives inside
+  // the hook too, rather than being restated per screen.
+  // Each radius below is the real host element's own borderRadius (see
+  // useTourTarget's own comment) — not a guess made here from the measured
+  // box's aspect ratio:
+  // - progress/hearts/hint are bare wrapper Views with no radius of their
+  //   own, glowed via TOUR_GLOW_ROUND (LessonSessionScreen.tsx) — 'round'
+  //   matches that same clamp-to-circle/pill behaviour for the hole.
+  // - lessonExercise's radius is unused: skipHole (in TourOverlay) keeps the
+  //   plain uniform dim for it regardless.
+  // - lessonCheck: EX.continueBtn's real borderRadius (16).
+  // - lessonMic: RAS.micBtn is always exactly circular in both its states
+  //   (108/54 and 76/38 both simplify to radius = half the measured side),
+  //   so 'round' reproduces the true shape in either state without needing
+  //   to know which one is currently mounted.
+  // - lessonOption: AF.optionBtn's real borderRadius (16).
+  // - lessonFeedback: FB.sheet's real top-corner borderRadius (24); its
+  //   flush-bottom position (see TourOverlay) zeroes the bottom two corners,
+  //   matching the sheet's actual top-only rounding.
+  const progressTarget = useTourTarget('lessonProgress', 'round');
+  const heartsTarget = useTourTarget('lessonHearts', 'round');
+  const hintTarget = useTourTarget('lessonHint', 'round');
+  const exerciseTarget = useTourTarget('lessonExercise', 0);
+  // Check/mic/option live inside the swapping exercise child (see
+  // ExerciseSlide's key below). Only one of check/mic is ever mounted at a
+  // time (FillBlankOrNextWord vs ReadAndSpeak), and the hook no-ops safely on
+  // whichever ref is currently null.
+  const checkTarget = useTourTarget('lessonCheck', 16);
+  const micTarget = useTourTarget('lessonMic', 'round');
+  const optionTarget = useTourTarget('lessonOption', 16);
   // Shared by both feedback steps (fill-blank's "Instant feedback" and
   // recitation's "Same feedback either way") — the same FeedbackBanner
-  // component mounts fresh at each, so a fresh measure on entry is enough.
-  const feedbackRef = useRef<View>(null);
-
-  const measure = useCallback((ref: React.RefObject<View | null>, key: TourTargetKey) => {
-    ref.current?.measureInWindow((x, y, width, height) => {
-      if (width > 0 && height > 0) setRect(key, { x, y, width, height });
-    });
-  }, [setRect]);
-
-  // Measured after layout has settled. One pass on mount is enough — nothing
-  // in this screen reflows, since the exercise underneath never changes size.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      measure(progressRef, 'lessonProgress');
-      measure(heartsRef, 'lessonHearts');
-      measure(hintRef, 'lessonHint');
-      measure(exerciseRef, 'lessonExercise');
-    }, 220);
-    return () => clearTimeout(timer);
-  }, [measure]);
+  // component mounts fresh at each.
+  const feedbackTarget = useTourTarget('lessonFeedback', 24);
 
   const step = TOUR_STEPS[stepIndex];
   const exercise = tourExerciseForStep(stepIndex, FIRST_LESSON_STEP);
@@ -87,45 +92,6 @@ export default function TourLessonScreen({ navigation }: Props) {
     step?.target === 'lessonProgress' ? 'progress' : null;
   const glowCheck = step?.target === 'lessonCheck';
   const glowMic = step?.target === 'lessonMic';
-
-  // Check/mic/option live inside the exercise child, which remounts (new
-  // ex.ex_id → new ExerciseSlide key) every time the tour swaps between the
-  // fill-blank and read-and-speak exercises — re-measured on every such
-  // swap, not just once on TourLessonScreen's own mount, or whichever one
-  // wasn't there yet at that first pass would never get a rect.
-  //
-  // Two passes, not one: ExerciseSlide's own entrance animation (see
-  // LessonSessionScreen) runs 260ms of translateX on the child these refs
-  // live inside, and the first measure fired at a flat 220ms — before that
-  // settles. On a mount (no slide, e.g. the very first fill-blank pass)
-  // 220ms already lands on the true position, so that first pass is still
-  // useful for showing a ring as early as possible; the second pass at
-  // 420ms (260ms animation + the same 220ms's safety margin) re-measures to
-  // correct anything the first pass caught mid-slide — confirmed necessary:
-  // the mic ring reliably failed to appear without it.
-  useEffect(() => {
-    const t1 = setTimeout(() => {
-      measure(checkRef, 'lessonCheck');
-      measure(micRef, 'lessonMic');
-      measure(selectedOptionRef, 'lessonOption');
-    }, 220);
-    const t2 = setTimeout(() => {
-      measure(checkRef, 'lessonCheck');
-      measure(micRef, 'lessonMic');
-      measure(selectedOptionRef, 'lessonOption');
-    }, 420);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [exercise.ex_id, measure]);
-
-  // The feedback sheet mounts/unmounts on its own step (see isFeedbackStep),
-  // independent of exercise swaps — re-measured every time that step is
-  // entered rather than tied to ex.ex_id, since the fill-blank and
-  // recitation feedback steps don't themselves change the exercise.
-  useEffect(() => {
-    if (!isFeedbackStep) return;
-    const timer = setTimeout(() => measure(feedbackRef, 'lessonFeedback'), 220);
-    return () => clearTimeout(timer);
-  }, [isFeedbackStep, measure]);
 
   // Auto-selects the CORRECT option so the Check button reads as enabled
   // instead of permanently greyed out — the exercise area is
@@ -148,11 +114,11 @@ export default function TourLessonScreen({ navigation }: Props) {
         hintAyahAr={exercise.ayah_ar}
         hintAyahTranslation={exercise.ayah_translation}
         onExit={() => navigation.goBack()}
-        targets={{ progress: progressRef, hearts: heartsRef, hint: hintRef }}
+        targets={{ progress: progressTarget.ref, hearts: heartsTarget.ref, hint: hintTarget.ref }}
         glowTarget={glowTarget}
       />
 
-      <View ref={exerciseRef} collapsable={false} style={styles.exerciseArea} pointerEvents="none">
+      <View {...exerciseTarget} collapsable={false} style={styles.exerciseArea} pointerEvents="none">
         <ExerciseSlide key={exercise.ex_id}>
           {exercise.type === 'read_and_speak' ? (
             <ReadAndSpeak
@@ -160,7 +126,7 @@ export default function TourLessonScreen({ navigation }: Props) {
               surahName={TOUR_SURAH_NAME}
               character={CHARACTERS[0]}
               onSpeakScored={() => { /* unreachable — the area is inert */ }}
-              micButtonRef={micRef}
+              micButtonRef={micTarget.ref}
               glowMic={glowMic}
             />
           ) : (
@@ -170,8 +136,8 @@ export default function TourLessonScreen({ navigation }: Props) {
               character={CHARACTERS[0]}
               onSubmit={() => { /* narration only — the tour never grades */ }}
               previewSelected={previewSelected}
-              checkButtonRef={checkRef}
-              selectedOptionRef={selectedOptionRef}
+              checkButtonRef={checkTarget.ref}
+              selectedOptionRef={optionTarget.ref}
               glowCheck={glowCheck}
             />
           )}
@@ -186,7 +152,7 @@ export default function TourLessonScreen({ navigation }: Props) {
           <FeedbackBanner
             result={TOUR_FEEDBACK_RESULT}
             onAdvance={() => { /* narration only — Next in the tour card advances instead */ }}
-            bannerRef={feedbackRef}
+            bannerRef={feedbackTarget.ref}
             glow
           />
         )}

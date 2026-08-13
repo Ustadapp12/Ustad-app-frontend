@@ -1,21 +1,22 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, Image, StyleSheet, TouchableOpacity, Modal, Animated, useWindowDimensions,
+  View, Text, Image, StyleSheet, TouchableOpacity, Animated, BackHandler,
+  useWindowDimensions, type LayoutChangeEvent,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors } from '../../theme/colors';
 import { useTourStore } from '../../store/tourStore';
 import { TOUR_STEPS } from './tourSteps';
 
-// Dark enough that whatever's showing through the cutout below reads as a
-// genuine spotlight by contrast, not just a slightly-brighter patch on an
-// otherwise-normal-brightness screen.
-const DIM = 'rgba(4, 12, 9, 0.86)';
+// Enough contrast that whatever shows through the cutout below reads as a
+// spotlight, while the rest of the screen stays legible — the point is to
+// draw the eye, not to black the screen out.
+const DIM = 'rgba(4, 12, 9, 0.35)';
 const PAD = 8; // how far the cutout extends past the target's own edge
 
 // Card geometry — small and anchored right next to whatever it's describing,
 // not a big fixed banner. See the sizing/positioning block inside the
-// component for how these turn into an actual left/top/bottom.
+// component for how these turn into an actual left/top.
 const CARD_MAX_W = 260;
 const CARD_MARGIN = 16; // minimum gap kept between the card and the screen edge
 const TARGET_GAP = 12; // gap between the target's own edge and the card
@@ -60,42 +61,112 @@ interface Props {
  * here specifically: this app has a confirmed react-native-svg bug where
  * `url(#id)` references silently mis-resolve on remount (see MapScreen.tsx's
  * own mapInstanceId comment) — patterns "silently stop painting, falling
- * back to a flat fill" — and this Modal remounts on every step. A `Path`
+ * back to a flat fill" — and this overlay remounts on every step. A `Path`
  * needs no id lookup at all, so that failure mode can't happen here.
+ *
+ * ── Why this is NOT a Modal ──────────────────────────────────────────
+ * It used to be, and that was the root cause of every cutout sitting a
+ * couple of dozen dp off its target. A Modal is a separate native window
+ * with its own origin, while every target rect comes from a measureInWindow
+ * against the host screen's window. Reconciling two windows needs a delta
+ * that React Native gives no way to read at runtime, so the previous version
+ * hardcoded `+ insets.top` — a value read off one device. On any device
+ * whose measureInWindow origin differed (which varies with Android version
+ * and edge-to-edge behaviour, and RN 0.81+ forces edge-to-edge on Android)
+ * that constant was pure error, applied to every target at once.
+ *
+ * Rendering in the same window as the things being measured makes the
+ * correction term unnecessary rather than merely better tuned: a measured
+ * rect and this overlay's coordinate space are the same space by
+ * construction. The dim's own size comes from this container's onLayout for
+ * the same reason — no `Dimensions.get('screen')` vs window guesswork about
+ * where the real bottom edge is.
+ *
+ * The map half is therefore hosted in MainTabs (a sibling rendered after
+ * Tab.Navigator, so it paints over the tab bar) rather than inside
+ * MapScreen, which cannot reach above the navigator's own tab bar.
+ *
+ * Touch blocking came from the Modal's native window before; it now comes
+ * from this root View, which takes touches by default. That still matters:
+ * every step's copy says "shows", and letting taps through would start real
+ * audio and real recording behind the card.
  *
  * The narration card sits right next to the target — anchored to its own
  * edge, nudged horizontally toward its centre, with a small triangular tail
  * connecting the two — instead of parked at a fixed screen edge regardless
  * of where the target actually is.
- *
- * Note the whole thing is still a Modal: the screen underneath is a display,
- * not something to poke at. Every step's copy says "shows", and letting taps
- * through would start real audio and real recording behind the card. That
- * blocking comes from the Modal's own native window, not from the dim —
- * punching a visual hole doesn't let a single tap through.
  */
 export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, onExitToOffer }: Props) {
-  const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
+  const window = useWindowDimensions();
   const { active, stepIndex, rects, next, prev, stop } = useTourStore();
+
+  // Where this overlay's own top-left sits in window coordinates.
+  //
+  // Target rects are measureInWindow output, i.e. window-absolute. This
+  // overlay's absolute-positioned children are placed relative to ITS box,
+  // and there is no guarantee those two origins coincide: the lesson host
+  // renders this inside a container carrying `paddingTop: insets.top`, and
+  // whether Yoga offsets an absolutely-positioned child by its parent's
+  // padding has changed between Yoga versions. Rather than depend on that
+  // (or on no host ever adding padding above this), the overlay measures its
+  // own origin and subtracts it, which is correct for any nesting.
+  //
+  // This is the honest version of what the old `+ insets.top` constant was
+  // groping at. The difference is that this value is read from the running
+  // layout on the actual device instead of being a number someone observed
+  // once and typed in.
+  const rootRef = useRef<any>(null);
+  const [origin, setOrigin] = useState({ x: 0, y: 0 });
+  const measureOrigin = useCallback(() => {
+    rootRef.current?.measureInWindow((x: number, y: number) => {
+      setOrigin(prev => (
+        Math.abs(prev.x - x) < 0.5 && Math.abs(prev.y - y) < 0.5 ? prev : { x, y }
+      ));
+    });
+  }, []);
+
+  // Real size of this overlay, which is exactly the window it renders into.
+  // Measured rather than taken from useWindowDimensions so the dim always
+  // covers precisely what it is laid over, including the strip behind the
+  // system navigation bar that the reported window height can exclude.
+  const [size, setSize] = useState({ w: window.width, h: window.height });
+  const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    measureOrigin();
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setSize(prevSize => (
+        Math.abs(prevSize.w - width) < 0.5 && Math.abs(prevSize.h - height) < 0.5
+          ? prevSize
+          : { w: width, h: height }
+      ));
+    }
+  }, [measureOrigin]);
+
+  // The card's own height, measured. Its content is variable-length text, so
+  // its height changes per step and with the user's font scale. The previous
+  // version substituted a flat 300px estimate into the clamp that decides how
+  // far above a target the card may sit, which is how the mic step ended up
+  // with the card sitting on top of the mic it was describing. Kept across
+  // steps rather than reset to 0, so a step change re-uses the last known
+  // height for one frame instead of flashing the card at the wrong place.
+  const [cardH, setCardH] = useState(0);
+  const onCardLayout = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    if (height > 0) setCardH(prevH => (Math.abs(prevH - height) < 0.5 ? prevH : height));
+  }, []);
+
+  const SCREEN_W = size.w;
+  const SCREEN_H = size.h;
 
   const step = TOUR_STEPS[stepIndex];
   const isMine = active && step != null && step.screen === screen;
-
-  const fade = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    if (!isMine) return;
-    fade.setValue(0);
-    Animated.timing(fade, { toValue: 1, duration: 260, useNativeDriver: true }).start();
-  }, [isMine, stepIndex, fade]);
-
-  if (!isMine || !step) return null;
-
-  const rect = step.target ? rects[step.target] : undefined;
   const isLast = stepIndex === TOUR_STEPS.length - 1;
   const isFirst = stepIndex === 0;
 
-  function handleNext() {
-    if (isLast) {
+  const handleNext = useCallback(() => {
+    const current = TOUR_STEPS[stepIndex];
+    if (!current) return;
+    if (stepIndex === TOUR_STEPS.length - 1) {
       stop();
       onFinish();
       return;
@@ -103,16 +174,18 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
     const upcoming = TOUR_STEPS[stepIndex + 1];
     next();
     // Hand off to the lesson half at the boundary.
-    if (upcoming.screen === 'lesson' && step.screen === 'map') onEnterLesson?.();
+    if (upcoming.screen === 'lesson' && current.screen === 'map') onEnterLesson?.();
     // Hand back to the map half when the lesson half finishes forward into
     // a map step — the tour's own trailing steps (currently just "Good
     // luck!") land back on the map, same "return to plain map" action onBack
     // already does for the backward crossing below.
-    if (upcoming.screen === 'map' && step.screen === 'lesson') onBack?.();
-  }
+    if (upcoming.screen === 'map' && current.screen === 'lesson') onBack?.();
+  }, [stepIndex, next, stop, onFinish, onEnterLesson, onBack]);
 
-  function handleBack() {
-    if (isFirst) {
+  const handleBack = useCallback(() => {
+    const current = TOUR_STEPS[stepIndex];
+    if (!current) return;
+    if (stepIndex === 0) {
       // Nothing earlier than step 1 — step back out to the "want a tour?"
       // fork instead of just dropping the user on the plain map, so
       // hardware back reads as "undo" all the way, not "undo, then abandon."
@@ -123,16 +196,59 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
     const previous = TOUR_STEPS[stepIndex - 1];
     prev();
     // Hand back to the map half at the boundary — mirror of handleNext above.
-    if (previous.screen === 'map' && step.screen === 'lesson') onBack?.();
+    if (previous.screen === 'map' && current.screen === 'lesson') onBack?.();
     // Mirror of the new forward case above: stepping backward out of the
     // tour's trailing map steps re-opens the lesson half.
-    if (previous.screen === 'lesson' && step.screen === 'map') onEnterLesson?.();
-  }
+    if (previous.screen === 'lesson' && current.screen === 'map') onEnterLesson?.();
+  }, [stepIndex, prev, stop, onFinish, onExitToOffer, onBack, onEnterLesson]);
 
-  function handleSkip() {
+  const handleSkip = useCallback(() => {
     stop();
     onFinish();
-  }
+  }, [stop, onFinish]);
+
+  // Hardware back used to be the Modal's onRequestClose. Without a Modal it
+  // needs an explicit handler, registered only while this host owns the
+  // current step so the two hosts can never both claim the same press.
+  useEffect(() => {
+    if (!isMine) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [isMine, handleBack]);
+
+  // useNativeDriver is deliberately FALSE here, unlike everywhere else in this
+  // app. It dates from when this was a Modal, where under Fabric the native
+  // driver's hand-off to the native view never happened and the card animated
+  // in JS while the real view stayed pinned at opacity 0 — an invisible
+  // narration card is a dead end for the user: no Next, no Skip, nothing to
+  // read. The Modal is gone, but driving one opacity from JS is cheap and
+  // always paints, so there is nothing to gain by switching it back.
+  const fade = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!isMine) return;
+    measureOrigin();
+    fade.setValue(0);
+    const anim = Animated.timing(fade, { toValue: 1, duration: 260, useNativeDriver: false });
+    anim.start();
+    // Belt and braces: if the animation is ever interrupted (remount
+    // mid-flight), leave the card visible rather than stranded at whatever
+    // partial opacity it had reached.
+    return () => { anim.stop(); fade.setValue(1); };
+  }, [isMine, stepIndex, fade, measureOrigin]);
+
+  if (!isMine || !step) return null;
+
+  // Rects are published in window coordinates; shift them into this overlay's
+  // own space. origin is {0,0} whenever the overlay already starts at the
+  // window origin (the map host), so this costs nothing there and corrects
+  // the lesson host, whose container carries a paddingTop.
+  const rawRect = step.target ? rects[step.target] : undefined;
+  const rect = rawRect
+    ? { ...rawRect, x: rawRect.x - origin.x, y: rawRect.y - origin.y }
+    : undefined;
 
   // Put the card on whichever side of the target has more room, so it never
   // covers the thing it's describing — unless the step forces a side (the
@@ -145,9 +261,7 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
     : (!rect || spotlightBottom < SCREEN_H * 0.55);
 
   // Card width is fixed (not "however wide the screen is minus a margin")
-  // so its left edge can be computed without knowing its height first —
-  // anchoring by `top`/`bottom` (never both) lets the card grow away from
-  // the target regardless of how many lines the body text wraps to.
+  // so its left edge can be computed without knowing its height first.
   const cardW = Math.min(CARD_MAX_W, SCREEN_W - CARD_MARGIN * 2);
 
   let cardLeft: number;
@@ -164,153 +278,136 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
     cardLeft = (SCREEN_W - cardW) / 2;
   }
 
-  // Anchoring by the target's own edge (not a fixed screen position) breaks
-  // down for a target that's nearly the whole screen tall — "lessonExercise"
-  // spans the entire flex:1 area below the header, so targetBottom + GAP
-  // landed hundreds of px past the bottom of the screen and the card
-  // rendered completely off-screen, unreachable (confirmed empirically: no
-  // "Next"/"Skip" text anywhere in the view hierarchy for that step). The
-  // Math.min/.max clamps below cap how far the anchor can push the card,
-  // using a generous card-height estimate (actual height is intrinsic/auto —
-  // this bound only exists to keep the anchor sane, never to size the card).
-  const CARD_H_ESTIMATE = 300;
-  const targetTop = rect ? rect.y : 0;
-  const targetBottom = rect ? rect.y + rect.height : 0;
-  const verticalStyle = rect
-    ? (cardBelow
-        ? { top: Math.min(targetBottom + TARGET_GAP, SCREEN_H - CARD_MARGIN - CARD_H_ESTIMATE) }
-        : { bottom: Math.min(SCREEN_H - targetTop + TARGET_GAP, SCREEN_H - CARD_MARGIN - CARD_H_ESTIMATE) })
-    : (cardBelow ? { bottom: 56 } : { top: 90 });
+  // Vertical placement, using the card's REAL height. Both cases anchor by
+  // `top`, which is only possible because cardH is known — the previous
+  // version had to anchor the above-target case by `bottom` and clamp with a
+  // guessed height, and that guess is what let the card overlap its own
+  // target. Clamped into the screen so a target at either extreme (the mic at
+  // the very bottom, the progress bar at the very top) still leaves the whole
+  // card, and therefore Next/Skip, reachable.
+  const maxTop = Math.max(CARD_MARGIN, SCREEN_H - CARD_MARGIN - cardH);
+  let cardTop: number;
+  if (rect) {
+    cardTop = cardBelow
+      ? rect.y + rect.height + PAD + TARGET_GAP
+      : rect.y - PAD - TARGET_GAP - cardH;
+  } else {
+    cardTop = cardBelow ? SCREEN_H - 56 - cardH : 90;
+  }
+  cardTop = Math.max(CARD_MARGIN, Math.min(cardTop, maxTop));
 
   // ── The cutout itself ────────────────────────────────────────────
   // One rect for the whole screen, one rounded-rect for the hole; evenodd
-  // punches the second out of the first. Shape choice per target mirrors
-  // what used to decide the drawn ring's shape, since it's the same "what
-  // does this actually look like" judgement — just now sizing a hole
-  // instead of an outline:
-  // - round icon buttons (hint, mic) read as a circle, not a rounded square.
-  // - wide bars (hearts, progress, HUD pills, Check, the feedback sheet's
-  //   general case) are stadium pills, radius = half their own height.
-  // - the four tab slots are a special case: at typical phone widths a
-  //   quarter of the tab bar is closer to square than to a wide bar, so the
-  //   round/pill rule above would carve a near-circle out of a rectangular
-  //   slot — forced to a small, honest rounded-rect instead. They also get
-  //   zero padding (not the usual 8px): the slots sit flush against each
-  //   other with no gap, so any padding here would undim a strip of the
-  //   neighbouring tab too.
-  // - the feedback sheet and Check button both sit flush against the bottom
-  //   of their own scroll content/screen — squaring off the hole's bottom
-  //   corners there reads as "this sheet's own edge", not a floating rounded
-  //   hole with a corner that doesn't correspond to anything real.
+  // punches the second out of the first. The hole's shape comes from the
+  // target's own rect.radius — published by useTourTarget from that
+  // element's real style (see its own call site for the value and why) —
+  // never guessed here from the measured box's aspect ratio. A hint icon and
+  // a Check button can both be "roughly square" while wanting completely
+  // different hole shapes, which is exactly the class of bug an aspect-ratio
+  // guess can't avoid.
   // - lessonExercise spans almost the entire screen below the header — a
   //   hole there would leave the dim as a meaningless thin frame, so it
   //   keeps the plain uniform dim instead (skipHole below).
-  const isTabTarget = !!step.target && step.target.startsWith('tab');
+  // - the feedback sheet sits flush against the bottom of the screen —
+  //   squaring off the hole's bottom corners there reads as "this sheet's
+  //   own edge", not a floating rounded hole with a corner that doesn't
+  //   correspond to anything real. Never applied to a 'round' target: a
+  //   circle/pill has no corner to square off.
   const skipHole = step.target === 'lessonExercise';
 
   let holeD = '';
   if (rect && !skipHole) {
-    const holePad = isTabTarget ? 0 : PAD;
-    const holeX = rect.x - holePad;
-    const holeY = rect.y - holePad;
-    const holeW = rect.width + holePad * 2;
-    const holeH = rect.height + holePad * 2;
+    const holeX = rect.x - PAD;
+    const holeY = rect.y - PAD;
+    const holeW = rect.width + PAD * 2;
+    const holeH = rect.height + PAD * 2;
 
-    const isRoundButton = Math.abs(rect.width - rect.height) < rect.width * 0.25;
-    const isPill = !isRoundButton && rect.width / rect.height > 2.2;
-    const isFlushBottom = !isRoundButton && !isPill && rect.y + rect.height > SCREEN_H - PAD - 6;
+    const isRound = rect.radius === 'round';
+    const isFlushBottom = !isRound && rect.y + rect.height > SCREEN_H - PAD - 6;
 
-    const radius = isTabTarget
-      ? 16
-      : isRoundButton || isPill
-      ? Math.min(holeW, holeH) / 2
-      : 20;
+    const radius = isRound ? Math.min(holeW, holeH) / 2 : rect.radius;
     const rTop = radius;
     const rBottom = isFlushBottom ? 0 : radius;
 
     holeD = roundedRectPath(holeX, holeY, holeW, holeH, rTop, rTop, rBottom, rBottom);
   }
-  const dimD = `M 0 0 H ${SCREEN_W} V ${SCREEN_H} H 0 Z` + (holeD ? ` ${holeD}` : '');
+  // A small overshoot past the measured bounds only guards against fractional
+  // dp rounding at the very edges; the container clips to its real bounds
+  // regardless, so overshooting is free.
+  const OVERSHOOT = 4;
+  const dimD = `M ${-OVERSHOOT} ${-OVERSHOOT} H ${SCREEN_W + OVERSHOOT} V ${SCREEN_H + OVERSHOOT} H ${-OVERSHOOT} Z` + (holeD ? ` ${holeD}` : '');
 
   return (
-    // No statusBarTranslucent: every target rect here comes from
-    // measureInWindow on the real screen behind this Modal, whose own window
-    // starts below the status bar (this app doesn't render edge-to-edge —
-    // see the insets.top padding used throughout). A statusBarTranslucent
-    // Modal spans the full physical screen including the status bar, so its
-    // (0,0) sits higher than the measured window's (0,0) — confirmed this
-    // desyncs the hole from the real element the same way it used to desync
-    // the old drawn ring.
-    <Modal visible transparent animationType="none" onRequestClose={handleBack}>
-      <View style={StyleSheet.absoluteFill}>
-        <Svg pointerEvents="none" width={SCREEN_W} height={SCREEN_H} style={StyleSheet.absoluteFill}>
-          <Path d={dimD} fill={DIM} fillRule="evenodd" />
-        </Svg>
+    <View ref={rootRef} style={styles.root} onLayout={onContainerLayout}>
+      <Svg pointerEvents="none" width={SCREEN_W} height={SCREEN_H} style={StyleSheet.absoluteFill}>
+        <Path d={dimD} fill={DIM} fillRule="evenodd" />
+      </Svg>
 
-        <Animated.View
-          style={[
-            styles.cardWrap,
-            { left: cardLeft, width: cardW },
-            verticalStyle,
-            { opacity: fade },
-          ]}
-        >
-          {/* Tail — only when there's a real target to point at. Points up
-              when the card sits below its target, down when the card sits
-              above it, positioned at the target's own x (clamped so it never
-              sits under the card's rounded corners). Two stacked triangles
-              (a slightly larger gold one behind a white one) fake a bordered
-              look with the same 2px the card's own border uses. */}
-          {rect && tailCenter != null && (
-            <View pointerEvents="none" style={[styles.tailWrap, cardBelow ? { top: 0 } : { bottom: 0 }]}>
-              <View style={[cardBelow ? styles.tailBorderUp : styles.tailBorderDown, { left: tailCenter - TAIL_SIZE - 2 }]} />
-              <View style={[cardBelow ? styles.tailFillUp : styles.tailFillDown, { left: tailCenter - TAIL_SIZE }]} />
-            </View>
-          )}
-
-          <View style={styles.card} accessibilityLabel={step.title}>
-            {!isFirst && (
-              <TouchableOpacity
-                style={styles.backBtn}
-                onPress={handleBack}
-                hitSlop={hitSlop}
-                activeOpacity={0.7}
-                accessibilityLabel="Previous step"
-              >
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M19 12H5M12 19l-7-7 7-7"
-                    stroke={colors.primary}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              </TouchableOpacity>
-            )}
-            <Text style={styles.counter}>{stepIndex + 1} of {TOUR_STEPS.length}</Text>
-
-            <View style={styles.frame}>
-              <Image
-                source={require('../../../assets/images/lumo_kufi.png')}
-                style={styles.lumo}
-                resizeMode="contain"
-              />
-              <Text style={styles.body}>{step.body}</Text>
-            </View>
-
-            <View style={styles.actions}>
-              <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} hitSlop={hitSlop}>
-                <Text style={styles.skipText}>Skip</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.nextBtn} onPress={handleNext} activeOpacity={0.85}>
-                <Text style={styles.nextText}>{isLast ? "Let's go" : 'Next'}</Text>
-              </TouchableOpacity>
-            </View>
+      <Animated.View
+        onLayout={onCardLayout}
+        style={[
+          styles.cardWrap,
+          { left: cardLeft, width: cardW, top: cardTop },
+          // Hidden until its real height is known, so it can never paint one
+          // frame at a position computed from a height of 0.
+          { opacity: cardH > 0 ? fade : 0 },
+        ]}
+      >
+        {/* Tail — only when there's a real target to point at. Points up
+            when the card sits below its target, down when the card sits
+            above it, positioned at the target's own x (clamped so it never
+            sits under the card's rounded corners). Two stacked triangles
+            (a slightly larger gold one behind a white one) fake a bordered
+            look with the same 2px the card's own border uses. */}
+        {rect && tailCenter != null && (
+          <View pointerEvents="none" style={[styles.tailWrap, cardBelow ? { top: 0 } : { bottom: 0 }]}>
+            <View style={[cardBelow ? styles.tailBorderUp : styles.tailBorderDown, { left: tailCenter - TAIL_SIZE - 2 }]} />
+            <View style={[cardBelow ? styles.tailFillUp : styles.tailFillDown, { left: tailCenter - TAIL_SIZE }]} />
           </View>
-        </Animated.View>
-      </View>
-    </Modal>
+        )}
+
+        <View style={styles.card} accessibilityLabel={step.title}>
+          {!isFirst && (
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={handleBack}
+              hitSlop={hitSlop}
+              activeOpacity={0.7}
+              accessibilityLabel="Previous step"
+            >
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M19 12H5M12 19l-7-7 7-7"
+                  stroke={colors.primary}
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.counter}>{stepIndex + 1} of {TOUR_STEPS.length}</Text>
+
+          <View style={styles.frame}>
+            <Image
+              source={require('../../../assets/images/lumo_kufi.png')}
+              style={styles.lumo}
+              resizeMode="contain"
+            />
+            <Text style={styles.body}>{step.body}</Text>
+          </View>
+
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} hitSlop={hitSlop}>
+              <Text style={styles.skipText}>Skip</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.nextBtn} onPress={handleNext} activeOpacity={0.85}>
+              <Text style={styles.nextText}>{isLast ? "Let's go" : 'Next'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -328,6 +425,11 @@ function roundedRectPath(x: number, y: number, w: number, h: number, rTL: number
 const hitSlop = { top: 10, bottom: 10, left: 10, right: 10 };
 
 const styles = StyleSheet.create({
+  // Fills its host and paints above everything in it. zIndex/elevation are
+  // belt and braces on top of paint order: this is rendered last by both
+  // hosts, but elevation is what actually decides stacking against an
+  // elevated sibling on Android, and the tab bar carries its own elevation.
+  root: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, elevation: 9999 },
   cardWrap: { position: 'absolute' },
   // The tail lives in its own absolutely-positioned strip right above/below
   // the card (not inside it) so it can sit flush against the card's border

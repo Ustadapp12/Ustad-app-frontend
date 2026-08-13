@@ -22,6 +22,12 @@ export interface AuthResponse {
   tokens: Tokens;
 }
 
+// "active" — normal streak. "frozen" — a day was missed but the streak is
+// held, not reset (see StreakState fields below). "none" — no streak, or the
+// freeze window fully expired. See src/utils/streak.ts for the shared UI
+// logic that reads these.
+export type StreakState = 'active' | 'frozen' | 'none';
+
 export interface LearningMe {
   user_id: string;
   hearts_remaining: number;
@@ -32,6 +38,13 @@ export interface LearningMe {
   gem_balance: number;
   mvp_surah_numbers: number[];
   script_preference?: ScriptPreference | null; // optional, returned by some endpoints
+  // Streak freeze/repair (added 2026-08-05, backend CHANGES.md) — optional
+  // because an older/uncached response may not carry them yet; treat a
+  // missing value the same as "active" (see src/utils/streak.ts).
+  streak_state?: StreakState;
+  freeze_days_remaining?: number;
+  repair_levels_required?: number;
+  repair_levels_completed?: number;
 }
 
 export interface LeaderboardEntry {
@@ -108,6 +121,15 @@ export interface SurahLevel {
   status: LevelStatus;
   stars: number | null;
   score_pct: number | null;
+  /** True for a review ("final review"-style) level — interleaved one after
+   * every 2 normal levels (a trailing odd normal level gets its own solo
+   * review), not appended once at the end of a surah. Defaults to false. */
+  is_special: boolean;
+  /** Real display order from the backend — required for sorting once
+   * is_special exists: a review's own ayah range overlaps the normal
+   * levels it covers, so sorting by start_ayah no longer reflects true
+   * order (see list_lesson_groups). */
+  sort_order: number;
 }
 
 export interface LessonSessionStart {
@@ -137,6 +159,15 @@ export interface SessionCompleteOut {
   completion_saved: boolean;
   streak_incremented: boolean;
   current_streak: number;
+  // Streak freeze/repair (see LearningMe above). streak_repaired fires ONLY
+  // on the exact completion that unfreezes the streak (the 2nd distinct
+  // level, same local day) — a different moment from streak_incremented,
+  // which is also true on that same completion.
+  streak_repaired?: boolean;
+  streak_state?: StreakState;
+  freeze_days_remaining?: number;
+  repair_levels_required?: number;
+  repair_levels_completed?: number;
 }
 
 export interface RevisionNext {
@@ -198,6 +229,11 @@ export interface LearningStats {
   weekly_xp: number[];
   best_streak: number;
   current_streak: number;
+  // Streak freeze/repair (see LearningMe above).
+  streak_state?: StreakState;
+  freeze_days_remaining?: number;
+  repair_levels_required?: number;
+  repair_levels_completed?: number;
 }
 
 export interface RecommendedNext {

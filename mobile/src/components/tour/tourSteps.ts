@@ -63,7 +63,7 @@ export const TOUR_STEPS: TourStep[] = [
     screen: 'map',
     target: 'tabHome',
     title: 'Home',
-    body: "This is your map of levels — you're looking at it right now.",
+    body: "This is your map of levels, you're looking at it right now.",
   },
   {
     screen: 'map',

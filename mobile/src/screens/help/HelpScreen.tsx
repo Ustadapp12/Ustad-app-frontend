@@ -5,11 +5,12 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
+import MascotShadow from '../../components/MascotShadow';
 
 const FAQS = [
   {
     q: 'What is this app?',
-    a: 'Ustad is a gamified Quran memorisation companion. You earn XP, maintain streaks, and unlock new surahs as you progress through daily lessons — making Hifz feel rewarding rather than repetitive.',
+    a: 'Ustad is a gamified Quran memorisation companion. You earn XP, maintain streaks, and unlock new surahs as you progress through daily lessons, making Hifz feel rewarding rather than repetitive.',
   },
   {
     q: 'How do lessons work?',
@@ -25,7 +26,7 @@ const FAQS = [
   },
   {
     q: 'How does roadmap progression work?',
-    a: 'The map shows all surahs from Juz 30. Each surah has one or more levels. Complete Level 1 to unlock Level 2. Stars show how well you did — aim for 3 stars by getting at least 90% correct.',
+    a: 'The map shows all surahs from Juz 30. Each surah has one or more levels. Complete Level 1 to unlock Level 2. Stars show how well you did: aim for 3 stars by getting at least 90% correct.',
   },
 ];
 
@@ -80,11 +81,14 @@ export default function HelpScreen() {
             </Text>
             <View style={styles.speechTail} />
           </View>
-          <Animated.Image
-            source={require('../../../assets/images/lumo_transparent.png')}
-            style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
-            resizeMode="contain"
-          />
+          <View>
+            <Animated.Image
+              source={require('../../../assets/images/lumo_transparent.png')}
+              style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
+              resizeMode="contain"
+            />
+            <MascotShadow width={88} style={{ position: 'relative', marginTop: -9 }} />
+          </View>
         </View>
 
         {/* FAQ cards */}
@@ -97,7 +101,7 @@ export default function HelpScreen() {
         <View style={styles.tipCard}>
           <Text style={{ fontSize: 20 }}>💡</Text>
           <Text style={styles.tipText}>
-            Practise a little every day — even 5 minutes builds a powerful habit.
+            Practise a little every day, even 5 minutes builds a powerful habit.
           </Text>
         </View>
       </ScrollView>

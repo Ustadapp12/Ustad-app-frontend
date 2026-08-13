@@ -10,6 +10,7 @@ import { useLessonStore } from './lessonStore';
 import {
   clearPendingGuestProgress, displayNameFor, getPendingGuestProgress, resetGuestState,
 } from '../utils/guest';
+import { checkStreakLoss } from '../utils/streak';
 import type { LearningMe, User, UserProfile } from '../types/api';
 
 interface AuthState {
@@ -21,11 +22,17 @@ interface AuthState {
   // extra round-trip.
   profile: UserProfile | null;
   isHydrated: boolean;
+  // One-shot: set the instant refreshLearning() observes a frozen/active
+  // streak silently expire to "none" (see utils/streak.ts's checkStreakLoss).
+  // A listener mounted once in RootNavigator shows StreakLostModal off this,
+  // then clears it back to null so it never fires twice for the same loss.
+  streakJustLost: number | null;
+  clearStreakJustLost: () => void;
   hydrate: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
   startGuestSession: () => Promise<void>;
-  upgradeGuest: (email: string, password: string, displayName: string) => Promise<void>;
+  upgradeGuest: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
   refreshLearning: (opts?: { force?: boolean }) => Promise<void>;
@@ -46,8 +53,19 @@ export const useAuthStore = create<AuthState>((set, get) => {
     void warmAudioUrlCache();
     await setAnalyticsUserId(user.id);
     lastLearningMeFetchAt = Date.now();
-    set({ user, learning });
+    set({ user });
+    await applyFreshLearning(learning);
     void prefetchAll(learning.mvp_surah_numbers ?? []);
+  };
+
+  // Every fresh learningApi.me() result (here and in refreshLearning below)
+  // runs through this so a silent frozen/active -> "none" transition (the
+  // freeze window expiring — the backend has no event for it, see
+  // app/learning/service.py) gets caught and surfaced exactly once, on
+  // whichever read is the first to observe it.
+  const applyFreshLearning = async (learning: LearningMe) => {
+    const lost = await checkStreakLoss(learning.streak_state ?? 'active', learning.current_streak);
+    set({ learning, ...(lost !== null ? { streakJustLost: lost } : {}) });
   };
 
   return {
@@ -55,6 +73,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
   learning: null,
   profile: null,
   isHydrated: false,
+  streakJustLost: null,
+
+  clearStreakJustLost: () => set({ streakJustLost: null }),
 
   hydrate: async () => {
     const tokens = await getTokens();
@@ -216,7 +237,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     await resetTourOffered();
     void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'guest_upgrade' });
     await clearPendingGuestProgress();
-    const user: User = { ...res.user, name: displayName };
+    const user: User = { ...res.user, name: displayNameFor(res.user, displayName) };
     await setStoredUser(user);
     // `learning` is deliberately left as-is: the carried-over XP/streak land
     // server-side during this call, and refreshLearning() below re-reads them
@@ -248,7 +269,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     await setAnalyticsUserId(null);
     invalidateAll();
     lastLearningMeFetchAt = 0;
-    set({ user: null, learning: null, profile: null });
+    set({ user: null, learning: null, profile: null, streakJustLost: null });
   },
 
   deleteAccount: async (password: string) => {
@@ -260,7 +281,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     await setAnalyticsUserId(null);
     invalidateAll();
     lastLearningMeFetchAt = 0;
-    set({ user: null, learning: null, profile: null });
+    set({ user: null, learning: null, profile: null, streakJustLost: null });
   },
 
   updateProfileFields: (patch: Partial<UserProfile>) => {
@@ -293,7 +314,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     try {
       const learning = await learningApi.me();
       lastLearningMeFetchAt = now;
-      set({ learning });
+      await applyFreshLearning(learning);
     } catch (e) {
       addBreadcrumb('refreshLearning: learningApi.me() failed', {
         error: e instanceof Error ? e.message : String(e),

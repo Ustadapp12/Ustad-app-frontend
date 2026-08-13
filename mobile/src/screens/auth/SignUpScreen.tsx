@@ -10,10 +10,10 @@ import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import MascotShadow from '../../components/MascotShadow';
 import { isGuest } from '../../utils/guest';
 import type { RootNavProp } from '../../navigation/types';
 import {
-  validateName,
   validateEmail,
   normalizeEmail,
   getPasswordChecklist,
@@ -35,25 +35,23 @@ export default function SignUpScreen({ navigation }: Props) {
   // not creating a second one — same user row, so their levels survive.
   const guest = isGuest(useAuthStore(s => s.user));
 
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const loadingMessage = useCyclingMessage(loading, SIGNUP_MESSAGES);
 
-  const [nameTouched, setNameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const [emailServerError, setEmailServerError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const nameValidationError = validateName(name);
   const emailValidationError = validateEmail(email);
-  const nameError = nameTouched ? nameValidationError : null;
   const emailError = emailTouched ? (emailValidationError ?? emailServerError) : null;
   const checklist = getPasswordChecklist(password);
   const strength = getPasswordStrength(checklist);
   const passwordOk = isPasswordValid(password);
+  const passwordsMatch = password === confirmPassword;
 
   // Same rule as Login: back closes the app rather than popping to whatever
   // sits behind this screen in the stack (Splash on a fresh install, or
@@ -66,17 +64,14 @@ export default function SignUpScreen({ navigation }: Props) {
     return () => sub.remove();
   }, []);
 
-  // Terms deliberately isn't part of canSubmit — unlike name/email/password,
+  // Terms deliberately isn't part of canSubmit — unlike email/password,
   // there's no field to show an inline error next to, so instead the button
   // stays tappable and handleRegister surfaces a clear formError on press.
   // (Previously agreedTerms gated the button directly, which left it looking
   // permanently — and silently — disabled if someone forgot to check it.)
-  const canSubmit = !nameValidationError && !emailValidationError && passwordOk;
-
-  function handleNameChange(t: string) {
-    setName(t);
-    setNameTouched(true);
-  }
+  // Confirm-password mismatch is button-disable-only, same mechanism as
+  // ResetPasswordScreen's canSubmit — no separate inline error text.
+  const canSubmit = !emailValidationError && passwordOk && passwordsMatch;
 
   function handleEmailChange(t: string) {
     setEmail(t);
@@ -87,6 +82,11 @@ export default function SignUpScreen({ navigation }: Props) {
 
   function handlePasswordChange(t: string) {
     setPassword(t);
+    setFormError(null);
+  }
+
+  function handleConfirmPasswordChange(t: string) {
+    setConfirmPassword(t);
     setFormError(null);
   }
 
@@ -101,12 +101,12 @@ export default function SignUpScreen({ navigation }: Props) {
     const normalizedEmail = normalizeEmail(email);
     try {
       if (guest) {
-        await upgradeGuest(normalizedEmail, password, name.trim());
+        await upgradeGuest(normalizedEmail, password);
       } else {
-        await register(normalizedEmail, password, name.trim());
+        await register(normalizedEmail, password);
       }
       if (useAuthStore.getState().user?.email_verified) {
-        navigation.replace('OnboardAge');
+        navigation.replace('OnboardUsername');
       } else {
         navigation.replace('VerifyEmail', { email: normalizedEmail });
       }
@@ -129,7 +129,7 @@ export default function SignUpScreen({ navigation }: Props) {
         try {
           await login(normalizedEmail, password);
           if (useAuthStore.getState().user?.email_verified) {
-            navigation.replace('OnboardAge');
+            navigation.replace('OnboardUsername');
           } else {
             navigation.replace('VerifyEmail', { email: normalizedEmail });
           }
@@ -142,7 +142,7 @@ export default function SignUpScreen({ navigation }: Props) {
         try {
           await login(normalizedEmail, password);
           if (useAuthStore.getState().user?.email_verified) {
-            navigation.replace('OnboardAge');
+            navigation.replace('OnboardUsername');
           } else {
             navigation.replace('VerifyEmail', { email: normalizedEmail });
           }
@@ -166,6 +166,7 @@ export default function SignUpScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.lumaWrap}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+          <MascotShadow width={90} style={{ position: 'relative', marginTop: -9 }} />
         </View>
 
         <Text style={styles.heading}>Create account</Text>
@@ -174,22 +175,6 @@ export default function SignUpScreen({ navigation }: Props) {
             ? 'Your streak, XP and progress will be saved to this account'
             : 'Start your free Hifz journey today'}
         </Text>
-
-        {/* Full name */}
-        <View style={styles.fieldWrap}>
-          <Text style={styles.fieldLabel}>FULL NAME</Text>
-          <View style={styles.inputBox}>
-            <TextInput
-              style={styles.input}
-              placeholder="Ahmad Al-Rashid"
-              placeholderTextColor={colors.placeholderText}
-              value={name}
-              onChangeText={handleNameChange}
-              autoComplete="name"
-            />
-          </View>
-          {nameError && <Text style={styles.fieldError}>{nameError}</Text>}
-        </View>
 
         {/* Email */}
         <View style={styles.fieldWrap}>
@@ -249,6 +234,21 @@ export default function SignUpScreen({ navigation }: Props) {
               </Text>
             </View>
           )}
+        </View>
+
+        {/* Confirm password — same mechanism as ResetPasswordScreen: the
+            Create Account button below simply stays disabled on a mismatch,
+            no separate inline error text. */}
+        <View style={styles.fieldWrap}>
+          <Text style={styles.fieldLabel}>CONFIRM PASSWORD</Text>
+          <View style={styles.inputBox}>
+            <PasswordInput
+              value={confirmPassword}
+              onChangeText={handleConfirmPasswordChange}
+              placeholder="Re-enter password"
+              autoComplete="new-password"
+            />
+          </View>
         </View>
 
         {/* Terms */}

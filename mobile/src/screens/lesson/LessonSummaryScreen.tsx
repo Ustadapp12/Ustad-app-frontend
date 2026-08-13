@@ -1,11 +1,14 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
 import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { useAuthStore } from '../../store/authStore';
 import { addPendingGuestProgress, isGuest } from '../../utils/guest';
+import { playFeedbackSound } from '../../services/audioPlayer';
+import { STREAK_FROZEN_COLOR, STREAK_FROZEN_ICON } from '../../utils/streak';
+import MascotShadow from '../../components/MascotShadow';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props {
@@ -14,6 +17,17 @@ interface Props {
     params: {
       xp: number; scorePct: number; stars: number;
       streakIncremented?: boolean; currentStreak?: number;
+      // True only on the exact completion that unfreezes a frozen streak
+      // (2nd distinct level, same local day) — a different moment from the
+      // routine streakIncremented, which is also true on this completion.
+      // See src/utils/streak.ts.
+      streakRepaired?: boolean;
+      // Present when this completion made repair progress but didn't finish
+      // it (streakState still 'frozen') — drives the "1 of 2 done" badge,
+      // a distinct moment from streakRepaired above.
+      streakState?: 'active' | 'frozen' | 'none';
+      repairLevelsCompleted?: number;
+      repairLevelsRequired?: number;
     };
   };
 }
@@ -42,7 +56,15 @@ function Star({ filled, delay }: { filled: boolean; delay: number }) {
 // this avoids the earlier full-screen-Lottie perf problem.
 export default function LessonSummaryScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { xp, scorePct, stars, streakIncremented, currentStreak } = route.params;
+  const {
+    xp, scorePct, stars, streakIncremented, currentStreak, streakRepaired,
+    streakState, repairLevelsCompleted, repairLevelsRequired,
+  } = route.params;
+  // Made progress toward repair (frozen, level counted) but hasn't finished
+  // it yet — streakRepaired below covers the completion that DOES finish it,
+  // this covers the one(s) before that.
+  const showRepairProgress = !streakRepaired && streakState === 'frozen'
+    && (repairLevelsCompleted ?? 0) > 0 && (repairLevelsCompleted ?? 0) < (repairLevelsRequired ?? 0);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
@@ -60,10 +82,13 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
     xpCountAnim.addListener(({ value }) => setDisplayedXp(Math.round(value)));
     const countUp = Animated.timing(xpCountAnim, { toValue: xp, duration: 1000, delay: 500, useNativeDriver: false });
     countUp.start();
+    // Ding in sync with the badge starting to fill, not the entrance fade.
+    const xpSfxTimer = xp > 0 ? setTimeout(() => playFeedbackSound(true), 500) : null;
     return () => {
       entrance.stop();
       countUp.stop();
       xpCountAnim.removeAllListeners();
+      if (xpSfxTimer) clearTimeout(xpSfxTimer);
     };
   }, []);
 
@@ -109,12 +134,28 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
         <Text style={[styles.grade, { color: gradeColor }]}>{grade}</Text>
         <Text style={styles.scorePct}>{scorePct}% accuracy</Text>
 
+        {/* Distinct from the routine streakIncremented case below — this is
+            the exact completion that unfroze a frozen streak (2nd distinct
+            level, same day), and deserves its own moment rather than being
+            folded into the ordinary streak bump. Continue still proceeds
+            into StreakCelebration as normal (streakIncremented is also true
+            here), now showing the restored, active-colored number. */}
+        {streakRepaired && (
+          <View style={[styles.streakSavedBadge, styles.streakSavedBadgeRow]}>
+            <Image source={STREAK_FROZEN_ICON} style={styles.streakSavedBadgeIcon} resizeMode="contain" />
+            <Text style={styles.streakSavedBadgeText}>Streak saved!</Text>
+          </View>
+        )}
+
         {/* Congratulating Lumo — static image, not a second Lottie */}
-        <Animated.Image
-          source={require('../../../assets/images/lumo_xp.png')}
-          style={[styles.lumaImg, { transform: [{ scale: lumaScaleAnim }] }]}
-          resizeMode="contain"
-        />
+        <View style={{ width: 84, height: 84, marginBottom: 12 }}>
+          <Animated.Image
+            source={require('../../../assets/images/lumo_xp.png')}
+            style={[styles.lumaImg, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
+            resizeMode="contain"
+          />
+          <MascotShadow width={84} />
+        </View>
 
         {/* XP — gold-bordered badge */}
         <View style={styles.xpBadge}>
@@ -129,7 +170,12 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
             if (streakIncremented) {
               // replace, not navigate — the celebration screen's own
               // continue button lands on MainTabs, never back here.
-              navigation.replace('StreakCelebration', { currentStreak: currentStreak ?? 0 });
+              navigation.replace('StreakCelebration', { currentStreak: currentStreak ?? 0, streakRepaired });
+            } else if (showRepairProgress) {
+              navigation.replace('StreakRepairProgress', {
+                repairLevelsCompleted: repairLevelsCompleted ?? 0,
+                repairLevelsRequired: repairLevelsRequired ?? 0,
+              });
             } else {
               navigation.navigate('MainTabs');
             }
@@ -150,6 +196,13 @@ const styles = StyleSheet.create({
   star:         { fontSize: 52 },
   grade:        { fontFamily: 'Nunito_700Bold', fontSize: 30, marginBottom: 4 },
   scorePct:     { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.65)', marginBottom: 14 },
+  streakSavedBadge: {
+    backgroundColor: 'rgba(0,0,0,0.40)', borderRadius: 20, borderWidth: 2, borderColor: STREAK_FROZEN_COLOR,
+    paddingHorizontal: 18, paddingVertical: 8, marginBottom: 14, maxWidth: '100%',
+  },
+  streakSavedBadgeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  streakSavedBadgeIcon: { width: 18, height: 18 },
+  streakSavedBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: STREAK_FROZEN_COLOR, textAlign: 'center' },
   lumaImg:      { width: 84, height: 84, marginBottom: 12 },
   xpBadge:      { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: 'rgba(0,0,0,0.40)', borderRadius: 20,
                   paddingHorizontal: 22, paddingVertical: 10, borderWidth: 2, borderColor: colors.gold, marginBottom: 14 },

@@ -8,6 +8,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { authApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
+import MascotShadow from '../../components/MascotShadow';
 import { maskEmail } from '../../utils/validators';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
@@ -109,7 +110,10 @@ export default function VerifyResetCodeScreen({ navigation, route }: Props) {
       </TouchableOpacity>
 
       <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
-        <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+        <View style={{ width: 100, height: 100, marginBottom: 8 }}>
+          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <MascotShadow width={100} />
+        </View>
 
         <Text style={styles.heading}>Enter your code</Text>
         <Text style={styles.sub}>Check {maskEmail(email)} for the 6-digit code we sent.</Text>

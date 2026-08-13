@@ -10,6 +10,8 @@ import { authApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import MascotShadow from '../../components/MascotShadow';
+import { playFeedbackSound } from '../../services/audioPlayer';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
 interface Props {
@@ -78,6 +80,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
       if (res.xp_awarded > 0) {
         setCelebXp(res.xp_awarded);
         setShowCelebration(true);
+        playFeedbackSound(true);
       } else {
         navigation.replace('OnboardAge');
       }
@@ -125,7 +128,10 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
         <Text style={styles.closeIcon}>✕</Text>
       </TouchableOpacity>
       <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
-        <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+        <View style={{ width: 110, height: 110, marginBottom: 8 }}>
+          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <MascotShadow width={110} />
+        </View>
 
         <Text style={styles.heading}>Verify your email</Text>
         <Text style={styles.sub}>
@@ -171,11 +177,14 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
     >
       <View style={styles.celebBackdrop}>
         <View style={styles.celebCard}>
-          <Animated.Image
-            source={require('../../../assets/images/lumo_xp.png')}
-            style={[styles.celebLuma, { transform: [{ scale: lumaScaleAnim }] }]}
-            resizeMode="contain"
-          />
+          <View style={{ width: 84, height: 84, marginBottom: 12 }}>
+            <Animated.Image
+              source={require('../../../assets/images/lumo_xp.png')}
+              style={[styles.celebLuma, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
+              resizeMode="contain"
+            />
+            <MascotShadow width={84} />
+          </View>
           <Text style={styles.celebTitle}>Email verified! 🎉</Text>
           <Text style={styles.celebXp}>+{celebXp} XP</Text>
           <TouchableOpacity

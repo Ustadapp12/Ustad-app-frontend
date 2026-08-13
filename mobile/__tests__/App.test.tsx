@@ -13,6 +13,7 @@ jest.mock('../src/navigation/RootNavigator', () => ({
 jest.mock('../src/store/authStore', () => ({
   useAuthStore: Object.assign(jest.fn(() => null), {
     getState: () => ({ user: null, refreshLearning: jest.fn() }),
+    subscribe: jest.fn(() => () => {}),
   }),
 }));
 

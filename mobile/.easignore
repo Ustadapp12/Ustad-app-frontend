@@ -1,0 +1,75 @@
+# EAS Build uploads the project archive using this file instead of .gitignore.
+# Keep everything .gitignore excludes EXCEPT the Firebase config files below —
+# those are gitignored (kept out of source control) but must still reach the
+# cloud build machine, or the native Firebase SDK build step fails.
+
+# OSX
+.DS_Store
+
+# Xcode
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+**/.xcode.env.local
+
+# Android/IntelliJ
+.idea
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+*.keystore
+!debug.keystore
+.kotlin/
+
+# node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# fastlane
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+
+# Release signing (never commit, never needed by EAS — it manages iOS
+# signing itself; Android release signing is handled via EAS secrets)
+android/keystore.properties
+
+# Metro / Gradle JS bundles
+*.jsbundle
+*.bundle
+
+# Ruby / CocoaPods
+**/Pods/
+/vendor/bundle/
+
+.metro-health-check*
+/coverage
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# NOTE: android/app/google-services.json and ios/UstadApp/GoogleService-Info.plist
+# are intentionally NOT listed here (unlike .gitignore) so EAS Build picks them
+# up from local disk when it archives the project.

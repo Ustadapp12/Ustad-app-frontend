@@ -4,44 +4,69 @@ import {
   ScrollView, RefreshControl, type ImageSourcePropType,
 } from 'react-native';
 import Svg, {
-  Defs, Path, G, Pattern, Image as SvgImage, Symbol as SvgSymbol, Use, Ellipse,
+  Defs, Path, G, Pattern, Image as SvgImage,
 } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
-import { BlurView } from '@react-native-community/blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import PredictedProgressBar from '../../components/PredictedProgressBar';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import MascotShadow from '../../components/MascotShadow';
 import { useAuthStore } from '../../store/authStore';
 import { useLessonStore } from '../../store/lessonStore';
 import { learningApi } from '../../api';
 import { colors } from '../../theme/colors';
-import { groupIntoPhases } from '../../utils/mapPhases';
+import {
+  groupIntoPhases, CHAPTER_SEASONS, CHAPTER_COUNT, chapterSeasonLabel,
+} from '../../utils/mapPhases';
+import { STREAK_ACTIVE_EMOJI, STREAK_FROZEN_ICON, isStreakFrozen, streakColor, checkStreakFrozenPopup } from '../../utils/streak';
+import StreakFrozenModal from '../../components/StreakFrozenModal';
 import { getCachedRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel } from '../../services/bootCache';
+import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
 import { loadLessonGroup } from '../../services/cachedContent';
 import { getUnlockedSeasons, setTourOffered, unlockSeason, wasTourOffered } from '../../utils/storage';
 import { useTourStore } from '../../store/tourStore';
 import { TOUR_STEPS } from '../../components/tour/tourSteps';
 import { TOUR_GLOW } from '../lesson/LessonSessionScreen';
 import TourOfferModal from '../../components/tour/TourOfferModal';
-import TourOverlay from '../../components/tour/TourOverlay';
+import { useTourTarget } from '../../components/tour/useTourTarget';
 import type { SurahLevel } from '../../types/api';
 import type { MapNavProp } from '../../navigation/types';
 
+// Height of one background-Svg tile, in the same dp space as MAP_H.
+//
+// 3000 is a deliberate ceiling on how OFTEN tiles mount, not on how big each
+// one is. Tiles are virtualized (see tileWindow), and mounting one is far more
+// expensive than it looks: every tile builds its own <Defs> with two <Pattern>s
+// and their <SvgImage>s, and react-native-svg creates a real native view per
+// element. Under Fabric that happens in preallocateView on the UI thread's
+// frame callback — so a burst of tile mounts blocks input directly.
+//
+// This was measured, not guessed. At 1000dp (22 tiles) a fast fling ANR'd the
+// app outright: "Input dispatching timed out... Waited 5114ms", with the main
+// thread stack sitting in com.horcrux.svg.DefsView.<init> under
+// MountItemDispatcher.dispatchPreMountItems. Smaller tiles cut resident memory
+// but multiplied the number of mount events, and view creation — not bitmap
+// size — is the binding constraint while scrolling.
+//
+// At 3000dp the map is 8 tiles, a boundary is crossed only every ~3.4 screens,
+// and the window below keeps 2-3 resident (~65-97MB) — still far under the
+// ~367MB measured before any virtualization, and without the churn.
+const SVG_BG_TILE_H = 3000;
+
 // ── Asset refs (static, so Metro can bundle them) ──────────────────
-// Both baked into the SVG background tiles as <Symbol>s (see "Map
-// decorations" below), not plain overlay Images — mosque.png (2000x2000)
-// and the original tree.png (palette-mode) both failed RNSVG's Android image
-// decoder ("RNSVG: fetchDecodedImage failed!" in logcat), silently rendering
-// nothing. mosque_svg.png is that same source art downscaled to 360x360;
-// new_Tree.png is already 512x512 32bpp (no palette), comfortably clear of
-// both failure modes — confirmed rendering correctly on-device.
-const TREE_SVG_SRC   = require('../../../assets/map/new_Tree.png');
-const MOSQUE_SVG_SRC = require('../../../assets/map/mosque_svg.png');
 const BIRDS_SRC    = require('../../../assets/birds.png');
 const CLOUD_SRC    = require('../../../assets/clouds.png');
 const START_SRC    = require('../../../assets/start.png');
 const SCROLL_SRC   = require('../../../assets/map/scroll2.png');
+// Chapter-paging signs — same wooden-signpost art as the season gates, one
+// pointing forward ("NEXT STAGE") and one back ("PREVIOUS STAGE"), text baked
+// into the art itself. Real aspect ratios (678x767 / 692x756) — close but not
+// identical, so each keeps its own rather than sharing one constant.
+const NEXT_STAGE_SRC     = require('../../../assets/map/NEXT_STAGE.png');
+const PREVIOUS_STAGE_SRC = require('../../../assets/map/PREVIOUS_STAGE.png');
+const NEXT_STAGE_ASPECT     = 678 / 767;
+const PREVIOUS_STAGE_ASPECT = 692 / 756;
 const GRASS_SRC    = require('../../../assets/map/grass.jpg');
 const BRICK_SRC    = require('../../../assets/map/bricks.jpg');
 // Pre-engraved signs — the season number is baked into the art itself, one
@@ -80,6 +105,8 @@ const NODE_SRCS = {
   locked: require('../../../assets/map/node_locked.png'),
   current: require('../../../assets/map/node_current.png'),
   completed: require('../../../assets/map/node_completed.png'),
+  special: require('../../../assets/map/special.png'),
+  specialDone: require('../../../assets/map/special_done.png'),
 } as const;
 
 // Rough heuristic for the loading overlay's progress bar (current-surah
@@ -101,6 +128,12 @@ interface SectionNode {
   status: NodeStatus; stars: number; levelNum: number;
   startAyah?: number; endAyah?: number;
   resolved?: boolean;
+  // Review level — interleaved one after every 2 normal levels (a trailing
+  // odd normal level gets its own solo review), not appended once at the
+  // end. Seeded from the static def (so it renders before backend data
+  // resolves), overridden by the real `is_special` field once a level fetch
+  // lands.
+  isSpecial?: boolean;
 }
 interface Section {
   surahNum: number; name: string; arabicName: string; ayahCount: number;
@@ -112,7 +145,7 @@ interface Section {
 // To add a surah: append a new entry. Layout recalculates automatically.
 interface SectionDef {
   surahNum: number; name: string; arabicName: string; ayahCount: number;
-  levels: Array<{ id: string; levelNum: number }>;
+  levels: Array<{ id: string; levelNum: number; isSpecial?: boolean }>;
   xFractions: number[];  // x position of each level's node as fraction of map width
 }
 
@@ -128,117 +161,132 @@ function defaultXFractions(surahNum: number, count: number): number[] {
     return Math.round(Math.min(0.74, Math.max(0.20, base + (frac - 0.5) * 0.34)) * 100) / 100;
   });
 }
+// Deterministic x-position for a review node — same sine-hash technique as
+// defaultXFractions, seeded off which normal group it follows (afterGroup)
+// so it stays stable across renders without needing its own hand-tuned
+// entry. Leans the opposite base side from defaultXFractions' own i%2 rule
+// so a review doesn't default to the same side as the normal node right
+// before it.
+function reviewXFraction(surahNum: number, afterGroup: number): number {
+  const raw = Math.sin((surahNum * 100 + afterGroup * 7 + 53) * 12.9898) * 43758.5453;
+  const frac = raw - Math.floor(raw);
+  const base = afterGroup % 2 === 0 ? 0.28 : 0.62;
+  return Math.round(Math.min(0.74, Math.max(0.20, base + (frac - 0.5) * 0.34)) * 100) / 100;
+}
 // CHUNK_SIZE=2 group builder — must match the backend's own lesson-group
 // seeding exactly (see [[project-map-levels]] memory), or node count/ayah
-// ranges on the map won't line up with real backend groups.
-function buildLevels(surahNum: number, ayahCount: number): Array<{ id: string; levelNum: number }> {
+// ranges on the map won't line up with real backend groups. Review nodes
+// (backend's `is_special`) are now interleaved one after every 2 normal
+// groups, with a trailing odd group getting its own solo review — not one
+// appended at the end — matching the backend's own placement (see
+// list_lesson_groups). Builds `levels` and `xFractions` together, not
+// separately, so the two can never drift out of sync with each other as the
+// interleave count changes per surah — `normalXFractions` must have exactly
+// one entry per normal group (groupCount = ceil(ayahCount/2)); review
+// x-positions are always hashed via reviewXFraction, never hand-tuned,
+// since a surah can now have several.
+function buildLevelsWithReviews(
+  surahNum: number, ayahCount: number, normalXFractions: number[],
+): { levels: Array<{ id: string; levelNum: number; isSpecial?: boolean }>; xFractions: number[] } {
   const groupCount = Math.ceil(ayahCount / 2);
-  return Array.from({ length: groupCount }, (_, i) => ({ id: `${surahNum}_g${i + 1}`, levelNum: i + 1 }));
+  const levels: Array<{ id: string; levelNum: number; isSpecial?: boolean }> = [];
+  const xFractions: number[] = [];
+  let reviewIdx = 0;
+  for (let g = 1; g <= groupCount; g++) {
+    levels.push({ id: `${surahNum}_g${g}`, levelNum: g });
+    xFractions.push(normalXFractions[g - 1]);
+    if (g % 2 === 0 || g === groupCount) {
+      reviewIdx++;
+      // levelNum carries the last normal group this review covers — an
+      // even value means it paired that group with the one before it, an
+      // odd value only ever occurs for the trailing solo case (g ===
+      // groupCount with no even hit yet) — see estimateAyahRange, which
+      // reads this same value back out.
+      levels.push({ id: `${surahNum}_review${reviewIdx}`, levelNum: g, isSpecial: true });
+      xFractions.push(reviewXFraction(surahNum, g));
+    }
+  }
+  return { levels, xFractions };
 }
 
 const SECTIONS_DEF: SectionDef[] = [
   {
-    // 6 ayahs ÷ 2 = 3 groups: 1-2, 3-4, 5-6
+    // 6 ayahs ÷ 2 = 3 groups: 1-2, 3-4, 5-6. Reviews interleave after every
+    // 2 groups plus a trailing solo — 3 groups means one paired review
+    // (after g2) and one solo review (after g3), 5 nodes total. Hand-tuned
+    // xFractions cover only the 3 normal groups; review positions are
+    // always hashed (see buildLevelsWithReviews).
     surahNum: 114, name: 'An-Nas', arabicName: 'الناس', ayahCount: 6,
-    levels: [
-      { id: '114_g1', levelNum: 1 },
-      { id: '114_g2', levelNum: 2 },
-      { id: '114_g3', levelNum: 3 },
-    ],
-    xFractions: [0.55, 0.20, 0.62],
+    ...buildLevelsWithReviews(114, 6, [0.55, 0.20, 0.62]),
   },
   {
     // 5 ayahs ÷ 2 = 3 groups: 1-2, 3-4, 5
     surahNum: 113, name: 'Al-Falaq', arabicName: 'الفلق', ayahCount: 5,
-    levels: [
-      { id: '113_g1', levelNum: 1 },
-      { id: '113_g2', levelNum: 2 },
-      { id: '113_g3', levelNum: 3 },
-    ],
-    xFractions: [0.35, 0.68, 0.28],
+    ...buildLevelsWithReviews(113, 5, [0.35, 0.68, 0.28]),
   },
   {
-    // 4 ayahs ÷ 2 = 2 groups: 1-2, 3-4
+    // 4 ayahs ÷ 2 = 2 groups: 1-2, 3-4 — exactly one pair, one review, no
+    // trailing solo.
     surahNum: 112, name: 'Al-Ikhlas', arabicName: 'الإخلاص', ayahCount: 4,
-    levels: [
-      { id: '112_g1', levelNum: 1 },
-      { id: '112_g2', levelNum: 2 },
-    ],
-    xFractions: [0.60, 0.22],
+    ...buildLevelsWithReviews(112, 4, [0.60, 0.22]),
   },
   {
     // 5 ayahs ÷ 2 = 3 groups: 1-2, 3-4, 5
     surahNum: 111, name: 'Al-Masad', arabicName: 'المسد', ayahCount: 5,
-    levels: [
-      { id: '111_g1', levelNum: 1 },
-      { id: '111_g2', levelNum: 2 },
-      { id: '111_g3', levelNum: 3 },
-    ],
-    xFractions: [0.65, 0.28, 0.62],
+    ...buildLevelsWithReviews(111, 5, [0.65, 0.28, 0.62]),
   },
   {
-    // 3 ayahs ÷ 2 = 2 groups: 1-2, 3
+    // 3 ayahs ÷ 2 = 2 groups: 1-2, 3 — one pair, one review.
     surahNum: 110, name: 'An-Nasr', arabicName: 'النصر', ayahCount: 3,
-    levels: [
-      { id: '110_g1', levelNum: 1 },
-      { id: '110_g2', levelNum: 2 },
-    ],
-    xFractions: [0.38, 0.72],
+    ...buildLevelsWithReviews(110, 3, [0.38, 0.72]),
   },
   {
     // 6 ayahs ÷ 2 = 3 groups: 1-2, 3-4, 5-6
     surahNum: 109, name: 'Al-Kafirun', arabicName: 'الكافرون', ayahCount: 6,
-    levels: [
-      { id: '109_g1', levelNum: 1 },
-      { id: '109_g2', levelNum: 2 },
-      { id: '109_g3', levelNum: 3 },
-    ],
-    xFractions: [0.22, 0.65, 0.25],
+    ...buildLevelsWithReviews(109, 6, [0.22, 0.65, 0.25]),
   },
   {
-    // 3 ayahs ÷ 2 = 2 groups: 1-2, 3
+    // 3 ayahs ÷ 2 = 2 groups: 1-2, 3 — one pair, one review.
     surahNum: 108, name: 'Al-Kawthar', arabicName: 'الكوثر', ayahCount: 3,
-    levels: [
-      { id: '108_g1', levelNum: 1 },
-      { id: '108_g2', levelNum: 2 },
-    ],
-    xFractions: [0.45, 0.72],
+    ...buildLevelsWithReviews(108, 3, [0.45, 0.72]),
   },
   // ── Below this point: surahs added when the backend expanded the MVP
   // curriculum from 10 to 21 surahs. No hand-tuned xFractions yet — these
   // use the deterministic defaultXFractions() fallback instead (see note
-  // above). Season grouping is 3 surahs/season (see PHASE_SIZES in
-  // mapPhases.ts), continuing the same top-to-bottom, highest-to-lowest
+  // above), sized to the normal-group count only (Math.ceil(ayahCount/2)) —
+  // buildLevelsWithReviews adds the interleaved reviews' own hashed
+  // positions on top. Season grouping is 3 surahs/season (see PHASE_SIZES
+  // in mapPhases.ts), continuing the same top-to-bottom, highest-to-lowest
   // surah-number order as the original 7. ──
   { surahNum: 107, name: "Al-Ma'un", arabicName: 'الماعون', ayahCount: 7,
-    levels: buildLevels(107, 7), xFractions: defaultXFractions(107, 4) },
+    ...buildLevelsWithReviews(107, 7, defaultXFractions(107, 4)) },
   { surahNum: 106, name: 'Quraysh', arabicName: 'قريش', ayahCount: 4,
-    levels: buildLevels(106, 4), xFractions: defaultXFractions(106, 2) },
+    ...buildLevelsWithReviews(106, 4, defaultXFractions(106, 2)) },
   { surahNum: 105, name: 'Al-Fil', arabicName: 'الفيل', ayahCount: 5,
-    levels: buildLevels(105, 5), xFractions: defaultXFractions(105, 3) },
+    ...buildLevelsWithReviews(105, 5, defaultXFractions(105, 3)) },
   { surahNum: 104, name: 'Al-Humazah', arabicName: 'الهمزة', ayahCount: 9,
-    levels: buildLevels(104, 9), xFractions: defaultXFractions(104, 5) },
+    ...buildLevelsWithReviews(104, 9, defaultXFractions(104, 5)) },
   { surahNum: 103, name: "Al-'Asr", arabicName: 'العصر', ayahCount: 3,
-    levels: buildLevels(103, 3), xFractions: defaultXFractions(103, 2) },
+    ...buildLevelsWithReviews(103, 3, defaultXFractions(103, 2)) },
   { surahNum: 102, name: 'At-Takathur', arabicName: 'التكاثر', ayahCount: 8,
-    levels: buildLevels(102, 8), xFractions: defaultXFractions(102, 4) },
+    ...buildLevelsWithReviews(102, 8, defaultXFractions(102, 4)) },
   { surahNum: 101, name: "Al-Qari'ah", arabicName: 'القارعة', ayahCount: 11,
-    levels: buildLevels(101, 11), xFractions: defaultXFractions(101, 6) },
+    ...buildLevelsWithReviews(101, 11, defaultXFractions(101, 6)) },
   { surahNum: 100, name: "Al-'Adiyat", arabicName: 'العاديات', ayahCount: 11,
-    levels: buildLevels(100, 11), xFractions: defaultXFractions(100, 6) },
+    ...buildLevelsWithReviews(100, 11, defaultXFractions(100, 6)) },
   { surahNum: 99, name: 'Az-Zalzalah', arabicName: 'الزلزلة', ayahCount: 8,
-    levels: buildLevels(99, 8), xFractions: defaultXFractions(99, 4) },
+    ...buildLevelsWithReviews(99, 8, defaultXFractions(99, 4)) },
   { surahNum: 98, name: 'Al-Bayyinah', arabicName: 'البينة', ayahCount: 8,
-    levels: buildLevels(98, 8), xFractions: defaultXFractions(98, 4) },
+    ...buildLevelsWithReviews(98, 8, defaultXFractions(98, 4)) },
   { surahNum: 97, name: 'Al-Qadr', arabicName: 'القدر', ayahCount: 5,
-    levels: buildLevels(97, 5), xFractions: defaultXFractions(97, 3) },
+    ...buildLevelsWithReviews(97, 5, defaultXFractions(97, 3)) },
   // 96 (Al-'Alaq) intentionally excluded from the MVP curriculum.
   { surahNum: 95, name: 'At-Tin', arabicName: 'التين', ayahCount: 8,
-    levels: buildLevels(95, 8), xFractions: defaultXFractions(95, 4) },
+    ...buildLevelsWithReviews(95, 8, defaultXFractions(95, 4)) },
   { surahNum: 94, name: 'Ash-Sharh', arabicName: 'الشرح', ayahCount: 8,
-    levels: buildLevels(94, 8), xFractions: defaultXFractions(94, 4) },
+    ...buildLevelsWithReviews(94, 8, defaultXFractions(94, 4)) },
   { surahNum: 93, name: 'Ad-Duha', arabicName: 'الضحى', ayahCount: 11,
-    levels: buildLevels(93, 11), xFractions: defaultXFractions(93, 6) },
+    ...buildLevelsWithReviews(93, 11, defaultXFractions(93, 6)) },
 ];
 
 // Seasons (phases) — pure loading/pacing grouping, not an access gate. Pure
@@ -247,6 +295,19 @@ const PHASE_GROUPS: number[][] = groupIntoPhases(SECTIONS_DEF.map(d => d.surahNu
 // Phases double as "seasons" now — surah number -> season index (0,1,2).
 const SURAH_TO_SEASON: Record<number, number> = {};
 PHASE_GROUPS.forEach((group, idx) => group.forEach(n => { SURAH_TO_SEASON[n] = idx; }));
+
+// ── Chapters: the slice of the map that's actually laid out at one time ──
+// Seasons grouped 3-at-a-time (see mapPhases). buildMapModel below receives a
+// chapter index and lays out ONLY that chapter's surahs, so MAP_H and the
+// mounted node/pill/label count are ~1/3 of the full journey's. Every other
+// derived structure (path geometry, tiles, labels, gates) falls out of the
+// sliced SECTIONS_DEF automatically — there is no second place that needs to
+// know about chapters.
+const CHAPTER_SURAHS: number[][] = CHAPTER_SEASONS.map(seasons =>
+  seasons.flatMap(s => PHASE_GROUPS[s] ?? []),
+);
+const SURAH_TO_CHAPTER: Record<number, number> = {};
+CHAPTER_SURAHS.forEach((surahs, idx) => surahs.forEach(n => { SURAH_TO_CHAPTER[n] = idx; }));
 
 // ── Pure helpers with no width dependency ──────────────────────────
 // Deterministic pseudo-scatter (no Math.random — same input always gives
@@ -273,12 +334,22 @@ function stageToNodeStatus(s: string): NodeStatus {
 }
 
 function formatAyahRange(from: number, to: number): string {
-  return from === to ? `Ayah ${from}` : `Ayahs ${from}–${to}`;
+  return from === to ? `Ayah ${from}` : `Ayahs ${from}-${to}`;
+}
+
+// Fallback ayah-range estimate for a node before its real start_ayah/end_ayah
+// resolve from the backend. Both normal and review nodes are a uniform
+// 2-ayah-per-group slot now — a review's own levelNum (see
+// buildLevelsWithReviews) is the index of the last normal group it covers,
+// so the same per-group formula applies to it directly; the only wrinkle is
+// a paired review (levelNum even) spanning the two groups ending there
+// instead of just the one a normal node of that levelNum would cover.
+function estimateAyahRange(levelNum: number, ayahCount: number, isSpecial?: boolean): { from: number; to: number } {
+  const fromGroup = isSpecial && levelNum % 2 === 0 ? levelNum - 1 : levelNum;
+  return { from: (fromGroup - 1) * 2 + 1, to: Math.min(levelNum * 2, ayahCount) };
 }
 
 // ── Types for the fully-computed, width-dependent map model ────────
-interface DecorMosque  { y: number; x: number }
-interface DecorTree    { y: number; x: number }
 interface DecorBird    { y: number; x: number }
 interface DecorSeasonGate { x: number; y: number; w: number; h: number; unlocksSeasonIdx: number }
 interface LabelBox { x: number; y: number; w: number; h: number; isLeft: boolean }
@@ -290,7 +361,7 @@ interface MapModel {
   ACTION_CARD_W: number; ACTION_CARD_H: number;
   BASE_SECTIONS: Section[]; MAP_H: number; ALL_NODES: SectionNode[];
   pathDForYRange: (startY: number, endY: number) => string;
-  DECORATIONS: { mosques: DecorMosque[]; trees: DecorTree[]; birds: DecorBird[]; seasonGates: DecorSeasonGate[] };
+  DECORATIONS: { birds: DecorBird[]; seasonGates: DecorSeasonGate[] };
   SKY_BOUNDARY_Y: number;
   GRASS_EDGE_D: string;
   SKY_CLOUDS: { x: number; y: number; w: number; h: number }[];
@@ -315,15 +386,24 @@ const ACTION_CARD_ASPECT = 179 / 392;
 // useWindowDimensions in the component), so split-screen/foldable/rotation
 // resizes actually relayout instead of leaving a stale frozen width baked in
 // from first mount.
-function buildMapModel(mapW: number, viewportH: number): MapModel {
+function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): MapModel {
   const BASELINE_W = 393;
   const SCALE = Math.min(1.3, Math.max(0.82, mapW / BASELINE_W));
   const sc = (n: number) => Math.round(n * SCALE);
 
   const NODE_SIZE     = sc(56);
   const NODE_GAP      = sc(170);
+  // Both chapter-paging signs now sit together at the bottom (see the
+  // end-of-chapter banner below) — no sign at the top anymore, so every
+  // chapter uses the same margin.
   const TOP_MARGIN    = sc(220);
-  const FOOTER_PAD    = sc(200);
+  // Room under the last node for the end-of-chapter banner: flag + a side-by-
+  // side row of [PREVIOUS_STAGE?, NEXT_STAGE?] signs (NEW badge floats over
+  // the corner, doesn't add height) + season-range captions under each —
+  // not the bare "More coming soon…" text — so the banner never rides up
+  // into the last node's ayah pill, and the captions never clip at the
+  // scroll end.
+  const FOOTER_PAD    = sc(260);
   // Real visual gap from the road's widest visible (glow) stroke, not just
   // its centerline — the old NODE_SIZE/2 + sc(8) was only ~5px past the
   // glow's own half-width, which read as "touching the road."
@@ -345,9 +425,19 @@ function buildMapModel(mapW: number, viewportH: number): MapModel {
   // bigger single jump, so the whole path reads at one predictable rhythm
   // instead of surah transitions feeling arbitrarily longer than a normal
   // node-to-node step.
+  // Only the requested chapter's surahs are laid out — everything below
+  // (path, tiles, labels, pills, gates, MAP_H) derives from CHAPTER_DEFS, so
+  // slicing here is the single point that makes the map a chapter at a time.
+  // Falls back to chapter 0 rather than producing an empty map if an
+  // out-of-range index ever arrives.
+  const chapterDefs = SECTIONS_DEF.filter(d => SURAH_TO_CHAPTER[d.surahNum] === chapterIdx);
+  const CHAPTER_DEFS = chapterDefs.length
+    ? chapterDefs
+    : SECTIONS_DEF.filter(d => SURAH_TO_CHAPTER[d.surahNum] === 0);
+
   let y = TOP_MARGIN;
   const seasonGateCenterYs: Record<number, number> = {};
-  const BASE_SECTIONS: Section[] = SECTIONS_DEF.map((def, secIdx) => {
+  const BASE_SECTIONS: Section[] = CHAPTER_DEFS.map((def, secIdx) => {
     const nodes: SectionNode[] = def.levels.map((lvl, nIdx) => ({
       id: lvl.id,
       x: Math.round(def.xFractions[nIdx] * mapW - NODE_SIZE / 2),
@@ -355,9 +445,10 @@ function buildMapModel(mapW: number, viewportH: number): MapModel {
       status: 'locked' as NodeStatus,
       stars: 0,
       levelNum: lvl.levelNum,
+      isSpecial: lvl.isSpecial,
     }));
     const lastNodeY = y + (def.levels.length - 1) * NODE_GAP;
-    const nextDef = SECTIONS_DEF[secIdx + 1];
+    const nextDef = CHAPTER_DEFS[secIdx + 1];
     const isSeasonBoundary = !!nextDef
       && (SURAH_TO_SEASON[nextDef.surahNum] ?? 0) !== (SURAH_TO_SEASON[def.surahNum] ?? 0);
     if (isSeasonBoundary) {
@@ -491,13 +582,10 @@ function buildMapModel(mapW: number, viewportH: number): MapModel {
         const x = side === 'left' ? anchorX - w : anchorX;
         const py = anchorY - h / 2;
         const fits = side === 'left' ? x >= 0 : x + w <= mapW;
-        if (
-          fits
-          && !isBlocked(py, side, h, zones, gap)
-          && roadClearAcross(py, py + h, x, x + w, gap)
-        ) {
-          return { side, x: Math.round(x), y: Math.round(py) };
-        }
+        if (!fits) continue;
+        if (isBlocked(py, side, h, zones, gap)) continue;
+        if (!roadClearAcross(py, py + h, x, x + w, gap)) continue;
+        return { side, x: Math.round(x), y: Math.round(py) };
       }
     }
     return null;
@@ -522,15 +610,21 @@ function buildMapModel(mapW: number, viewportH: number): MapModel {
       // ayahTo fallback uses, so this sizes against the label that will
       // actually show even before any backend start/endAyah override lands.
       const levelNum = node.levelNum ?? 1;
-      const ayahFrom = (levelNum - 1) * 2 + 1;
-      const ayahTo = Math.min(levelNum * 2, section.ayahCount);
+      const { from: ayahFrom, to: ayahTo } = estimateAyahRange(levelNum, section.ayahCount, node.isSpecial);
       const rangeLabel = formatAyahRange(ayahFrom, ayahTo);
       const pillW = Math.round(Math.max(sc(50), Math.min(sc(105), sc(38) + rangeLabel.length * sc(5.5))));
       const px = Math.max(0, Math.min(mapW - pillW, node.x + NODE_SIZE / 2 - pillW / 2));
       const py = node.y + NODE_SIZE + sc(6);
       AYAH_PILLS[`${section.surahNum}_${nodeIdx}`] = { x: px, y: py, w: pillW, h: PILL_H };
-      placed.push({ y: py, side: 'left', height: PILL_H });
-      placed.push({ y: py, side: 'right', height: PILL_H });
+      // No separate blocking zone for the pill itself (unlike the node
+      // above) — it sits centered ON the path (px is node-centered), while
+      // decorations always anchor off to one SIDE via CLEARANCE, so it was
+      // rarely the thing actually in their way; it was mostly just adding
+      // ~32px of dead reach on top of the node's own zone (see that zone's
+      // comment) toward the ~102px-of-170px saturation that left zero room
+      // for any tree/mosque anywhere. Worst case now is a decoration
+      // landing adjacent to a pill's text rather than clearly beside it —
+      // a minor cosmetic tradeoff against decorations existing at all.
     });
   });
 
@@ -621,62 +715,36 @@ function buildMapModel(mapW: number, viewportH: number): MapModel {
   // *other decorations*. A node sits on the path's own centerline (not off
   // to one side), so it's registered on BOTH sides with a margin so nothing
   // anchors too close to its y regardless of which side it ends up on.
+  //
+  // Padding trimmed from sc(28)/sc(14) to sc(10)/sc(5) — confirmed via
+  // instrumented placeSide (temporary attempts/blockedF/roadF counters) that
+  // the original padding, combined with every node's own ayah-pill also
+  // reserving a full separate zone just below it (see AYAH_PILLS below),
+  // consumed ~102px of the 170px NODE_GAP step around every single node —
+  // more than the tallest decoration even needs, so ~95% of every placement
+  // attempt across the whole map (3292 of 3468 in that run) failed on this
+  // check alone and virtually nothing ever placed. This still
+  // clears the node's own glow/pulse ring (see MapNode's pulseRing, sized
+  // off NODE_SIZE) with a few px to spare — it just stops being needlessly
+  // more generous than that ring actually requires.
   ALL_NODES.forEach(node => {
-    const zoneH = NODE_SIZE + sc(28);
-    const zoneY = node.y - sc(14);
+    const zoneH = NODE_SIZE + sc(10);
+    const zoneY = node.y - sc(5);
     placed.push({ y: zoneY, side: 'left', height: zoneH });
     placed.push({ y: zoneY, side: 'right', height: zoneH });
   });
 
   // ── Decorations — every type placed via placeSide, into the zones already
-  // seeded above. Priority: mosque > tree > rock > bird > lantern. ──
+  // seeded above. Priority: rock > bird > lantern.
+  //
+  // Trees and mosques used to be placed here too (three passes each) and drawn
+  // as <SvgImage> inside the background tiles. Removed outright: they never
+  // actually rendered on device. Both source images kept hitting RNSVG's
+  // Android decoder ("fetchDecodedImage failed!"), and each replacement — a
+  // downscaled mosque, a non-palette tree — bought at most a partial fix, so
+  // what shipped was a map whose two most numerous decorations were invisible
+  // while still costing placement work and paint calls per tile. ──
   const nodeMidYs = ALL_NODES.slice(0, -1).map((n, i) => Math.round((n.y + ALL_NODES[i + 1].y) / 2));
-
-  const mosqueW = sc(72), mosqueH = sc(88);
-  const mosques: DecorMosque[] = [];
-  secMidYs.forEach((midY, i) => {
-    const prefer: 'left' | 'right' = i % 2 === 0 ? 'left' : 'right';
-    const p = placeSide(midY, mosqueW, mosqueH, prefer, placed);
-    if (p) { placed.push({ y: p.y, side: p.side, height: mosqueH }); mosques.push({ y: p.y, x: p.x }); }
-  });
-  // Extra mosque pass along the road itself — more mosques scattered
-  // between nodes too, not just at section boundaries.
-  nodeMidYs.forEach((midY, i) => {
-    if (i % 2 !== 0) return;
-    const prefer: 'left' | 'right' = i % 4 === 0 ? 'left' : 'right';
-    const p = placeSide(midY - sc(40), mosqueW, mosqueH, prefer, placed, 6);
-    if (p) { placed.push({ y: p.y, side: p.side, height: mosqueH }); mosques.push({ y: p.y, x: p.x }); }
-  });
-  // Third mosque pass — even more of them dotted along the way.
-  nodeMidYs.forEach((midY, i) => {
-    if (i % 2 === 0) return;
-    const prefer: 'left' | 'right' = i % 3 === 0 ? 'right' : 'left';
-    const p = placeSide(midY + sc(45), mosqueW, mosqueH, prefer, placed, 6);
-    if (p) { placed.push({ y: p.y, side: p.side, height: mosqueH }); mosques.push({ y: p.y, x: p.x }); }
-  });
-
-  const treeW = sc(58), treeH = sc(80);
-  const trees: DecorTree[] = [];
-  nodeMidYs.forEach((midY, i) => {
-    const pL = placeSide(midY, treeW, treeH, 'left', placed, 4);
-    if (pL) { placed.push({ y: pL.y, side: pL.side, height: treeH }); trees.push({ y: pL.y, x: pL.x }); }
-    const pR = placeSide(midY + sc(22), treeW, treeH, 'right', placed, 4);
-    if (pR) { placed.push({ y: pR.y, side: pR.side, height: treeH }); trees.push({ y: pR.y, x: pR.x }); }
-  });
-  // Extra tree pass at section boundaries — denser treeline, still
-  // zone-checked so it can never land on a mosque/label/pill/etc.
-  secMidYs.forEach((midY, i) => {
-    const prefer: 'left' | 'right' = i % 2 === 0 ? 'right' : 'left';
-    const p = placeSide(midY + sc(35), treeW, treeH, prefer, placed, 4);
-    if (p) { placed.push({ y: p.y, side: p.side, height: treeH }); trees.push({ y: p.y, x: p.x }); }
-  });
-  // Third tree pass — even denser treeline along the grass, all still
-  // zone-checked so nothing overlaps.
-  nodeMidYs.forEach((midY, i) => {
-    const prefer: 'left' | 'right' = i % 2 === 0 ? 'left' : 'right';
-    const p = placeSide(midY - sc(38), treeW, treeH, prefer, placed, 4);
-    if (p) { placed.push({ y: p.y, side: p.side, height: treeH }); trees.push({ y: p.y, x: p.x }); }
-  });
 
   const birdW = sc(96), birdH = sc(48);
   const birds: DecorBird[] = [];
@@ -715,7 +783,14 @@ function buildMapModel(mapW: number, viewportH: number): MapModel {
   let GRASS_EDGE_D = `M 0 ${Math.round(SKY_BOUNDARY_Y + (hash(0) - 0.5) * edgeAmp * 2)}`;
   {
     let seed = 1;
-    for (let x = edgeStep; x < mapW; x += edgeStep) {
+    // <= mapW, not <, so the jagged line's last vertex lands exactly on the
+    // right edge instead of stopping one step short — a short-stop left the
+    // closing `L mapW SKY_BOUNDARY_Y` segment cutting straight across at the
+    // flat boundary y, past the last jagged point, which on some widths (the
+    // step doesn't divide mapW evenly) opened a sliver gap between the
+    // jagged edge and the tile's true right edge for the sky to leak
+    // through.
+    for (let x = edgeStep; x <= mapW; x += edgeStep) {
       const ey = SKY_BOUNDARY_Y + (hash(seed) - 0.5) * edgeAmp * 2;
       GRASS_EDGE_D += ` L ${Math.round(x)} ${Math.round(ey)}`;
       seed++;
@@ -756,7 +831,7 @@ function buildMapModel(mapW: number, viewportH: number): MapModel {
     ACTION_CARD_H: Math.round(sc(230) * ACTION_CARD_ASPECT),
     BASE_SECTIONS, MAP_H, ALL_NODES,
     pathDForYRange,
-    DECORATIONS: { mosques, trees, birds, seasonGates },
+    DECORATIONS: { birds, seasonGates },
     SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS,
     AYAH_PILLS, SURAH_LABELS,
   };
@@ -781,15 +856,12 @@ function makeStyles(M: MapModel) {
     // through at the bottom."
     container: { flex: 1, backgroundColor: colors.mapBg },
     // Absolute + zIndex so this sits on top of the ScrollView instead of
-    // pushing it down — the BlurView it wraps needs the real map content
-    // (sky, mountains, whatever's scrolled up under it) actually rendered
-    // behind it to blur, not a fixed patch of its own.
+    // pushing it down, letting the map scroll freely underneath it.
     hud: {
       position: 'absolute', top: 0, left: 0, right: 0, zIndex: 15,
       overflow: 'hidden',
       paddingHorizontal: sc(16), paddingVertical: sc(6),
     },
-    hudTint: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
     hudRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     hudPill: {
       flexDirection: 'row', alignItems: 'center', gap: sc(4),
@@ -799,11 +871,14 @@ function makeStyles(M: MapModel) {
     },
     hudVal: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: '#DC2626' },
     hudStreakEmoji: { fontSize: sc(16) },
+    hudStreakIcon: { width: sc(16), height: sc(16) },
     loadingOverlay: {
       position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
       alignItems: 'center', justifyContent: 'center',
       backgroundColor: 'rgba(42,140,90,0.72)', zIndex: 20,
     },
+    // Opaque variant for the initial load — see the comment at its use site.
+    loadingOverlaySolid: { backgroundColor: colors.mapBg },
     node: { width: NODE_SIZE, height: NODE_SIZE, alignItems: 'center', justifyContent: 'center' },
     nodeImg: { position: 'absolute', width: NODE_SIZE, height: NODE_SIZE },
     nodeShadow: {
@@ -833,6 +908,24 @@ function makeStyles(M: MapModel) {
     },
     lumaImg: { width: sc(66), height: sc(66) },
     endText: { fontFamily: 'Nunito_700Bold', fontSize: sc(11), color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: sc(4) },
+    // ── Chapter paging — both signs side by side at the bottom, wooden
+    // signpost art, same material as the season gate signs, text baked into
+    // the image. Row is centered + gap-based so it re-centers responsively
+    // instead of relying on fixed left/right offsets. ──
+    chapterSignRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: sc(16), marginTop: sc(6) },
+    chapterSignCol: { alignItems: 'center' },
+    chapterSignCaption: {
+      fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: colors.darkText,
+      marginTop: sc(2), textShadowColor: 'rgba(255,255,255,0.8)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 },
+    },
+    // Floats over the NEXT sign's top-right corner (not stacked above it) so
+    // its image stays level with the PREVIOUS sign, which has no badge.
+    chapterNewBadgeFloat: {
+      position: 'absolute', top: sc(-10), right: sc(-6), zIndex: 2,
+      backgroundColor: '#FFD34D', borderRadius: sc(8),
+      paddingHorizontal: sc(8), paddingVertical: sc(2),
+    },
+    chapterNewBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#3B2A12', letterSpacing: 0.6 },
     unlockBtn: {
       marginTop: sc(6), backgroundColor: colors.primary, borderRadius: sc(14),
       paddingHorizontal: sc(16), paddingVertical: sc(8),
@@ -868,7 +961,11 @@ function makeStyles(M: MapModel) {
     actionCardSubtitleBox: { position: 'absolute', left: '4%', top: '34%', width: '92%' },
     actionCardSubtitle: { fontFamily: 'Nunito_700Bold', fontSize: acw(0.052), opacity: 0.7 },
     actionCardBtn: {
-      position: 'absolute', left: '4%', top: '51%', width: '92%', height: '31%',
+      // top nudged down from 51% (height trimmed to match, 31%→28%, so the
+      // bottom edge — and the card's own bottom margin — stays put) to open
+      // up more breathing room under the ayah-range subtitle, which sat
+      // right on top of the button before.
+      position: 'absolute', left: '4%', top: '54%', width: '92%', height: '28%',
       borderRadius: acw(0.052), alignItems: 'center', justifyContent: 'center',
       shadowColor: '#000', shadowOffset: { width: 0, height: acw(0.017) }, shadowOpacity: 0.2, shadowRadius: acw(0.026), elevation: 4,
     },
@@ -950,17 +1047,31 @@ function Pathway({ d, sc, patternId }: { d: string; sc: (n: number) => number; p
   );
 }
 
-// ── Map node — one visual shell for every non-completed/non-current status.
+// ── Map node — one visual shell for every non-completed/non-green status.
 // The ONLY differentiator for a real locked gate is the lock icon; nothing
 // is dimmed/faded anymore (dimming previously read as "broken", not "locked"). ──
-function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, isFetching, S }: {
+function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, isFetching, isSpecial, S }: {
   status: NodeStatus; stars: number;
   pulseAnim: Animated.Value; goldAnim: Animated.Value;
-  levelNum: number; isFetching?: boolean; S: Styles['S'];
+  levelNum: number; isFetching?: boolean; isSpecial?: boolean; S: Styles['S'];
 }) {
   const pulseScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
   const goldScale  = goldAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
-  const nodeImgSrc = status === 'completed' ? NODE_SRCS.completed : status === 'current' ? NODE_SRCS.current : NODE_SRCS.locked;
+  // Special/review (collective) nodes get their own green-star art, not
+  // "whichever node the backend recommends next" (that was the old wiring —
+  // NodeStatus 'current', from backend 'in_progress' — see
+  // stageToNodeStatus; removed per product ask, since it lit up at most one
+  // node on the whole map and had nothing to do with review sessions).
+  // Special nodes stay on the green special.png even while locked (the star
+  // marks "this is a review session", independent of reachability) and swap
+  // to the gold special_done.png on completion — only the padlock icon
+  // (below) still gates on real lock status. Pulsing is reserved for a node
+  // that's actually reachable right now — a locked-but-green node shouldn't
+  // invite a tap that just shakes it.
+  const isPulsing = !!isSpecial && status !== 'locked' && status !== 'completed';
+  const nodeImgSrc = isSpecial
+    ? (status === 'completed' ? NODE_SRCS.specialDone : NODE_SRCS.special)
+    : (status === 'completed' ? NODE_SRCS.completed : NODE_SRCS.locked);
 
   return (
     <View style={S.nodeWrapper}>
@@ -968,9 +1079,9 @@ function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, isFetching, S }
       <Animated.View style={[
         S.node,
         status === 'completed' && { transform: [{ scale: goldScale }] },
-        status === 'current' && { transform: [{ scale: pulseScale }] },
+        isPulsing && { transform: [{ scale: pulseScale }] },
       ]}>
-        {status === 'current' && (
+        {isPulsing && (
           <Animated.View style={[S.pulseRing, {
             transform: [{ scale: pulseScale }],
             opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
@@ -981,6 +1092,10 @@ function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, isFetching, S }
           <Text style={S.lockIcon}>🔒</Text>
         ) : status === 'pending' && isFetching ? (
           <ActivityIndicator size="small" color="#5A3A00" />
+        ) : isSpecial ? (
+          // Review node: the star is already baked into special.png /
+          // special_done.png, so no separate glyph is drawn here.
+          null
         ) : (
           <Text style={S.nodeNumber}>{levelNum}</Text>
         )}
@@ -1069,7 +1184,7 @@ function LevelActionCard({
 }
 
 // ── Luma mascot ───────────────────────────────────────────────────
-function LumaFloat({ style, speech, floatAnim, S, SB }: { style?: object; speech?: string; floatAnim: Animated.Value; S: Styles['S']; SB: Styles['SB'] }) {
+function LumaFloat({ style, speech, floatAnim, S, SB, sc }: { style?: object; speech?: string; floatAnim: Animated.Value; S: Styles['S']; SB: Styles['SB']; sc: (n: number) => number }) {
   const ty = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
   return (
     <View style={[{ alignItems: 'center' }, style]}>
@@ -1081,6 +1196,12 @@ function LumaFloat({ style, speech, floatAnim, S, SB }: { style?: object; speech
           resizeMode="contain"
         />
       </View>
+      {/* Ground contact shadow — fixed, doesn't bob with ty (translateY
+          above) so it reads as Lumo lifting off his own shadow rather than
+          the shadow floating with him. Normal flow (not MascotShadow's
+          default absolute-under-the-Image), pulled up under the glow
+          circle's base via negative margin instead. */}
+      <MascotShadow width={sc(72)} style={{ position: 'relative', marginTop: -sc(10) }} />
     </View>
   );
 }
@@ -1101,12 +1222,49 @@ export default function MapScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { learning, refreshLearning } = useAuthStore();
   const { width, height } = useWindowDimensions();
-  const M = useMemo(() => {
-    console.time('[MAP] buildMapModel');
-    const result = buildMapModel(width, height);
-    console.timeEnd('[MAP] buildMapModel');
-    return result;
-  }, [width, height]);
+  // "You opened the map and your streak is frozen" — shown once per freeze
+  // occurrence (see checkStreakFrozenPopup's AsyncStorage-backed gate), not
+  // once per map visit. Re-checks whenever streak_state changes under this
+  // screen (a poll/foreground refresh can flip it while the map stays open),
+  // not just on first mount.
+  const [frozenPopupVisible, setFrozenPopupVisible] = useState(false);
+  useEffect(() => {
+    if (!learning) return;
+    void (async () => {
+      const shouldShow = await checkStreakFrozenPopup(learning.streak_state ?? 'active');
+      if (shouldShow) setFrozenPopupVisible(true);
+    })();
+  }, [learning?.streak_state]);
+  // ── Which chapter (3-season slice) is laid out right now ──────────
+  // Seeded from the boot cache so a warm start renders the right chapter on
+  // the very first frame; corrected by the resolve effect below when the
+  // recommendation only lands after a network round-trip. Paging with the
+  // signs at the top/bottom of the map sets it directly.
+  const [chapterIdx, setChapterIdx] = useState(() => {
+    const surah = getCachedRecommended()?.surah_number;
+    return surah != null ? (SURAH_TO_CHAPTER[surah] ?? 0) : 0;
+  });
+  // False only across a cold start where the recommendation wasn't cached
+  // yet when chapterIdx was seeded above — set true once the resolve effect
+  // below has confirmed (or corrected) which chapter that recommendation
+  // actually lands in. Keeps the loading overlay up until then, so a
+  // cold-start correction jumps chapters behind the scrim instead of
+  // flashing the wrong chapter's map first.
+  const [chapterResolved, setChapterResolved] = useState(() => getCachedRecommended() != null);
+  // Last recommended surah the chapter was auto-moved for — so a changing
+  // recommendation (finishing the last level of a chapter) follows the user
+  // forward exactly once per change, rather than on every re-render.
+  const appliedRecSurahRef = useRef<number | null>(null);
+  // Set once the user pages by hand. From then on the map stays where they
+  // put it for the rest of the session instead of being yanked back to the
+  // recommendation — a fresh launch re-seeds from the cache above, which is
+  // what makes "open the app, land where I am" still true.
+  const manualChapterRef = useRef(false);
+  // Where a chapter switch should land the viewport, consumed by the
+  // chapter-jump effect. Forward reads as continuing the journey, so it opens
+  // at the top; back returns you to the end of the chapter you came from.
+  const chapterJumpRef = useRef<'top' | 'bottom' | null>(null);
+  const M = useMemo(() => buildMapModel(width, height, chapterIdx), [width, height, chapterIdx]);
   const styles = useMemo(() => makeStyles(M), [M]);
   const { S, SL, SB } = styles;
   const {
@@ -1114,7 +1272,6 @@ export default function MapScreen({ navigation }: Props) {
     SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS, AYAH_PILLS, SURAH_LABELS,
     pathDForYRange, ACTION_CARD_W, ACTION_CARD_H,
   } = M;
-
   // Beside the node — level with it (not above, like the old retry bubble),
   // on whichever side of the road actually has room. "Parallel to the node"
   // always: same vertical center as the node, never stacked over it. The
@@ -1133,12 +1290,20 @@ export default function MapScreen({ navigation }: Props) {
   // Offered once, on a first-time user's first sight of the map. Declining
   // leaves them here with Level 1 already in reach, which is the point of
   // asking rather than imposing.
-  const [tourOfferVisible, setTourOfferVisible] = useState(false);
+  // Lives in the tour store, not local state: the overlay that can re-open
+  // this offer (hardware back on step 1) is hosted in MainTabs now, since
+  // only a sibling of Tab.Navigator can paint over the tab bar.
+  const tourOfferVisible = useTourStore(s => s.offerVisible);
+  const setTourOfferVisible = useTourStore(s => s.setOfferVisible);
   // Separate refs (not one ref around the whole HUD row) so the tour can
   // glow the streak pill and the XP pill as two distinct targets, matching
   // how they're introduced as two separate steps.
-  const streakPillRef = useRef<View>(null);
-  const xpPillRef = useRef<View>(null);
+  // 'round': S.hudPill's declared borderRadius (sc(20)) always exceeds half
+  // its own rendered height, so it clamps to a full stadium regardless of sc
+  // scale — matching that clamp here directly is simpler and no less
+  // correct than importing sc() to restate the same number.
+  const streakTarget = useTourTarget('hudStreak', 'round');
+  const xpTarget = useTourTarget('hudXp', 'round');
   // Tour-only: each pill glows itself (a real border+shadow on the real
   // pill, inheriting S.hudPill's own borderRadius) exactly while the tour's
   // current step targets it — same pattern as the tab icons in MainTabs, so
@@ -1152,61 +1317,16 @@ export default function MapScreen({ navigation }: Props) {
   // visible jump once the real measurement lands.
   const [hudHeight, setHudHeight] = useState(insets.top + sc(64));
   const startTour = useTourStore(s => s.start);
-  const setTourRect = useTourStore(s => s.setRect);
-
-  // Hardware back on the tour's very first step has nowhere earlier to go,
-  // so it steps back out to this same offer instead of just dropping the
-  // user on the plain map — see TourOverlay's onExitToOffer.
-  function handleExitTourToOffer() {
-    setTourOfferVisible(true);
-  }
-
-  useEffect(() => {
-    void (async () => {
-      if (await wasTourOffered()) return;
-      setTourOfferVisible(true);
-    })();
-  }, []);
-
-  function measureTourTargets() {
-    streakPillRef.current?.measureInWindow((x, y, w, h) => {
-      if (w > 0 && h > 0) setTourRect('hudStreak', { x, y, width: w, height: h });
-    });
-    xpPillRef.current?.measureInWindow((x, y, w, h) => {
-      if (w > 0 && h > 0) setTourRect('hudXp', { x, y, width: w, height: h });
-    });
-    // The tab bar belongs to the navigator, not this tree, so there's no ref to
-    // measure per tab. Its overall geometry is fixed though — full width, the
-    // 80pt height set in MainTabs' styles. That height is a *custom*
-    // tabBarStyle.height, and react-navigation's bottom-tabs only pads in the
-    // safe-area inset when it's computing its own default height — a custom
-    // height is trusted as-is and rendered flush to the screen bottom, with no
-    // extra inset added on top. Subtracting insets.bottom again here (as this
-    // used to) pushed the glow rect up and shrunk it short of the real bar's
-    // bottom edge. The four tabs are equal-width flex items (MainTabs sets no
-    // per-tab width override), so each tab's own rect is an even quarter-slice
-    // of that known bar — a real position, not a guess, even though there's no
-    // ref into the navigator's own tab buttons.
-    const TAB_BAR_H = 80;
-    const tabBarY = height - TAB_BAR_H;
-    const tabW = width / 4;
-    (['tabHome', 'tabQuests', 'tabBoard', 'tabProfile'] as const).forEach((key, i) => {
-      setTourRect(key, { x: i * tabW, y: tabBarY, width: tabW, height: TAB_BAR_H });
-    });
-  }
 
   function handleAcceptTour() {
     setTourOfferVisible(false);
     void setTourOffered();
-    // TourOfferModal's native Android dialog is still tearing itself down
-    // for a beat after `visible` flips to false. Opening TourOverlay's own
-    // Modal in the same tick stacks a second dialog on top of one that
-    // hasn't finished closing, and the old one keeps eating every touch
-    // meant for the new one — Next/Skip look dead even though they're
-    // wired up correctly. Waiting out the close animation first avoids the
-    // overlap entirely.
+    // TourOfferModal is a native Android dialog and is still tearing itself
+    // down for a beat after `visible` flips to false, during which it keeps
+    // eating touches meant for whatever comes next. Waiting out its close
+    // animation before starting the tour avoids that overlap. (The tour
+    // overlay itself is no longer a Modal, but this offer still is.)
     setTimeout(() => {
-      measureTourTargets();
       startTour();
     }, 350);
   }
@@ -1257,6 +1377,20 @@ export default function MapScreen({ navigation }: Props) {
   const scrollRef = useRef<ScrollView>(null);
   const autoScrolledNodeIdRef = useRef<string | null>(null);
 
+  // Gated on the map having actually finished loading, not just on mount:
+  // the offer used to appear while the first levels fetch was still in
+  // flight, so accepting it started the tour over S.loadingOverlay rather
+  // than over the real map. That overlay is opaque enough on its own that
+  // the tour's dim on top of it read as a flat black screen with no map in
+  // it. loadingPaths only ever goes true→false, so this still fires once.
+  useEffect(() => {
+    if (loadingPaths) return;
+    void (async () => {
+      if (await wasTourOffered()) return;
+      setTourOfferVisible(true);
+    })();
+  }, [loadingPaths, setTourOfferVisible]);
+
   // If learning is still null when this screen becomes active (hydrate's
   // retries exhausted, or a stale session), nudge one refresh rather than
   // leaving the HUD stuck on the "not loaded" placeholder indefinitely.
@@ -1265,10 +1399,34 @@ export default function MapScreen({ navigation }: Props) {
     if (!learning) void refreshLearning({ force: true });
   }, [learning, refreshLearning]);
 
-  // Backend has no explicit level-number/order field on SurahLevel — nodes
-  // are indexed by raw array position (see enrichedSections below), so sort
-  // defensively by start_ayah instead of trusting the response order.
-  const sortedLevels = (levels: SurahLevel[]) => levels.slice().sort((a, b) => a.start_ayah - b.start_ayah);
+  // Sort by the real sort_order field, not start_ayah — review levels are
+  // now interleaved one after every 2 normal levels (see buildLevels below)
+  // and each review's own ayah range overlaps the normal levels it covers,
+  // so start_ayah no longer reflects true display order (a review covering
+  // groups 1-2 and group 2 itself can share the same start_ayah). Nodes are
+  // indexed by array position after this (see enrichedSections below), so
+  // getting this order right is load-bearing, not cosmetic.
+  //
+  // Falls back to end_ayah when sort_order is missing — confirmed live
+  // against the testing environment that this happens: its /levels
+  // response already carries the new interleaved is_special content
+  // (correct overlapping ranges, e.g. a review at start=1/end=4 alongside
+  // groups 1-2 and 3-4) but every item's sort_order came back undefined,
+  // so `a.sort_order - b.sort_order` is NaN for every pair and Array.sort
+  // silently leaves the API's raw (non-interleaved: normals then reviews)
+  // order in place. end_ayah works as a substitute because a review's own
+  // end_ayah always equals the last normal group it covers (same overlap
+  // property that broke start_ayah-sorting in the first place) — sorting
+  // ascending by it and breaking ties by putting is_special after normal
+  // reconstructs "review right after the pair/group it covers" without
+  // needing sort_order at all. Once every environment actually serves
+  // sort_order this fallback stops mattering (the first branch always
+  // wins), so it's safe to leave in rather than ripping out later.
+  const sortedLevels = (levels: SurahLevel[]) => levels.slice().sort((a, b) => {
+    if (a.sort_order != null && b.sort_order != null) return a.sort_order - b.sort_order;
+    if (a.end_ayah !== b.end_ayah) return a.end_ayah - b.end_ayah;
+    return (a.is_special ? 1 : 0) - (b.is_special ? 1 : 0);
+  });
 
   const mergeFirstLevels = (levels: SurahLevel[]) => {
     if (levels.length === 0) return;
@@ -1367,8 +1525,26 @@ export default function MapScreen({ navigation }: Props) {
         } catch (e) { console.warn('[MapScreen] current-surah levels fetch failed:', e); }
       })();
 
+      // The chapter the user actually opens into (same lookup the chapterIdx
+      // state seed uses) may not be chapter 0 — a returning user with real
+      // progress can land straight into chapter 2. Phase 0 is only "season
+      // 0", which that user never sees, so prioritizing it unconditionally
+      // used to leave the chapter actually on screen showing placeholder
+      // ('pending') nodes until the staggered loop below happened to reach
+      // it several seconds later. Fetch the visible chapter's own
+      // (unlocked) seasons up front instead — season 0 stays included
+      // whenever it's part of that chapter, since chapter 0 is still the
+      // overwhelmingly common case.
+      const startSurah = currentSurah ?? SECTIONS_DEF[0]?.surahNum;
+      const startChapterIdx = startSurah != null ? (SURAH_TO_CHAPTER[startSurah] ?? 0) : 0;
+      const prioritySeasons = (CHAPTER_SEASONS[startChapterIdx] ?? [0])
+        .filter(i => i === 0 || unlockedSet.has(i));
+
       const startTime = Date.now();
-      await Promise.all([currentSurahFetch, fetchPhase(0, currentSurah)]);
+      await Promise.all([
+        currentSurahFetch,
+        ...prioritySeasons.map(i => fetchPhase(i, currentSurah)),
+      ]);
       const measureDuration = Date.now() - startTime;
       if (cancelled) return;
       setMapLoadDurationMs(measureDuration);
@@ -1382,9 +1558,13 @@ export default function MapScreen({ navigation }: Props) {
       // yet is skipped entirely (not even the lightweight fetch), per the
       // "seasons shouldn't all load at once" requirement; its data loads
       // for the first time only when the user explicitly unlocks it (see
-      // handleUnlockConfirm below).
-      for (let i = 1; i < PHASE_GROUPS.length; i++) {
+      // handleUnlockConfirm below). Seasons already covered by
+      // prioritySeasons above are skipped here (fetchPhase would no-op on
+      // them anyway via fetchedPhasesRef, but skipping avoids wasting one of
+      // the 700ms stagger steps on a fetch that isn't going to happen).
+      for (let i = 0; i < PHASE_GROUPS.length; i++) {
         if (cancelled) return;
+        if (prioritySeasons.includes(i)) continue;
         if (!unlockedSet.has(i)) continue;
         await new Promise(res => setTimeout(res, 700));
         if (cancelled) return;
@@ -1394,18 +1574,28 @@ export default function MapScreen({ navigation }: Props) {
     return () => { cancelled = true; };
   }, []);
 
-  // Re-fetch the current surah's levels every time the map regains focus
-  // (skip the very first focus — the mount effect above already covers it).
-  // MapScreen sits underneath LessonStart/LessonSession/LessonComplete in the
-  // same native stack, so it never remounts between lessons; without this,
-  // finishing a lesson invalidates the shared bootCache (see
-  // lessonStore.completeSession) but this screen's own `fullLevels` state —
-  // already populated before the lesson — never gets told to reload, so the
-  // map kept showing pre-completion statuses indefinitely.
+  // Re-fetch the current surah's levels when the map regains focus after a
+  // genuine lesson completion (skip the very first focus — the mount effect
+  // above already covers it). MapScreen sits underneath
+  // LessonStart/LessonSession/LessonComplete in the same native stack, so it
+  // never remounts between lessons; without this, finishing a lesson
+  // invalidates the shared bootCache (see lessonStore.completeSession) but
+  // this screen's own `fullLevels` state — already populated before the
+  // lesson — never gets told to reload, so the map kept showing
+  // pre-completion statuses indefinitely.
+  //
+  // Gated on lastCompletedSurah rather than running on every focus: only a
+  // real completion ever invalidates anything (completeSession sets it;
+  // abandonSession — the cancel/exit path — never touches it or the shared
+  // cache). Without this guard the map re-fetched over the network on every
+  // single return regardless of cause — cancelling a level included — which
+  // is what made the map look like it "reloads" every time you came back to
+  // it, even though nothing had changed.
   const isFirstFocusRef = useRef(true);
   useFocusEffect(
     useCallback(() => {
       if (isFirstFocusRef.current) { isFirstFocusRef.current = false; return; }
+      if (useLessonStore.getState().lastCompletedSurah == null) return;
       let cancelled = false;
       (async () => {
         let currentSurah = getCachedRecommended()?.surah_number ?? null;
@@ -1439,6 +1629,14 @@ export default function MapScreen({ navigation }: Props) {
           try {
             const completedLevels = await learningApi.levels(completedSurah);
             if (!cancelled) setFullLevels(prev => ({ ...prev, [completedSurah]: sortedLevels(completedLevels) }));
+            // completedSurah !== currentSurah only happens when finishing a
+            // level advanced "recommended next" to a different surah — i.e.
+            // completedSurah's own levels (review node included) are all
+            // done. The status check just confirms it off the same fetch
+            // rather than trusting that inference alone.
+            if (!cancelled && completedLevels.length > 0 && completedLevels.every(l => l.status === 'completed')) {
+              void logAnalyticsEvent(AnalyticsEvents.SURAH_COMPLETE, { surah_number: completedSurah });
+            }
             useLessonStore.getState().clearLastCompletedSurah();
           } catch (e) { console.warn('[MapScreen] completed-surah refresh failed:', e); }
         } else if (completedSurah != null) {
@@ -1476,10 +1674,10 @@ export default function MapScreen({ navigation }: Props) {
       nodes: section.nodes.map((node, nodeIdx) => {
         const group = full?.[nodeIdx];
         if (group) {
-          return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: group.stars ?? 0, startAyah: group.start_ayah, endAyah: group.end_ayah, resolved: true };
+          return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: group.stars ?? 0, startAyah: group.start_ayah, endAyah: group.end_ayah, isSpecial: group.is_special, resolved: true };
         }
         if (nodeIdx === 0 && first) {
-          return { ...node, id: first.lesson_group_id, status: stageToNodeStatus(first.status), stars: first.stars ?? 0, startAyah: first.start_ayah, endAyah: first.end_ayah, resolved: true };
+          return { ...node, id: first.lesson_group_id, status: stageToNodeStatus(first.status), stars: first.stars ?? 0, startAyah: first.start_ayah, endAyah: first.end_ayah, isSpecial: first.is_special, resolved: true };
         }
         if (nodeIdx === 0) {
           // First level of a surah is never actually locked server-side —
@@ -1493,7 +1691,14 @@ export default function MapScreen({ navigation }: Props) {
         // actually finished them. Assume completed (3 stars, unconfirmed) —
         // resolved:false marks it as a guess, so handleNodePress verifies the
         // real status on tap before deciding retry-prompt vs. direct-start.
-        if (first?.status === 'completed') {
+        // Excludes the review node: its id here is still the static
+        // placeholder (`${surahNum}_review`), never a real lesson_group_id,
+        // until `group` above actually resolves it. Guessing "completed" for
+        // it let a tap reach handleRetryConfirm with that placeholder id and
+        // navigate into LessonSession with a groupId the backend has never
+        // heard of — locked (inert tap, no navigation) is the safe default
+        // until a real fetch confirms the level exists.
+        if (first?.status === 'completed' && !node.isSpecial) {
           return { ...node, status: 'completed' as NodeStatus, stars: 3, resolved: false };
         }
         return { ...node, resolved: false }; // stays computeLayout's default 'locked' — a real gate
@@ -1520,7 +1725,17 @@ export default function MapScreen({ navigation }: Props) {
           const levels = await learningApi.levels(section.surahNum);
           const sorted = sortedLevels(levels);
           setFullLevels(prev => ({ ...prev, [section.surahNum]: sorted }));
-          const real = sorted[node.levelNum - 1];
+          // node.levelNum is a group index, not an array position — review
+          // levels now interleave (one after every 2 normal levels), so a
+          // later normal level's own levelNum no longer matches its
+          // position in the full sequence. node.id is still the static
+          // placeholder here (this branch only runs when !node.resolved,
+          // i.e. no real group has overwritten it yet), and both this
+          // section's own node list and `sorted` share the same array order
+          // buildLevelsWithReviews/the backend's sort_order both produce —
+          // so look the position up by id instead of trusting levelNum.
+          const nodeIdx = section.nodes.findIndex(n => n.id === node.id);
+          const real = nodeIdx >= 0 ? sorted[nodeIdx] : undefined;
           if (real && real.status !== 'completed') {
             navigation.navigate('LessonSession', { groupId: real.lesson_group_id, surahName: section.name, surahNumber: section.surahNum });
             return;
@@ -1558,8 +1773,9 @@ export default function MapScreen({ navigation }: Props) {
       setStartPrompt({ section, node, groupId: lvl.lesson_group_id, ayahFrom: lvl.start_ayah, ayahTo: lvl.end_ayah });
       return;
     }
-    const ayahFrom = node.startAyah ?? ((node.levelNum ?? 1) - 1) * 2 + 1;
-    const ayahTo = node.endAyah ?? Math.min((node.levelNum ?? 1) * 2, section.ayahCount);
+    const estimated = estimateAyahRange(node.levelNum ?? 1, section.ayahCount, node.isSpecial);
+    const ayahFrom = node.startAyah ?? estimated.from;
+    const ayahTo = node.endAyah ?? estimated.to;
     setStartPrompt({ section, node, groupId: node.id, ayahFrom, ayahTo });
   }
 
@@ -1626,6 +1842,27 @@ export default function MapScreen({ navigation }: Props) {
     }
   }
 
+  // Page to another chapter. Purely a change of which slice of the journey is
+  // laid out — it unlocks nothing and gates nothing, so it's allowed in both
+  // directions at any time (seasons keep their own unlock rules, see
+  // isSeasonUnlocked above). Any open on-map prompt is dismissed first, since
+  // it belongs to a node that's about to stop existing.
+  function goToChapter(next: number, land: 'top' | 'bottom') {
+    if (next < 0 || next >= CHAPTER_COUNT || next === chapterIdx) return;
+    manualChapterRef.current = true;
+    chapterJumpRef.current = land;
+    setGateTapped(null);
+    setRetryNodeId(null);
+    setStartPrompt(null);
+    setChapterIdx(next);
+    // Pull the first levels for the seasons we're paging into so their nodes
+    // resolve real ids/statuses instead of sitting 'pending'. fetchPhase
+    // de-dupes against fetchedPhasesRef, so re-entering a chapter is free.
+    for (const seasonIdx of CHAPTER_SEASONS[next] ?? []) {
+      void fetchPhase(seasonIdx, currentSurahNumRef.current);
+    }
+  }
+
   // Nodes in a still-locked season render as 'locked' regardless of backend
   // status (including the first-of-surah 'pending' exception above) and are
   // non-tappable — handleNodePress's existing `status === 'locked'`
@@ -1670,9 +1907,24 @@ export default function MapScreen({ navigation }: Props) {
     ]).start(() => setShakingNodeId(null));
   }
   const scrollY   = useRef(new Animated.Value(0)).current;
+  // Which background tiles are actually mounted right now — see the tiling
+  // comment below the background Svg for why only a window of them may be.
+  // Updated from the scroll listener rather than from `scrollY` itself, since
+  // that Value is native-driven and never reaches JS on its own.
+  const [tileWindow, setTileWindow] = useState({ start: 0, end: 2 });
   const onScroll  = Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: true },
+    {
+      useNativeDriver: true,
+      listener: (e: any) => {
+        const y = e.nativeEvent.contentOffset.y as number;
+        // One screen of slack above and below the viewport, so a tile is
+        // always mounted and rasterized well before it scrolls into view.
+        const start = Math.max(0, Math.floor((y - height) / SVG_BG_TILE_H));
+        const end = Math.ceil((y + height * 2) / SVG_BG_TILE_H);
+        setTileWindow(prev => (prev.start === start && prev.end === end ? prev : { start, end }));
+      },
+    },
   );
 
   useEffect(() => {
@@ -1710,63 +1962,113 @@ export default function MapScreen({ navigation }: Props) {
   // the user to hunt for it starting from the very top of the map.
   useEffect(() => {
     if (loadingPaths || !firstActiveNode) return;
+    // A chapter switch owns the scroll position for this commit — the jump
+    // effect below is about to send the viewport to the top or bottom, and
+    // paging into the chapter Lumo happens to stand in shouldn't fight it.
+    // Recording the node as already-handled means a later genuine change
+    // (finishing a level) still scrolls normally.
+    if (chapterJumpRef.current) {
+      autoScrolledNodeIdRef.current = firstActiveNode.id;
+      return;
+    }
     if (autoScrolledNodeIdRef.current === firstActiveNode.id) return;
     autoScrolledNodeIdRef.current = firstActiveNode.id;
     const targetY = Math.max(0, firstActiveNode.y - height / 2);
+    // Mount the destination's tiles before jumping there. The scroll
+    // listener would get there on its own (an animated scrollTo emits
+    // onScroll the whole way), but seeding it means the tiles are already
+    // rasterizing during the scroll rather than starting only once it lands.
+    setTileWindow(prev => {
+      const start = Math.max(0, Math.floor((targetY - height) / SVG_BG_TILE_H));
+      const end = Math.ceil((targetY + height * 2) / SVG_BG_TILE_H);
+      return prev.start === start && prev.end === end ? prev : { start, end };
+    });
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: targetY, animated: true });
     });
   }, [firstActiveNode?.id, loadingPaths, height]);
 
+  // Land the viewport after a chapter switch. Runs after the new chapter has
+  // laid out, so MAP_H is already the new chapter's height — seeding
+  // tileWindow here (same as the auto-scroll above) means the destination's
+  // background is rasterizing rather than popping in after the jump.
+  // Not animated: this is a change of place, not a move within one.
+  useEffect(() => {
+    const land = chapterJumpRef.current;
+    if (!land) return;
+    chapterJumpRef.current = null;
+    const targetY = land === 'top' ? 0 : Math.max(0, MAP_H - height);
+    setTileWindow(() => ({
+      start: Math.max(0, Math.floor((targetY - height) / SVG_BG_TILE_H)),
+      end: Math.ceil((targetY + height * 2) / SVG_BG_TILE_H),
+    }));
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: targetY, animated: false });
+    });
+  }, [chapterIdx, MAP_H, height]);
+
+  // Follow the backend's recommended-next into its chapter. Covers the cold
+  // start (the useState seed above had no cached recommendation to read) and
+  // the moment finishing a chapter's last level advances the recommendation
+  // into the next one. Applied once per distinct surah, and never once the
+  // user has paged by hand — at that point where they are is their choice.
+  useEffect(() => {
+    const surah = recommended?.surah_number;
+    if (loadingPaths) return;
+    if (surah == null) { setChapterResolved(true); return; }
+    if (appliedRecSurahRef.current === surah) { setChapterResolved(true); return; }
+    appliedRecSurahRef.current = surah;
+    if (!manualChapterRef.current) {
+      const target = SURAH_TO_CHAPTER[surah] ?? 0;
+      setChapterIdx(prev => (prev === target ? prev : target));
+    }
+    setChapterResolved(true);
+  }, [recommended?.surah_number, loadingPaths]);
+
   const skyPct = Math.min(95, (SKY_BOUNDARY_Y / MAP_H) * 100);
 
-  // Conservative even at high density/scale (see the tiling comment below the
-  // background Svg) — safely under Android's ~100MB single-bitmap ceiling.
-  const SVG_BG_TILE_H = 3000;
   const svgBgTileCount = Math.max(1, Math.ceil(MAP_H / SVG_BG_TILE_H));
 
   return (
     <View style={S.container}>
       {/* HUD — streak (emoji) top-left, XP top-right. Hearts hidden on the
-          map for now (still shown in-lesson). A real BlurView, not a fixed
-          image + fake tint: it sits above the ScrollView (see S.hud's
-          position: 'absolute') and blurs whatever's actually scrolled up
-          underneath it — sky, mountains, grass, all of it — so it fully
-          blends with the live map instead of a separate static patch that
-          can drift out of sync with it. The gradient on top is just a light
-          accent (darkest right behind the status bar for icon contrast,
-          gone by the bottom edge) so the pills stay legible without the bar
-          reading as a flat block. */}
+          map for now (still shown in-lesson). No backdrop of its own: the
+          pills carry their own opaque background and shadow, so they read
+          fine straight over the live sky. */}
       <View
         style={[S.hud, { paddingTop: insets.top + sc(4) }]}
         onLayout={e => setHudHeight(e.nativeEvent.layout.height)}
       >
-        <BlurView
-          style={S.hudTint}
-          blurType="light"
-          blurAmount={14}
-          reducedTransparencyFallbackColor="white"
-          overlayColor="transparent"
-        />
-        <LinearGradient
-          colors={['rgba(0,0,0,0.16)', 'rgba(0,0,0,0.05)', 'rgba(0,0,0,0)']}
-          locations={[0, 0.6, 1]}
-          style={S.hudTint}
-        />
         <View style={S.hudRow}>
-          <TouchableOpacity ref={streakPillRef} style={[S.hudPill, glowStreak && TOUR_GLOW]} activeOpacity={0.7} onPress={() => navigation.navigate('Streak')}>
-            <Text style={S.hudStreakEmoji}>🔥</Text>
-            <Text style={[S.hudVal, { color: '#EA580C' }]}>{learning ? learning.current_streak : '—'}</Text>
+          <TouchableOpacity {...streakTarget} style={[S.hudPill, glowStreak && TOUR_GLOW]} activeOpacity={0.7} onPress={() => navigation.navigate('Streak')}>
+            {isStreakFrozen(learning?.streak_state)
+              ? <Image source={STREAK_FROZEN_ICON} style={S.hudStreakIcon} resizeMode="contain" />
+              : <Text style={S.hudStreakEmoji}>{STREAK_ACTIVE_EMOJI}</Text>}
+            <Text style={[S.hudVal, { color: streakColor(learning?.streak_state) }]}>{learning ? learning.current_streak : '…'}</Text>
           </TouchableOpacity>
-          <View ref={xpPillRef} collapsable={false} style={[S.hudPill, glowXp && TOUR_GLOW]}>
+          <View {...xpTarget} collapsable={false} style={[S.hudPill, glowXp && TOUR_GLOW]}>
             <Text>⚡</Text>
-            <Text style={[S.hudVal, { color: '#2A7D4F' }]}>{learning ? `${learning.xp_total} XP` : '— XP'}</Text>
+            <Text style={[S.hudVal, { color: '#2A7D4F' }]}>{learning ? `${learning.xp_total} XP` : '… XP'}</Text>
           </View>
         </View>
       </View>
 
-      {(loadingPaths || refreshing) && (
-        <View style={S.loadingOverlay} pointerEvents="none">
+      {(!chapterResolved || refreshing) && (
+        // NOT gated on loadingPaths alone — the sky/mountains/grass/road and
+        // the node positions are all static, computed from SECTIONS_DEF for
+        // whichever chapter is selected, so they don't need network data to
+        // draw correctly; only each node's own status (locked/current/gold)
+        // is still resolving, and MapNode already renders that placeholder
+        // as a plain numbered node, no overlay required. The one thing that
+        // genuinely can't be shown early is which CHAPTER to draw in the
+        // first place: on a cold start (no cached recommendation yet) the
+        // map doesn't know that until the resolve effect runs, and a wrong
+        // guess means a different-length road/height once it corrects — so
+        // this stays solid until chapterResolved flips true (see its
+        // declaration above). Kept translucent for pull-to-refresh, where
+        // the already-correct map underneath is meant to stay visible while
+        // it re-fetches.
+        <View style={[S.loadingOverlay, !chapterResolved && S.loadingOverlaySolid]} pointerEvents="none">
           <LoadingRing size={64} color="#fff" />
         </View>
       )}
@@ -1820,9 +2122,10 @@ export default function MapScreen({ navigation }: Props) {
 
           {/* Distant mountain range on the horizon. Starts below the HUD
               (hudHeight, measured from the real streak/XP bar) instead of
-              the canvas's very top — the HUD blurs whatever's behind it, and
-              blurring the mountain's own peaks read as a rendering glitch
-              rather than "the header sits over sky." Bottom edge stays
+              the canvas's very top, so the status bar and the streak/XP
+              pills sit over plain sky rather than over busy peaks — the
+              pills stay legible without needing a backdrop of their own.
+              Bottom edge stays
               anchored at the same SKY_BOUNDARY_Y + sc(28) it always was
               (height shrinks by however much got pushed off the top) so the
               grass texture drawn after this still overlaps its base with no
@@ -1850,34 +2153,32 @@ export default function MapScreen({ navigation }: Props) {
               keeps every individual bitmap small while every child below
               keeps its original absolute x/y — content outside a tile's
               viewBox is simply clipped, so nothing else here needed to
-              change. */}
-          {(() => {
-            // ── Map decorations (mosques + trees) ──────────────────────────
-            // Baked into these same background tiles as <Symbol>/<Use> rather
-            // than painted as separate plain-Image layers — one shared
-            // Symbol per tile, stamped out for every instance that falls in
-            // it, instead of a native ImageView per tree/mosque. Each Symbol
-            // carries its own <Ellipse> shadow (same visual language as
-            // nodeShadow's dark rgba blob elsewhere in this file), so it
-            // travels with every <Use> of it for free instead of needing a
-            // second positioned element per instance.
-            const treeW = sc(58), treeH = sc(80);
-            const mosqueSvgW = sc(72), mosqueSvgH = sc(88);
+              change.
 
-            return Array.from({ length: svgBgTileCount }, (_, tileIdx) => {
+              Only the tiles inside tileWindow are mounted, though, because
+              tiling alone does NOT reduce total memory — it just divides the
+              same MAP_W×MAP_H×4 bytes across several bitmaps instead of one.
+              At 21 surahs (116 nodes) MAP_H is ~21800dp, which is ~57000
+              physical px on a 1080p phone: 8 tiles totalling ~236MB of
+              bitmap, and ~497MB on a 1440p device. That is at or past the
+              whole app heap, and it's a native allocation — when it fails
+              there's no JS exception to catch, the UI just freezes on the
+              navigator's background colour until the app is force-closed.
+              Mounting only the viewport's own tiles (plus a screen of slack
+              either side, see the scroll listener) keeps this at ~2-3 tiles
+              regardless of how many surahs the map grows to. */}
+          {Array.from({ length: svgBgTileCount }, (_, i) => i)
+            .filter(tileIdx => tileIdx >= tileWindow.start && tileIdx <= tileWindow.end)
+            .map(tileIdx => {
               const tileTop = tileIdx * SVG_BG_TILE_H;
               const tileH = Math.min(SVG_BG_TILE_H, MAP_H - tileTop);
-              const treeSymId = `treeSvgSym-${mapInstanceId}-${tileIdx}`;
-              const mosqueSymId = `mosqueSvgSym-${mapInstanceId}-${tileIdx}`;
-              const tileTrees = DECORATIONS.trees.filter(t => t.y >= tileTop && t.y < tileTop + tileH);
-              const tileMosques = DECORATIONS.mosques.filter(m => m.y >= tileTop && m.y < tileTop + tileH);
               return (
                 <Svg
                   key={`bgtile-${tileIdx}`}
                   width={MAP_W}
                   height={tileH}
                   viewBox={`0 ${tileTop} ${MAP_W} ${tileH}`}
-                  style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH }]}
+                  style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH, overflow: 'hidden' }]}
                 >
                   {/* Defs ids scoped per tile AND per mount (mapInstanceId) —
                       react-native-svg mis-resolves url(#id) references (patterns
@@ -1894,14 +2195,6 @@ export default function MapScreen({ navigation }: Props) {
                     <Pattern id={`brickPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(46)} height={sc(46)}>
                       <SvgImage href={BRICK_SRC} x={0} y={0} width={sc(46)} height={sc(46)} preserveAspectRatio="xMidYMid slice" />
                     </Pattern>
-                    <SvgSymbol id={treeSymId} viewBox={`0 0 ${treeW} ${treeH}`}>
-                      <Ellipse cx={treeW / 2} cy={treeH * 0.94} rx={treeW * 0.4} ry={treeH * 0.09} fill="rgba(0,0,0,0.25)" />
-                      <SvgImage href={TREE_SVG_SRC} x={0} y={0} width={treeW} height={treeH} preserveAspectRatio="xMidYMid meet" />
-                    </SvgSymbol>
-                    <SvgSymbol id={mosqueSymId} viewBox={`0 0 ${mosqueSvgW} ${mosqueSvgH}`}>
-                      <Ellipse cx={mosqueSvgW / 2} cy={mosqueSvgH * 0.96} rx={mosqueSvgW * 0.38} ry={mosqueSvgH * 0.07} fill="rgba(0,0,0,0.28)" />
-                      <SvgImage href={MOSQUE_SVG_SRC} x={0} y={0} width={mosqueSvgW} height={mosqueSvgH} preserveAspectRatio="xMidYMid meet" />
-                    </SvgSymbol>
                   </Defs>
 
                   {/* Grass texture wash — a jagged/torn edge (not a flat cut) where
@@ -1916,17 +2209,9 @@ export default function MapScreen({ navigation }: Props) {
                       itself. */}
                   <Pathway d={pathDForYRange(tileTop, tileTop + tileH)} sc={sc} patternId={`brickPattern-${mapInstanceId}-${tileIdx}`} />
 
-                  {tileTrees.map((t, i) => (
-                    <Use key={`treeUse${i}`} href={`#${treeSymId}`} x={t.x} y={t.y} width={treeW} height={treeH} />
-                  ))}
-                  {tileMosques.map((m, i) => (
-                    <Use key={`mosqueUse${i}`} href={`#${mosqueSymId}`} x={m.x} y={m.y} width={mosqueSvgW} height={mosqueSvgH} />
-                  ))}
                 </Svg>
               );
-            });
-          })()}
-
+            })}
           {/* Static sky clouds — marking the sky before the road begins */}
           {SKY_CLOUDS.map((c, i) => (
             <Image key={`skycloud${i}`} source={CLOUD_SRC} resizeMode="contain" style={{ position: 'absolute', left: c.x, top: c.y, width: c.w, height: c.h, opacity: 0.9 }} />
@@ -1996,11 +2281,14 @@ export default function MapScreen({ navigation }: Props) {
             let globalIdx = 0;
             return gatedSections.map(section =>
               section.nodes.map((node, nodeIdx) => {
-                globalIdx++;
+                // Review ("R") nodes don't consume a number in the sequence —
+                // only advance the counter for normal, numbered nodes.
+                if (!node.isSpecial) globalIdx++;
                 const idx = globalIdx;
                 const pill = AYAH_PILLS[`${section.surahNum}_${nodeIdx}`];
-                const ayahFrom = node.startAyah ?? ((node.levelNum ?? 1) - 1) * 2 + 1;
-                const ayahTo = node.endAyah ?? Math.min((node.levelNum ?? 1) * 2, section.ayahCount);
+                const nodeEstimate = estimateAyahRange(node.levelNum ?? 1, section.ayahCount, node.isSpecial);
+                const ayahFrom = node.startAyah ?? nodeEstimate.from;
+                const ayahTo = node.endAyah ?? nodeEstimate.to;
                 const rangeLabel = formatAyahRange(ayahFrom, ayahTo);
                 return (
                   <React.Fragment key={node.id}>
@@ -2019,12 +2307,13 @@ export default function MapScreen({ navigation }: Props) {
                       onPress={() => void handleNodePress(section, node)}
                     >
                       <MapNode
-                        status={node.status === 'current' && node.id !== firstActiveNode?.id ? 'available' : node.status}
+                        status={node.status}
                         stars={node.stars}
                         pulseAnim={pulseAnim}
                         goldAnim={goldAnim}
                         levelNum={idx}
                         isFetching={node.status === 'pending' && fetchingSurah === section.surahNum}
+                        isSpecial={node.isSpecial}
                         S={S}
                       />
                     </TouchableOpacity>
@@ -2048,6 +2337,7 @@ export default function MapScreen({ navigation }: Props) {
               floatAnim={floatAnim}
               S={S}
               SB={SB}
+              sc={sc}
             />
           )}
 
@@ -2072,6 +2362,7 @@ export default function MapScreen({ navigation }: Props) {
                   floatAnim={floatAnim}
                   S={S}
                   SB={SB}
+                  sc={sc}
                 />
                 {checking ? null : eligible ? (
                   <TouchableOpacity style={S.unlockBtn} onPress={() => void handleUnlockConfirm(gateTapped)}>
@@ -2099,8 +2390,9 @@ export default function MapScreen({ navigation }: Props) {
             }
             if (!target) return null;
             const { section, node } = target;
-            const ayahFrom = node.startAyah ?? ((node.levelNum ?? 1) - 1) * 2 + 1;
-            const ayahTo = node.endAyah ?? Math.min((node.levelNum ?? 1) * 2, section.ayahCount);
+            const targetEstimate = estimateAyahRange(node.levelNum ?? 1, section.ayahCount, node.isSpecial);
+            const ayahFrom = node.startAyah ?? targetEstimate.from;
+            const ayahTo = node.endAyah ?? targetEstimate.to;
             const { left, top } = actionCardPosition(node);
             return (
               <View style={{ position: 'absolute', left, top, zIndex: 5 }}>
@@ -2138,10 +2430,51 @@ export default function MapScreen({ navigation }: Props) {
             );
           })()}
 
-          {/* Journey end — start.png banner */}
-          <View style={{ position: 'absolute', left: MAP_W / 2 - sc(50), top: MAP_H - sc(130), alignItems: 'center' }}>
+          {/* End of the chapter — both paging signs side by side, parallel to
+              where the path itself ends, instead of previous-at-top/
+              next-at-bottom. Row is centered and gap-based (not fixed
+              left/right offsets) so it re-centers on any screen width. Sits
+              inside FOOTER_PAD, clear of the last node's ayah pill. */}
+          <View style={{ position: 'absolute', left: 0, right: 0, top: MAP_H - sc(240), alignItems: 'center' }}>
             <Image source={START_SRC} style={{ width: sc(100), height: sc(80) }} resizeMode="contain" />
-            <Text style={S.endText}>More coming soon…</Text>
+            {(chapterIdx > 0 || chapterIdx < CHAPTER_COUNT - 1) ? (
+              <View style={S.chapterSignRow}>
+                {chapterIdx > 0 && (
+                  <TouchableOpacity
+                    style={S.chapterSignCol}
+                    activeOpacity={0.85}
+                    onPress={() => goToChapter(chapterIdx - 1, 'bottom')}
+                  >
+                    <Image
+                      source={PREVIOUS_STAGE_SRC}
+                      style={{ width: sc(108), height: sc(108) / PREVIOUS_STAGE_ASPECT }}
+                      resizeMode="contain"
+                    />
+                    <Text style={S.chapterSignCaption}>{chapterSeasonLabel(chapterIdx - 1)}</Text>
+                  </TouchableOpacity>
+                )}
+                {chapterIdx < CHAPTER_COUNT - 1 && (
+                  <TouchableOpacity
+                    style={S.chapterSignCol}
+                    activeOpacity={0.85}
+                    onPress={() => goToChapter(chapterIdx + 1, 'top')}
+                  >
+                    {/* Floats over the image's top-right corner rather than
+                        stacking above it, so both signs' images stay level
+                        with each other whether or not a badge is present. */}
+                    <View style={S.chapterNewBadgeFloat}><Text style={S.chapterNewBadgeText}>NEW</Text></View>
+                    <Image
+                      source={NEXT_STAGE_SRC}
+                      style={{ width: sc(108), height: sc(108) / NEXT_STAGE_ASPECT }}
+                      resizeMode="contain"
+                    />
+                    <Text style={S.chapterSignCaption}>{chapterSeasonLabel(chapterIdx + 1)}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <Text style={S.endText}>More coming soon…</Text>
+            )}
           </View>
         </View>
       </Animated.ScrollView>
@@ -2151,12 +2484,16 @@ export default function MapScreen({ navigation }: Props) {
         onAccept={handleAcceptTour}
         onDecline={handleDeclineTour}
       />
-      <TourOverlay
-        screen="map"
-        onFinish={() => { /* already back on the map — nothing to unwind */ }}
-        onEnterLesson={() => navigation.navigate('GuidedTour')}
-        onExitToOffer={handleExitTourToOffer}
-      />
+
+      {frozenPopupVisible && (
+        <StreakFrozenModal
+          currentStreak={learning?.current_streak ?? 0}
+          freezeDaysRemaining={learning?.freeze_days_remaining ?? 0}
+          repairRequired={learning?.repair_levels_required ?? 0}
+          repairCompleted={learning?.repair_levels_completed ?? 0}
+          onDismiss={() => setFrozenPopupVisible(false)}
+        />
+      )}
     </View>
   );
 }

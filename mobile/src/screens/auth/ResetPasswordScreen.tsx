@@ -10,6 +10,7 @@ import { ApiError } from '../../api/client';
 import { setTokens } from '../../utils/storage';
 import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
+import MascotShadow from '../../components/MascotShadow';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
@@ -45,7 +46,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
       if (e instanceof ApiError && e.status === 429) {
         setError(e.message || 'Too many attempts. Please wait a bit and try again.');
       } else if (e instanceof ApiError && e.status === 400) {
-        setError('That code is no longer valid — please request a new one.');
+        setError('That code is no longer valid, please request a new one.');
       } else {
         setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
       }
@@ -58,10 +59,13 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
     return (
       <View style={styles.container}>
         <View style={[styles.content, styles.successContent, { paddingTop: insets.top + 24 }]}>
-          <Image source={require('../../../assets/images/lumo_xp.png')} style={styles.lumaSuccess} resizeMode="contain" />
+          <View style={{ width: 140, height: 140, marginBottom: 20 }}>
+            <Image source={require('../../../assets/images/lumo_xp.png')} style={[styles.lumaSuccess, { marginBottom: 0 }]} resizeMode="contain" />
+            <MascotShadow width={140} />
+          </View>
           <View style={styles.successBubble}>
             <Text style={styles.successBubbleText}>
-              Congratulations! You've created a new password — log in again with it.
+              Congratulations! You've created a new password, log in again with it.
             </Text>
           </View>
           <TouchableOpacity style={styles.btn} onPress={() => navigation.replace('Login')}>
@@ -84,10 +88,13 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
       </TouchableOpacity>
 
       <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
-        <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+        <View style={{ width: 90, height: 90, marginBottom: 8 }}>
+          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <MascotShadow width={90} />
+        </View>
 
         <Text style={styles.heading}>Set a new password</Text>
-        <Text style={styles.sub}>Almost done — choose a new password for your account.</Text>
+        <Text style={styles.sub}>Almost done: choose a new password for your account.</Text>
 
         <View style={styles.fieldWrap}>
           <Text style={styles.fieldLabel}>NEW PASSWORD</Text>

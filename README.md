@@ -66,11 +66,11 @@ cd mobile && npm run build:apk
 
 | Tool | Purpose |
 |------|---------|
-| [Sentry](https://sentry.io) | Crashes, errors, API breadcrumbs → **Slack** (configured in Sentry) |
+| Firebase Crashlytics | Crashes, errors, breadcrumbs — [mobile/docs/CRASHLYTICS.md](mobile/docs/CRASHLYTICS.md) |
 | Firebase Analytics | Usage events, screen views — [mobile/docs/FIREBASE_ANALYTICS.md](mobile/docs/FIREBASE_ANALYTICS.md) |
 | Firebase App Distribution | Tester APK installs |
 
-Sentry release builds tag events as `com.ustadapp@0.0.1+<CI run>` — see [mobile/docs/SENTRY.md](mobile/docs/SENTRY.md).
+Crashlytics and Analytics share one Firebase console login.
 
 ## Tests
 
