@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { authApi, learningApi, usersApi, syncDeviceTimezone } from '../api';
-import { getTokens, setTokens, setStoredUser, resetTourOffered } from '../utils/storage';
+import { getTokens, setTokens, setStoredUser, getStoredUser, resetTourOffered } from '../utils/storage';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
 import { setCrashUser, addBreadcrumb } from '../services/crashReporter';
 import { warmAudioUrlCache } from '../services/audioUrls';
@@ -10,6 +10,7 @@ import { useLessonStore } from './lessonStore';
 import {
   clearPendingGuestProgress, displayNameFor, getPendingGuestProgress, resetGuestState,
 } from '../utils/guest';
+import { checkStreakLoss } from '../utils/streak';
 import type { LearningMe, User, UserProfile } from '../types/api';
 
 interface AuthState {
@@ -21,11 +22,17 @@ interface AuthState {
   // extra round-trip.
   profile: UserProfile | null;
   isHydrated: boolean;
+  // One-shot: set the instant refreshLearning() observes a frozen/active
+  // streak silently expire to "none" (see utils/streak.ts's checkStreakLoss).
+  // A listener mounted once in RootNavigator shows StreakLostModal off this,
+  // then clears it back to null so it never fires twice for the same loss.
+  streakJustLost: number | null;
+  clearStreakJustLost: () => void;
   hydrate: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
   startGuestSession: () => Promise<void>;
-  upgradeGuest: (email: string, password: string, displayName: string) => Promise<void>;
+  upgradeGuest: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
   refreshLearning: (opts?: { force?: boolean }) => Promise<void>;
@@ -46,8 +53,19 @@ export const useAuthStore = create<AuthState>((set, get) => {
     void warmAudioUrlCache();
     await setAnalyticsUserId(user.id);
     lastLearningMeFetchAt = Date.now();
-    set({ user, learning });
+    set({ user });
+    await applyFreshLearning(learning);
     void prefetchAll(learning.mvp_surah_numbers ?? []);
+  };
+
+  // Every fresh learningApi.me() result (here and in refreshLearning below)
+  // runs through this so a silent frozen/active -> "none" transition (the
+  // freeze window expiring — the backend has no event for it, see
+  // app/learning/service.py) gets caught and surfaced exactly once, on
+  // whichever read is the first to observe it.
+  const applyFreshLearning = async (learning: LearningMe) => {
+    const lost = await checkStreakLoss(learning.streak_state ?? 'active', learning.current_streak);
+    set({ learning, ...(lost !== null ? { streakJustLost: lost } : {}) });
   };
 
   return {
@@ -55,6 +73,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
   learning: null,
   profile: null,
   isHydrated: false,
+  streakJustLost: null,
+
+  clearStreakJustLost: () => set({ streakJustLost: null }),
 
   hydrate: async () => {
     const tokens = await getTokens();
@@ -91,9 +112,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
       return null;
     };
 
-    const [me, learning] = await Promise.all([
+    const [me, learning, previouslyStored] = await Promise.all([
       authApi.me().catch(() => null),
       fetchLearningWithRetry(),
+      getStoredUser(),
     ]);
     if (!me) {
       await setTokens(null);
@@ -101,7 +123,18 @@ export const useAuthStore = create<AuthState>((set, get) => {
       set({ isHydrated: true, user: null, learning: null });
       return;
     }
-    const user: User = { ...me.user, name: displayNameFor(me.user, me.profile?.display_name) };
+    // Prefer profile.display_name, but fall back to whatever name this same
+    // account was last shown under locally before reaching for the
+    // email-username derivation — register()/upgradeGuest() already set the
+    // real typed name correctly the moment the account was created, so this
+    // is only ever a real name or nothing, never a stale/wrong one. Without
+    // this, a backend response that omits display_name (or hasn't caught up
+    // yet) would silently regress "Ahmad Al-Rashid" to "ahmad.alrashid" on
+    // every subsequent app launch.
+    const user: User = {
+      ...me.user,
+      name: displayNameFor(me.user, me.profile?.display_name ?? previouslyStored?.name),
+    };
     await setStoredUser(user);
     set({ isHydrated: true, user, learning: null, profile: me.profile ?? null });
     void syncDeviceTimezone();
@@ -196,9 +229,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
     });
     await setTokens(res.tokens);
     setCrashUser(res.user.id, res.user.email);
+    // The guest session this account is upgrading from may already have
+    // dismissed/completed the tour offer before the user ever signed up —
+    // that flag belongs to the guest's throwaway history, not to the new
+    // account's actual first run, so it's reset here the same as register()
+    // and startGuestSession() already do.
+    await resetTourOffered();
     void logAnalyticsEvent(AnalyticsEvents.SIGN_UP, { method: 'guest_upgrade' });
     await clearPendingGuestProgress();
-    const user: User = { ...res.user, name: displayName };
+    const user: User = { ...res.user, name: displayNameFor(res.user, displayName) };
     await setStoredUser(user);
     // `learning` is deliberately left as-is: the carried-over XP/streak land
     // server-side during this call, and refreshLearning() below re-reads them
@@ -230,7 +269,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     await setAnalyticsUserId(null);
     invalidateAll();
     lastLearningMeFetchAt = 0;
-    set({ user: null, learning: null, profile: null });
+    set({ user: null, learning: null, profile: null, streakJustLost: null });
   },
 
   deleteAccount: async (password: string) => {
@@ -242,7 +281,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     await setAnalyticsUserId(null);
     invalidateAll();
     lastLearningMeFetchAt = 0;
-    set({ user: null, learning: null, profile: null });
+    set({ user: null, learning: null, profile: null, streakJustLost: null });
   },
 
   updateProfileFields: (patch: Partial<UserProfile>) => {
@@ -275,7 +314,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     try {
       const learning = await learningApi.me();
       lastLearningMeFetchAt = now;
-      set({ learning });
+      await applyFreshLearning(learning);
     } catch (e) {
       addBreadcrumb('refreshLearning: learningApi.me() failed', {
         error: e instanceof Error ? e.message : String(e),

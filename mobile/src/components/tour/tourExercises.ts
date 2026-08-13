@@ -1,4 +1,4 @@
-import type { ExerciseDict } from '../../types/api';
+import type { ExerciseDict, FormulaAttemptOut } from '../../types/api';
 
 /**
  * The exercises the guided tour shows, hardcoded and identical for every user.
@@ -71,17 +71,18 @@ const RECITE: ExerciseDict = {
 
 /**
  * Which exercise sits behind each lesson step of the tour, by step index into
- * TOUR_STEPS. The fill-blank carries most of the walkthrough because it's where
- * hints, hearts, the progress bar and Check all live; the recitation appears
- * once, so "you'll also read aloud" isn't just a claim.
+ * TOUR_STEPS. The fill-blank carries the first eight lesson steps start to
+ * finish (word holding, hint, hearts, progress, picking an option, Check,
+ * and its feedback) since that's where the whole exercise loop lives; the
+ * last two lesson steps (submit your voice, its own feedback) swap to the
+ * recitation so the tour walks through both exercise types in full, not
+ * just a glimpse of the second one.
  */
 export const TOUR_EXERCISES: ExerciseDict[] = [FILL_BLANK, RECITE];
 
 export function tourExerciseForStep(stepIndex: number, firstLessonStep: number): ExerciseDict {
-  // Step 4 in the spec ("this is a level") introduces both exercise types, so
-  // the recitation is shown there; everything after drills into the fill-blank.
   const offset = stepIndex - firstLessonStep;
-  return offset === 1 ? RECITE : FILL_BLANK;
+  return offset >= 8 ? RECITE : FILL_BLANK;
 }
 
 /**
@@ -93,3 +94,21 @@ export const TOUR_MISTAKES = 1;
 
 /** Roughly a third of the way in — enough bar to be visibly partial. */
 export const TOUR_PROGRESS_FRACTION = 0.35;
+
+/**
+ * The feedback the tour shows after "Check" and after the recitation mic
+ * step, reusing the exact same FeedbackBanner both times (a "clone" of the
+ * same component/props, not two different designs) so the two exercise
+ * types visibly grade the same way. Always the correct branch, since the
+ * tour narrates success, never a wrong answer.
+ */
+export const TOUR_FEEDBACK_RESULT: FormulaAttemptOut = {
+  correct: true,
+  correct_answer: null,
+  was_type: 'fill_blank',
+  next_exercise: null,
+  phase: 'main',
+  done: false,
+  segments: [],
+  xp_awarded: 2,
+};

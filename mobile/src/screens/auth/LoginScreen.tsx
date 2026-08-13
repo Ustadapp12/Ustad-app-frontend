@@ -1,7 +1,7 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform,
+  ScrollView, KeyboardAvoidingView, Platform, BackHandler,
 } from 'react-native';
 import { Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import MascotShadow from '../../components/MascotShadow';
 import type { RootNavProp } from '../../navigation/types';
 import { validateEmail, normalizeEmail } from '../../utils/validators';
 import { setLastEmailHint } from '../../utils/storage';
@@ -22,7 +23,6 @@ const LOGIN_MESSAGES = ['Logging in…', 'Connecting to the server…', 'Almost 
 export default function LoginScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const login = useAuthStore(s => s.login);
-  const startGuestSession = useAuthStore(s => s.startGuestSession);
   const setDevUser = useAuthStore(s => s._devLogin);
 
   const [email, setEmail] = useState('');
@@ -33,17 +33,21 @@ export default function LoginScreen({ navigation }: Props) {
   const [emailTouched, setEmailTouched] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
-  // Splash only ever mints a guest on a device's true first launch (see
-  // SplashScreen) — once onboarding is marked done, a signed-out user lands
-  // here with no way back into guest mode. This is that way back: available
-  // to anyone on this screen, first-time or returning, any time they're
-  // logged out. Separate from `loading` so a guest-session failure can't
-  // surface via the email/password cycling message.
-  const [guestLoading, setGuestLoading] = useState(false);
 
   const emailValidationError = validateEmail(email);
   const emailError = emailTouched ? emailValidationError : null;
   const canSubmit = !emailValidationError && password.length > 0;
+
+  // Login sits right after Splash in the stack, which a plain back-pop would
+  // reveal — there is nothing useful behind it, so back closes the app here
+  // instead, same as it would at the app's real entry point.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      BackHandler.exitApp();
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
 
   function handleEmailChange(t: string) {
     setEmail(t);
@@ -93,26 +97,13 @@ export default function LoginScreen({ navigation }: Props) {
     }
   }
 
-  async function handleGuestMode() {
-    if (loading || guestLoading) return;
-    setGuestLoading(true);
-    setFormError(null);
-    try {
-      await startGuestSession();
-      navigation.replace('MainTabs');
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not start guest mode. Please try again.');
-    } finally {
-      setGuestLoading(false);
-    }
-  }
-
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Luma */}
         <View style={styles.lumaWrap}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+          <MascotShadow width={110} style={{ position: 'relative', marginTop: -11 }} />
         </View>
 
         <Text style={styles.heading}>Welcome back!</Text>
@@ -177,17 +168,6 @@ export default function LoginScreen({ navigation }: Props) {
           {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Log In</Text>}
         </TouchableOpacity>
 
-        {/* Always available here, not just on true first launch (see
-            SplashScreen) — this is the only way back into guest mode once
-            onboarding is marked done and a signed-out user lands on Login. */}
-        <TouchableOpacity
-          style={[styles.guestBtn, (loading || guestLoading) && styles.btnDisabled]}
-          onPress={() => void handleGuestMode()}
-          disabled={loading || guestLoading}
-        >
-          {guestLoading ? <LoadingRing size={18} color={colors.primary} /> : <Text style={styles.guestBtnText}>Use Guest Mode</Text>}
-        </TouchableOpacity>
-
         {showCreateAccount ? (
           <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.inlineCreateWrap}>
             <Text style={styles.switchLink}>Create an account!</Text>
@@ -242,11 +222,6 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.7 },
   btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
-  guestBtn: {
-    backgroundColor: 'transparent', borderRadius: 16, paddingVertical: 15,
-    alignItems: 'center', marginBottom: 18, borderWidth: 1.5, borderColor: colors.primary,
-  },
-  guestBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.primary },
   switchRow: { flexDirection: 'row', justifyContent: 'center' },
   switchText: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText },
   switchLink: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },

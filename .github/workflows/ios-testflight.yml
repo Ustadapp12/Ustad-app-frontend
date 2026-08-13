@@ -1,0 +1,103 @@
+# iOS build + submit to TestFlight (Internal Testing), via EAS.
+#
+# Manually triggered (workflow_dispatch) until the one-time manual setup below
+# is done — flip the `on:` block to match firebase-distribution.yml's
+# push/merged-PR trigger once a run has succeeded at least once.
+#
+# One-time manual prerequisites (see mobile/docs/FIREBASE_ANALYTICS.md and
+# CHANGES.md 2026-08-10 entry for context):
+#   1. Apple Developer Program enrollment.
+#   2. `eas credentials` run once (interactively) for iOS — lets EAS manage
+#      the distribution certificate + provisioning profile remotely, which is
+#      what makes `eas build --non-interactive` below work without prompts.
+#   3. An iOS app registered in the `ustadapp-c21a0` Firebase project, with
+#      GoogleService-Info.plist downloaded and base64'd into the
+#      GOOGLE_SERVICE_INFO_PLIST secret below (same idea as Android's
+#      GOOGLE_SERVICES_JSON secret in firebase-distribution.yml).
+#   4. An App Store Connect API key (App Store Connect > Users and Access >
+#      Integrations > App Store Connect API > generate, "App Manager" role).
+#      Base64 the downloaded .p8 file into the ASC_API_KEY_P8 secret; put its
+#      Key ID / Issuer ID into ASC_API_KEY_ID / ASC_API_ISSUER_ID (these two
+#      are identifiers, not secret, but keeping them as secrets avoids a
+#      commit-vs-CI-only split for no benefit).
+#   5. An app record in App Store Connect for bundle ID `com.ustadapp`, and an
+#      Internal Testing group under its TestFlight tab with testers added by
+#      Apple ID email (Internal track: no Beta App Review, up to 100 testers).
+#
+# Required repo secrets: EXPO_TOKEN, GOOGLE_SERVICE_INFO_PLIST,
+# ASC_API_KEY_P8, ASC_API_KEY_ID, ASC_API_ISSUER_ID.
+
+name: iOS TestFlight (Internal)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-testflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-submit:
+    name: EAS build (production profile) + submit to TestFlight
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install GoogleService-Info.plist
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            echo "GOOGLE_SERVICE_INFO_PLIST secret not set — Firebase Analytics will not initialize on this build." >&2
+            exit 1
+          fi
+          mkdir -p ios/UstadApp
+          echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 -d > ios/UstadApp/GoogleService-Info.plist
+          node scripts/link-firebase-ios.mjs
+
+      - name: Install App Store Connect API key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          if [ -z "$ASC_API_KEY_P8" ]; then
+            echo "ASC_API_KEY_P8 secret not set — cannot submit to TestFlight." >&2
+            exit 1
+          fi
+          echo "$ASC_API_KEY_P8" | base64 -d > asc-api-key.p8
+
+      - name: Build iOS (production profile — store distribution, required for TestFlight)
+        run: eas build --platform ios --profile production --non-interactive
+
+      - name: Submit latest build to TestFlight
+        env:
+          # Relative to this job's working-directory (mobile/), where the
+          # previous step wrote the key — not the repo root.
+          EXPO_ASC_API_KEY_PATH: asc-api-key.p8
+          EXPO_ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: eas submit --platform ios --profile production --non-interactive --latest

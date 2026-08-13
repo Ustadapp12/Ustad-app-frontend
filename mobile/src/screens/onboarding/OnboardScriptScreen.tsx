@@ -5,6 +5,7 @@ import { saveOnboarding, setScriptPreference } from '../../utils/storage';
 import { scriptFontScale, scriptLineHeightScale } from '../../utils/arabicFont';
 import { useResponsiveScale } from '../../utils/responsive';
 import { colors } from '../../theme/colors';
+import MascotShadow from '../../components/MascotShadow';
 import type { ScriptPreference } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -35,7 +36,7 @@ export default function OnboardScriptScreen({ navigation }: Props) {
         key: 'uthmani' as ScriptPreference,
         title: 'Usmani',
         subtitle: 'عثماني',
-        desc: 'Clean & modern — used in most digital Qurans worldwide',
+        desc: 'Clean & modern: used in most digital Qurans worldwide',
         fontFamily: 'NotoNaskhArabic_400Regular',
         fontSize,
         lineHeight,
@@ -46,7 +47,7 @@ export default function OnboardScriptScreen({ navigation }: Props) {
         key: 'nastaliq' as ScriptPreference,
         title: 'Indo-Pak',
         subtitle: 'خط المصحف',
-        desc: 'Classic Quran calligraphy — traditional printed Mushaf style',
+        desc: 'Classic Quran calligraphy: traditional printed Mushaf style',
         fontFamily: 'NotoNastaliqUrdu',
         fontSize: Math.round(fontSize * scriptFontScale('nastaliq')),
         lineHeight: Math.round(lineHeight * scriptFontScale('nastaliq') * scriptLineHeightScale('nastaliq')),
@@ -76,7 +77,10 @@ export default function OnboardScriptScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+        <View style={{ width: sc(84), height: sc(84), alignSelf: 'center', marginBottom: sc(4) }}>
+          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <MascotShadow width={sc(84)} />
+        </View>
         <Text style={styles.badge}>SETUP · STEP 3 OF 3</Text>
         <Text style={styles.heading}>Choose your font</Text>
         <Text style={styles.sub}>How would you like to read Arabic? You can change this anytime in your profile.</Text>

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
 import { colors } from '../../theme/colors';
+import MascotShadow from '../../components/MascotShadow';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props { navigation: RootNavProp }
@@ -41,7 +42,10 @@ export default function OnboardPathScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+        <View style={{ width: 84, height: 84, alignSelf: 'center', marginBottom: 4 }}>
+          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <MascotShadow width={84} />
+        </View>
         <Text style={styles.badge}>SETUP · STEP 2 OF 3</Text>
         <Text style={styles.heading}>Choose your path</Text>
         <Text style={styles.sub}>How would you describe yourself?</Text>

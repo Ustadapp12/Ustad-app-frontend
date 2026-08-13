@@ -61,6 +61,9 @@ android/app/google-services.json
 ios/GoogleService-Info.plist
 ios/UstadApp/GoogleService-Info.plist
 
+# App Store Connect API key (.p8) — CI writes this from a secret; never commit the real key
+*.p8
+
 # Metro / Gradle JS bundles (produced at build:apk / assembleRelease — do not commit)
 *.jsbundle
 *.bundle

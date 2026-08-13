@@ -1,8 +1,8 @@
 /**
- * Centralised analytics service — Firebase Analytics + Sentry context.
+ * Centralised analytics service — Firebase Analytics.
  *
  * RULES:
- *   - No direct Firebase or Sentry imports anywhere else in the app.
+ *   - No direct Firebase imports anywhere else in the app.
  *   - Every call is async and wrapped in try/catch — analytics must never
  *     slow down or crash the UI.
  *   - In __DEV__ mode, every event is printed to the console instead of
@@ -25,6 +25,7 @@ export const AnalyticsEvents = {
   LESSON_START: 'lesson_start',
   LESSON_COMPLETE: 'lesson_complete',
   LESSON_ABANDON: 'lesson_abandon',
+  SURAH_COMPLETE: 'surah_completed',
   // Per-exercise
   EXERCISE_STARTED: 'exercise_started',
   EXERCISE_COMPLETED: 'exercise_completed',

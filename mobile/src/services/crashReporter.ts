@@ -1,20 +1,15 @@
 /**
- * Crash reporting service — Sentry context wrapper.
+ * Crash reporting service — Firebase Crashlytics wrapper.
  *
- * Sentry is already initialised in index.js (Sentry.wrap(App)).
- * This service enriches crash reports with lesson/exercise context
- * so every crash is tagged with what the user was doing.
- *
- * Design decision: Firebase Crashlytics is NOT added separately.
- * Sentry handles both JS and native symbolication for React Native.
- * If you ever need Crashlytics, swap the Sentry calls here — no other
- * file needs to change.
+ * Migrated from Sentry (see git history) so crashes live in the same
+ * Firebase console/login as Analytics, with no separate Sentry/Slack
+ * account dependency.
  *
  * RULES:
- *   - Only this file imports from @sentry/react-native.
- *   - All methods are synchronous and never throw.
+ *   - Only this file imports from @react-native-firebase/crashlytics.
+ *   - All methods are synchronous (fire-and-forget) and never throw.
  */
-import * as Sentry from '@sentry/react-native';
+import crashlytics from '@react-native-firebase/crashlytics';
 
 interface LessonContext {
   screen?: string;
@@ -27,28 +22,45 @@ interface LessonContext {
 
 let _ctx: LessonContext = {};
 
+function toAttributes(obj: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined && v !== null) out[k] = String(v);
+  }
+  return out;
+}
+
+/** Wire up global JS-error capture and enable collection outside dev. Call once at startup. */
+export function initCrashReporting(): void {
+  try {
+    void crashlytics().setCrashlyticsCollectionEnabled(!__DEV__);
+  } catch { /* Crashlytics native module not available (e.g. Expo Go) */ }
+
+  try {
+    const defaultHandler = ErrorUtils.getGlobalHandler();
+    ErrorUtils.setGlobalHandler((error, isFatal) => {
+      captureError(error, { isFatal: !!isFatal });
+      defaultHandler(error, isFatal);
+    });
+  } catch { /* ignore */ }
+}
+
 /**
- * Update the lesson context attached to all subsequent Sentry events.
+ * Update the lesson context attached to all subsequent Crashlytics reports.
  * Call when entering a lesson, on each exercise step, and when leaving.
  */
 export function setCrashContext(partial: Partial<LessonContext>): void {
   _ctx = { ..._ctx, ...partial };
   try {
-    Sentry.setContext('lesson', _ctx as Record<string, unknown>);
-    if (partial.screen) Sentry.setTag('screen', partial.screen);
-    if (partial.exercise_type) Sentry.setTag('exercise_type', partial.exercise_type);
-    if (partial.surah_id != null) Sentry.setTag('surah_id', String(partial.surah_id));
-  } catch { /* Sentry may not be ready yet */ }
+    void crashlytics().setAttributes(toAttributes(_ctx as Record<string, unknown>));
+  } catch { /* Crashlytics may not be ready yet */ }
 }
 
 /** Clear lesson context — call when the user exits the lesson flow. */
 export function clearCrashContext(): void {
   _ctx = {};
   try {
-    Sentry.setContext('lesson', null);
-    Sentry.setTag('screen', '');
-    Sentry.setTag('exercise_type', '');
-    Sentry.setTag('surah_id', '');
+    void crashlytics().setAttributes({ screen: '', exercise_type: '', surah_id: '' });
   } catch { /* ignore */ }
 }
 
@@ -61,38 +73,32 @@ export function captureError(
   extras?: Record<string, unknown>,
 ): void {
   try {
-    Sentry.withScope(scope => {
-      scope.setContext('lesson_context', _ctx as Record<string, unknown>);
-      if (extras) scope.setExtras(extras);
-      if (error instanceof Error) {
-        Sentry.captureException(error);
-      } else {
-        Sentry.captureMessage(String(error), 'warning');
-      }
-    });
+    if (extras) void crashlytics().setAttributes(toAttributes(extras));
+    void crashlytics().recordError(error instanceof Error ? error : new Error(String(error)));
   } catch { /* ignore */ }
 }
 
 /**
- * Set the Sentry user — mirrors what authStore does after login/register.
- * Call this from crashReporter only; authStore still owns the Sentry.setUser call.
+ * Set the Crashlytics user — mirrors what authStore does after login/register.
+ * Call this from crashReporter only; authStore still owns the call site.
+ * Crashlytics has no dedicated email field — only the id is stored, to
+ * avoid putting PII directly into crash reports.
  */
-// `email` is nullable because guests are real users who simply don't have one.
-export function setCrashUser(userId: string | null, email?: string | null): void {
+export function setCrashUser(userId: string | null, _email?: string | null): void {
   try {
-    Sentry.setUser(userId ? { id: userId, email: email ?? undefined } : null);
+    void crashlytics().setUserId(userId ?? '');
   } catch { /* ignore */ }
 }
 
 /**
  * Add a non-error breadcrumb for key app events.
- * Breadcrumbs appear in Sentry alongside the crash for context.
+ * Breadcrumbs appear in Crashlytics alongside the next recorded crash.
  */
 export function addBreadcrumb(
   message: string,
   data?: Record<string, unknown>,
 ): void {
   try {
-    Sentry.addBreadcrumb({ message, category: 'app', data, level: 'info' });
+    void crashlytics().log(data ? `${message} ${JSON.stringify(data)}` : message);
   } catch { /* ignore */ }
 }

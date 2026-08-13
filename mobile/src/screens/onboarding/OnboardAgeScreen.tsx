@@ -5,6 +5,7 @@ import { usersApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
+import MascotShadow from '../../components/MascotShadow';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props { navigation: RootNavProp }
@@ -38,7 +39,7 @@ export default function OnboardAgeScreen({ navigation }: Props) {
   return (
     <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('SignUp')}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('OnboardUsername')}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <View style={styles.dots}>
@@ -48,7 +49,10 @@ export default function OnboardAgeScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.content}>
-        <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+        <View style={{ width: 100, height: 100, marginBottom: 10 }}>
+          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <MascotShadow width={100} />
+        </View>
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>
         <Text style={styles.heading}>What is your age?</Text>
         <Text style={styles.sub}>This helps us tailor lessons to you</Text>

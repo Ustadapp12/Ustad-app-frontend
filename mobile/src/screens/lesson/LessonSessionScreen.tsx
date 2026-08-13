@@ -2,13 +2,13 @@
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Animated, Easing, ActivityIndicator, Platform, Modal, Alert, Image, Pressable,
-  useWindowDimensions, type ImageSourcePropType,
+  useWindowDimensions, BackHandler, type ImageSourcePropType,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   playAudioUrl, pauseAudio, resumeAudio, stopAudio,
-  preloadAudioUrls, evictPreloadedUrls, onPlayingChange,
+  preloadAudioUrls, evictPreloadedUrls, onPlayingChange, playFeedbackSound,
 } from '../../services/audioPlayer';
 import {
   requestMicPermission, startRecording as startRecordingSvc, stopRecording as stopRecordingSvc,
@@ -21,9 +21,45 @@ import { colors } from '../../theme/colors';
 import PredictedProgressBar from '../../components/PredictedProgressBar';
 import PlayPauseIcon from '../../components/PlayPauseIcon';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import MascotShadow from '../../components/MascotShadow';
 import type { ExerciseDict, ExpectedWordResult, FormulaAttemptOut, SegmentStatus } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 
+// The speaker/audio-playback icon used everywhere a "tap to hear" control
+// shows a handheld speaker — replaces the old 🔊 emoji.
+const SPEAKER_ICON = require('../../../assets/map/speaker.png');
+
+// ── Tour-only glow ───────────────────────────────────────────────────
+// The guided tour highlights a real element by asking that element to glow
+// itself, rather than drawing a separate ring on top of it at measured
+// coordinates (see TourOverlay's own comment for why: a drawn ring can
+// disagree with the real shape, drift out of sync with a timing race, or
+// simply be wrong). Every glow-capable prop below defaults to falsy and is
+// only ever set by TourLessonScreen/TourOfferModal call sites — a normal
+// lesson never passes them, so this is invisible outside the tour.
+//
+// Two variants:
+// - TOUR_GLOW has no radius of its own, so it inherits whatever the host
+//   element already declares (Check's borderRadius:16, the mic's 54, the
+//   feedback sheet's top-only 24) — same pattern EX.optionGlow already used
+//   for the pre-picked option, just generalised.
+// - TOUR_GLOW_ROUND is for the handful of targets whose ref sits on a bare
+//   wrapper View with no shape of its own (the hint icon, the hearts row,
+//   the progress slot) — borderRadius: 999 clamps to a perfect circle/pill
+//   at whatever size that wrapper actually renders, on any device.
+export const TOUR_GLOW = {
+  borderWidth: 2, borderColor: colors.gold,
+  shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
+  elevation: 8,
+} as const;
+export const TOUR_GLOW_ROUND = { ...TOUR_GLOW, borderRadius: 999 } as const;
+// Same spotlight, thinner halo — TOUR_GLOW_ROUND's shadowRadius:10 is a soft
+// blur bigger than the 10px-tall progress bar it's meant to outline, so the
+// gold blur reads as the bar's own color instead of a highlight around a
+// green bar. Every other TOUR_GLOW_ROUND target (hearts row, hint icon) is
+// tall enough that the same blur stays a thin rim; only the progress bar
+// needs the lighter version.
+export const TOUR_GLOW_ROUND_THIN = { ...TOUR_GLOW_ROUND, shadowRadius: 3, shadowOpacity: 0.7 } as const;
 
 // ── Audio helper ───────────────────────────────────────────────────
 // Thin wrappers around services/audioPlayer.ts (react-native-sound) that
@@ -101,6 +137,14 @@ export function PlayPauseBtn({
   const hasAudio = !!(url || urls?.length);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   useEffect(() => { setState('idle'); }, [url]);
+
+  // External stop (e.g. Check pressed mid-playback) doesn't always fire
+  // playUrl's own completion callback (Sound.stop() on Android skips it) —
+  // without this, the icon can keep showing "playing" for several seconds
+  // after the audio itself has actually stopped.
+  useEffect(() => onPlayingChange(playing => {
+    if (!playing && mountedRef.current) setState(s => (s === 'playing' ? 'idle' : s));
+  }), []);
 
   const handlePress = async () => {
     if (disabled) return;
@@ -262,11 +306,14 @@ export function HintButton({
       <Modal transparent animationType="fade" visible={visible} onRequestClose={() => setVisible(false)}>
         <View style={HB.backdrop}>
           <View style={HB.modal}>
-            <Image
-              source={require('../../../assets/images/lumo_hint.png')}
-              style={HB.lumo}
-              resizeMode="contain"
-            />
+            <View style={{ width: 100, height: 100, marginBottom: 8 }}>
+              <Image
+                source={require('../../../assets/images/lumo_hint.png')}
+                style={[HB.lumo, { marginBottom: 0 }]}
+                resizeMode="contain"
+              />
+              <MascotShadow width={100} />
+            </View>
             <Text style={HB.modalTitle}>Hint</Text>
 
             {ayahAr ? (
@@ -389,6 +436,13 @@ export function SegmentPlayBtn({ url, urls }: { url?: string | null; urls?: stri
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   useEffect(() => { setPlaying(false); }, [url, urls]);
+
+  // See PlayPauseBtn's identical subscription — an external stopAudio() call
+  // (Check press) doesn't reliably fire playUrl's completion callback, so the
+  // waveform pulse can keep animating after the sound has actually stopped.
+  useEffect(() => onPlayingChange(isPlaying => {
+    if (!isPlaying && mountedRef.current) setPlaying(false);
+  }), []);
 
   useEffect(() => {
     if (playing) {
@@ -539,6 +593,7 @@ export function LessonHeader({
   hintAyahTranslation,
   onExit,
   targets,
+  glowTarget,
 }: {
   /** In half-heart units — see MAX_MISTAKES. */
   mistakes: number;
@@ -549,6 +604,8 @@ export function LessonHeader({
   onExit: () => void;
   /** Optional refs so the tour can measure what it's about to spotlight. */
   targets?: LessonHeaderTargets;
+  /** Tour-only: which of this header's own elements should glow itself. */
+  glowTarget?: 'hint' | 'hearts' | 'progress' | null;
 }) {
   const heartsLeftHalf = MAX_MISTAKES - mistakes;
 
@@ -558,11 +615,19 @@ export function LessonHeader({
         <Text style={LH.backText}>✕</Text>
       </TouchableOpacity>
 
-      <View ref={targets?.progress} collapsable={false} style={LH.progressSlot}>
+      <View
+        ref={targets?.progress}
+        collapsable={false}
+        style={[LH.progressSlot, glowTarget === 'progress' && TOUR_GLOW_ROUND_THIN]}
+      >
         <ProgressBar fraction={progressFraction} />
       </View>
 
-      <View ref={targets?.hearts} collapsable={false} style={LH.heartsRow}>
+      <View
+        ref={targets?.hearts}
+        collapsable={false}
+        style={[LH.heartsRow, glowTarget === 'hearts' && TOUR_GLOW_ROUND]}
+      >
         {Array.from({ length: MAX_HEARTS }).map((_, i) => {
           const heartsFromThisIcon = heartsLeftHalf - i * 2; // each icon is worth 2 half-hearts
           const src =
@@ -577,7 +642,7 @@ export function LessonHeader({
         })}
       </View>
 
-      <View ref={targets?.hint} collapsable={false}>
+      <View ref={targets?.hint} collapsable={false} style={glowTarget === 'hint' ? TOUR_GLOW_ROUND : undefined}>
         <HintButton url={hintUrl} ayahAr={hintAyahAr} ayahTranslation={hintAyahTranslation} />
       </View>
     </View>
@@ -717,21 +782,35 @@ function scaledBlankBox(font: { scale: number; lineHeightScale: number }): { hei
 }
 
 export function FillBlankOrNextWord({
-  ex, surahName, character, locked, onSubmit,
+  ex, surahName, character, locked, onSubmit, previewSelected, checkButtonRef, selectedOptionRef,
+  glowCheck,
 }: {
   ex: ExerciseDict;
   surahName: string;
   character: Character;
   locked?: boolean;
   onSubmit: (ans: string) => void;
+  /**
+   * Tour-only: pre-fills `selected` so the Check button reads as enabled
+   * instead of permanently greyed out, in a screen where taps never reach
+   * the options (see TourLessonScreen). Never passed by the real lesson
+   * flow, so `selected` still starts `null` there exactly as before.
+   */
+  previewSelected?: string;
+  /** Tour-only: lets TourLessonScreen measure the real Check button, for the cutout hole. */
+  checkButtonRef?: React.Ref<View>;
+  /** Tour-only: lets TourLessonScreen measure the pre-selected option, for the cutout hole. */
+  selectedOptionRef?: React.Ref<View>;
+  /** Tour-only: glow the real Check button itself. */
+  glowCheck?: boolean;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(previewSelected ?? null);
   const arabicFont = useArabicFont();
 
   useEffect(() => {
     if (ex.word_audio_url) { void playUrl(ex.word_audio_url); }
-    setSelected(null);
-  }, [ex.ex_id]);
+    setSelected(previewSelected ?? null);
+  }, [ex.ex_id, previewSelected]);
 
   // Show "Hear words" only when the blank is the first or last token (corner position)
   const blankIdx = ex.tokens?.findIndex(t => t.blank) ?? -1;
@@ -759,7 +838,7 @@ export function FillBlankOrNextWord({
       {/* Word-by-word speaker — only when blank is in corner position */}
       {wordAudioUrls && (
         <TouchableOpacity style={EX.wordAudioBtn} onPress={() => void playUrlSequence(wordAudioUrls)}>
-          <Text style={EX.wordAudioIcon}>🔊</Text>
+          <Image source={SPEAKER_ICON} style={EX.wordAudioIcon} resizeMode="contain" />
           <Text style={EX.wordAudioLabel}>Hear words</Text>
         </TouchableOpacity>
       )}
@@ -789,26 +868,47 @@ export function FillBlankOrNextWord({
 
       {/* Options: tap once = select, long-press = audio; locked after Check */}
       <View style={EX.optionsGrid}>
-        {ex.options?.map((o, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[EX.optionBtn, selected === o.ar && EX.optionSelected, locked && { opacity: 0.7 }]}
-            onPress={() => { if (!locked) setSelected(o.ar); }}
-            onLongPress={() => { if (o.audio_url && !locked) void playUrl(o.audio_url); }}
-            delayLongPress={400}
-          >
-            <Text style={[arabicTextStyle(EX.optionText as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
-          </TouchableOpacity>
-        ))}
+        {ex.options?.map((o, i) => {
+          // Gated on the immutable prop, not the `selected` state — `selected`
+          // is seeded from `previewSelected` via useState/useEffect, so for a
+          // beat across renders it can lag behind, and the ref detaching then
+          // reattaching is exactly what let a stale rect from the wrong
+          // option survive in the tour store (confirmed: the tour's "Pick
+          // your answer" tail pointed at the wrong option). `previewSelected`
+          // itself never changes after the exercise mounts, so gating on it
+          // directly is stable from the very first render.
+          const isPreviewPick = previewSelected != null && o.ar === previewSelected;
+          return (
+            <TouchableOpacity
+              key={i}
+              ref={isPreviewPick ? selectedOptionRef : undefined}
+              style={[
+                EX.optionBtn,
+                selected === o.ar && EX.optionSelected,
+                // Tour-only: glow the auto-picked option so it's obvious why
+                // Check is enabled, since no real tap ever lands here.
+                isPreviewPick && EX.optionGlow,
+                locked && { opacity: 0.7 },
+              ]}
+              onPress={() => { if (!locked) setSelected(o.ar); }}
+              onLongPress={() => { if (o.audio_url && !locked) void playUrl(o.audio_url); }}
+              delayLongPress={400}
+            >
+              <Text style={[arabicTextStyle(EX.optionText as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      <TouchableOpacity
-        style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (selected && !locked) onSubmit(selected); }}
-        disabled={!selected || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
+      <View ref={checkButtonRef} collapsable={false}>
+        <TouchableOpacity
+          style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled, glowCheck && TOUR_GLOW]}
+          onPress={() => { if (selected && !locked) onSubmit(selected); }}
+          disabled={!selected || locked}
+        >
+          <Text style={EX.continueBtnText}>Check</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -1087,6 +1187,14 @@ export function AudioFill({
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
+  // See PlayPauseBtn's identical subscription — an external stopAudio() call
+  // (Check press) doesn't reliably fire playUrl's completion callback on
+  // Android, so a play circle can keep showing its pause icon after the
+  // sound has actually stopped.
+  useEffect(() => onPlayingChange(isPlaying => {
+    if (!isPlaying && mountedRef.current) setPlayingIdx(null);
+  }), []);
+
   useEffect(() => {
     setSelected(null);
     setPlayingIdx(null);
@@ -1136,7 +1244,7 @@ export function AudioFill({
       {/* "Hear the word" button — user must press to hear; not auto-played */}
       {ex.segment_audio_urls?.length ? (
         <TouchableOpacity style={AF.hearBtn} onPress={() => void playUrlSequence(ex.segment_audio_urls!)}>
-          <Text style={AF.hearBtnIcon}>🔊</Text>
+          <Image source={SPEAKER_ICON} style={AF.hearBtnIcon} resizeMode="contain" />
           <Text style={AF.hearBtnLabel}>Hear the word</Text>
         </TouchableOpacity>
       ) : null}
@@ -1190,7 +1298,7 @@ export function AudioFill({
 
 const AF = StyleSheet.create({
   hearBtn:           { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 22, marginBottom: 16, borderWidth: 1.5, borderColor: colors.primary },
-  hearBtnIcon:       { fontSize: 18 },
+  hearBtnIcon:       { width: 18, height: 18 },
   hearBtnLabel:      { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
   optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 24 },
   optionBtn:         { width: '45%', backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 14, alignItems: 'center', gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
@@ -1367,7 +1475,7 @@ function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvan
             {passed ? 'Great job!' : 'Keep practicing!'}
           </Text>
           <Text style={[SRB.sub, !passed && SRB.subFail]} allowFontScaling={false}>
-            {passed ? `YOU SCORED ${score_pct}%` : `SCORE: ${score_pct}% — AIM FOR 60%+`}
+            {passed ? `YOU SCORED ${score_pct}%` : `SCORE: ${score_pct}%, AIM FOR 60%+`}
           </Text>
         </View>
       </View>
@@ -1673,15 +1781,21 @@ const RAS = StyleSheet.create({
 // Scores via speak-attempt API and shows result inline.
 
 export function ReadAndSpeak({
-  ex, surahName, character, onSpeakScored,
-}: { ex: ExerciseDict; surahName: string; character: Character; onSpeakScored: (result: SpeakResult) => void }) {
+  ex, surahName, character, onSpeakScored, micButtonRef, glowMic,
+}: {
+  ex: ExerciseDict; surahName: string; character: Character; onSpeakScored: (result: SpeakResult) => void;
+  /** Tour-only: lets TourLessonScreen measure the real mic button, for the cutout hole. */
+  micButtonRef?: React.Ref<View>;
+  /** Tour-only: glow the real mic button itself. */
+  glowMic?: boolean;
+}) {
   const arabicFont = useArabicFont();
   const [speakState, setSpeakState] = useState<SpeakState>('idle');
   const [error, setError]           = useState<string | null>(null);
-  // True once "Hear" (the whole-phrase button) has been tapped — hides the
-  // individual word chips outright rather than just disabling them, since
-  // hearing the full phrase is meant to replace picking through it word by word.
-  const [heardAll, setHeardAll]     = useState(false);
+  // True only while the "Hear" (whole-phrase) audio is actually playing —
+  // used to disable the individual word chips so their taps don't overlap
+  // the sequential playback. Never hides the chips themselves.
+  const [hearingAll, setHearingAll] = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -1700,7 +1814,7 @@ export function ReadAndSpeak({
   useEffect(() => {
     setSpeakState('idle');
     setError(null);
-    setHeardAll(false);
+    setHearingAll(false);
     recordedUriRef.current = null;
   }, [ex.ex_id]);
 
@@ -1791,40 +1905,39 @@ export function ReadAndSpeak({
         </View>
 
         {/* Word chips — displayed RTL (right-to-left, Arabic reading order).
-            Gone entirely once "Hear" has been used (see heardAll) rather than
-            just disabled, since the whole-phrase listen replaces picking
-            through it word by word. Otherwise disabled from the moment
-            recording starts through scoring/done: mid-recording it'd get
+            Always stay visible; only disabled from the moment recording
+            starts through scoring/done (mid-recording a tap would get
             picked up by the mic, and once an attempt is submitted there's
-            nothing left to prepare for. */}
-        {!heardAll && (
-          <View style={RANS.wordRow}>
-            {tokens.map((token, i) => (
-              <TouchableOpacity
-                key={i}
-                style={[RANS.wordChip, speakState !== 'idle' && RANS.wordChipDisabled]}
-                onPress={() => { void playUrl(token.audio_url); }}
-                disabled={speakState !== 'idle'}
-              >
-                <Text style={arabicTextStyle(RANS.wordText as any, arabicFont) as any}>
-                  {token.ar}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+            nothing left to prepare for), or while "Hear" is playing all
+            words back-to-back (avoids overlapping audio). */}
+        <View style={RANS.wordRow}>
+          {tokens.map((token, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[RANS.wordChip, (speakState !== 'idle' || hearingAll) && RANS.wordChipDisabled]}
+              onPress={() => { void playUrl(token.audio_url); }}
+              disabled={speakState !== 'idle' || hearingAll}
+            >
+              <Text style={arabicTextStyle(RANS.wordText as any, arabicFont) as any}>
+                {token.ar}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* "Hear" — pre-loads all word audio then plays in rapid succession.
-            Tapping it hides the word chips above (see heardAll). Disabled
-            from the moment recording starts through scoring/done, same as
-            the word chips. */}
+            Disabled from the moment recording starts through scoring/done,
+            same as the word chips, and while its own playback is in flight. */}
         {allAudioUrls.length > 0 && (
           <TouchableOpacity
-            style={[RANS.hearAllBtn, speakState !== 'idle' && RANS.hearAllBtnDisabled]}
-            onPress={() => { setHeardAll(true); void playUrlSequenceFast(allAudioUrls); }}
-            disabled={speakState !== 'idle'}
+            style={[RANS.hearAllBtn, (speakState !== 'idle' || hearingAll) && RANS.hearAllBtnDisabled]}
+            onPress={() => {
+              setHearingAll(true);
+              void playUrlSequenceFast(allAudioUrls, () => { if (mountedRef.current) setHearingAll(false); });
+            }}
+            disabled={speakState !== 'idle' || hearingAll}
           >
-            <Text style={RANS.hearAllIcon}>🔊</Text>
+            <Image source={SPEAKER_ICON} style={RANS.hearAllIcon} resizeMode="contain" />
             <Text style={RANS.hearAllText}>Hear</Text>
           </TouchableOpacity>
         )}
@@ -1845,26 +1958,28 @@ export function ReadAndSpeak({
           {speakState === 'scoring' ? (
             <RecitationScoringFeedback />
           ) : (
-            <Pressable
-              onPress={handleMicTap}
-              style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive]}
-            >
-              {speakState === 'recording' ? (
-                <LottieView
-        renderMode="SOFTWARE"
-                  source={require('../../../assets/animations/listen.json')}
-                  autoPlay
-                  loop
-                  style={RANS.listenAnim}
-                />
-              ) : (
-                <Image
-                  source={require('../../../assets/images/mic.png')}
-                  style={RANS.micImage}
-                  resizeMode="contain"
-                />
-              )}
-            </Pressable>
+            <View ref={micButtonRef} collapsable={false}>
+              <Pressable
+                onPress={handleMicTap}
+                style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive, glowMic && TOUR_GLOW]}
+              >
+                {speakState === 'recording' ? (
+                  <LottieView
+          renderMode="SOFTWARE"
+                    source={require('../../../assets/animations/listen.json')}
+                    autoPlay
+                    loop
+                    style={RANS.listenAnim}
+                  />
+                ) : (
+                  <Image
+                    source={require('../../../assets/images/mic.png')}
+                    style={RANS.micImage}
+                    resizeMode="contain"
+                  />
+                )}
+              </Pressable>
+            </View>
           )}
 
           {!!error && (
@@ -1892,7 +2007,7 @@ const RANS = StyleSheet.create({
   // "Hear them all" button — plays the full phrase sequence
   hearAllBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 18, marginBottom: 8, borderWidth: 1, borderColor: colors.primary },
   hearAllBtnDisabled: { opacity: 0.4 },
-  hearAllIcon:    { fontSize: 14 },
+  hearAllIcon:    { width: 14, height: 14 },
   hearAllText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
   micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
   micInstruction: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
@@ -1922,11 +2037,14 @@ function RecitationScoringFeedback() {
   }, []);
   return (
     <View style={RSF.container}>
-      <Image
-        source={require('../../../assets/images/lumo_transparent.png')}
-        style={RSF.lumo}
-        resizeMode="contain"
-      />
+      <View style={{ width: 60, height: 60 }}>
+        <Image
+          source={require('../../../assets/images/lumo_transparent.png')}
+          style={RSF.lumo}
+          resizeMode="contain"
+        />
+        <MascotShadow width={60} />
+      </View>
       <LottieView
         ref={lottieRef}
         source={require('../../../assets/animations/loading.json')}
@@ -1966,6 +2084,18 @@ export function HearAndSelect({
   const mountedRef = useRef(true);
   const arabicFont = useArabicFont();
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  // See PlayPauseBtn's identical subscription — an external stopAudio() call
+  // (Check press) doesn't reliably fire playUrl's completion callback on
+  // Android. Bumping seqGenRef also makes the in-flight sequence loop in
+  // startPlayback below exit on its next iteration instead of continuing to
+  // await audio that's already been stopped.
+  useEffect(() => onPlayingChange(isPlaying => {
+    if (!isPlaying && mountedRef.current) {
+      seqGenRef.current += 1;
+      setPlaying(false);
+    }
+  }), []);
 
   const startPlayback = () => {
     const urls = ex.segment_audio_urls ?? [];
@@ -2014,7 +2144,7 @@ export function HearAndSelect({
       >
         {playing
           ? <View style={HAS.pauseIcon}><View style={HAS.pauseBar} /><View style={HAS.pauseBar} /></View>
-          : <Text style={HAS.speakerIcon}>🔊</Text>
+          : <Image source={SPEAKER_ICON} style={HAS.speakerIcon} resizeMode="contain" />
         }
         <Text style={[HAS.speakerLabel, playing && { color: 'rgba(255,255,255,0.85)' }]}>
           {playing ? 'Playing…' : 'Tap to hear'}
@@ -2057,7 +2187,7 @@ const HAS = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 }, elevation: 8,
   },
   speakerBtnActive: { backgroundColor: colors.primary },
-  speakerIcon:  { fontSize: 36, textAlign: 'center', color: colors.primary },
+  speakerIcon:  { width: 36, height: 36 },
   speakerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.primary, marginTop: 6, textAlign: 'center' },
   pauseIcon:    { flexDirection: 'row', gap: 7, alignItems: 'center' },
   pauseBar:     { width: 7, height: 30, backgroundColor: 'white', borderRadius: 3 },
@@ -2076,7 +2206,7 @@ const EX = StyleSheet.create({
   bubbleText:  { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText },
   // Word-by-word speaker (above question card)
   wordAudioBtn:   { alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8, backgroundColor: colors.primaryBg, borderRadius: 14, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.primary },
-  wordAudioIcon:  { fontSize: 13 },
+  wordAudioIcon:  { width: 13, height: 13 },
   wordAudioLabel: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary },
   // Review (wrong-answer replay) banner
   reviewBanner: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 10, alignItems: 'center' as const, borderWidth: 1, borderColor: '#F59E0B' },
@@ -2099,6 +2229,11 @@ const EX = StyleSheet.create({
   optionBtn: { backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', minWidth: '45%', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   optionBtnFull: { backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, marginBottom: 10, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   optionSelected: { borderColor: colors.primary, backgroundColor: colors.primaryBg },
+  optionGlow: {
+    borderColor: colors.gold, borderWidth: 2,
+    shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
   optionText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: colors.darkText },
   optionTextArabic: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 18, color: colors.darkText, textAlign: 'center' },
   optionTextSelected: { color: colors.primary },
@@ -2130,8 +2265,14 @@ const EX = StyleSheet.create({
 // ── Feedback overlay ───────────────────────────────────────────────
 
 export function FeedbackBanner({
-  result, onAdvance,
-}: { result: FormulaAttemptOut; onAdvance: () => void }) {
+  result, onAdvance, bannerRef, glow,
+}: {
+  result: FormulaAttemptOut; onAdvance: () => void;
+  /** Tour-only: lets TourLessonScreen measure the real feedback sheet, for the cutout hole. */
+  bannerRef?: React.Ref<View>;
+  /** Tour-only: glow the real feedback sheet itself. */
+  glow?: boolean;
+}) {
   const correct = result.correct;
   const arabicFont = useArabicFont();
   const xpAwarded = result.xp_awarded ?? 0;
@@ -2142,7 +2283,7 @@ export function FeedbackBanner({
 
   if (correct) {
     return (
-      <View style={FB.sheet}>
+      <View ref={bannerRef} collapsable={false} style={[FB.sheet, glow && TOUR_GLOW]}>
         <View style={FB.correctRow}>
           <View style={FB.correctBadge}><Text style={FB.correctBadgeText}>✓</Text></View>
           <View style={{ flex: 1 }}>
@@ -2164,7 +2305,7 @@ export function FeedbackBanner({
   }
 
   return (
-    <View style={[FB.sheet, FB.wrongSheet]}>
+    <View ref={bannerRef} collapsable={false} style={[FB.sheet, FB.wrongSheet, glow && TOUR_GLOW]}>
       <View style={FB.wrongRow}>
         <View style={FB.wrongBadge}><Text style={FB.wrongBadgeText}>✕</Text></View>
         <Text style={[FB.wrongTitle, { flex: 1 }]}>Incorrect</Text>
@@ -2312,6 +2453,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
 
   const submitAnswer = useCallback(async (userAnswer: string | string[] | number[] | null, correctOverride?: boolean) => {
     if (!sessionId || !exercise || submitting) return;
+    // Every exercise's Check button funnels through here — stop whatever
+    // audio is still playing (and its icon/waveform animation, via each
+    // component's onPlayingChange subscription) the instant Check is pressed.
+    stopAudio();
     setSubmitting(true);
     const ms = Date.now() - startedAt.current;
 
@@ -2326,6 +2471,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       // Speak exercises score correctness client-side (via Deepgram speak-attempt,
       // passed in as correctOverride) since formulaAttempt gets no user_answer to grade.
       const effectiveCorrect = correctOverride !== undefined ? correctOverride : result.correct;
+
+      // ayah_display is a listen-along card, not a graded question — no ding for it.
+      if (exercise.type !== 'ayah_display') {
+        playFeedbackSound(effectiveCorrect);
+      }
 
       // remediation_up = reinforcement phase, no hearts lost even on wrong.
       // ayah_display is a listen-along card, not a gradable exercise — never
@@ -2378,6 +2528,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             // shared learning store — refreshLearning() is throttled and
             // nothing else calls it after a lesson, so without this the Map
             // HUD's flame/XP silently stayed stale until the next cold launch.
+            // Includes the freeze/repair fields (2026-08-05) for the same
+            // reason: a repair on this exact completion should flip the HUD
+            // pill back to its active color immediately, not after the next
+            // 60s poll or foreground event.
             if (typeof summary.current_streak === 'number') {
               const currentLearning = useAuthStore.getState().learning;
               if (currentLearning) {
@@ -2386,6 +2540,12 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
                     ...currentLearning,
                     current_streak: summary.current_streak,
                     xp_total: currentLearning.xp_total + (totalXpRef.current || summary.xp_awarded),
+                    // Backend fields not deployed yet fall back to the
+                    // previous value rather than clobbering it with undefined.
+                    streak_state: summary.streak_state ?? currentLearning.streak_state,
+                    freeze_days_remaining: summary.freeze_days_remaining ?? currentLearning.freeze_days_remaining,
+                    repair_levels_required: summary.repair_levels_required ?? currentLearning.repair_levels_required,
+                    repair_levels_completed: summary.repair_levels_completed ?? currentLearning.repair_levels_completed,
                   },
                 });
               }
@@ -2398,6 +2558,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
               // celebration" rather than crashing on an undefined summary field.
               streakIncremented: summary.streak_incremented ?? false,
               currentStreak: summary.current_streak,
+              streakRepaired: summary.streak_repaired ?? false,
+              streakState: summary.streak_state,
+              repairLevelsCompleted: summary.repair_levels_completed,
+              repairLevelsRequired: summary.repair_levels_required,
             });
           } catch (e) {
             console.warn('[Lesson] completeSession FAILED. totalXpRef:', totalXpRef.current, 'error:', e);
@@ -2456,6 +2620,33 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     abandonSession({ silent: true }).catch(() => {});
     navigation.goBack();
   };
+
+  // Hardware back during a live exercise must ask before throwing progress
+  // away, exactly like the X button does — not silently pop the screen (the
+  // previous default) or land on some other screen entirely. While the
+  // exit-confirm Modal is already open, Android routes the back press to its
+  // own onRequestClose directly (RN Modals capture hardware back at the
+  // native window level ahead of any BackHandler listener), so this only
+  // fires for that case when it's not yet open.
+  //
+  // The no-hearts overlay is a plain absolutely-positioned View, not a
+  // Modal — it doesn't get that native interception, and today it has no
+  // leave affordance at all (Buy Hearts is a coming-soon no-op, Retry starts
+  // the level over). Back is the only way out of it, so it skips the confirm
+  // (there's no fresh progress left to protect at that point) and leaves
+  // straight away.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (noHeartsVisible) {
+        setNoHeartsVisible(false);
+        handleBack();
+        return true;
+      }
+      setExitConfirmVisible(true);
+      return true;
+    });
+    return () => sub.remove();
+  }, [noHeartsVisible]);
 
   // ── Error state ──────────────────────────────────────────────────
   if (error && !loading) {
@@ -2717,11 +2908,14 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       {noHeartsVisible && (
         <View style={S.noHeartsOverlay}>
           <View style={S.noHeartsCard}>
-            <Image
-              source={require('../../../assets/images/lumo_cry.png')}
-              style={S.noHeartsLumo}
-              resizeMode="contain"
-            />
+            <View style={{ width: 120, height: 120, marginBottom: 8 }}>
+              <Image
+                source={require('../../../assets/images/lumo_cry.png')}
+                style={[S.noHeartsLumo, { marginBottom: 0 }]}
+                resizeMode="contain"
+              />
+              <MascotShadow width={120} />
+            </View>
             <Text style={S.noHeartsTitle}>Out of Hearts!</Text>
             <Text style={S.noHeartsBody}>
               You've run out of hearts for this attempt.{'\n'}Take a breath and try again!
@@ -2756,14 +2950,17 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       >
         <View style={S.noHeartsOverlay}>
           <View style={S.noHeartsCard}>
-            <Image
-              source={require('../../../assets/images/lumo_transparent.png')}
-              style={S.exitConfirmLumo}
-              resizeMode="contain"
-            />
+            <View style={{ width: 90, height: 90, marginBottom: 8 }}>
+              <Image
+                source={require('../../../assets/images/lumo_transparent.png')}
+                style={[S.exitConfirmLumo, { marginBottom: 0 }]}
+                resizeMode="contain"
+              />
+              <MascotShadow width={90} />
+            </View>
             <Text style={S.noHeartsTitle}>Leave the lesson?</Text>
             <Text style={S.noHeartsBody}>
-              Your progress this level won't be saved — you'll start fresh next time.
+              Your progress this level won't be saved, you'll start fresh next time.
             </Text>
             <View style={S.exitConfirmBtnRow}>
               <TouchableOpacity

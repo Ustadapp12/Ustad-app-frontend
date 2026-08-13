@@ -5,15 +5,30 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initAnalytics } from './src/services/analytics';
 import { syncDeviceTimezone } from './src/api';
 import { abandonActiveLessonSessionSilent } from './src/services/lessonSession';
+import { startUsageSession, endUsageSession } from './src/services/usageSession';
 import { useAuthStore } from './src/store/authStore';
 import { useLessonStore } from './src/store/lessonStore';
 import RootNavigator from './src/navigation/RootNavigator';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 const LEARNING_ME_POLL_MS = 60_000;
 
 function App() {
   useEffect(() => {
     void initAnalytics();
+  }, []);
+
+  useEffect(() => {
+    // Starts the first usage session once a user exists — covers both a
+    // fresh hydrate() on cold start and a fresh login/register/guest call.
+    // A returning-from-background restart is handled by the AppState effect
+    // below, once the prior session has actually been ended there.
+    if (useAuthStore.getState().user) void startUsageSession();
+    const unsub = useAuthStore.subscribe((state, prevState) => {
+      if (state.user && !prevState.user) void startUsageSession();
+      if (!state.user && prevState.user) void endUsageSession();
+    });
+    return unsub;
   }, []);
 
   useEffect(() => {
@@ -50,6 +65,7 @@ function App() {
           if (useAuthStore.getState().user) {
             void syncDeviceTimezone();
             void useAuthStore.getState().refreshLearning({ force: true });
+            void startUsageSession();
           }
         }
         return;
@@ -58,6 +74,7 @@ function App() {
         wasBackgrounded = true;
         graceTimer = setTimeout(() => {
           abandonActiveLessonSessionSilent();
+          void endUsageSession();
           graceTimer = null;
         }, ABANDON_GRACE_MS);
       }
@@ -71,7 +88,9 @@ function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <RootNavigator />
+        <ErrorBoundary>
+          <RootNavigator />
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

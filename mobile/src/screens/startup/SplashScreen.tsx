@@ -7,6 +7,7 @@ import { useAuthStore } from '../../store/authStore';
 import { isGuest } from '../../utils/guest';
 import { getNextOnboardingScreen, isOnboardingDone } from '../../utils/storage';
 import { healthCheck } from '../../api/client';
+import MascotShadow from '../../components/MascotShadow';
 import type { RootNavProp } from '../../navigation/types';
 
 const { width } = Dimensions.get('window');
@@ -161,12 +162,21 @@ export default function SplashScreen({ navigation }: Props) {
           {/* Luma */}
           <Animated.Image
             source={require('../../../assets/images/lumo_transparent.png')}
-            style={[styles.luma, { transform: [{ translateY: lumaY }] }]}
+            style={[styles.luma, { marginBottom: 0, transform: [{ translateY: lumaY }] }]}
             resizeMode="contain"
           />
+          <MascotShadow width={180} style={{ position: 'relative', marginTop: -18, marginBottom: 8 }} />
 
-          {/* Arabic title */}
-          <Text style={styles.arabicTitle}>أُسْتَاذ</Text>
+          {/* Wordmark — replaces the plain Arabic "أُسْتَاذ" text title with the
+              real brand mark (product-provided 2026-08-13). Square source
+              canvas with the actual artwork sitting in a thin horizontal
+              band through the middle, so the box is sized wider than tall
+              and resizeMode="contain" letterboxes it down to that band. */}
+          <Image
+            source={require('../../../assets/map/logo_app.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.subtitle}>USTAD · HIFZ</Text>
           <Text style={styles.tagline}>The gamified way to memorise the Holy Quran</Text>
 
@@ -232,14 +242,10 @@ const styles = StyleSheet.create({
     height: 180,
     marginBottom: 8,
   },
-  arabicTitle: {
-    fontFamily: 'NotoNaskhArabic_400Regular',
-    fontSize: 42,
-    color: '#C4A84C',
+  logo: {
+    width: 260,
+    height: 130,
     marginBottom: 5,
-    textShadowColor: 'rgba(196,168,76,0.4)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 20,
   },
   subtitle: {
     fontFamily: 'Nunito_700Bold',

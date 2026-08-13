@@ -8,6 +8,7 @@ import { colors } from '../../theme/colors';
 import { useResponsiveScale } from '../../utils/responsive';
 import { isGuest } from '../../utils/guest';
 import GuestGate from '../../components/GuestGate';
+import MascotShadow from '../../components/MascotShadow';
 import type { LeaderboardEntry } from '../../types/api';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -100,11 +101,14 @@ function LeaderboardContent() {
           <Text style={styles.headerLabel}>🏆 TOP LEARNERS</Text>
           <Text style={styles.headerTitle}>Leaderboard</Text>
         </View>
-        <Animated.Image
-          source={require('../../../assets/images/lumo_transparent.png')}
-          style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
-          resizeMode="contain"
-        />
+        <View style={{ alignItems: 'center' }}>
+          <Animated.Image
+            source={require('../../../assets/images/lumo_transparent.png')}
+            style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
+            resizeMode="contain"
+          />
+          <MascotShadow width={sc(62)} style={{ position: 'relative', marginTop: -sc(6) }} />
+        </View>
       </View>
 
       {loading ? (
@@ -118,7 +122,7 @@ function LeaderboardContent() {
         </View>
       ) : !entries?.length ? (
         <View style={styles.centerFill}>
-          <Text style={styles.errorText}>No rankings yet — be the first to earn XP!</Text>
+          <Text style={styles.errorText}>No rankings yet, be the first to earn XP!</Text>
         </View>
       ) : (
         <View style={styles.contentWrap}>

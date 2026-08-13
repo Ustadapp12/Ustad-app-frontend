@@ -114,7 +114,7 @@ export async function api<T>(
         res = await doFetch();
       } catch (err2) {
         captureError(err2, { path, api_base: API_BASE });
-        throw new ApiError('Cannot reach server — check your internet connection.', 0, null);
+        throw new ApiError('Cannot reach server: check your internet connection.', 0, null);
       }
     } else {
       if (!isAbort) {
@@ -125,8 +125,8 @@ export async function api<T>(
       }
       throw new ApiError(
         isAbort
-          ? 'Request timed out — check your connection.'
-          : 'Cannot reach server — check your internet connection.',
+          ? 'Request timed out: check your connection.'
+          : 'Cannot reach server: check your internet connection.',
         0,
         null,
       );
@@ -164,7 +164,13 @@ export async function api<T>(
     return undefined as T;
   }
 
-  const body = await res.json();
+  let body: any;
+  try {
+    body = await res.json();
+  } catch (err) {
+    captureError(err, { path, status: res.status });
+    throw new ApiError('Invalid server response', res.status, null);
+  }
   // New-style success envelope on migrated endpoints (currently the 5 auth
   // endpoints): { success: true, message, data: {...} }. Detected by shape
   // rather than by path, so endpoints that haven't migrated yet keep

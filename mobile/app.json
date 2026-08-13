@@ -7,6 +7,14 @@
     "scheme": "ustadapp",
     "version": "1.0.0",
     "platforms": ["ios", "android"],
+    "ios": {
+      "bundleIdentifier": "com.ustadapp",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.ustadapp",
+      "versionCode": 1
+    },
     "plugins": []
   }
 }

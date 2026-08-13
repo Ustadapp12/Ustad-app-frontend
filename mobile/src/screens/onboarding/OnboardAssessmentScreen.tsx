@@ -8,6 +8,7 @@ import { colors } from '../../theme/colors';
 import { stopAudio } from '../../services/audioPlayer';
 import { JUZ30_SURAHS } from '../../data/juz30Surahs';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import MascotShadow from '../../components/MascotShadow';
 import {
   CHARACTERS,
   characterForIndex,
@@ -254,11 +255,14 @@ function IntroScreen({
 
       <ScrollView contentContainerStyle={S.introScroll} showsVerticalScrollIndicator={false}>
         <View style={S.introContent}>
-          <Image
-            source={require('../../../assets/images/lumo_transparent.png')}
-            style={S.lumoIntro}
-            resizeMode="contain"
-          />
+          <View style={{ width: 120, height: 120, marginBottom: 24 }}>
+            <Image
+              source={require('../../../assets/images/lumo_transparent.png')}
+              style={[S.lumoIntro, { marginBottom: 0 }]}
+              resizeMode="contain"
+            />
+            <MascotShadow width={120} />
+          </View>
           <Text style={S.introText}>Let's see how much you know?</Text>
         </View>
       </ScrollView>

@@ -39,7 +39,7 @@ export function messageForStatus(status: number, body: unknown): string {
     return formatApiError(body, 'Content not found for this surah or lesson.');
   }
   if (status === 429) {
-    return formatApiError(body, 'Too many attempts — please wait a bit and try again.');
+    return formatApiError(body, 'Too many attempts, please wait a bit and try again.');
   }
   return formatApiError(body, `Request failed (${status})`);
 }

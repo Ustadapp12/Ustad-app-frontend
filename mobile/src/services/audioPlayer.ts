@@ -1,4 +1,5 @@
-import * as Sentry from '@sentry/react-native';
+import { Platform } from 'react-native';
+import { captureError } from './crashReporter';
 
 // Sounds pre-loaded for the active lesson — not released between steps
 const preloadedSounds = new Map<string, unknown>();
@@ -71,9 +72,9 @@ function logAudioIssue(
   if (__DEV__) {
     console.warn(`[audioPlayer] ${phase} failed:`, detail, url);
   } else if (error instanceof Error) {
-    try { Sentry.captureException(error, { extra: { url, phase } }); } catch { /* ignore */ }
+    captureError(error, { url, phase });
   } else {
-    try { Sentry.captureMessage(`audioPlayer ${phase} failed`, { level: 'warning', extra: { url, detail } }); } catch { /* ignore */ }
+    captureError(`audioPlayer ${phase} failed`, { url, detail });
   }
 }
 
@@ -255,6 +256,58 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
     });
   } catch (err) {
     logAudioIssue('setup', url, err);
+  }
+}
+
+// ── Answer feedback SFX (correct/wrong ding) ────────────────────────
+// Bundled local files (android/app/src/main/assets/{correct,wrong}.wav),
+// not remote URLs — this must play instantly with zero network dependency,
+// unlike the exercise audio above. Loaded via the "asset:/" prefix (Android's
+// raw AssetManager), NOT android/app/src/main/res/raw — AAPT2's release-build
+// resource optimizer (:app:optimizeReleaseResources) silently strips res/raw
+// entries that are only ever referenced by a dynamic runtime string (as
+// react-native-sound does), even with a res/raw/keep.xml tools:keep entry and
+// even from a from-scratch clean build. assets/ isn't processed by AAPT2 at
+// all, so there's nothing for that optimizer to strip.
+// Kept on separate Sound instances so it never touches activeSound/
+// systemPlaying: it must not be interruptible by stopAudio() (submitAnswer
+// calls that first, then this) and must not drive the exercise waveform/
+// play-icon UI.
+let correctSfx: SoundLike | null = null;
+let wrongSfx: SoundLike | null = null;
+
+function loadSfx(file: string): SoundLike | null {
+  try {
+    const SoundModule = require('react-native-sound');
+    const Sound = SoundModule.default ?? SoundModule;
+    Sound.setCategory('Playback');
+    const source = Platform.OS === 'android' ? `asset:/${file}` : file;
+    const sound = new Sound(source, Sound.MAIN_BUNDLE, (err: Error | null) => {
+      if (err) logAudioIssue('load', source, err);
+    });
+    return sound as unknown as SoundLike;
+  } catch (err) {
+    logAudioIssue('setup', file, err);
+    return null;
+  }
+}
+
+// react-native-sound's prepare() is async natively — play() silently no-ops
+// if called before it resolves. Load both eagerly at module-import time
+// (well before a user can reach a lesson's first exercise) rather than
+// lazily on first play, so the very first ding never gets dropped.
+correctSfx = loadSfx('correct.wav');
+wrongSfx = loadSfx('wrong.wav');
+
+/** Play the short correct/wrong feedback chime. Fire-and-forget. */
+export function playFeedbackSound(correct: boolean): void {
+  try {
+    const sfx = correct ? correctSfx : wrongSfx;
+    sfx?.stop();
+    sfx?.setCurrentTime(0);
+    sfx?.play(() => {});
+  } catch (err) {
+    logAudioIssue('play', correct ? 'correct.wav' : 'wrong.wav', err);
   }
 }
 

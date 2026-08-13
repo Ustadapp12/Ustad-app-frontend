@@ -6,6 +6,7 @@ import { colors } from '../../theme/colors';
 import { useAuthStore } from '../../store/authStore';
 import { isGuest } from '../../utils/guest';
 import GuestGate from '../../components/GuestGate';
+import MascotShadow from '../../components/MascotShadow';
 
 export default function DailyQuestScreen() {
   const user = useAuthStore(s => s.user);
@@ -38,11 +39,12 @@ function DailyQuestContent() {
       <View style={styles.centerFill}>
         <Animated.Image
           source={require('../../../assets/images/lumo_transparent.png')}
-          style={[styles.luma, { transform: [{ translateY: lumaY }] }]}
+          style={[styles.luma, { marginBottom: 0, transform: [{ translateY: lumaY }] }]}
           resizeMode="contain"
         />
+        <MascotShadow width={150} style={{ position: 'relative', marginTop: -15, marginBottom: 20 }} />
         <View style={styles.bubble}>
-          <Text style={styles.bubbleText}>We're building quests — check back soon!</Text>
+          <Text style={styles.bubbleText}>We're building quests, check back soon!</Text>
         </View>
       </View>
     </LinearGradient>
