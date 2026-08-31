@@ -112,17 +112,26 @@ jobs:
           fi
           echo "$IOS_DISTRIBUTION_P12" | base64 -d > ios_distribution.p12
           echo "$IOS_PROVISIONING_PROFILE" | base64 -d > ios_distribution.mobileprovision
-          cat > credentials.json <<EOF
-          {
-            "ios": {
-              "provisioningProfilePath": "ios_distribution.mobileprovision",
-              "distributionCertificate": {
-                "path": "ios_distribution.p12",
-                "password": "$IOS_DISTRIBUTION_P12_PASSWORD"
-              }
-            }
-          }
-          EOF
+          # Built via Node's JSON.stringify rather than shell string interpolation —
+          # a heredoc would silently break (invalid JSON, or a leaked raw value)
+          # if the password secret ever contains a trailing newline, a quote,
+          # or a backslash. trim() also guards against a newline picked up from
+          # copy-pasting the password out of a text file.
+          node -e "
+            const fs = require('fs');
+            const password = process.env.IOS_DISTRIBUTION_P12_PASSWORD.trim();
+            const config = {
+              ios: {
+                provisioningProfilePath: 'ios_distribution.mobileprovision',
+                distributionCertificate: {
+                  path: 'ios_distribution.p12',
+                  password,
+                },
+              },
+            };
+            fs.writeFileSync('credentials.json', JSON.stringify(config, null, 2));
+          "
+          node -e "JSON.parse(require('fs').readFileSync('credentials.json', 'utf8')); console.log('credentials.json is valid JSON')"
 
       - name: Build iOS (production profile — store distribution, required for TestFlight)
         run: eas build --platform ios --profile production --non-interactive
