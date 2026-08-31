@@ -52,7 +52,7 @@ describe('usageSession', () => {
     await startUsageSession();
     await endUsageSession();
 
-    expect(endSession).toHaveBeenCalledWith('sess-1');
+    expect(endSession).toHaveBeenCalledWith('sess-1', { last_screen: undefined, previous_screen: undefined });
 
     startSession.mockResolvedValue({ session_id: 'sess-2' });
     await startUsageSession();
@@ -83,6 +83,6 @@ describe('usageSession', () => {
     startSession.mockResolvedValue({ session_id: 'sess-2' });
     await startUsageSession();
     await endUsageSession();
-    expect(endSession).toHaveBeenLastCalledWith('sess-2');
+    expect(endSession).toHaveBeenLastCalledWith('sess-2', { last_screen: undefined, previous_screen: undefined });
   });
 });
