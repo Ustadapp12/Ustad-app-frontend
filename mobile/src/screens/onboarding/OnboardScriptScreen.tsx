@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { saveOnboarding, setScriptPreference } from '../../utils/storage';
 import { scriptFontScale, scriptLineHeightScale } from '../../utils/arabicFont';
-import { useResponsiveScale } from '../../utils/responsive';
+import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
 import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
 import type { ScriptPreference } from '../../types/api';
@@ -23,7 +23,8 @@ const BASE_FONT_SIZE = 22;
 const BASE_LINE_HEIGHT = 38;
 
 export default function OnboardScriptScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const [selected, setSelected] = useState<ScriptPreference>('uthmani');
   const sc = useResponsiveScale();
   const styles = useMemo(() => makeStyles(sc), [sc]);
@@ -67,7 +68,7 @@ export default function OnboardScriptScreen({ navigation }: Props) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('OnboardPath')}>
-          <Text style={styles.backArrow}>←</Text>
+          <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
         </TouchableOpacity>
         <View style={styles.dots}>
           <View style={[styles.dot, styles.dotActive]} />
@@ -77,9 +78,9 @@ export default function OnboardScriptScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ width: sc(84), height: sc(84), alignSelf: 'center', marginBottom: sc(4) }}>
+        <View style={{ width: sc(100), height: sc(100), alignSelf: 'center', marginBottom: sc(4) }}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
-          <MascotShadow width={sc(84)} />
+          <MascotShadow width={sc(100)} />
         </View>
         <Text style={styles.badge}>SETUP · STEP 3 OF 3</Text>
         <Text style={styles.heading}>Choose your font</Text>
@@ -142,12 +143,12 @@ function makeStyles(sc: (n: number) => number) {
   container:    { flex: 1, backgroundColor: colors.lightBg },
   headerRow:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: sc(20), paddingBottom: sc(6), paddingTop: sc(4) },
   backBtn:      { width: sc(36), height: sc(36), borderRadius: sc(18), borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  backArrow:    { fontSize: sc(18), color: colors.darkText, fontWeight: '700' },
+  backArrow:    { width: sc(18), height: sc(18), tintColor: colors.darkText },
   dots:         { flexDirection: 'row', gap: sc(6), marginLeft: 'auto' },
   dot:          { width: sc(24), height: sc(6), borderRadius: sc(3), backgroundColor: colors.border },
   dotActive:    { backgroundColor: colors.primary },
   scroll:       { paddingHorizontal: sc(22), paddingBottom: sc(20) },
-  luma:         { width: sc(84), height: sc(84), alignSelf: 'center', marginBottom: sc(4) },
+  luma:         { width: sc(100), height: sc(100), alignSelf: 'center', marginBottom: sc(4) },
   badge:        { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: colors.mutedText, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: sc(8), textAlign: 'center' },
   heading:      { fontFamily: 'Nunito_700Bold', fontSize: sc(24), color: colors.darkText, lineHeight: sc(30), marginBottom: sc(6), textAlign: 'center' },
   sub:          { fontFamily: 'Nunito_400Regular', fontSize: sc(13), color: colors.mutedText, marginBottom: sc(22), lineHeight: sc(19), textAlign: 'center' },

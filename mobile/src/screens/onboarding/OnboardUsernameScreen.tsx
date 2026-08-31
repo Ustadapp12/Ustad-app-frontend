@@ -7,17 +7,24 @@ import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
 import { validateName } from '../../utils/validators';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props { navigation: RootNavProp }
 
-// First onboarding step (replaces sign-up's removed "Full Name" field) — what
+// First onboarding step, for a fresh run and for a resumed one alike (see
+// getNextOnboardingScreen) — replaces sign-up's removed "Full Name" field. What
 // to call the user everywhere else in the app (Profile, celebrations). Saved
 // via the existing PATCH /users/me/name (writes UserProfile.display_name),
 // same endpoint ProfileScreen already reads through — no new backend needed.
 export default function OnboardUsernameScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
-  const updateProfileFields = useAuthStore(s => s.updateProfileFields);
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
+  // updateDisplayName, not updateProfileFields: the latter only writes
+  // profile.display_name, while ProfileScreen (and the rest of the app) reads
+  // user.name. Using it here left the profile showing the email prefix — or
+  // "Guest" on a claimed guest row — instead of the name just typed.
+  const updateDisplayName = useAuthStore(s => s.updateDisplayName);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +39,7 @@ export default function OnboardUsernameScreen({ navigation }: Props) {
     const trimmed = name.trim();
     try {
       await usersApi.updateName(trimmed);
-      updateProfileFields({ display_name: trimmed });
+      updateDisplayName(trimmed);
       navigation.navigate('OnboardAge');
     } catch (e) {
       if (e instanceof ApiError && e.code === 'INVALID_NAME') setError(e.message);
@@ -44,10 +51,11 @@ export default function OnboardUsernameScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* No back button: this is the first onboarding step, and the account
+          already exists by the time it renders (registered + verified, or
+          Google). "Back" used to go to SignUp, which would strand a user who
+          had already signed up. */}
       <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('SignUp')}>
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
         <View style={styles.dots}>
           <View style={[styles.dot, styles.dotActive]} />
           <View style={styles.dot} />
@@ -55,9 +63,9 @@ export default function OnboardUsernameScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.content}>
-        <View style={{ width: 100, height: 100, marginBottom: 10 }}>
+        <View style={{ width: 120, height: 120, marginBottom: 10 }}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
-          <MascotShadow width={100} />
+          <MascotShadow width={120} />
         </View>
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>
         <Text style={styles.heading}>What should we call you?</Text>
@@ -93,16 +101,11 @@ export default function OnboardUsernameScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg },
   headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 6, paddingTop: 4 },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
-    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
-  },
-  backArrow: { fontSize: 18, color: colors.darkText, fontWeight: '700' },
   dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 8 },
-  luma: { width: 100, height: 100, marginBottom: 10 },
+  luma: { width: 120, height: 120, marginBottom: 10 },
   badge: {
     fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.primary,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',

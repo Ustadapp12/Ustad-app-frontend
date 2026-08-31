@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-audio-recorder-player/android/src/main/java/com/dooboolab.audiorecorderplayer/RNAudioRecorderPlayerModule.kt b/node_modules/react-native-audio-recorder-player/android/src/main/java/com/dooboolab.audiorecorderplayer/RNAudioRecorderPlayerModule.kt
-index 4570fc2..ec5416a 100644
+index 4570fc2..a31879b 100644
 --- a/node_modules/react-native-audio-recorder-player/android/src/main/java/com/dooboolab.audiorecorderplayer/RNAudioRecorderPlayerModule.kt
 +++ b/node_modules/react-native-audio-recorder-player/android/src/main/java/com/dooboolab.audiorecorderplayer/RNAudioRecorderPlayerModule.kt
 @@ -44,13 +44,13 @@ class RNAudioRecorderPlayerModule(private val reactContext: ReactApplicationCont
@@ -18,7 +18,29 @@ index 4570fc2..ec5416a 100644
                      promise.reject("No permission granted.", "Try again after adding permission.")
                      return
                  }
-@@ -252,7 +252,7 @@ class RNAudioRecorderPlayerModule(private val reactContext: ReactApplicationCont
+@@ -197,6 +197,21 @@ class RNAudioRecorderPlayerModule(private val reactContext: ReactApplicationCont
+             promise.resolve("file:///$audioFileURL")
+         } catch (stopException: RuntimeException) {
+             stopException.message?.let { Log.d(tag,"" + it) }
++            // MediaRecorder.stop() throws IllegalStateException in several
++            // common, non-exotic cases (stop() called too soon after
++            // start(), no valid data recorded yet, OEM encoder quirks on
++            // some devices) — none of that means the recorder is still
++            // usable. Without releasing + nulling here too, `mediaRecorder`
++            // stays permanently non-null, and every future startRecorder()
++            // call immediately rejects with "startRecorder has already been
++            // called" (see above) without ever touching the microphone
++            // again — the only previous recovery was a full app restart.
++            try {
++                mediaRecorder!!.release()
++            } catch (releaseException: Exception) {
++                Log.d(tag, "release after failed stop: " + releaseException.message)
++            }
++            mediaRecorder = null
+             promise.reject("stopRecord", stopException.message)
+         }
+     }
+@@ -252,7 +267,7 @@ class RNAudioRecorderPlayerModule(private val reactContext: ReactApplicationCont
                          val key = iterator.nextKey()
                          headers.put(key, httpHeaders.getString(key))
                      }

@@ -5,10 +5,10 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { useAuthStore } from '../../store/authStore';
-import AuthRequiredModal from '../../components/AuthRequiredModal';
 import MascotShadow from '../../components/MascotShadow';
-import { clearPendingGuestProgress, isGuest, setUpgradePrompted, wasUpgradePrompted } from '../../utils/guest';
+import { isGuest } from '../../utils/guest';
 import { STREAK_FROZEN_ICON, STREAK_FROZEN_COLOR } from '../../utils/streak';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 import type { RouteProp } from '@react-navigation/native';
 
@@ -33,9 +33,18 @@ function animationFor(streak: number) {
 // is still reachable from the map HUD pill / profile menu — this screen is
 // only the celebration moment. ────────────────────────────────────────────
 export default function StreakCelebrationScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { currentStreak, streakRepaired } = route.params;
-  const animationSource = animationFor(currentStreak);
+  const guest = isGuest(useAuthStore(s => s.user));
+  // Guests never actually bank a streak (see utils/guest.ts) — the backend
+  // still reports a computed currentStreak so this screen has something to
+  // animate, but showing that number here would be showing a lie (it always
+  // reports "1", every single level, since nothing is ever persisted to
+  // compare against). Pin the displayed value at 0 instead; the real pitch
+  // to fix that lives on GuestStreakPitchScreen, right after this one.
+  const displayStreak = guest ? 0 : currentStreak;
+  const animationSource = animationFor(displayStreak);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
@@ -87,7 +96,7 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
     ]);
     entrance.start();
     countAnim.addListener(({ value }) => setDisplayedStreak(Math.round(value)));
-    const countUp = Animated.timing(countAnim, { toValue: currentStreak, duration: 1000, delay: 500, useNativeDriver: false });
+    const countUp = Animated.timing(countAnim, { toValue: displayStreak, duration: 1000, delay: 500, useNativeDriver: false });
     countUp.start();
     return () => {
       entrance.stop();
@@ -96,38 +105,8 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
     };
   }, [breakDone]);
 
-  // The conversion moment, ported from the old StreakScreen's justIncremented
-  // path: a guest's streak is computed by the server but never banked (see
-  // utils/guest.ts), so this is the one place to ask before it's gone. Only
-  // once ever — nagging after every level would sour the thing it's selling.
-  const [upgradePromptVisible, setUpgradePromptVisible] = useState(false);
-  const guest = isGuest(useAuthStore(s => s.user));
-  const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!guest) return;
-    void (async () => {
-      if (await wasUpgradePrompted()) return;
-      promptTimerRef.current = setTimeout(() => setUpgradePromptVisible(true), 2200);
-    })();
-    return () => { if (promptTimerRef.current) clearTimeout(promptTimerRef.current); };
-  }, [guest]);
-
-  async function handleCreateAccount() {
-    await setUpgradePrompted();
-    setUpgradePromptVisible(false);
-    navigation.replace('SignUp');
-  }
-
-  async function handleDeclineUpgrade() {
-    await setUpgradePrompted();
-    await clearPendingGuestProgress();
-    setUpgradePromptVisible(false);
-    navigation.navigate('MainTabs');
-  }
-
   return (
-    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={styles.container}>
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
 
       {!breakDone && (
@@ -190,22 +169,12 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
 
           <TouchableOpacity
             style={styles.continueBtn}
-            onPress={() => navigation.navigate('MainTabs')}
+            onPress={() => navigation.navigate(guest ? 'GuestStreakPitch' : 'MainTabs')}
           >
             <Text style={styles.continueBtnText}>Continue  →</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
-
-      <AuthRequiredModal
-        visible={upgradePromptVisible}
-        title="Save your streak"
-        body={`Your ${currentStreak} day streak and the XP you just earned aren't saved yet. Create a free account to keep them, otherwise they'll be gone.`}
-        ctaLabel="Create account"
-        dismissLabel="Skip"
-        onContinue={() => void handleCreateAccount()}
-        onDismiss={() => void handleDeclineUpgrade()}
-      />
     </LinearGradient>
   );
 }

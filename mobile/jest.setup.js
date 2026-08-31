@@ -71,3 +71,20 @@ jest.mock('@react-native-firebase/analytics', () => () => ({
   logScreenView: jest.fn(),
   setUserId: jest.fn(),
 }));
+
+// Native module, so it can't load under Jest. services/googleAuth.ts already
+// degrades gracefully when the require fails, but mocking it keeps the failure
+// out of the test output and lets tests drive the sign-in flow.
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: jest.fn(),
+    hasPlayServices: jest.fn().mockResolvedValue(true),
+    signIn: jest.fn().mockResolvedValue({ type: 'success', data: { idToken: 'test-id-token' } }),
+    signOut: jest.fn().mockResolvedValue(undefined),
+  },
+  statusCodes: {
+    SIGN_IN_CANCELLED: 'SIGN_IN_CANCELLED',
+    IN_PROGRESS: 'IN_PROGRESS',
+    PLAY_SERVICES_NOT_AVAILABLE: 'PLAY_SERVICES_NOT_AVAILABLE',
+  },
+}));

@@ -4,9 +4,11 @@ import {
   useWindowDimensions, type LayoutChangeEvent,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { useTourStore } from '../../store/tourStore';
 import { TOUR_STEPS } from './tourSteps';
+import { safeBottomInset } from '../../utils/responsive';
 
 // Enough contrast that whatever shows through the cutout below reads as a
 // spotlight, while the rest of the screen stays legible — the point is to
@@ -98,6 +100,8 @@ interface Props {
  */
 export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, onExitToOffer }: Props) {
   const window = useWindowDimensions();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { active, stepIndex, rects, next, prev, stop } = useTourStore();
 
   // Where this overlay's own top-left sits in window coordinates.
@@ -285,16 +289,36 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
   // target. Clamped into the screen so a target at either extreme (the mic at
   // the very bottom, the progress bar at the very top) still leaves the whole
   // card, and therefore Next/Skip, reachable.
-  const maxTop = Math.max(CARD_MARGIN, SCREEN_H - CARD_MARGIN - cardH);
+  //
+  // "The screen" here means the part of it the user can actually touch. This
+  // overlay deliberately spans the FULL window — see the size comment above,
+  // the dim has to cover the strip behind the system navigation bar too — so
+  // SCREEN_H includes that strip, and clamping the card against it parked
+  // Skip/Next underneath the Android back/home/recents buttons on any device
+  // with a bottom inset. The dim still runs edge to edge; only the card is
+  // held inside the usable box.
+  const usableTop = insets.top;
+  const usableBottom = SCREEN_H - insets.bottom;
+  const maxTop = Math.max(usableTop + CARD_MARGIN, usableBottom - CARD_MARGIN - cardH);
   let cardTop: number;
   if (rect) {
     cardTop = cardBelow
       ? rect.y + rect.height + PAD + TARGET_GAP
       : rect.y - PAD - TARGET_GAP - cardH;
   } else {
-    cardTop = cardBelow ? SCREEN_H - 56 - cardH : 90;
+    // No target to hug -- centre vertically in the usable area, matching
+    // the horizontal centring cardLeft already does for this same case.
+    // This used to always fall to the cardBelow branch (spotlightBottom
+    // defaults to 0 with no rect, which is always < the 0.55 threshold, so
+    // cardBelow was unconditionally true here), pinning every no-target
+    // step near the bottom regardless of intent. The tour's first step
+    // ("Assalamu alaikum!") is the one that actually hits this branch today
+    // (2026-08-28, user: "I want this to be shown middle of screen not
+    // bottom") -- but the fix is general, not special-cased to step 0, so
+    // any future no-target step centres the same way.
+    cardTop = (usableTop + usableBottom - cardH) / 2;
   }
-  cardTop = Math.max(CARD_MARGIN, Math.min(cardTop, maxTop));
+  cardTop = Math.max(usableTop + CARD_MARGIN, Math.min(cardTop, maxTop));
 
   // ── The cutout itself ────────────────────────────────────────────
   // One rect for the whole screen, one rounded-rect for the hole; evenodd
@@ -325,7 +349,7 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
     const isRound = rect.radius === 'round';
     const isFlushBottom = !isRound && rect.y + rect.height > SCREEN_H - PAD - 6;
 
-    const radius = isRound ? Math.min(holeW, holeH) / 2 : rect.radius;
+    const radius = isRound ? Math.min(holeW, holeH) / 2 : (typeof rect.radius === 'number' ? rect.radius : 0);
     const rTop = radius;
     const rBottom = isFlushBottom ? 0 : radius;
 

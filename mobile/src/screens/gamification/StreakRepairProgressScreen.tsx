@@ -4,6 +4,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { STREAK_FROZEN_COLOR, STREAK_FROZEN_ICON } from '../../utils/streak';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 import type { RouteProp } from '@react-navigation/native';
 
@@ -46,7 +47,8 @@ function Snowflake({ left, top, delay, size }: { left: number; top: number; dela
 // falling snowflakes around it, is the whole visual idea — nothing about
 // the layout changes between the two states, only what's in the hero. ──
 export default function StreakRepairProgressScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { repairLevelsCompleted, repairLevelsRequired } = route.params;
   const remaining = Math.max(repairLevelsRequired - repairLevelsCompleted, 1);
 
@@ -62,8 +64,11 @@ export default function StreakRepairProgressScreen({ navigation, route }: Props)
     ]).start();
   }, []);
 
+  // paddingBottom, not a shorter gradient — see StreakCelebrationScreen's
+  // identical comment: padding is inside the border box, so the gradient
+  // still bleeds to the true edge and only the centered content lifts.
   return (
-    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={styles.container}>
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
 
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>

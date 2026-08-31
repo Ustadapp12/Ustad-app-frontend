@@ -1,0 +1,62 @@
+diff --git a/node_modules/react-native-sound/android/src/main/java/com/zmxv/RNSound/Sound.kt b/node_modules/react-native-sound/android/src/main/java/com/zmxv/RNSound/Sound.kt
+index 749ea14..ad88b0d 100644
+--- a/node_modules/react-native-sound/android/src/main/java/com/zmxv/RNSound/Sound.kt
++++ b/node_modules/react-native-sound/android/src/main/java/com/zmxv/RNSound/Sound.kt
+@@ -16,6 +16,7 @@ import com.facebook.react.bridge.ReactApplicationContext
+ import com.facebook.react.bridge.ReadableMap
+ import java.io.File
+ import java.io.IOException
++import java.util.concurrent.atomic.AtomicBoolean
+ 
+ 
+ open class Sound internal constructor(context:ReactApplicationContext):AudioManager.OnAudioFocusChangeListener  {
+@@ -207,17 +208,27 @@ open class Sound internal constructor(context:ReactApplicationContext):AudioMana
+       this.focusedPlayerKey = key
+     }
+ 
++    // onCompletion and onError used to each carry their own private
++    // callbackWasCalled flag. Android's MediaPlayer can fire BOTH listeners
++    // for the same playback (a real, known race right at end-of-clip, or on
++    // certain streams) — with two independent flags, neither listener knew
++    // the other had already used `callback`, so both invoked it. Under the
++    // old bridge that was merely a catchable
++    // "Illegal callback invocation from native module" Java exception (see
++    // the try/catch below, kept for that architecture) — under Fabric the
++    // same double-invocation is a native-level SIGABRT
++    // (google::logging_fail(), JavaTurboModule.cpp) that no JS or Java catch
++    // can stop, since the check happens in the bridge before either
++    // listener's own code resumes. One shared flag closes that gap by
++    // making the two listeners mutually exclusive.
++    val callbackWasCalled = AtomicBoolean(false)
+     player.setOnCompletionListener(object : OnCompletionListener {
+-      var callbackWasCalled: Boolean = false
+-
+-      @Synchronized
+       override fun onCompletion(mp: MediaPlayer) {
+         if (!mp.isLooping) {
+           if (key != null) {
+             setOnPlay(false, key)
+           }
+-          if (callbackWasCalled) return
+-          callbackWasCalled = true
++          if (!callbackWasCalled.compareAndSet(false, true)) return
+           try {
+             callback?.invoke(true)
+           } catch (e: Exception) {
+@@ -227,15 +238,11 @@ open class Sound internal constructor(context:ReactApplicationContext):AudioMana
+       }
+     })
+     player.setOnErrorListener(object : OnErrorListener {
+-      var callbackWasCalled: Boolean = false
+-
+-      @Synchronized
+       override fun onError(mp: MediaPlayer?, what: Int, extra: Int): Boolean {
+         if (key != null) {
+           setOnPlay(false, key)
+         }
+-        if (callbackWasCalled) return true
+-        callbackWasCalled = true
++        if (!callbackWasCalled.compareAndSet(false, true)) return true
+         try {
+           callback?.invoke(true)
+         } catch (e: Exception) {

@@ -29,3 +29,11 @@ function stablePick<T>(id: string, options: readonly T[]): T {
 export function characterSrcFor(userId: string, gender: Gender | null | undefined) {
   return stablePick(userId, gender === 'female' ? FEMALE_SRCS : MALE_SRCS);
 }
+
+/** Fixed preview art for the gender picker itself (Onboarding + Edit
+ * Profile) — always the first of each pair, not a per-user pick, since this
+ * is "which one are you" rather than "here is your assigned character". */
+export const GENDER_PREVIEW_SRCS = {
+  female: FEMALE_SRCS[0],
+  male: MALE_SRCS[0],
+};

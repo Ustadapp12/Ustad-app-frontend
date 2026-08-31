@@ -8,10 +8,12 @@ import type { RouteProp } from '@react-navigation/native';
 import { authApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { setTokens } from '../../utils/storage';
+import { getPasswordChecklist, getPasswordStrength, isPasswordValid } from '../../utils/validators';
 import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import MascotShadow from '../../components/MascotShadow';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
 interface Props {
@@ -20,7 +22,8 @@ interface Props {
 }
 
 export default function ResetPasswordScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { email, code } = route.params;
 
   const [newPassword, setNewPassword] = useState('');
@@ -29,7 +32,9 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const canSubmit = newPassword.length >= 8 && newPassword === confirmPassword;
+  const checklist = getPasswordChecklist(newPassword);
+  const strength = getPasswordStrength(checklist);
+  const canSubmit = isPasswordValid(newPassword) && newPassword === confirmPassword;
 
   async function handleSubmit() {
     if (!canSubmit || loading) return;
@@ -58,7 +63,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
   if (success) {
     return (
       <View style={styles.container}>
-        <View style={[styles.content, styles.successContent, { paddingTop: insets.top + 24 }]}>
+        <View style={[styles.content, styles.successContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
           <View style={{ width: 140, height: 140, marginBottom: 20 }}>
             <Image source={require('../../../assets/images/lumo_xp.png')} style={[styles.lumaSuccess, { marginBottom: 0 }]} resizeMode="contain" />
             <MascotShadow width={140} />
@@ -84,13 +89,13 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         accessibilityLabel="Back"
       >
-        <Text style={styles.backIcon}>←</Text>
+        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
       </TouchableOpacity>
 
-      <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
-        <View style={{ width: 90, height: 90, marginBottom: 8 }}>
+      <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
+        <View style={{ width: 110, height: 110, marginBottom: 8 }}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
-          <MascotShadow width={90} />
+          <MascotShadow width={110} />
         </View>
 
         <Text style={styles.heading}>Set a new password</Text>
@@ -106,6 +111,35 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
               autoComplete="new-password"
             />
           </View>
+          {newPassword.length > 0 && (
+            <View style={styles.checklistWrap}>
+              <Text style={[styles.checklistItem, checklist.minLength ? styles.checklistMet : styles.checklistUnmet]}>
+                {checklist.minLength ? '✓' : '✗'} At least 8 characters
+              </Text>
+              <Text style={[styles.checklistItem, checklist.uppercase ? styles.checklistMet : styles.checklistUnmet]}>
+                {checklist.uppercase ? '✓' : '✗'} One uppercase letter
+              </Text>
+              <Text style={[styles.checklistItem, checklist.lowercase ? styles.checklistMet : styles.checklistUnmet]}>
+                {checklist.lowercase ? '✓' : '✗'} One lowercase letter
+              </Text>
+              <Text style={[styles.checklistItem, checklist.number ? styles.checklistMet : styles.checklistUnmet]}>
+                {checklist.number ? '✓' : '✗'} One number
+              </Text>
+              <Text style={[styles.checklistItem, checklist.special ? styles.checklistMet : styles.checklistUnmet]}>
+                {checklist.special ? '✓' : '✗'} One special character
+              </Text>
+              <Text
+                style={[
+                  styles.strengthText,
+                  strength === 'Weak' && styles.strengthWeak,
+                  strength === 'Medium' && styles.strengthMedium,
+                  strength === 'Strong' && styles.strengthStrong,
+                ]}
+              >
+                Strength: {strength}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.fieldWrap}>
@@ -140,10 +174,10 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { fontSize: 20, color: colors.darkText, fontFamily: 'Nunito_700Bold' },
+  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
   successContent: { justifyContent: 'center' },
-  luma: { width: 90, height: 90, marginBottom: 8 },
+  luma: { width: 110, height: 110, marginBottom: 8 },
   lumaSuccess: { width: 140, height: 140, marginBottom: 20 },
   successBubble: {
     backgroundColor: colors.primaryBg, borderWidth: 1.5, borderColor: colors.primary,
@@ -161,6 +195,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
     borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
   },
+  checklistWrap: { marginTop: 8, marginBottom: 4 },
+  checklistItem: { fontFamily: 'Nunito_400Regular', fontSize: 12, marginBottom: 2 },
+  checklistMet: { color: colors.success },
+  checklistUnmet: { color: colors.red },
+  strengthText: { fontFamily: 'Nunito_700Bold', fontSize: 12, marginTop: 4 },
+  strengthWeak: { color: colors.red },
+  strengthMedium: { color: colors.warning },
+  strengthStrong: { color: colors.success },
   error: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
   btn: {
     width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,

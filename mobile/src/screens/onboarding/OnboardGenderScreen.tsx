@@ -6,6 +6,8 @@ import { ApiError } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
+import { safeBottomInset } from '../../utils/responsive';
+import { GENDER_PREVIEW_SRCS } from '../../utils/avatar';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props { navigation: RootNavProp }
@@ -13,7 +15,8 @@ interface Props { navigation: RootNavProp }
 type Gender = 'male' | 'female';
 
 export default function OnboardGenderScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const updateProfileFields = useAuthStore(s => s.updateProfileFields);
   const [selected, setSelected] = useState<Gender | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,7 +42,7 @@ export default function OnboardGenderScreen({ navigation }: Props) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('OnboardAge')}>
-          <Text style={styles.backArrow}>←</Text>
+          <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
         </TouchableOpacity>
         <View style={styles.dots}>
           <View style={[styles.dot, styles.dotActive]} />
@@ -48,9 +51,9 @@ export default function OnboardGenderScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.content}>
-        <View style={{ width: 100, height: 100, marginBottom: 10 }}>
+        <View style={{ width: 120, height: 120, marginBottom: 10 }}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
-          <MascotShadow width={100} />
+          <MascotShadow width={120} />
         </View>
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>
         <Text style={styles.heading}>What is your gender?</Text>
@@ -61,7 +64,7 @@ export default function OnboardGenderScreen({ navigation }: Props) {
           onPress={() => setSelected('female')}
           activeOpacity={0.85}
         >
-          <Text style={styles.cardEmoji}>👧</Text>
+          <Image source={GENDER_PREVIEW_SRCS.female} style={styles.cardCutout} resizeMode="contain" />
           <Text style={styles.cardTitle}>Female</Text>
           <View style={[styles.radio, selected === 'female' && styles.radioActive]}>
             {selected === 'female' && <View style={styles.radioDot} />}
@@ -73,7 +76,7 @@ export default function OnboardGenderScreen({ navigation }: Props) {
           onPress={() => setSelected('male')}
           activeOpacity={0.85}
         >
-          <Text style={styles.cardEmoji}>👦</Text>
+          <Image source={GENDER_PREVIEW_SRCS.male} style={styles.cardCutout} resizeMode="contain" />
           <Text style={styles.cardTitle}>Male</Text>
           <View style={[styles.radio, selected === 'male' && styles.radioActive]}>
             {selected === 'male' && <View style={styles.radioDot} />}
@@ -103,12 +106,12 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
     backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
   },
-  backArrow: { fontSize: 18, color: colors.darkText, fontWeight: '700' },
+  backArrow: { width: 18, height: 18, tintColor: colors.darkText },
   dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 8 },
-  luma: { width: 100, height: 100, marginBottom: 10 },
+  luma: { width: 120, height: 120, marginBottom: 10 },
   badge: {
     fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.primary,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',
@@ -121,7 +124,7 @@ const styles = StyleSheet.create({
     borderRadius: 16, paddingHorizontal: 18, paddingVertical: 16, marginBottom: 12,
   },
   cardActive: { borderColor: colors.primary, backgroundColor: '#F0FAF5' },
-  cardEmoji: { fontSize: 26 },
+  cardCutout: { width: 44, height: 44 },
   cardTitle: { flex: 1, fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText },
   radio: {
     width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border,

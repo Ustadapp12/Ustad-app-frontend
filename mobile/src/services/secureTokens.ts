@@ -23,7 +23,11 @@ export async function setSecureTokens(tokens: Tokens | null): Promise<void> {
     }
     await Keychain.setGenericPassword('tokens', JSON.stringify(tokens), {
       service: SERVICE,
-      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED,
+      // THIS_DEVICE_ONLY matters on iOS: without it the keychain item is
+      // included in encrypted device backups and restores onto a DIFFERENT
+      // device, carrying a live access + refresh token pair with it. Auth
+      // tokens should never survive a restore; the user can sign in again.
+      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
     });
   } catch { /* Keychain not available (e.g. Expo Go) */ }
 }

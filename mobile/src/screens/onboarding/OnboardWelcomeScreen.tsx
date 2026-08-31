@@ -5,6 +5,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { characterSrcFor } from '../../utils/avatar';
 import { colors } from '../../theme/colors';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
 interface Props {
@@ -13,7 +14,8 @@ interface Props {
 }
 
 export default function OnboardWelcomeScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const name = useAuthStore(s => s.user?.name) ?? 'there';
   const userId = useAuthStore(s => s.user?.id);
   const { gender } = route.params;

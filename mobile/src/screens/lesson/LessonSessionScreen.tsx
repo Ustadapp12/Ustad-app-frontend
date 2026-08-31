@@ -16,12 +16,16 @@ import {
 import { useLessonStore } from '../../store/lessonStore';
 import { useAuthStore } from '../../store/authStore';
 import { learningApi, progressApi } from '../../api';
+import { captureError } from '../../services/crashReporter';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
+import { safeBottomInset } from '../../utils/responsive';
 import { colors } from '../../theme/colors';
 import PredictedProgressBar from '../../components/PredictedProgressBar';
 import PlayPauseIcon from '../../components/PlayPauseIcon';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import LumoInfoModal from '../../components/LumoInfoModal';
+import LoadingStatusText from '../../components/LoadingStatusText';
 import type { ExerciseDict, ExpectedWordResult, FormulaAttemptOut, SegmentStatus } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -66,6 +70,42 @@ export const TOUR_GLOW_ROUND_THIN = { ...TOUR_GLOW_ROUND, shadowRadius: 3, shado
 // preserve the call-site API (`playUrl(url, onDone)` etc.) used throughout
 // this file.
 
+// Which exercise is actually on screen right now — a plain module-level
+// value, not React state, set as a direct statement during the main
+// screen's render (see its own `activeExerciseId = exercise?.ex_id` line)
+// rather than from an effect, so it's already correct by the time ANY
+// effect (this component's own or a child exercise's) runs afterward.
+//
+// Reported bug: on a slow device, tapping a "Hear" button queues playback
+// that hasn't started by the time the learner gives up waiting and taps
+// Next — the several TouchableOpacity/useEffect call sites below have no
+// concept of "is this still the exercise being shown," so a still-pending
+// playUrl/playUrlSequence call just kept running and played out loud on
+// whatever exercise the learner had since moved to (multiple queued taps
+// cascading across several later screens). playUrl/playUrlSequence re-check
+// this on every step of a sequence and bail the instant it goes stale, and
+// the main screen calls stopAudio() the moment the exercise changes so
+// anything already mid-playback cuts off immediately too.
+//
+// The comment above used to claim a staleness re-check here ("bails the
+// instant it goes stale") that did not actually exist: it compared
+// activeExerciseId to itself with zero async work in between capturing it
+// and checking it, so it could never observe a change and was a permanent
+// no-op. Removed 2026-08-28 alongside the real fix for a production
+// incident this contributed to (several stalled audio loads all surfacing
+// minutes later at once, well after the exercises that requested them were
+// long gone) — see playToken's comment in services/audioPlayer.ts for the
+// root cause and the actual fix. That fix lives at the one choke point every
+// play request passes through regardless of caller, which is the only place
+// it can be correct; nothing needs re-checking here.
+//
+// onDone must run UNCONDITIONALLY, every time, including on failure —
+// several callers (e.g. HearAndSelect's startPlayback) await it via
+// `new Promise(resolve => playUrl(url, resolve))` to sequence multiple
+// clips, and a skipped onDone would hang that await forever, stalling the
+// rest of the sequence rather than just skipping one stale clip.
+let activeExerciseId: string | null = null;
+
 async function playUrl(url: string | null | undefined, onDone?: () => void) {
   if (!url) return;
   try {
@@ -79,7 +119,9 @@ async function playUrl(url: string | null | undefined, onDone?: () => void) {
 
 // Play a list of URLs one after another (for segment_audio_urls)
 async function playUrlSequence(urls: string[], onDone?: () => void) {
+  const forExercise = activeExerciseId;
   for (const url of urls) {
+    if (forExercise !== activeExerciseId) break;
     await playUrl(url);
   }
   onDone?.();
@@ -89,9 +131,15 @@ async function playUrlSequence(urls: string[], onDone?: () => void) {
 // the smallest possible gap — used for the "Hear" button in read_and_speak.
 async function playUrlSequenceFast(urls: string[], onDone?: () => void) {
   if (!urls.length) { onDone?.(); return; }
+  const forExercise = activeExerciseId;
   try {
     await preloadAudioUrls(urls);
   } catch {}
+  // The preload above is its own async gap — re-check here too, not just
+  // inside playUrlSequence, since that function captures activeExerciseId
+  // fresh at ITS OWN start and would otherwise treat "still current as of
+  // right now" as "was still current when this was first requested."
+  if (forExercise !== activeExerciseId) { onDone?.(); return; }
   await playUrlSequence(urls, onDone);
 }
 
@@ -201,6 +249,12 @@ const BUBBLE_TEXT: Record<string, string> = {
   read_and_speak:      "Read the words aloud",
 };
 
+// Shown instead of the normal BUBBLE_TEXT once a recitation attempt has
+// failed and the retry-choice sheet is up — most low scores trace back to
+// background noise the mic picked up, so this is the one moment worth
+// telling the user that directly rather than just "try again".
+const RETRY_BUBBLE_TEXT = "Try again with a clear background, it helps a lot";
+
 // Types the app fully handles — anything else is silently skipped
 const HANDLED_EXERCISE_TYPES = new Set([
   'ayah_display', 'fill_blank', 'audio_fill', 'next_word',
@@ -255,6 +309,7 @@ function AyahText({ text, style }: { text: string; style: any }) {
 export function HintButton({
   url, ayahAr, ayahTranslation,
 }: { url?: string | null; ayahAr?: string | null; ayahTranslation?: string | null }) {
+  const arabicFont = useArabicFont();
   const glowAnim   = useRef(new Animated.Value(0.5)).current;
   const [visible, setVisible]   = useState(false);
   const [playing, setPlaying]   = useState(false);
@@ -319,7 +374,7 @@ export function HintButton({
             {ayahAr ? (
               <View style={HB.ayahBox}>
                 {/* Strip Bismillah so only the actual ayah with ۝ is shown */}
-                <AyahText text={stripBismillahPrefix(ayahAr)} style={HB.ayahAr} />
+                <AyahText text={stripBismillahPrefix(ayahAr)} style={arabicTextStyle(HB.ayahAr as any, arabicFont) as any} />
                 {ayahTranslation ? (
                   <Text style={HB.ayahTrans}>"{ayahTranslation}"</Text>
                 ) : null}
@@ -413,6 +468,7 @@ function starsFromAccuracy(scorePct: number): number {
 // Back button used as a safety net on the blank loading state below.
 const LL = StyleSheet.create({
   backBtn: { position: 'absolute', left: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
+  backArrowIcon: { width: 14, height: 14, tintColor: colors.midText, marginRight: 6 },
   backText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
 });
 
@@ -594,6 +650,7 @@ export function LessonHeader({
   onExit,
   targets,
   glowTarget,
+  hideHearts,
 }: {
   /** In half-heart units — see MAX_MISTAKES. */
   mistakes: number;
@@ -606,6 +663,9 @@ export function LessonHeader({
   targets?: LessonHeaderTargets;
   /** Tour-only: which of this header's own elements should glow itself. */
   glowTarget?: 'hint' | 'hearts' | 'progress' | null;
+  /** Special (merged/review) levels — hearts aren't shown at all, not just
+   * exempted from loss (see isNoMistake in submitAnswer). */
+  hideHearts?: boolean;
 }) {
   const heartsLeftHalf = MAX_MISTAKES - mistakes;
 
@@ -623,24 +683,26 @@ export function LessonHeader({
         <ProgressBar fraction={progressFraction} />
       </View>
 
-      <View
-        ref={targets?.hearts}
-        collapsable={false}
-        style={[LH.heartsRow, glowTarget === 'hearts' && TOUR_GLOW_ROUND]}
-      >
-        {Array.from({ length: MAX_HEARTS }).map((_, i) => {
-          const heartsFromThisIcon = heartsLeftHalf - i * 2; // each icon is worth 2 half-hearts
-          const src =
-            heartsFromThisIcon >= 2 ? require('../../../assets/map/redh.png') :
-            heartsFromThisIcon === 1 ? require('../../../assets/map/halfh.png') :
-            require('../../../assets/map/whiteh.png');
-          return (
-            <View key={i} style={LH.heartWrapper}>
-              <Image source={src} style={LH.heartImage} resizeMode="contain" />
-            </View>
-          );
-        })}
-      </View>
+      {!hideHearts && (
+        <View
+          ref={targets?.hearts}
+          collapsable={false}
+          style={[LH.heartsRow, glowTarget === 'hearts' && TOUR_GLOW_ROUND]}
+        >
+          {Array.from({ length: MAX_HEARTS }).map((_, i) => {
+            const heartsFromThisIcon = heartsLeftHalf - i * 2; // each icon is worth 2 half-hearts
+            const src =
+              heartsFromThisIcon >= 2 ? require('../../../assets/map/redh.png') :
+              heartsFromThisIcon === 1 ? require('../../../assets/map/halfh.png') :
+              require('../../../assets/map/whiteh.png');
+            return (
+              <View key={i} style={LH.heartWrapper}>
+                <Image source={src} style={LH.heartImage} resizeMode="contain" />
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       <View ref={targets?.hint} collapsable={false} style={glowTarget === 'hint' ? TOUR_GLOW_ROUND : undefined}>
         <HintButton url={hintUrl} ayahAr={hintAyahAr} ayahTranslation={hintAyahTranslation} />
@@ -650,7 +712,7 @@ export function LessonHeader({
 }
 
 const LH = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 8 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
   backText: { fontSize: 14, color: colors.mutedText },
   // ProgressBar itself carries flex:1; this wrapper only exists so the tour has
@@ -702,7 +764,7 @@ export function AyahDisplay({
       {showLumo && (
         <View style={AD.lumoRow}>
           <Image
-            source={require('../../../assets/images/lumo_transparent.png')}
+            source={require('../../../assets/images/lumo_kufi.png')}
             style={AD.lumoImg}
             resizeMode="contain"
           />
@@ -846,7 +908,7 @@ export function FillBlankOrNextWord({
       {/* Question card: context + tokens */}
       <View style={EX.questionCard}>
         {ex.context_before?.length ? (
-          <Text style={EX.contextText}>{ex.context_before.join(' ')}</Text>
+          <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_before.join(' ')}</Text>
         ) : null}
 
         {ex.tokens?.length ? (
@@ -862,7 +924,7 @@ export function FillBlankOrNextWord({
         ) : null}
 
         {ex.context_after?.length ? (
-          <Text style={EX.contextText}>{ex.context_after.join(' ')}</Text>
+          <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_after.join(' ')}</Text>
         ) : null}
       </View>
 
@@ -890,9 +952,19 @@ export function FillBlankOrNextWord({
                 isPreviewPick && EX.optionGlow,
                 locked && { opacity: 0.7 },
               ]}
+              // onLongPress used to double as "hear this option's audio,"
+              // but pairing it with onPress on the same element makes RN's
+              // responder wait to see whether a touch becomes a long-press
+              // before firing onPress AT ALL -- on a real device that
+              // disambiguation delay is exactly what read as "I press them
+              // and one of the 4 sometimes doesn't move." A misclassified
+              // tap fired the audio instead of selecting, colliding with
+              // whatever else was tracking play state. Nothing in this
+              // screen ever told the user "hold to hear," so it cost
+              // reliability on the one gesture that matters (selecting) for
+              // a hidden feature nobody could discover. Removed outright,
+              // not reduced -- onPress alone fires immediately, no wait.
               onPress={() => { if (!locked) setSelected(o.ar); }}
-              onLongPress={() => { if (o.audio_url && !locked) void playUrl(o.audio_url); }}
-              delayLongPress={400}
             >
               <Text style={[arabicTextStyle(EX.optionText as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
             </TouchableOpacity>
@@ -971,7 +1043,7 @@ export function ReorderOrSequence({
       </View>
 
       {/* Context before */}
-      {ex.context_before?.length ? <Text style={EX.contextText}>{ex.context_before.join(' ')}</Text> : null}
+      {ex.context_before?.length ? <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_before.join(' ')}</Text> : null}
 
       {/* Answer zone */}
       <View style={EX.answerZone}>
@@ -1250,7 +1322,7 @@ export function AudioFill({
       ) : null}
 
       <View style={EX.questionCard}>
-        {ex.context_before?.length ? <Text style={EX.contextText}>{ex.context_before.join(' ')}</Text> : null}
+        {ex.context_before?.length ? <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_before.join(' ')}</Text> : null}
         {ex.tokens?.length ? (
           <View style={EX.tokensRow}>
             {ex.tokens.map((t, i) =>
@@ -1262,7 +1334,7 @@ export function AudioFill({
             )}
           </View>
         ) : null}
-        {ex.context_after?.length ? <Text style={EX.contextText}>{ex.context_after.join(' ')}</Text> : null}
+        {ex.context_after?.length ? <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_after.join(' ')}</Text> : null}
       </View>
 
       {/* Audio-only options — numbered play circles, no Arabic text shown */}
@@ -1297,11 +1369,11 @@ export function AudioFill({
 }
 
 const AF = StyleSheet.create({
-  hearBtn:           { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 22, marginBottom: 16, borderWidth: 1.5, borderColor: colors.primary },
+  hearBtn:           { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 22, marginBottom: 10, borderWidth: 1.5, borderColor: colors.primary },
   hearBtnIcon:       { width: 18, height: 18 },
   hearBtnLabel:      { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
-  optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 24 },
-  optionBtn:         { width: '45%', backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 14, alignItems: 'center', gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 12 },
+  optionBtn:         { width: '45%', backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 12, alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   optionSelected:    { borderColor: colors.primary, backgroundColor: colors.primaryBg },
   playCircle:        { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primaryBg, borderWidth: 2, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   playCircleSelected:{ backgroundColor: colors.primary },
@@ -1457,14 +1529,32 @@ function DiffAyahText({ words, fallbackText, style, wrongStyle }: {
 
 // Full bottom-sheet result — rendered at screen level (like FeedbackBanner)
 // so it always has enough room to show the score, XP pill, and Continue button.
-function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvance: () => void }) {
+// onRetry present → this is the retry-choice moment (always a fail, since
+// retry is only ever offered on a wrong first attempt): renders "Try Again" +
+// "Next" instead of the single final "Continue" button. onAdvance in that
+// case means "decline the retry, accept this result as final."
+function SpeakResultBanner({ result, onAdvance, onRetry }: { result: SpeakResult; onAdvance: () => void; onRetry?: () => void }) {
   const { passed, score_pct, correctAyah, ayahAudioUrl, segmentAudioUrls, transcript, expectedWords } = result;
   const arabicFont = useArabicFont();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   // Show the correction whenever any word was marked wrong — not only on
   // fail. A 75% pass still has mistakes worth pointing out.
   const hasMistakes = !!expectedWords?.some(w => !w.correct);
   return (
-    <View style={[SRB.sheet, !passed && SRB.sheetFail]}>
+    // The sheet itself stays pinned to bottom: 0 — its colour is meant to
+    // bleed all the way to the true screen edge, same as the feedback
+    // sheet below. Only its own bottom padding grows by insets.bottom, so
+    // the Advance button inside never sits under the Android nav buttons.
+    //
+    // Base padding cut 36 → 16 (2026-08-28). 36 was chosen back when
+    // insets.bottom was usually 0; stacked on top of a real inset it left a
+    // dead strip under Try Again / Next tall enough that the sheet's capped
+    // ScrollView had to be scrolled to reach content that would otherwise
+    // have fit. 16 is the gap to the button; insets.bottom is the clearance
+    // for the system bar. Those are two different jobs and only one of them
+    // should scale with the device.
+    <View style={[SRB.sheet, !passed && SRB.sheetFail, { paddingBottom: 16 + insets.bottom }]}>
       {/* Top row: badge + title/subtitle */}
       <View style={SRB.topRow}>
         <View style={[SRB.badge, !passed && SRB.badgeFail]}>
@@ -1519,9 +1609,20 @@ function SpeakResultBanner({ result, onAdvance }: { result: SpeakResult; onAdvan
         )}
       </ScrollView>
 
-      <TouchableOpacity style={[SRB.btn, !passed && SRB.btnFail]} onPress={onAdvance}>
-        <Text style={SRB.btnText} allowFontScaling={false}>Continue  →</Text>
-      </TouchableOpacity>
+      {onRetry ? (
+        <View style={SRB.btnRow}>
+          <TouchableOpacity style={[SRB.btn, SRB.btnSecondary, SRB.btnFlex]} onPress={onRetry}>
+            <Text style={[SRB.btnText, SRB.btnTextSecondary]} allowFontScaling={false}>Try Again</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[SRB.btn, SRB.btnFail, SRB.btnFlex]} onPress={onAdvance}>
+            <Text style={SRB.btnText} allowFontScaling={false}>Next  →</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={[SRB.btn, { marginTop: 18 }, !passed && SRB.btnFail]} onPress={onAdvance}>
+          <Text style={SRB.btnText} allowFontScaling={false}>Continue  →</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -1531,7 +1632,7 @@ const SRB = StyleSheet.create({
   // Capped at 65% of the screen — with more mistakes/a longer ayah than
   // fits, the inner ScrollView scrolls instead of the sheet covering the
   // whole screen (this content is otherwise unbounded auto-height).
-  sheet:           { position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '65%', overflow: 'hidden', backgroundColor: '#D1FAE5', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 36, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 }, elevation: 4 },
+  sheet:           { position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '72%', overflow: 'hidden', backgroundColor: '#D1FAE5', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 }, elevation: 4 },
   sheetFail:       { backgroundColor: '#FFF3E0' },
   topRow:          { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   // flexShrink lets this pane give up space to the fixed header/button
@@ -1550,13 +1651,26 @@ const SRB = StyleSheet.create({
   xpPill:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'white', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   xpLumo:          { width: 32, height: 32 },
   xpText:          { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText },
-  transcriptBox:   { backgroundColor: 'white', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 14, alignItems: 'center' },
-  transcriptLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 8 },
-  ayahText:        { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 38 },
+  // The CORRECT AYAH / YOU SAID boxes. Sized to hug the text they hold:
+  // lineHeight was 38 on a 22px font (1.73×), which reserved most of a
+  // blank extra line per row and made a one-line ayah's box read as an
+  // oversized empty card. 1.55× still leaves real headroom for Naskh's
+  // ascenders and harakat — the reason it can't simply hug the glyph box
+  // — without the padding being visibly larger than the type.
+  transcriptBox:   { backgroundColor: 'white', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, alignItems: 'center' },
+  transcriptLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 6 },
+  ayahText:        { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 34 },
   wrongWord:       { color: '#DC2626', textDecorationLine: 'underline' },
   btn:             { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   btnFail:         { backgroundColor: '#F97316', shadowColor: '#F97316' },
   btnText:         { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
+  // Clear gap from the scrollable content above (transcript boxes) — was
+  // sitting right against it with nothing but the last box's own
+  // marginBottom, which read as the buttons crowding/interfering with it.
+  btnRow:          { flexDirection: 'row', gap: 10, marginTop: 14 },
+  btnFlex:         { flex: 1 },
+  btnSecondary:    { backgroundColor: 'white', borderWidth: 2, borderColor: '#F97316', shadowOpacity: 0 },
+  btnTextSecondary:{ color: '#F97316' },
 });
 
 // ── Read Ayah and Speak exercise ───────────────────────────────────
@@ -1567,24 +1681,51 @@ const SRB = StyleSheet.create({
 // phase: "main"   — single ayah
 // phase: "review" — same UX (side-by-side comparison is deferred)
 
-type SpeakState = 'idle' | 'recording' | 'scoring' | 'done';
+// retry_choice: sits between a failed first attempt and the final result —
+// the user picks Try Again (one more recording, self-contained inside the
+// exercise component) or Next (accept the failed attempt as final).
+type SpeakState = 'idle' | 'recording' | 'scoring' | 'retry_choice' | 'done';
 
 function ReadAyahAndSpeak({
-  ex, surahName, character, onSpeakScored,
-}: { ex: ExerciseDict; surahName: string; character: Character; onSpeakScored: (result: SpeakResult) => void }) {
+  ex, surahName, character, onSpeakScored, onFinalize, onSkip,
+}: {
+  ex: ExerciseDict; surahName: string; character: Character; onSpeakScored: (result: SpeakResult) => void;
+  /** Declining the retry (tapping Next in the retry-choice) — the user has
+   * already seen that result's feedback there, so this advances straight to
+   * the next question instead of routing back through onSpeakScored, which
+   * would show the same feedback sheet a second time. */
+  onFinalize: (result: SpeakResult) => void;
+  onSkip: () => void;
+}) {
   const arabicFont = useArabicFont();
   const [speakState, setSpeakState] = useState<SpeakState>('idle');
   const [error, setError]           = useState<string | null>(null);
+  // The failed 1st-attempt result, held here (not sent to onSpeakScored) while
+  // the user is deciding Try Again vs Next.
+  const [pendingResult, setPendingResult] = useState<SpeakResult | null>(null);
   const mountedRef  = useRef(true);
   const recordedUriRef = useRef<string | null>(null);
+  // 1 on the first attempt, 2 on the retry — a fail on attempt 2 is always
+  // final, no second retry offered.
+  const attemptNumRef = useRef(1);
   // Guards against a second tap landing before the first tap's state update
   // has taken effect — only one recording/scoring attempt in flight at a time.
   const busyRef = useRef(false);
+  // Auto-stop-and-submit 60s after recording starts — see handleMicTap.
+  const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearRecordingTimer = () => {
+    if (recordingTimerRef.current) {
+      clearTimeout(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      clearRecordingTimer();
       // Clean up any in-flight recording if the component unmounts mid-session
       void stopRecording().catch(() => {});
     };
@@ -1594,7 +1735,10 @@ function ReadAyahAndSpeak({
   useEffect(() => {
     setSpeakState('idle');
     setError(null);
+    setPendingResult(null);
     recordedUriRef.current = null;
+    attemptNumRef.current = 1;
+    clearRecordingTimer();
   }, [ex.ex_id]);
 
   /**
@@ -1614,21 +1758,36 @@ function ReadAyahAndSpeak({
         }
         try {
           await startRecording();
-          if (mountedRef.current) setSpeakState('recording');
+          if (mountedRef.current) {
+            setSpeakState('recording');
+            // Auto-stop-and-submit at 60s, same as a manual second tap —
+            // stops the recorder from being used to burn long/wasteful
+            // speak-attempt API calls.
+            clearRecordingTimer();
+            recordingTimerRef.current = setTimeout(() => { void handleMicTap(); }, 60000);
+          }
         } catch (e) {
           console.warn('[ReadAyahAndSpeak] startRecording failed:', e);
+          // This error only ever reached console.warn before — invisible to
+          // Crashlytics, so a persistent real-world failure here (as opposed
+          // to the already-patched stuck-recorder case the retry above
+          // handles silently) had no trace to diagnose from. Recorded here so
+          // the next occurrence actually carries the real native message.
+          captureError(e, { where: 'ReadAyahAndSpeak.startRecording' });
           if (mountedRef.current) setError('Could not start recording. Please try again.');
         }
         return;
       }
 
       if (speakState === 'recording') {
+        clearRecordingTimer();
         let uri: string | null = null;
         try {
           uri = await stopRecording();
           if (!uri) throw new Error('No audio captured');
         } catch (e) {
           console.warn('[ReadAyahAndSpeak] stopRecording failed:', e);
+          captureError(e, { where: 'ReadAyahAndSpeak.stopRecording' });
           if (mountedRef.current) {
             setError('Could not capture your recording. Please try again.');
             setSpeakState('idle');
@@ -1646,11 +1805,20 @@ function ReadAyahAndSpeak({
           });
 
           if (mountedRef.current) {
-            setSpeakState('done');
-            onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.ayah_ar ?? ex.expected_arabic ?? null, ayahAudioUrl: ex.ayah_audio_url ?? null, segmentAudioUrls: ex.segment_audio_urls ?? null, expectedWords: scored.expected_words });
+            const result: SpeakResult = { passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.ayah_ar ?? ex.expected_arabic ?? null, ayahAudioUrl: ex.ayah_audio_url ?? null, segmentAudioUrls: ex.segment_audio_urls ?? null, expectedWords: scored.expected_words };
+            // A pass is always final. A fail on the retry (attempt 2) is also
+            // final — only a fail on attempt 1 gets the retry choice.
+            if (scored.passed || attemptNumRef.current >= 2) {
+              setSpeakState('done');
+              onSpeakScored(result);
+            } else {
+              setPendingResult(result);
+              setSpeakState('retry_choice');
+            }
           }
         } catch (e) {
           console.warn('[ReadAyahAndSpeak] speak-attempt failed:', e);
+          captureError(e, { where: 'ReadAyahAndSpeak.speakAttempt' });
           if (mountedRef.current) {
             setError('Scoring failed. Tap the mic to try again.');
             setSpeakState('idle');
@@ -1660,6 +1828,19 @@ function ReadAyahAndSpeak({
     } finally {
       busyRef.current = false;
     }
+  };
+
+  const handleRetry = () => {
+    attemptNumRef.current = 2;
+    setPendingResult(null);
+    setError(null);
+    setSpeakState('idle');
+  };
+
+  const handleDeclineRetry = () => {
+    if (!pendingResult) return;
+    setSpeakState('done');
+    onFinalize(pendingResult);
   };
 
   return (
@@ -1674,7 +1855,7 @@ function ReadAyahAndSpeak({
           <View style={EX.verseInfoCard}>
             <View style={EX.bubbleTail} />
             <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-            <Text style={EX.bubbleText}>{BUBBLE_TEXT['read_ayah_and_speak']}</Text>
+            <Text style={EX.bubbleText}>{speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT['read_ayah_and_speak']}</Text>
             <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
           </View>
         </View>
@@ -1704,7 +1885,7 @@ function ReadAyahAndSpeak({
 
       {/* Mic area pinned below the scroll content so it never gets
           pushed off-screen by the ayah text on short devices */}
-      {speakState !== 'done' && (
+      {speakState !== 'done' && speakState !== 'retry_choice' && (
         <View style={RAS.micArea}>
           <Text style={RAS.micInstruction}>
             {speakState === 'recording'
@@ -1739,6 +1920,16 @@ function ReadAyahAndSpeak({
             </Pressable>
           )}
 
+          {/* Every recitation question is skippable — for people who don't
+              want to attempt speaking at all. Only offered before a
+              recording is made; once there's an attempt in flight/scored,
+              the retry-choice's own Next button covers "move on" instead. */}
+          {speakState === 'idle' && (
+            <TouchableOpacity style={RAS.skipBtn} onPress={onSkip}>
+              <Text style={RAS.skipBtnText}>Skip</Text>
+            </TouchableOpacity>
+          )}
+
           {!!error && (
             <View style={RAS.errorBox}>
               <Text style={RAS.errorText}>{error}</Text>
@@ -1748,6 +1939,12 @@ function ReadAyahAndSpeak({
             </View>
           )}
         </View>
+      )}
+
+      {/* Retry-choice bottom sheet — same visual treatment as the final
+          result banner, just with Try Again / Next instead of Continue. */}
+      {speakState === 'retry_choice' && pendingResult && (
+        <SpeakResultBanner result={pendingResult} onAdvance={handleDeclineRetry} onRetry={handleRetry} />
       )}
     </View>
   );
@@ -1770,6 +1967,8 @@ const RAS = StyleSheet.create({
   micImage:       { width: 52, height: 52, tintColor: 'white' },
   listenAnim:     { width: 88, height: 88 },
   checkBtn:       { width: '100%', marginTop: 20 },
+  skipBtn:        { marginTop: 18, paddingVertical: 4, paddingHorizontal: 10 },
+  skipBtnText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
   errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
   retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
@@ -1781,9 +1980,15 @@ const RAS = StyleSheet.create({
 // Scores via speak-attempt API and shows result inline.
 
 export function ReadAndSpeak({
-  ex, surahName, character, onSpeakScored, micButtonRef, glowMic,
+  ex, surahName, character, onSpeakScored, onFinalize, onSkip, micButtonRef, glowMic,
 }: {
   ex: ExerciseDict; surahName: string; character: Character; onSpeakScored: (result: SpeakResult) => void;
+  /** Declining the retry (tapping Next in the retry-choice) — the user has
+   * already seen that result's feedback there, so this advances straight to
+   * the next question instead of routing back through onSpeakScored, which
+   * would show the same feedback sheet a second time. */
+  onFinalize: (result: SpeakResult) => void;
+  onSkip: () => void;
   /** Tour-only: lets TourLessonScreen measure the real mic button, for the cutout hole. */
   micButtonRef?: React.Ref<View>;
   /** Tour-only: glow the real mic button itself. */
@@ -1792,16 +1997,32 @@ export function ReadAndSpeak({
   const arabicFont = useArabicFont();
   const [speakState, setSpeakState] = useState<SpeakState>('idle');
   const [error, setError]           = useState<string | null>(null);
+  // The failed 1st-attempt result, held here (not sent to onSpeakScored) while
+  // the user is deciding Try Again vs Next.
+  const [pendingResult, setPendingResult] = useState<SpeakResult | null>(null);
   // True only while the "Hear" (whole-phrase) audio is actually playing —
   // used to disable the individual word chips so their taps don't overlap
   // the sequential playback. Never hides the chips themselves.
   const [hearingAll, setHearingAll] = useState(false);
   const mountedRef = useRef(true);
+  // 1 on the first attempt, 2 on the retry — a fail on attempt 2 is always
+  // final, no second retry offered.
+  const attemptNumRef = useRef(1);
+  // Auto-stop-and-submit 60s after recording starts — see handleMicTap.
+  const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearRecordingTimer = () => {
+    if (recordingTimerRef.current) {
+      clearTimeout(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      clearRecordingTimer();
       void stopRecording().catch(() => {});
     };
   }, []);
@@ -1814,8 +2035,11 @@ export function ReadAndSpeak({
   useEffect(() => {
     setSpeakState('idle');
     setError(null);
+    setPendingResult(null);
     setHearingAll(false);
     recordedUriRef.current = null;
+    attemptNumRef.current = 1;
+    clearRecordingTimer();
   }, [ex.ex_id]);
 
   /**
@@ -1835,21 +2059,31 @@ export function ReadAndSpeak({
         }
         try {
           await startRecording();
-          if (mountedRef.current) setSpeakState('recording');
+          if (mountedRef.current) {
+            setSpeakState('recording');
+            // Auto-stop-and-submit at 60s, same as a manual second tap —
+            // stops the recorder from being used to burn long/wasteful
+            // speak-attempt API calls.
+            clearRecordingTimer();
+            recordingTimerRef.current = setTimeout(() => { void handleMicTap(); }, 60000);
+          }
         } catch (e) {
           console.warn('[ReadAndSpeak] startRecording failed:', e);
+          captureError(e, { where: 'ReadAndSpeak.startRecording' });
           if (mountedRef.current) setError('Could not start recording. Please try again.');
         }
         return;
       }
 
       if (speakState === 'recording') {
+        clearRecordingTimer();
         let uri: string | null = null;
         try {
           uri = await stopRecording();
           if (!uri) throw new Error('No audio captured');
         } catch (e) {
           console.warn('[ReadAndSpeak] stopRecording failed:', e);
+          captureError(e, { where: 'ReadAndSpeak.stopRecording' });
           if (mountedRef.current) {
             setError('Could not capture your recording. Please try again.');
             setSpeakState('idle');
@@ -1867,12 +2101,21 @@ export function ReadAndSpeak({
           });
 
           if (mountedRef.current) {
-            setSpeakState('done');
             const wordAudioUrls = ex.tokens?.map(t => t.audio_url).filter((u): u is string => !!u?.trim()) ?? null;
-            onSpeakScored({ passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.expected_arabic ?? null, ayahAudioUrl: ex.ayah_audio_url ?? null, segmentAudioUrls: wordAudioUrls, expectedWords: scored.expected_words });
+            const result: SpeakResult = { passed: scored.passed, score_pct: scored.score_pct, transcript: scored.transcript, correctAyah: ex.expected_arabic ?? null, ayahAudioUrl: ex.ayah_audio_url ?? null, segmentAudioUrls: wordAudioUrls, expectedWords: scored.expected_words };
+            // A pass is always final. A fail on the retry (attempt 2) is also
+            // final — only a fail on attempt 1 gets the retry choice.
+            if (scored.passed || attemptNumRef.current >= 2) {
+              setSpeakState('done');
+              onSpeakScored(result);
+            } else {
+              setPendingResult(result);
+              setSpeakState('retry_choice');
+            }
           }
         } catch (e) {
           console.warn('[ReadAndSpeak] speak-attempt failed:', e);
+          captureError(e, { where: 'ReadAndSpeak.speakAttempt' });
           if (mountedRef.current) {
             setError('Scoring failed. Tap the mic to try again.');
             setSpeakState('idle');
@@ -1882,6 +2125,19 @@ export function ReadAndSpeak({
     } finally {
       busyRef.current = false;
     }
+  };
+
+  const handleRetry = () => {
+    attemptNumRef.current = 2;
+    setPendingResult(null);
+    setError(null);
+    setSpeakState('idle');
+  };
+
+  const handleDeclineRetry = () => {
+    if (!pendingResult) return;
+    setSpeakState('done');
+    onFinalize(pendingResult);
   };
 
   const tokens = ex.tokens ?? [];
@@ -1899,7 +2155,7 @@ export function ReadAndSpeak({
           <View style={EX.verseInfoCard}>
             <View style={EX.bubbleTail} />
             <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-            <Text style={EX.bubbleText}>{BUBBLE_TEXT['read_and_speak']}</Text>
+            <Text style={EX.bubbleText}>{speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT['read_and_speak']}</Text>
             <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
           </View>
         </View>
@@ -1945,7 +2201,7 @@ export function ReadAndSpeak({
       </ScrollView>
 
       {/* Mic area pinned below scroll — always visible on all screen sizes */}
-      {speakState !== 'done' && (
+      {speakState !== 'done' && speakState !== 'retry_choice' && (
         <View style={RANS.micArea}>
           {speakState !== 'scoring' && (
             <Text style={RANS.micInstruction}>
@@ -1982,6 +2238,16 @@ export function ReadAndSpeak({
             </View>
           )}
 
+          {/* Every recitation question is skippable — for people who don't
+              want to attempt speaking at all. Only offered before a
+              recording is made; once there's an attempt in flight/scored,
+              the retry-choice's own Next button covers "move on" instead. */}
+          {speakState === 'idle' && (
+            <TouchableOpacity style={RANS.skipBtn} onPress={onSkip}>
+              <Text style={RANS.skipBtnText}>Skip</Text>
+            </TouchableOpacity>
+          )}
+
           {!!error && (
             <View style={RANS.errorBox}>
               <Text style={RANS.errorText}>{error}</Text>
@@ -1991,6 +2257,12 @@ export function ReadAndSpeak({
             </View>
           )}
         </View>
+      )}
+
+      {/* Retry-choice bottom sheet — same visual treatment as the final
+          result banner, just with Try Again / Next instead of Continue. */}
+      {speakState === 'retry_choice' && pendingResult && (
+        <SpeakResultBanner result={pendingResult} onAdvance={handleDeclineRetry} onRetry={handleRetry} />
       )}
     </View>
   );
@@ -2019,6 +2291,8 @@ const RANS = StyleSheet.create({
   micImage:       { width: 52, height: 52, tintColor: 'white' },
   listenAnim:     { width: 88, height: 88 },
   checkBtn:       { width: '100%', marginTop: 20 },
+  skipBtn:        { marginTop: 18, paddingVertical: 4, paddingHorizontal: 10 },
+  skipBtnText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
   errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
   retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
@@ -2037,13 +2311,12 @@ function RecitationScoringFeedback() {
   }, []);
   return (
     <View style={RSF.container}>
-      <View style={{ width: 60, height: 60 }}>
+      <View style={{ width: 90, height: 90 }}>
         <Image
-          source={require('../../../assets/images/lumo_transparent.png')}
+          source={require('../../../assets/images/lumo_kufi.png')}
           style={RSF.lumo}
           resizeMode="contain"
         />
-        <MascotShadow width={60} />
       </View>
       <LottieView
         ref={lottieRef}
@@ -2060,7 +2333,7 @@ function RecitationScoringFeedback() {
 
 const RSF = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16, marginBottom: 16 },
-  lumo: { width: 60, height: 60 },
+  lumo: { width: 90, height: 90 },
   hourglass: { width: 70, height: 70 },
   text: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText, marginTop: 4 },
 });
@@ -2085,17 +2358,25 @@ export function HearAndSelect({
   const arabicFont = useArabicFont();
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
-  // See PlayPauseBtn's identical subscription — an external stopAudio() call
-  // (Check press) doesn't reliably fire playUrl's completion callback on
-  // Android. Bumping seqGenRef also makes the in-flight sequence loop in
-  // startPlayback below exit on its next iteration instead of continuing to
-  // await audio that's already been stopped.
-  useEffect(() => onPlayingChange(isPlaying => {
-    if (!isPlaying && mountedRef.current) {
-      seqGenRef.current += 1;
-      setPlaying(false);
-    }
-  }), []);
+  // REMOVED 2026-08-28 (real bug, not the onLongPress issue reported
+  // alongside it): this subscription used to fire on EVERY between-word gap
+  // in the sequence below, not just a genuine external stop -- each clip in
+  // segment_audio_urls independently goes true->false as it plays, so on a
+  // 3-word phrase this fired twice before the phrase was even half heard.
+  // Bumping seqGenRef here made the loop below see "seqGenRef.current !==
+  // gen" on its very next iteration and return early -- so only the FIRST
+  // word of any multi-word phrase ever actually played, and the button
+  // flipped back to its idle icon at that same moment (both halves of "I'm
+  // holding the options but audio is not playing" / "the play/pause
+  // changes"). The loop's own natural-completion branch at the bottom of
+  // startPlayback already sets playing=false correctly once every word has
+  // genuinely finished -- this handler was never needed for that case, only
+  // for a real external stop (Check press mid-phrase), and playToken (see
+  // services/audioPlayer.ts) now makes that case safe without it: stopAudio()
+  // bumps playToken, so every remaining queued clip's on-demand load sees a
+  // stale token and resolves near-instantly without playing, instead of
+  // hanging for its full duration -- the loop reaches its own natural end
+  // (and sets playing=false itself) within a beat either way.
 
   const startPlayback = () => {
     const urls = ex.segment_audio_urls ?? [];
@@ -2157,9 +2438,11 @@ export function HearAndSelect({
           <TouchableOpacity
             key={i}
             style={[EX.optionBtnFull, selected === o.ar && EX.optionSelected, locked && { opacity: 0.7 }]}
+            // See the identical fix (and its full comment) in
+            // FillBlankOrNextWord's option TouchableOpacity above -- same
+            // onPress/onLongPress ambiguity, same fix: drop onLongPress so
+            // onPress fires immediately instead of waiting to disambiguate.
             onPress={() => { if (!locked) setSelected(o.ar); }}
-            onLongPress={() => { if (o.audio_url) void playUrl(o.audio_url); }}
-            delayLongPress={400}
           >
             <Text style={[arabicTextStyle(EX.optionTextArabic as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
           </TouchableOpacity>
@@ -2194,12 +2477,21 @@ const HAS = StyleSheet.create({
 });
 
 const EX = StyleSheet.create({
-  scrollContent: { padding: 20, paddingBottom: 40 },
-  instruction: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 16 },
-  // Character + speech bubble
-  characterRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 16, overflow: 'visible' },
-  characterImg: { width: 110, height: 110 },
-  verseInfoCard: { flex: 1, backgroundColor: 'white', borderRadius: 16, padding: 14, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2, gap: 3 },
+  // Trimmed from padding:20/paddingBottom:40 — this is a compact-fit
+  // screen (see characterImg etc. below), not a scrolling one; the outer
+  // exercise container already reserves the nav-bar inset on its own (see
+  // exerciseArea in the main render), so this only needs a modest bottom
+  // margin, not a scroll safety cushion.
+  scrollContent: { padding: 16, paddingBottom: 20 },
+  instruction: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 12 },
+  // Character + speech bubble — sized to fit every exercise on one screen
+  // without scrolling on a typical phone, not to showcase the mascot.
+  characterRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10, overflow: 'visible' },
+  characterImg: { width: 80, height: 80 },
+  // padding 12->8, gap 3->2 (2026-08-28): shared by FillBlankOrNextWord and
+  // HearAndSelect's "Ustad says" clue bubble -- 12px of padding around 10-14px
+  // text read as disproportionate ("a LOT of padding for such a small font").
+  verseInfoCard: { flex: 1, backgroundColor: 'white', borderRadius: 16, padding: 8, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2, gap: 2 },
   bubbleTail: { position: 'absolute', left: -10, top: 18, width: 0, height: 0, borderTopWidth: 8, borderBottomWidth: 8, borderRightWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: 'white' },
   characterName: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary, letterSpacing: 0.8 },
   bubbleLabel: { fontFamily: 'Nunito_400Regular', fontSize: 10, color: colors.mutedText },
@@ -2212,7 +2504,7 @@ const EX = StyleSheet.create({
   reviewBanner: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 10, alignItems: 'center' as const, borderWidth: 1, borderColor: '#F59E0B' },
   reviewBannerText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#92400E' },
   // Question card
-  questionCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 20, marginBottom: 20, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
+  questionCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
   ayahCard: { backgroundColor: 'white', borderRadius: 18, padding: 22, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   ayahAr: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 28, color: colors.darkText, textAlign: 'right', lineHeight: 52, marginBottom: 10 },
   ayahTrans: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
@@ -2246,7 +2538,7 @@ const EX = StyleSheet.create({
   tileText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: colors.darkText },
   listenBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 16 },
   listenBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
-  continueBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  continueBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 14, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   continueBtnDisabled: { opacity: 0.35 },
   continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
   // Sequence (ayah ordering) exercise styles
@@ -2367,17 +2659,22 @@ export function ExerciseSlide({ children }: { children: React.ReactNode }) {
 
 interface Props {
   navigation: RootNavProp;
-  route: { params: { groupId: string; surahName: string; surahNumber: number } };
+  route: { params: { groupId: string; surahName: string; surahNumber: number; isSpecial?: boolean } };
 }
 
 export default function LessonSessionScreen({ navigation, route }: Props) {
-  const { groupId, surahName, surahNumber } = route.params;
-  const insets = useSafeAreaInsets();
+  const { groupId, surahName, surahNumber, isSpecial } = route.params;
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
 
   const { sessionId, firstExercise, error, loading, group, reset, loadGroup, startSession, completeSession, abandonSession, groupId: storeGroupId, progressPct: storeProgressPct } = useLessonStore();
   const { user } = useAuthStore();
 
   const [exercise, setExercise] = useState<ExerciseDict | null>(null);
+  // Plain statement, not an effect — see activeExerciseId's own comment for
+  // why this has to land during render, before any effect (this component's
+  // or a child exercise's) can run and capture a stale value.
+  activeExerciseId = exercise?.ex_id ?? null;
   const [showBismillah, setShowBismillah] = useState(false);
   const [segments, setSegments] = useState<SegmentStatus[]>([]);
   const [feedback, setFeedback] = useState<FormulaAttemptOut | null>(null);
@@ -2388,15 +2685,41 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   // so the wave animation shows exactly while audio is audibly playing.
   const [systemPlaying, setSystemPlaying] = useState(false);
   useEffect(() => onPlayingChange(setSystemPlaying), []);
+  // Cuts off anything already mid-playback the instant the exercise changes
+  // — activeExerciseId (set above, during render) stops a still-QUEUED play
+  // from starting late on the next exercise, but a clip already partway
+  // through needs this to stop audibly rather than finish out on its own.
+  useEffect(() => { stopAudio(); }, [exercise?.ex_id]);
   const [noHeartsVisible, setNoHeartsVisible] = useState(false);
   const [exitConfirmVisible, setExitConfirmVisible] = useState(false);
+  const [heartRefillInfoVisible, setHeartRefillInfoVisible] = useState(false);
+  const [loadErrorFeedbackVisible, setLoadErrorFeedbackVisible] = useState(false);
   const [exercisesCompleted, setExercisesCompleted] = useState(0);
   const [progressPct, setProgressPct] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [speakResult, setSpeakResult] = useState<SpeakResult | null>(null);
   const exerciseIndexRef = useRef(0);
+  // Submit lock. `submitting` is React state, so it does NOT close this: two
+  // taps landing in the same frame both read it as false before the setter
+  // has committed, and both fire a formula-attempt for the SAME ex_id. The
+  // backend answers a duplicate/stale ex_id by returning its own current
+  // exercise as `next_exercise` (process_answer's "ex_id mismatch" branch),
+  // so a double tap could hand the client back a card it had already cleared.
+  // A ref flips synchronously inside the first tap's handler, so the second
+  // tap in the same frame sees it.
+  const submitLockRef = useRef(false);
+  // Every ex_id this session has already answered. The engine never reuses an
+  // ex_id — even a wrong-answer replay in the review phase is minted a fresh
+  // one (_build_review_queue: replay["ex_id"] = fx._new_id()) — so an ex_id
+  // coming back is always a resync artefact, never real new work. Once the
+  // user has cleared a card, it does not come back.
+  const answeredExIdsRef = useRef<Set<string>>(new Set());
   const charOrderRef = useRef<number[]>(shuffleIndices(CHARACTERS.length));
   const startedAt = useRef(Date.now());
+  // Whole-session clock, separate from startedAt above (which resets every
+  // exercise for per-exercise timing) — set once at mount, read once at
+  // completion to report total time on LessonSummaryScreen.
+  const sessionStartedAtRef = useRef(Date.now());
   const pendingAdvanceFn = useRef<(() => void) | null>(null);
   const ayahDisplayCountRef = useRef(0);
   const totalXpRef = useRef(0); // accumulates xp_awarded across all formulaAttempt calls
@@ -2451,13 +2774,22 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     }
   }, [firstExercise, storeGroupId]);
 
-  const submitAnswer = useCallback(async (userAnswer: string | string[] | number[] | null, correctOverride?: boolean) => {
-    if (!sessionId || !exercise || submitting) return;
+  const submitAnswer = useCallback(async (
+    userAnswer: string | string[] | number[] | null,
+    correctOverride?: boolean,
+    // Real Deepgram-verified outcome for a speak exercise's one-and-only
+    // formula-attempt call (sent after the retry choice resolves, or on
+    // Skip) — see backend/app/learning/schemas.py FormulaAttemptIn.
+    speakOutcome?: 'passed' | 'failed' | 'skipped',
+  ) => {
+    if (!sessionId || !exercise || submitting || submitLockRef.current) return;
+    submitLockRef.current = true;
     // Every exercise's Check button funnels through here — stop whatever
     // audio is still playing (and its icon/waveform animation, via each
     // component's onPlayingChange subscription) the instant Check is pressed.
     stopAudio();
     setSubmitting(true);
+    answeredExIdsRef.current.add(exercise.ex_id);
     const ms = Date.now() - startedAt.current;
 
     // ── Formula engine flow ──────────────────────────────────────────
@@ -2466,14 +2798,17 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         ex_id: exercise.ex_id,
         user_answer: userAnswer,
         response_ms: ms,
+        ...(speakOutcome ? { speak_result: speakOutcome } : {}),
       });
 
       // Speak exercises score correctness client-side (via Deepgram speak-attempt,
       // passed in as correctOverride) since formulaAttempt gets no user_answer to grade.
       const effectiveCorrect = correctOverride !== undefined ? correctOverride : result.correct;
 
-      // ayah_display is a listen-along card, not a graded question — no ding for it.
-      if (exercise.type !== 'ayah_display') {
+      // ayah_display is a listen-along card, not a graded question — no ding
+      // for it. A skipped recitation is the same: the user opted out, not a
+      // wrong answer, so no buzzer.
+      if (exercise.type !== 'ayah_display' && speakOutcome !== 'skipped') {
         playFeedbackSound(effectiveCorrect);
       }
 
@@ -2481,7 +2816,12 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       // ayah_display is a listen-along card, not a gradable exercise — never
       // cut a heart for it regardless of what the backend reports, so this
       // doesn't depend on the backend always grading it as correct.
-      const isNoMistake = exercise.phase === 'mistakes_review' || exercise.phase === 'remediation_up' || exercise.type === 'ayah_display';
+      // A skipped recitation is heart-neutral the same way — every
+      // recitation question is skippable with no penalty. Special (merged/
+      // review) levels are heart-exempt for their entire duration, not just
+      // specific phases within them — hearts aren't even shown there (see
+      // LessonHeader's hideHearts below).
+      const isNoMistake = exercise.phase === 'mistakes_review' || exercise.phase === 'remediation_up' || exercise.type === 'ayah_display' || speakOutcome === 'skipped' || !!isSpecial;
       const snapCorrect  = correctCount + (effectiveCorrect ? 1 : 0);
       const snapMistakes = mistakes + (!effectiveCorrect && !isNoMistake ? 1 : 0);
 
@@ -2509,6 +2849,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
 
       // Hearts exhausted — end attempt immediately (skip in no-mistake phases)
       if (!effectiveCorrect && !isNoMistake && snapMistakes >= MAX_MISTAKES) {
+        submitLockRef.current = false;
         setSubmitting(false);
         setNoHeartsVisible(true);
         return;
@@ -2554,6 +2895,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
               xp: totalXpRef.current || summary.xp_awarded,
               scorePct,
               stars: starsFromAccuracy(scorePct),
+              durationSec: Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
               // Backend fields not deployed yet fall back safely to "no
               // celebration" rather than crashing on an undefined summary field.
               streakIncremented: summary.streak_incremented ?? false,
@@ -2568,13 +2910,30 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             navigation.replace('LessonComplete', {
               xp: totalXpRef.current || 20, scorePct,
               stars: starsFromAccuracy(scorePct),
+              durationSec: Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
             });
           }
         } else if (result.next_exercise) {
-          exerciseIndexRef.current += 1;  // advance character only when moving to next exercise
-          setExercise(result.next_exercise);
-          startedAt.current = Date.now();
+          const next = result.next_exercise;
+          // Never go back to a card the user has already cleared. The backend
+          // hands back its OWN current exercise as `next_exercise` whenever it
+          // receives a stale or duplicate ex_id (process_answer's "ex_id
+          // mismatch" resync branch) — so this field is not always forward
+          // progress, and mounting it blind is how an already-answered ayah
+          // could reappear. The engine never reuses an ex_id (review replays
+          // are minted fresh ones), so "already in the answered set" always
+          // means echo, never new work. Ignoring it leaves the current card
+          // up rather than rewinding; nothing deadlocks, since the user can
+          // still answer that card and the server will move on.
+          if (answeredExIdsRef.current.has(next.ex_id)) {
+            console.warn('[Lesson] ignoring resync echo of an already-answered exercise:', next.ex_id);
+          } else {
+            exerciseIndexRef.current += 1;  // advance character only when moving to next exercise
+            setExercise(next);
+            startedAt.current = Date.now();
+          }
         }
+        submitLockRef.current = false;
         setSubmitting(false);
       };
 
@@ -2594,6 +2953,23 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         setFeedback(result);
       }
     } catch (e: any) {
+      // Defensive reset, not an active retry path: every branch below ends by
+      // abandoning the session and navigating away, so in normal operation
+      // nothing ever re-renders this card unlocked. This exists purely so
+      // that IF abandonSession/navigation ever fails to actually leave the
+      // screen, the Check button and this ex_id aren't left permanently
+      // locked (that dead-end — Check re-enabled, no feedback, no way
+      // forward but force-closing the app — is exactly what the branches
+      // below were added to stop; see their own comments).
+      //
+      // If some future path *does* resubmit this ex_id (a session resume
+      // after the original request actually reached and was graded by the
+      // server, e.g. a cold start slow enough that the client timed out
+      // first), that's safe: the backend's process_answer() replays the
+      // original grading for a repeat ex_id instead of re-grading or failing
+      // it (see backend CHANGES.md, 2026-08-31).
+      submitLockRef.current = false;
+      answeredExIdsRef.current.delete(exercise.ex_id);
       setSubmitting(false);
       if (e?.status === 404 || e?.status === 400) {
         navigation.replace('LessonComplete', {
@@ -2612,9 +2988,31 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             navigation.navigate('MainTabs');
           } }],
         );
+      } else {
+        // Everything else — 500, 502, 422, 403, a rate limit, a refresh that
+        // could not be recovered. Previously this branch did not exist, so the
+        // Check button simply re-enabled and nothing else happened: the user
+        // tapped, saw no feedback, tapped again, and had no way forward except
+        // force-closing the app. It also never reached Crashlytics, so the
+        // failure was invisible in production too. Report it, then let the user
+        // out the same way the no-connection branch does.
+        captureError(e, {
+          where: 'submitAnswer',
+          status: e?.status ?? 'unknown',
+          ex_id: exercise.ex_id,
+          exercise_type: exercise.type,
+        });
+        Alert.alert(
+          'Something went wrong',
+          'We could not save that answer. Please try again in a moment.',
+          [{ text: 'OK', onPress: () => {
+            abandonSession({ silent: true }).catch(() => {});
+            navigation.navigate('MainTabs');
+          } }],
+        );
       }
     }
-  }, [sessionId, exercise, submitting, correctCount, mistakes]);
+  }, [sessionId, exercise, submitting, correctCount, mistakes, isSpecial]);
 
   const handleBack = () => {
     abandonSession({ silent: true }).catch(() => {});
@@ -2669,6 +3067,16 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
           <Text style={{ color: colors.mutedText, fontFamily: 'Nunito_400Regular' }}>Go back</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => setLoadErrorFeedbackVisible(true)} style={{ marginTop: 16 }}>
+          <Text style={{ color: colors.primary, fontFamily: 'Nunito_700Bold', fontSize: 13 }}>Give feedback</Text>
+        </TouchableOpacity>
+        <LumoInfoModal
+          visible={loadErrorFeedbackVisible}
+          onClose={() => setLoadErrorFeedbackVisible(false)}
+          title="Still stuck?"
+          message="Email us and we'll sort it out."
+          contactEmail="helo.ustadapp@gmail.com"
+        />
       </View>
     );
   }
@@ -2684,7 +3092,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           style={{ width: 140, height: 140 }}
         />
         <Text style={S.errorTitle}>Creating your custom environment</Text>
-        <Text style={S.errorMsg}>Your exercises are being prepared. This usually takes a moment.</Text>
+        <LoadingStatusText
+          style={S.errorMsg}
+          messages={['Your exercises are being prepared…', 'This usually takes a moment…', 'Almost ready…']}
+        />
         <TouchableOpacity style={S.retryBtn} onPress={() => {
           reset();
           loadGroup(groupId).then(() => startSession()).catch(() => {});
@@ -2729,7 +3140,8 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           style={[LL.backBtn, { top: insets.top + 10 }]}
           onPress={() => { abandonSession({ silent: true }).catch(() => {}); navigation.goBack(); }}
         >
-          <Text style={LL.backText}>←  Map</Text>
+          <Image source={require('../../../assets/back_arrow.png')} style={LL.backArrowIcon} resizeMode="contain" />
+          <Text style={LL.backText}>Map</Text>
         </TouchableOpacity>
         <LottieView
           renderMode="SOFTWARE"
@@ -2738,6 +3150,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           style={{ width: 140, height: 140 }}
         />
         <Text style={S.errorTitle}>Creating your custom environment</Text>
+        <LoadingStatusText style={S.errorMsg} />
       </View>
     );
   }
@@ -2764,12 +3177,24 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             hintAyahAr={showHint ? (exercise.ayah_ar ?? hintAyah?.arabic ?? null) : null}
             hintAyahTranslation={showHint ? (exercise.ayah_translation ?? hintAyah?.translation_en ?? null) : null}
             onExit={() => setExitConfirmVisible(true)}
+            hideHearts={isSpecial}
           />
         );
       })()}
 
-      {/* Exercise content */}
-      <View style={S.exerciseArea}>
+      {/* Exercise content.
+          paddingBottom here, not just on each exercise's own ScrollView
+          contentContainerStyle — that inner padding only creates real
+          on-screen clearance once the user actually scrolls past the last
+          element; when an exercise's content is short enough to fit without
+          scrolling (a 4-option grid, say), the ScrollView never scrolls and
+          the Check button lands wherever the plain top-down content flow
+          puts it — right at this View's own bottom edge, which without this
+          reaches the true physical bottom of the screen because S.screen
+          only reserves insets.top, not insets.bottom. Shrinking the
+          ScrollView's own viewport here is what actually guarantees
+          clearance regardless of whether that exercise's content scrolls. */}
+      <View style={[S.exerciseArea, { paddingBottom: insets.bottom }]}>
        <ExerciseSlide key={exercise.ex_id}>
         {exercise.type === 'ayah_display' && (
           <AyahDisplay
@@ -2848,6 +3273,8 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             surahName={surahName}
             character={character}
             onSpeakScored={setSpeakResult}
+            onFinalize={(result) => { void submitAnswer(null, result.passed, result.passed ? 'passed' : 'failed'); }}
+            onSkip={() => { void submitAnswer(null, false, 'skipped'); }}
           />
         )}
         {exercise.type === 'read_and_speak' && (
@@ -2857,6 +3284,8 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             surahName={surahName}
             character={character}
             onSpeakScored={setSpeakResult}
+            onFinalize={(result) => { void submitAnswer(null, result.passed, result.passed ? 'passed' : 'failed'); }}
+            onSkip={() => { void submitAnswer(null, false, 'skipped'); }}
           />
         )}
        </ExerciseSlide>
@@ -2869,16 +3298,19 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         </View>
       )}
 
-      {/* Speak result bottom sheet — shown after speak-attempt scores.
-          Continue calls submitAnswer(null, passed) so a failed recitation
-          costs a heart just like any other wrong answer. */}
+      {/* Speak result bottom sheet — shown after the FINAL speak attempt
+          scores (a pass, a declined retry, or the retry itself). Continue
+          calls submitAnswer(null, passed, 'passed'|'failed') so a failed
+          recitation costs a heart just like any other wrong answer. A wrong
+          FIRST attempt never reaches here — see each exercise component's
+          own retry-choice state, which resolves down to this same call. */}
       {speakResult && !feedback && (
         <SpeakResultBanner
           result={speakResult}
           onAdvance={() => {
             const passed = speakResult.passed;
             setSpeakResult(null);
-            void submitAnswer(null, passed);
+            void submitAnswer(null, passed, passed ? 'passed' : 'failed');
           }}
         />
       )}
@@ -2922,7 +3354,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             </Text>
             <TouchableOpacity
               style={S.buyHeartsBtn}
-              onPress={() => Alert.alert('Coming Soon', 'Heart refills will be available soon. Stay tuned!')}
+              onPress={() => setHeartRefillInfoVisible(true)}
             >
               <Text style={S.buyHeartsBtnText}>💎  Buy Hearts</Text>
               <Text style={S.buyHeartsSubText}>Coming Soon</Text>
@@ -2952,7 +3384,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           <View style={S.noHeartsCard}>
             <View style={{ width: 90, height: 90, marginBottom: 8 }}>
               <Image
-                source={require('../../../assets/images/lumo_transparent.png')}
+                source={require('../../../assets/images/lumo_kufi.png')}
                 style={[S.exitConfirmLumo, { marginBottom: 0 }]}
                 resizeMode="contain"
               />
@@ -2962,13 +3394,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             <Text style={S.noHeartsBody}>
               Your progress this level won't be saved, you'll start fresh next time.
             </Text>
+            {/* Order swapped 2026-08-28 (user: "stay on right, leave on
+                left") — same two buttons, same styles/handlers, JSX order is
+                what determines left-to-right position in this row. */}
             <View style={S.exitConfirmBtnRow}>
-              <TouchableOpacity
-                style={S.exitConfirmCancelBtn}
-                onPress={() => setExitConfirmVisible(false)}
-              >
-                <Text style={S.exitConfirmCancelText}>Keep practicing</Text>
-              </TouchableOpacity>
               <TouchableOpacity
                 style={S.exitConfirmLeaveBtn}
                 onPress={() => {
@@ -2978,10 +3407,23 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
               >
                 <Text style={S.exitConfirmLeaveText}>Yes, leave</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={S.exitConfirmCancelBtn}
+                onPress={() => setExitConfirmVisible(false)}
+              >
+                <Text style={S.exitConfirmCancelText}>Keep practicing</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      <LumoInfoModal
+        visible={heartRefillInfoVisible}
+        onClose={() => setHeartRefillInfoVisible(false)}
+        title="Coming soon!"
+        message="Heart refills will be available soon. Stay tuned!"
+      />
 
       {/* Wave animation — shows exactly while system audio is audibly
           playing (see audioPlayer.ts's onPlayingChange), gone the instant
@@ -2989,8 +3431,12 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           the green SegmentPlayBtn waveform in SpeakResultBanner already
           gives audio feedback there, so this bar is redundant/distracting.
           Also suppressed for audio_fill — each option's playCircle already
-          shows its own play/pause state, same reasoning. */}
-      {systemPlaying && exercise?.type !== 'read_ayah_and_speak' && exercise?.type !== 'read_and_speak' && exercise?.type !== 'audio_fill' && (
+          shows its own play/pause state, same reasoning. Also suppressed for
+          hear_and_select (2026-08-28, user: "not needed") — its own big
+          speaker button already swaps to a pause icon + "Playing…" label
+          while audio plays, so this bar was a second, redundant indicator for
+          the exact same state. */}
+      {systemPlaying && exercise?.type !== 'read_ayah_and_speak' && exercise?.type !== 'read_and_speak' && exercise?.type !== 'audio_fill' && exercise?.type !== 'hear_and_select' && (
         <View pointerEvents="none" style={[S.waveBar, { bottom: insets.bottom + 8 }]}>
           <LottieView
             renderMode="SOFTWARE"
@@ -3031,10 +3477,14 @@ const S = StyleSheet.create({
   // Exit-level confirmation
   exitConfirmLumo: { width: 90, height: 90, marginBottom: 8 },
   exitConfirmBtnRow: { flexDirection: 'row', gap: 10, width: '100%' },
-  exitConfirmCancelBtn: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
-  exitConfirmCancelText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
-  exitConfirmLeaveBtn: { flex: 1, backgroundColor: colors.red, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
-  exitConfirmLeaveText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
+  // Staying is the green, filled, "default-looking" button and leaving is
+  // the plain/colorless one — deliberately inverted from the usual
+  // cancel/destructive convention so an impulsive or accidental tap keeps
+  // the user on the level instead of throwing progress away.
+  exitConfirmCancelBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
+  exitConfirmCancelText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
+  exitConfirmLeaveBtn: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
+  exitConfirmLeaveText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
   waveBar: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   waveLottie: { width: 220, height: 60 },
 });

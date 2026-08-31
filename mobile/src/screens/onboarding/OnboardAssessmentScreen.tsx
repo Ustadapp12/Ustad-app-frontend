@@ -2,13 +2,15 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { learningApi } from '../../api';
+import { learningApi, usersApi } from '../../api';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
+import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import { stopAudio } from '../../services/audioPlayer';
 import { JUZ30_SURAHS } from '../../data/juz30Surahs';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import LumoInfoModal from '../../components/LumoInfoModal';
 import {
   CHARACTERS,
   characterForIndex,
@@ -24,6 +26,7 @@ import {
   AyatThenOrder,
   type Character,
 } from '../lesson/LessonSessionScreen';
+import { safeBottomInset } from '../../utils/responsive';
 import type { ExerciseDict } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -51,12 +54,14 @@ function surahNameFor(surahNo: number): string {
 }
 
 export default function OnboardAssessmentScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
 
   const [phase, setPhase] = useState<AssessmentPhase>('intro');
   const [exercises, setExercises] = useState<ExerciseDict[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
 
   const charOrderRef = useRef<number[]>(shuffleIndices(CHARACTERS.length));
   const answersRef = useRef<Answer[]>([]);
@@ -129,6 +134,15 @@ export default function OnboardAssessmentScreen({ navigation }: Props) {
     }
     await saveOnboarding({ hifzAssessmentScore: correctCount });
     await setOnboardingDone(true);
+    // Persist account-level completion too — see the matching comment in
+    // OnboardPathScreen's beginner branch. Best effort: never trap the user
+    // in onboarding over a network failure here.
+    try {
+      await usersApi.updateProfile({ onboarding_completed: true });
+      useAuthStore.getState().updateProfileFields({ onboarding_completed: true });
+    } catch {
+      // ignored — see comment above
+    }
     navigation.replace('LessonComplete', { xp: correctCount * 2, scorePct, stars: 3 });
   };
 
@@ -167,6 +181,16 @@ export default function OnboardAssessmentScreen({ navigation }: Props) {
         <TouchableOpacity style={S.skipBtn} onPress={handleClose}>
           <Text style={S.skipBtnText}>Go back</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={S.skipBtn} onPress={() => setFeedbackVisible(true)}>
+          <Text style={S.skipBtnText}>Give feedback</Text>
+        </TouchableOpacity>
+        <LumoInfoModal
+          visible={feedbackVisible}
+          onClose={() => setFeedbackVisible(false)}
+          title="Still stuck?"
+          message="Email us and we'll sort it out."
+          contactEmail="helo.ustadapp@gmail.com"
+        />
       </View>
     );
   }
@@ -255,13 +279,13 @@ function IntroScreen({
 
       <ScrollView contentContainerStyle={S.introScroll} showsVerticalScrollIndicator={false}>
         <View style={S.introContent}>
-          <View style={{ width: 120, height: 120, marginBottom: 24 }}>
+          <View style={{ width: 140, height: 140, marginBottom: 24 }}>
             <Image
               source={require('../../../assets/images/lumo_transparent.png')}
               style={[S.lumoIntro, { marginBottom: 0 }]}
               resizeMode="contain"
             />
-            <MascotShadow width={120} />
+            <MascotShadow width={140} />
           </View>
           <Text style={S.introText}>Let's see how much you know?</Text>
         </View>
@@ -299,7 +323,7 @@ const S = StyleSheet.create({
   closeBtnText: { fontSize: 16, color: colors.darkText, fontWeight: '700' },
   introScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 22 },
   introContent: { alignItems: 'center' },
-  lumoIntro: { width: 120, height: 120, marginBottom: 24 },
+  lumoIntro: { width: 140, height: 140, marginBottom: 24 },
   introText: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, textAlign: 'center', lineHeight: 28 },
   footer: { paddingHorizontal: 22, paddingTop: 12 },
   beginBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },

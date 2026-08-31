@@ -9,6 +9,7 @@ import { addPendingGuestProgress, isGuest } from '../../utils/guest';
 import { playFeedbackSound } from '../../services/audioPlayer';
 import { STREAK_FROZEN_COLOR, STREAK_FROZEN_ICON } from '../../utils/streak';
 import MascotShadow from '../../components/MascotShadow';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   route: {
     params: {
       xp: number; scorePct: number; stars: number;
+      durationSec?: number;
       streakIncremented?: boolean; currentStreak?: number;
       // True only on the exact completion that unfreezes a frozen streak
       // (2nd distinct level, same local day) — a different moment from the
@@ -30,6 +32,15 @@ interface Props {
       repairLevelsRequired?: number;
     };
   };
+}
+
+// "45s" under a minute, "1:23" at or past it — matches how most timers read
+// once a lesson runs long enough to cross the minute mark.
+function formatDuration(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 function Star({ filled, delay }: { filled: boolean; delay: number }) {
@@ -55,9 +66,10 @@ function Star({ filled, delay }: { filled: boolean; delay: number }) {
 // time, so dropping it (rather than splitting into two screens) is how
 // this avoids the earlier full-screen-Lottie perf problem.
 export default function LessonSummaryScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const {
-    xp, scorePct, stars, streakIncremented, currentStreak, streakRepaired,
+    xp, scorePct, stars, durationSec, streakIncremented, currentStreak, streakRepaired,
     streakState, repairLevelsCompleted, repairLevelsRequired,
   } = route.params;
   // Made progress toward repair (frozen, level counted) but hasn't finished
@@ -102,14 +114,17 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (!isGuestUser || bankedRef.current) return;
     bankedRef.current = true;
-    void addPendingGuestProgress(xp, currentStreak ?? 0);
+    void addPendingGuestProgress(xp);
   }, [isGuestUser, xp, currentStreak]);
 
   const grade = scorePct >= 90 ? 'Excellent!' : scorePct >= 70 ? 'Great job!' : scorePct >= 50 ? 'Good effort!' : 'Keep practicing!';
   const gradeColor = scorePct >= 90 ? colors.gold : scorePct >= 70 ? colors.primary : scorePct >= 50 ? colors.blue : colors.mutedText;
 
+  // paddingBottom, not a shorter gradient — see StreakCelebrationScreen's
+  // identical comment: padding is inside the border box, so the gradient
+  // still bleeds to the true edge and only the centered content lifts.
   return (
-    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={styles.container}>
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
 
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
@@ -130,9 +145,8 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
           <Star filled={stars >= 3} delay={700} />
         </View>
 
-        {/* Grade + percentage */}
+        {/* Grade */}
         <Text style={[styles.grade, { color: gradeColor }]}>{grade}</Text>
-        <Text style={styles.scorePct}>{scorePct}% accuracy</Text>
 
         {/* Distinct from the routine streakIncremented case below — this is
             the exact completion that unfroze a frozen streak (2nd distinct
@@ -157,11 +171,24 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
           <MascotShadow width={84} />
         </View>
 
-        {/* XP — gold-bordered badge */}
-        <View style={styles.xpBadge}>
-          <Text style={styles.xpPlus}>+</Text>
-          <Text style={styles.xpNumber}>{displayedXp}</Text>
-          <Text style={styles.xpLabel}> XP</Text>
+        {/* Stats row — time (left) / XP / accuracy (right), same gold-bordered
+            box style throughout. Time box omitted when durationSec wasn't
+            tracked (the placement-assessment completion path). */}
+        <View style={styles.statsRow}>
+          {durationSec != null && (
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{formatDuration(durationSec)}</Text>
+              <Text style={styles.statLabel}>TIME</Text>
+            </View>
+          )}
+          <View style={styles.statBox}>
+            <Text style={styles.statValue}>+{displayedXp}</Text>
+            <Text style={styles.statLabel}>XP</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statValue}>{scorePct}%</Text>
+            <Text style={styles.statLabel}>ACCURACY</Text>
+          </View>
         </View>
 
         <TouchableOpacity
@@ -194,8 +221,7 @@ const styles = StyleSheet.create({
   medal:        { width: '100%', aspectRatio: 300 / 180, marginBottom: -10 },
   starsRow:     { flexDirection: 'row', gap: 12, marginBottom: 16 },
   star:         { fontSize: 52 },
-  grade:        { fontFamily: 'Nunito_700Bold', fontSize: 30, marginBottom: 4 },
-  scorePct:     { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.65)', marginBottom: 14 },
+  grade:        { fontFamily: 'Nunito_700Bold', fontSize: 30, marginBottom: 14 },
   streakSavedBadge: {
     backgroundColor: 'rgba(0,0,0,0.40)', borderRadius: 20, borderWidth: 2, borderColor: STREAK_FROZEN_COLOR,
     paddingHorizontal: 18, paddingVertical: 8, marginBottom: 14, maxWidth: '100%',
@@ -204,11 +230,11 @@ const styles = StyleSheet.create({
   streakSavedBadgeIcon: { width: 18, height: 18 },
   streakSavedBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: STREAK_FROZEN_COLOR, textAlign: 'center' },
   lumaImg:      { width: 84, height: 84, marginBottom: 12 },
-  xpBadge:      { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: 'rgba(0,0,0,0.40)', borderRadius: 20,
-                  paddingHorizontal: 22, paddingVertical: 10, borderWidth: 2, borderColor: colors.gold, marginBottom: 14 },
-  xpPlus:       { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.gold, marginBottom: 2 },
-  xpNumber:     { fontFamily: 'Nunito_700Bold', fontSize: 36, color: colors.gold, lineHeight: 40 },
-  xpLabel:      { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.gold, marginBottom: 2 },
+  statsRow:     { flexDirection: 'row', width: '100%', gap: 10, marginBottom: 14 },
+  statBox:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.40)',
+                  borderRadius: 16, borderWidth: 2, borderColor: colors.gold, paddingVertical: 12, paddingHorizontal: 4 },
+  statValue:    { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.gold, lineHeight: 26 },
+  statLabel:    { fontFamily: 'Nunito_700Bold', fontSize: 10.5, color: colors.gold, letterSpacing: 0.5, marginTop: 3, opacity: 0.85 },
   continueBtn:  { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
   continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
 });

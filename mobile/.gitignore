@@ -55,6 +55,14 @@ yarn-error.log
 
 # Release signing (never commit)
 android/keystore.properties
+*.jks
+# The written-down copy of the keystore passwords. Belongs in a password
+# manager, not a repo — this rule exists so a stray `git add .` can't leak it
+# while it's sitting here waiting to be moved.
+android/RELEASE_SIGNING_SECRETS.env
+.env
+.env.*
+!.env.example
 
 # Firebase — download from Firebase Console per app (never commit production secrets in public repos)
 android/app/google-services.json
@@ -63,6 +71,11 @@ ios/UstadApp/GoogleService-Info.plist
 
 # App Store Connect API key (.p8) — CI writes this from a secret; never commit the real key
 *.p8
+
+# EAS local iOS signing credentials — CI writes these from secrets; never commit
+credentials.json
+*.p12
+*.mobileprovision
 
 # Metro / Gradle JS bundles (produced at build:apk / assembleRelease — do not commit)
 *.jsbundle

@@ -126,6 +126,8 @@ export default function TourLessonScreen({ navigation }: Props) {
               surahName={TOUR_SURAH_NAME}
               character={CHARACTERS[0]}
               onSpeakScored={() => { /* unreachable — the area is inert */ }}
+              onFinalize={() => { /* unreachable — the area is inert */ }}
+              onSkip={() => { /* unreachable — the area is inert */ }}
               micButtonRef={micTarget.ref}
               glowMic={glowMic}
             />

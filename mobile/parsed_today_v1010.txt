@@ -1,0 +1,4 @@
+=== id 1 ===
+{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"logging":{},"prompts":{"listChanged":true},"resources":{}},"serverInfo":{"name":"firebase","version":"0.3.0"}}
+=== id 2 ===
+Error: Request to https://firebasecrashlytics.googleapis.com/v1alpha/projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events?filter.issue.id=fa1262d06e995bc609cfab0e734a0076&filter.interval.start_time=2026-08-24T00%3A00%3A00Z&filter.interval.end_time=2026-08-24T23%3A59%3A59Z&filter.version.display_names=1.0.10&page_size=15 had HTTP Error: 400, Request contains an invalid argument.

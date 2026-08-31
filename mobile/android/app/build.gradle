@@ -146,6 +146,15 @@ android {
         //   ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64
         ndk {
             abiFilters "arm64-v8a", "armeabi-v7a"
+            // FULL keeps line-number-level native debug info in the build's
+            // intermediate output (not the shipped .so, which AGP still
+            // strips before packaging). Two independent consumers read it:
+            // Play Console auto-symbolicates Android vitals native crashes
+            // from an AAB built with this set, and firebaseCrashlytics below
+            // uploads the same data to Crashlytics. Without it, a native
+            // SIGABRT/SIGSEGV shows only raw `pc 0x...` offsets in either
+            // console — exactly what showed up when this was unset.
+            debugSymbolLevel "FULL"
         }
     }
 
@@ -173,6 +182,37 @@ android {
             signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+
+            // Uploads the native debug info that `debugSymbolLevel "FULL"`
+            // above preserves in this build's intermediates, so a native
+            // SIGABRT/SIGSEGV shows real function names (libreactnative.so,
+            // libhermes.so, etc.) in the Firebase Crashlytics console
+            // instead of bare `pc 0x...` offsets. This is what was missing
+            // for the crash trace that motivated this change — every frame
+            // in it was an unresolved address.
+            //
+            // Must be nested inside a buildType block, not at the top level
+            // of `android { }` or of the file. Decompiling the plugin
+            // (com.google.firebase.crashlytics) showed two DIFFERENT
+            // `firebaseCrashlytics` extensions: a project-level
+            // `CrashlyticsExtension` (which is what has the
+            // `unstrippedNativeLibsDir` property this comment originally
+            // tried to set) and a per-variant `CrashlyticsVariantExtension`
+            // (registered through AGP's variant-extension API, only
+            // reachable from inside a buildType closure like this one, and
+            // exposing `unstrippedNativeLibsOverride` instead — a different
+            // property name). Both top-level placements this went through
+            // failed with "Could not find method firebaseCrashlytics()" —
+            // this nested form is the one Firebase's own docs use, and the
+            // only one that resolved. No unstrippedNativeLibsDir override is
+            // set here: `debugSymbolLevel "FULL"` already tells AGP to keep
+            // full native debug info in the location this plugin looks in
+            // by default, which is the normal case for native code built
+            // through AGP's own CMake integration (as every native module
+            // here is) rather than vendored from an external build.
+            firebaseCrashlytics {
+                nativeSymbolUploadEnabled true
+            }
         }
     }
 }

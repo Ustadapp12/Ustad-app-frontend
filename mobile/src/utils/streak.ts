@@ -12,6 +12,17 @@ export const STREAK_ACTIVE_EMOJI = '🔥';
 // representation everywhere it's shown, replacing the old 🧊 placeholder.
 export const STREAK_FROZEN_ICON = require('../../assets/map/frozen.png');
 
+// Numbered fire icons (product-provided 2026-08-19) — used on the map HUD
+// pill (small) and the Streak page's day grid (large, with the day number
+// overlaid). Kept separate from STREAK_FROZEN_ICON above, which is
+// unchanged everywhere else it renders: the Streak page hero, the freeze
+// popup, and the repair-progress screen.
+export const STREAK_ACTIVE_ICON_SMALL = require('../../assets/map/orange_fire_30.png');
+export const STREAK_ACTIVE_ICON_LARGE = require('../../assets/map/orange_fire_60.png');
+export const STREAK_FROZEN_ICON_SMALL = require('../../assets/map/blue_fire_30.png');
+export const STREAK_FROZEN_ICON_LARGE = require('../../assets/map/blue_fire_60.png');
+export const STREAK_BLANK_ICON = require('../../assets/map/blank_fire.png');
+
 export function isStreakFrozen(state: StreakState | undefined): boolean {
   return state === 'frozen';
 }
@@ -68,11 +79,19 @@ async function getLastSeenStreak(): Promise<LastSeenStreak | null> {
  * what to do with it (see authStore.refreshLearning / StreakLostModal).
  */
 export async function checkStreakLoss(state: StreakState, currentStreak: number): Promise<number | null> {
-  const prev = await getLastSeenStreak();
-  await AsyncStorage.setItem(LAST_SEEN_KEY, JSON.stringify({ state, streak: currentStreak } satisfies LastSeenStreak));
-  if (!prev) return null;
-  const wasAlive = (prev.state === 'active' || prev.state === 'frozen') && prev.streak > 0;
-  return wasAlive && state === 'none' ? prev.streak : null;
+  try {
+    const prev = await getLastSeenStreak();
+    await AsyncStorage.setItem(LAST_SEEN_KEY, JSON.stringify({ state, streak: currentStreak } satisfies LastSeenStreak));
+    if (!prev) return null;
+    const wasAlive = (prev.state === 'active' || prev.state === 'frozen') && prev.streak > 0;
+    return wasAlive && state === 'none' ? prev.streak : null;
+  } catch {
+    // Reached from applyFreshLearning, which hydrate() awaits — an
+    // AsyncStorage failure here used to reject all the way up and leave the
+    // app stuck on Splash. Missing one streak-lost popup is the correct
+    // trade against not starting at all.
+    return null;
+  }
 }
 
 // ── Streak-frozen popup (one shot per freeze occurrence) ────────────

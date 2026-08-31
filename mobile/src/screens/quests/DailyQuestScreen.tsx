@@ -42,7 +42,7 @@ function DailyQuestContent() {
           style={[styles.luma, { marginBottom: 0, transform: [{ translateY: lumaY }] }]}
           resizeMode="contain"
         />
-        <MascotShadow width={150} style={{ position: 'relative', marginTop: -15, marginBottom: 20 }} />
+        <MascotShadow width={165} style={{ position: 'relative', marginTop: -17, marginBottom: 20 }} />
         <View style={styles.bubble}>
           <Text style={styles.bubbleText}>We're building quests, check back soon!</Text>
         </View>
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  luma: { width: 150, height: 150, marginBottom: 20 },
+  luma: { width: 165, height: 165, marginBottom: 20 },
   bubble: {
     backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 18,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',

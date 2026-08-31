@@ -28,6 +28,7 @@ type Stamped<T> = { data: T; at: number };
 // ── In-memory stores ──────────────────────────────────────────────
 
 let _recommended: Stamped<RecommendedNext | null> | null = null;
+const _recommendedListeners = new Set<() => void>();
 let _stats: Stamped<LearningStats> | null = null;
 let _profile: Stamped<UserProfile> | null = null;
 const _levels = new Map<number, Stamped<SurahLevel[]>>();
@@ -52,10 +53,20 @@ function stamp<T>(data: T): Stamped<T> {
   return { data, at: Date.now() };
 }
 
+function notifyRecommended(): void {
+  for (const listener of _recommendedListeners) listener();
+}
+
 // ── Public getters ────────────────────────────────────────────────
 
 export function getCachedRecommended(): RecommendedNext | null {
   return alive(_recommended) ? _recommended.data : null;
+}
+
+/** Subscribe to changes to the recommended-next cache. Returns an unsubscribe fn. */
+export function subscribeRecommended(listener: () => void): () => void {
+  _recommendedListeners.add(listener);
+  return () => { _recommendedListeners.delete(listener); };
 }
 
 export function getCachedStats(): LearningStats | null {
@@ -97,22 +108,43 @@ export function setCachedProfile(profile: UserProfile): void {
  * see the fresh value instead of staying null until the next app launch. */
 export function setCachedRecommended(data: RecommendedNext | null): void {
   _recommended = stamp(data);
+  notifyRecommended();
 }
 
 // ── Invalidation ──────────────────────────────────────────────────
 
-/** Call after a lesson completes so HomeScreen re-fetches fresh levels. */
-export function invalidateLevels(mvpSurahNumbers?: number[]): void {
+/**
+ * Call after a lesson completes so HomeScreen/MapScreen re-fetch fresh
+ * levels. Returns a Promise -- MUST be awaited by callers that navigate or
+ * could background right after calling this (completeSession does both).
+ * The in-memory clears above are synchronous and always land immediately,
+ * but the disk clear below is a real async AsyncStorage write; it used to
+ * be fired with `void` and never awaited, which raced against exactly that
+ * navigate-then-background sequence: finish a lesson, the summary screen
+ * appears, the user closes the app within the next moment -- extremely
+ * normal usage, not an edge case -- and if the process was suspended before
+ * this write landed, the stale disk snapshot (up to LEVELS_TTL_MS, 15
+ * minutes) survived into the next cold start. That's what put a "Continue
+ * here" tag on the correct node while the node itself still rendered its
+ * pre-completion (locked) status: two different cache layers, one of them
+ * never confirmed cleared (2026-08-29, diagnosed from a live report -- user
+ * pull-to-refreshed and both the stale lock and the tag mismatch resolved
+ * at once, which is what pointed at a disk-cache race rather than the
+ * in-memory 5-minute TTL alone).
+ */
+export async function invalidateLevels(mvpSurahNumbers?: number[]): Promise<void> {
   const surahNumbers = mvpSurahNumbers ?? Array.from(_levels.keys());
   _levels.clear();
   _firstLevels.clear();
   _recommended = null;
-  // Also clear the disk cache so HomeScreen re-fetches from network
-  void invalidateLevelsFromDisk(surahNumbers);
+  notifyRecommended();
+  // Also clear the disk cache so HomeScreen/MapScreen re-fetch from network.
+  await invalidateLevelsFromDisk(surahNumbers);
 }
 
 export function invalidateAll(): void {
   _recommended = null;
+  notifyRecommended();
   _stats = null;
   _profile = null;
   _levels.clear();
@@ -138,7 +170,7 @@ export function invalidateAll(): void {
 export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
   const [recommendedResult] = await Promise.allSettled([
     learningApi.recommendedNext()
-      .then(d => { _recommended = stamp(d); return d; }),
+      .then(d => { _recommended = stamp(d); notifyRecommended(); return d; }),
 
     // TODO: stats() currently unused on frontend — re-enable if needed for profile/dashboard
     // learningApi.stats()

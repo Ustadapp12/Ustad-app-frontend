@@ -1,0 +1,1399 @@
+=== id 1 ===
+{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"logging":{},"prompts":{"listChanged":true},"resources":{}},"serverInfo":{"name":"firebase","version":"0.3.0"}}
+=== id 2 ===
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF856017C000129CDD8E5DD3CFA84_2255948640813476947
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255948640813476947'
+  eventTime: |
+    '2026-08-24T07:52:54Z'
+  receivedTime: |
+    '2026-08-24T07:52:58Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF856017C000129CDD8E5DD3CFA84_2255948640813476947
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '1959092224'
+    free: '2423726080'
+  storage: |
+    used: '1348808704'
+    free: '2944061440'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    49C00CED4915EB6CEDC20405C74FAAD7C64A72746F0534B211266E239CA1AF5E
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ru.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.bs.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.af.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hu.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.pt.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.arm64_v8a.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.et.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.zh.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ky.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ms.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.en.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    BACKGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF852034000012986F1EA2F32BE4C_2255948627289582552
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255948627289582552'
+  eventTime: |
+    '2026-08-24T07:52:50Z'
+  receivedTime: |
+    '2026-08-24T07:52:52Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF852034000012986F1EA2F32BE4C_2255948627289582552
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '1949978624'
+    free: '2432839680'
+  storage: |
+    used: '1347035136'
+    free: '2945835008'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    49C00CED4915EB6CEDC20405C74FAAD7C64A72746F0534B211266E239CA1AF5E
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ru.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.bs.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.af.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hu.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.pt.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.arm64_v8a.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.et.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.zh.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ky.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ms.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.en.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    FOREGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF822026200012767E4B35D3E14C4_2255948417948646844
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255948417948646844'
+  eventTime: |
+    '2026-08-24T07:52:02Z'
+  receivedTime: |
+    '2026-08-24T07:52:04Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF822026200012767E4B35D3E14C4_2255948417948646844
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2125398016'
+    free: '2257420288'
+  storage: |
+    used: '1180852224'
+    free: '3112017920'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    49C00CED4915EB6CEDC20405C74FAAD7C64A72746F0534B211266E239CA1AF5E
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ru.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.bs.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.af.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hu.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.pt.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.arm64_v8a.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.et.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.zh.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ky.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ms.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.en.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    BACKGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF81E000D00012701E799325818A8_2255948403513602799
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255948403513602799'
+  eventTime: |
+    '2026-08-24T07:51:58Z'
+  receivedTime: |
+    '2026-08-24T07:52:01Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF81E000D00012701E799325818A8_2255948403513602799
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2148110336'
+    free: '2234707968'
+  storage: |
+    used: '1238867968'
+    free: '3054002176'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    49C00CED4915EB6CEDC20405C74FAAD7C64A72746F0534B211266E239CA1AF5E
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ru.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.bs.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.af.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hu.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.pt.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.arm64_v8a.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.et.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.zh.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ky.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ms.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.en.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    FOREGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF7D6003A00011C93EB1709BAEFCD_2255948096291629409
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255948096291629409'
+  eventTime: |
+    '2026-08-24T07:50:47Z'
+  receivedTime: |
+    '2026-08-24T07:52:00Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF7D6003A00011C93EB1709BAEFCD_2255948096291629409
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2035834880'
+    free: '2346983424'
+  storage: |
+    used: '1058803712'
+    free: '3234066432'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    49C00CED4915EB6CEDC20405C74FAAD7C64A72746F0534B211266E239CA1AF5E
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ru.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.bs.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.af.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hu.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.pt.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.sl.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.arm64_v8a.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.et.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.zh.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.hr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ky.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.ms.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.en.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp-__R3ptAdGk0oWlfP4iE-Xw==/split_config.tr.apk!/lib/x86_64, /data/app/~~IAEKtL8psVodHiXMvcioaQ==/com.ustadapp<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    FOREGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF5E8028200012C6035F864A62B1F_2255945971627543165
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945971627543165'
+  eventTime: |
+    '2026-08-24T07:42:32Z'
+  receivedTime: |
+    '2026-08-24T07:42:36Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF5E8028200012C6035F864A62B1F_2255945971627543165
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2080841728'
+    free: '2301976576'
+  storage: |
+    used: '1407029248'
+    free: '2885840896'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    9C8E5BADFB1BC2FE5843B2285D203AE77D12F344B44AB8450F34BEA640CBE9DD
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hdpi.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.bs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ru.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sl.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.af.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hu.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.da.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.et.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.zh.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.pt.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ky.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ms.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.cs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ro.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEF<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    BACKGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF5E2035D00012B942ACC32C3D3D9_2255945943636727172
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945943636727172'
+  eventTime: |
+    '2026-08-24T07:42:26Z'
+  receivedTime: |
+    '2026-08-24T07:42:30Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF5E2035D00012B942ACC32C3D3D9_2255945943636727172
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2042011648'
+    free: '2340806656'
+  storage: |
+    used: '1402228736'
+    free: '2890641408'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    9C8E5BADFB1BC2FE5843B2285D203AE77D12F344B44AB8450F34BEA640CBE9DD
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hdpi.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.bs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ru.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sl.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.af.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hu.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.da.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.et.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.zh.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.pt.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ky.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ms.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.cs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ro.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEF<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    FOREGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF5AD02EF0001285EF2F9CA96E5D7_2255945715959132386
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945715959132386'
+  eventTime: |
+    '2026-08-24T07:41:33Z'
+  receivedTime: |
+    '2026-08-24T07:41:35Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF5AD02EF0001285EF2F9CA96E5D7_2255945715959132386
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2193334272'
+    free: '2189484032'
+  storage: |
+    used: '1194029056'
+    free: '3098841088'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    9C8E5BADFB1BC2FE5843B2285D203AE77D12F344B44AB8450F34BEA640CBE9DD
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hdpi.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.bs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ru.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sl.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.af.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hu.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.da.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.et.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.zh.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.pt.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ky.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ms.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.cs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ro.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEF<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    BACKGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF5A903BF00012811B82C54B9F8A4_2255945704316574692
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945704316574692'
+  eventTime: |
+    '2026-08-24T07:41:30Z'
+  receivedTime: |
+    '2026-08-24T07:41:32Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF5A903BF00012811B82C54B9F8A4_2255945704316574692
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2197667840'
+    free: '2185150464'
+  storage: |
+    used: '1229266944'
+    free: '3063603200'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    9C8E5BADFB1BC2FE5843B2285D203AE77D12F344B44AB8450F34BEA640CBE9DD
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hdpi.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.bs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ru.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sl.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.af.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hu.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.da.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.et.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.zh.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.pt.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ky.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ms.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.cs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ro.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEF<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    FOREGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF559016600011DAD0FB3AFBB720E_2255945355945062321
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945355945062321'
+  eventTime: |
+    '2026-08-24T07:40:09Z'
+  receivedTime: |
+    '2026-08-24T07:40:14Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF559016600011DAD0FB3AFBB720E_2255945355945062321
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2057072640'
+    free: '2325745664'
+  storage: |
+    used: '1071738880'
+    free: '3221131264'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    9C8E5BADFB1BC2FE5843B2285D203AE77D12F344B44AB8450F34BEA640CBE9DD
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hdpi.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.bs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ru.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sl.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.af.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hu.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.da.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.et.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.zh.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.pt.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ky.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ms.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.cs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ro.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEF<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    BACKGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF554031900011D24CEFC4DF58856_2255945334531821745
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945334531821745'
+  eventTime: |
+    '2026-08-24T07:40:04Z'
+  receivedTime: |
+    '2026-08-24T07:40:12Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF554031900011D24CEFC4DF58856_2255945334531821745
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2093268992'
+    free: '2289549312'
+  storage: |
+    used: '1055641600'
+    free: '3237228544'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    9C8E5BADFB1BC2FE5843B2285D203AE77D12F344B44AB8450F34BEA640CBE9DD
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hdpi.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.bs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ru.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.sl.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.af.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hu.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.da.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.et.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.zh.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.hr.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.pt.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ky.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ms.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.cs.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEFz7YKy9o89QOVxzTHvg==/split_config.ro.apk!/lib/x86_64, /data/app/~~yETz5N3A94XCLT6mJvP77w==/com.ustadapp-EKEF<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    FOREGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF54A00E300012B9611EDF1F6F28C_2255945293778072572
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945293778072572'
+  eventTime: |
+    '2026-08-24T07:39:54Z'
+  receivedTime: |
+    '2026-08-24T07:39:56Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF54A00E300012B9611EDF1F6F28C_2255945293778072572
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '1967099904'
+    free: '2415718400'
+  storage: |
+    used: '1216000000'
+    free: '3076870144'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    13712B6B2A3672C066E1CC408BA7BB3ABA6645CE3D351167DC8C59C5D2019EAA
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.fi.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.ta.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.nb.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.or.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.pl.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.az.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.ka.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.is.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.fr.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.mn.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.uz.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.lt.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.iw.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.sv.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.de.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.mk.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17Ehv<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    BACKGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF547025D00012B523C9DF55B207F_2255945279660072523
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945279660072523'
+  eventTime: |
+    '2026-08-24T07:39:51Z'
+  receivedTime: |
+    '2026-08-24T07:39:54Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF547025D00012B523C9DF55B207F_2255945279660072523
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '1990733824'
+    free: '2392084480'
+  storage: |
+    used: '1213947904'
+    free: '3078922240'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    13712B6B2A3672C066E1CC408BA7BB3ABA6645CE3D351167DC8C59C5D2019EAA
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.fi.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.ta.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.nb.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.or.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.pl.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.az.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.ka.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.is.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.fr.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.mn.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.uz.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.lt.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.iw.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.sv.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.de.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.mk.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17Ehv<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    FOREGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF53E017900012F3EC2FED4CFEA9B_2255945241329720954
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945241329720954'
+  eventTime: |
+    '2026-08-24T07:39:42Z'
+  receivedTime: |
+    '2026-08-24T07:39:47Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF53E017900012F3EC2FED4CFEA9B_2255945241329720954
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '1949319168'
+    free: '2433499136'
+  storage: |
+    used: '1449689088'
+    free: '2843181056'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    6CAE692C6714E861AAD3B5249E59AA1ABD132DB67B591BB419639EB0CE438F4F
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.el.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.fi.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.xxxhdpi.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.ja.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.uk.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.or.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.hdpi.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.eu.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.bn.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.de.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.sw.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.ta.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.mr.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.ne.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.iw.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp-ezfmX4_LTGPVBww2WlFGcQ==/split_config.ka.apk!/lib/x86_64, /data/app/~~8fIjUbiUZjVn94uofKR5FQ==/com.ustadapp<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    FOREGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF50B00C300012A3DDC4AAFDD441E_2255945022531362044
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2255945022531362044'
+  eventTime: |
+    '2026-08-24T07:38:51Z'
+  receivedTime: |
+    '2026-08-24T07:38:53Z'
+  issue: >
+    id: fa1262d06e995bc609cfab0e734a0076
+
+    title: com.ustadapp.MainApplication.onCreate
+
+    subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root =
+    /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+
+    errorType: FATAL
+
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8BF50B00C300012A3DDC4AAFDD441E_2255945022531362044
+  device: |
+    manufacturer: OnePlus
+    model: OnePlus8Pro
+    architecture: ARM64
+    displayName: OnePlus (OnePlus8Pro)
+    marketingName: OnePlus8Pro
+    companyName: OnePlus
+    formFactor: PHONE
+  memory: |
+    used: '2024009728'
+    free: '2358808576'
+  storage: |
+    used: '1211768832'
+    free: '3081101312'
+  operatingSystem: |
+    displayVersion: '11'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (11)
+  version: |
+    displayVersion: 1.0.10
+    buildVersion: '26082414'
+    displayName: 1.0.10 (26082414)
+  installationUuid: |
+    13712B6B2A3672C066E1CC408BA7BB3ABA6645CE3D351167DC8C59C5D2019EAA
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    PORTRAIT
+  deviceOrientation: |
+    PORTRAIT
+  blameFrame: |
+    line: '25'
+    file: MainApplication.kt
+    symbol: com.ustadapp.MainApplication.onCreate
+    offset: '25'
+    library: com.ustadapp
+    owner: DEVELOPER
+    blamed: true
+  exceptions: "com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource[root = [/data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.fi.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.ta.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.nb.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.or.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.pl.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.az.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.ka.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.is.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.fr.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.mn.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.uz.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.lt.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.iw.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.sv.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.de.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17EhvHx9AP2IFG1DiSQXw==/split_config.mk.apk!/lib/x86_64, /data/app/~~156LuUWLBfHufOKsjAZvww==/com.ustadapp-s17Ehv<truncated: 7545 chars>\nat com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)\nat com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)\nat com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)\nat com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)\nat com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)\nat com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)\nat com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)\nat com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)\nat com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)\nat android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)\nat android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)\nat android.app.ActivityThread.access$1300 (ActivityThread.java:239)\nat android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)\nat android.os.Handler.dispatchMessage (Handler.java:106)\nat android.os.Looper.loop (Looper.java:223)\n... frames omitted ..."
+  threads: |-
+    Thread: main (crashed)
+    at com.facebook.soloader.SoLoader.doLoadLibraryBySoName (SoLoader.java:1216)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoNameImpl (SoLoader.java:1078)
+    at com.facebook.soloader.SoLoader.loadLibraryBySoName (SoLoader.java:943)
+    at com.facebook.soloader.SoLoader.loadLibraryOnAndroid (SoLoader.java:859)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:842)
+    at com.facebook.soloader.SoLoader.loadLibrary (SoLoader.java:812)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit> (ReactNativeFeatureFlagsCxxInterop.kt:28)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxAccessor.override (ReactNativeFeatureFlagsCxxAccessor.kt:925)
+    at com.facebook.react.internal.featureflags.ReactNativeFeatureFlags.override (ReactNativeFeatureFlags.kt:588)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:101)
+    at com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load (DefaultNewArchitectureEntryPoint.kt:43)
+    at com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative (ReactNativeApplicationEntryPoint.java:31)
+    at com.ustadapp.MainApplication.onCreate (MainApplication.kt:25)
+    at android.app.Instrumentation.callApplicationOnCreate (Instrumentation.java:1194)
+    at android.app.ActivityThread.handleBindApplication (ActivityThread.java:6735)
+    at android.app.ActivityThread.access$1300 (ActivityThread.java:239)
+    at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1915)
+    at android.os.Handler.dispatchMessage (Handler.java:106)
+    at android.os.Looper.loop (Looper.java:223)
+    ... frames omitted ...
+  processState: |
+    BACKGROUND
+  buildStamp: |
+    |
+      generate_error_reason: NO_SUPPORTED_VCS_FOUND
+  issueVariant: |
+    id: 2bf658edfe33bd414ab13f0e68d0ed25
+

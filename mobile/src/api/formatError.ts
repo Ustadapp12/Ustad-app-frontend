@@ -4,9 +4,17 @@ export function formatApiError(body: unknown, fallback: string): string {
     return fallback;
   }
   // Structured `AppError` responses: { success: false, error: { code, message } }
-  const structuredError = (body as { error?: { message?: unknown } }).error;
-  if (structuredError && typeof structuredError.message === 'string') {
-    return structuredError.message;
+  const structuredError = (body as { error?: unknown }).error;
+  if (structuredError && typeof structuredError === 'object' && typeof (structuredError as { message?: unknown }).message === 'string') {
+    return (structuredError as { message: string }).message;
+  }
+  // Plain-code shape used by a few simple POST endpoints (waitlist, feedback):
+  // { error: "invalid_email" } — turn the snake_case code into a sentence
+  // rather than surfacing it verbatim or falling through to a generic
+  // "Request failed (400)".
+  if (typeof structuredError === 'string' && structuredError) {
+    const words = structuredError.replace(/_/g, ' ');
+    return words.charAt(0).toUpperCase() + words.slice(1) + '.';
   }
   const detail = (body as { detail?: unknown }).detail;
   if (typeof detail === 'string') {

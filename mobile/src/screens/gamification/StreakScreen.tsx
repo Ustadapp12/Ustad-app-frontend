@@ -1,5 +1,5 @@
 ﻿import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Image, Modal } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
@@ -12,8 +12,11 @@ import {
 import { colors } from '../../theme/colors';
 import {
   isStreakFrozen, streakColor, freezeDaysLabel, repairProgressLabel,
-  STREAK_ACTIVE_COLOR, STREAK_FROZEN_COLOR, STREAK_FROZEN_ICON,
+  STREAK_FROZEN_COLOR,
+  STREAK_ACTIVE_ICON_LARGE, STREAK_FROZEN_ICON_LARGE, STREAK_BLANK_ICON,
+  STREAK_ACTIVE_ICON_SMALL, STREAK_FROZEN_ICON_SMALL,
 } from '../../utils/streak';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
 interface Props {
@@ -22,7 +25,8 @@ interface Props {
 }
 
 export default function StreakScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { learning, user } = useAuthStore();
   const streak = route.params?.currentStreak ?? learning?.current_streak ?? 0;
   const justIncremented = route.params?.justIncremented ?? false;
@@ -43,6 +47,7 @@ export default function StreakScreen({ navigation, route }: Props) {
   // Only after a genuine increment, and only once ever: asking again after
   // every level would cheapen it.
   const [upgradePromptVisible, setUpgradePromptVisible] = useState(false);
+  const [helpVisible, setHelpVisible] = useState(false);
   const guest = isGuest(user);
   const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -75,11 +80,6 @@ export default function StreakScreen({ navigation, route }: Props) {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const lumaScaleAnim = useRef(new Animated.Value(0)).current;
   const numberScaleAnim = useRef(new Animated.Value(1)).current;
-  // Frozen state's ice placeholder used to be a static emoji — a plain PNG
-  // next to the fire Lottie's constant motion read as "broken," not "on
-  // ice." A slow breathing pulse gives it the same sense of being alive
-  // without needing a real ice Lottie asset (none exists yet).
-  const icePulseAnim = useRef(new Animated.Value(1)).current;
   // Celebration entrance: hold on streak-1, let Lumo + the flame settle in,
   // then pop the number up to the real total. A plain open (from the Map
   // HUD's streak pill) skips all of this and just shows the final number.
@@ -94,11 +94,6 @@ export default function StreakScreen({ navigation, route }: Props) {
       Animated.timing(floatAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
     ]));
     loop.start();
-    const iceLoop = Animated.loop(Animated.sequence([
-      Animated.timing(icePulseAnim, { toValue: 1.06, duration: 1400, useNativeDriver: true }),
-      Animated.timing(icePulseAnim, { toValue: 1, duration: 1400, useNativeDriver: true }),
-    ]));
-    iceLoop.start();
 
     if (justIncremented) {
       Animated.spring(lumaScaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6, delay: 300 }).start();
@@ -109,9 +104,9 @@ export default function StreakScreen({ navigation, route }: Props) {
           Animated.spring(numberScaleAnim, { toValue: 1, useNativeDriver: true, tension: 200, friction: 6 }),
         ]).start();
       }, 900);
-      return () => { loop.stop(); iceLoop.stop(); clearTimeout(timer); };
+      return () => { loop.stop(); clearTimeout(timer); };
     }
-    return () => { loop.stop(); iceLoop.stop(); };
+    return () => { loop.stop(); };
   }, []);
 
   // Single active-week card: 7 slots numbered by day-in-streak, not by
@@ -130,43 +125,44 @@ export default function StreakScreen({ navigation, route }: Props) {
           <Text style={styles.closeBtnText}>✕</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Streak</Text>
-        <View style={{ width: 38 }} />
+        <TouchableOpacity style={styles.helpBtn} onPress={() => setHelpVisible(true)} accessibilityLabel="How streaks work">
+          <Text style={styles.helpBtnText}>?</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {justIncremented && (
-          <View style={{ width: 90, height: 90, marginBottom: 4 }}>
+          <View style={{ width: 105, height: 105, marginBottom: 4 }}>
             <Animated.Image
               source={require('../../../assets/images/lumo_transparent.png')}
               style={[styles.celebrationLuma, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
               resizeMode="contain"
             />
-            <MascotShadow width={90} />
+            <MascotShadow width={105} />
           </View>
         )}
 
-        {/* Streak fire animation — frozen swaps in a blue/ice placeholder.
-            No blue-fire art exists yet (product decision 2026-08-05): this
-            is a deliberate placeholder occupying the same footprint as the
-            Lottie, so dropping in a real asset/Lottie source later is a
-            change to this one spot, not a layout change. */}
+        {/* Streak fire animation — frozen swaps in the blue recolor of the
+            same Lottie (2026-08-28), replacing the ice-cube placeholder this
+            comment used to describe as temporary (product decision
+            2026-08-05: "no blue-fire art exists yet"). streak_frozen.json is
+            a direct derivative of streak.json — same shapes/timing, only the
+            4 named fill layers (base/dark/outer/light Outlines) recolored
+            from the warm palette to blue, anchored on STREAK_FROZEN_COLOR
+            (#2E90E5, the blue already used for "frozen" everywhere else in
+            the app) for the flame body and a paler ice-blue for the glow.
+            Regenerate by re-running the same layer-name -> RGB mapping over
+            a future streak.json if the base animation is ever redesigned;
+            don't hand-edit the derived file directly. */}
         <Animated.View style={{ transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
-          {frozen ? (
-            <View style={[styles.streakAnim, styles.frozenIconWrap]}>
-              <Animated.Image
-                source={STREAK_FROZEN_ICON}
-                style={[styles.frozenIconImg, { transform: [{ scale: icePulseAnim }] }]}
-                resizeMode="contain"
-              />
-            </View>
-          ) : (
-            <LottieView
-              renderMode="SOFTWARE"
-              source={require('../../../assets/animations/streak.json')}
-              autoPlay loop
-              style={styles.streakAnim}
-            />
-          )}
+          <LottieView
+            renderMode="SOFTWARE"
+            source={frozen
+              ? require('../../../assets/animations/streak_frozen.json')
+              : require('../../../assets/animations/streak.json')}
+            autoPlay loop
+            style={styles.streakAnim}
+          />
         </Animated.View>
 
         <Animated.Text
@@ -210,20 +206,16 @@ export default function StreakScreen({ navigation, route }: Props) {
           <View style={styles.daysRow}>
             {weekDayNumbers.map((dayNum, i) => {
               const filled = dayNum <= displayedStreak;
+              // Frozen reads via the blue-fire icon itself, not a recolored
+              // dot — a completed day while frozen shows blue fire, a
+              // completed day otherwise shows orange fire, and a day not
+              // yet reached shows the blank/unlit fire.
+              const icon = !filled ? STREAK_BLANK_ICON : frozen ? STREAK_FROZEN_ICON_LARGE : STREAK_ACTIVE_ICON_LARGE;
               return (
                 <View key={i} style={styles.dayCol}>
-                  <View style={[styles.dayDot, filled && { backgroundColor: STREAK_ACTIVE_COLOR, borderColor: STREAK_ACTIVE_COLOR }]}>
-                    {filled && (
-                      // Frozen reads via the ice-cube glyph itself, not by
-                      // recoloring the dot blue — the dot stays the normal
-                      // active color so "day completed" doesn't get
-                      // overloaded with "streak currently frozen".
-                      frozen
-                        ? <Image source={STREAK_FROZEN_ICON} style={styles.dayIceIcon} resizeMode="contain" />
-                        : <Text style={{ fontSize: 10 }}>✓</Text>
-                    )}
+                  <View style={styles.dayFireWrap}>
+                    <Image source={icon} style={styles.dayFireIcon} resizeMode="contain" />
                   </View>
-                  <Text style={[styles.dayLabel, filled && { color: STREAK_ACTIVE_COLOR }]}>{dayNum}</Text>
                 </View>
               );
             })}
@@ -268,14 +260,12 @@ export default function StreakScreen({ navigation, route }: Props) {
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
 
-      {/* CTA */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
-          <Text style={styles.btnText}>{streak === 0 ? 'Start Today!' : 'Keep it up!'}</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Was the footer CTA's job (it always just did goBack(), same as the
+            header's ✕ — removed as a redundant second button) — keep the
+            safe-area clearance it used to provide at the bottom. */}
+        <View style={{ height: insets.bottom + 16 }} />
+      </ScrollView>
 
       <AuthRequiredModal
         visible={upgradePromptVisible}
@@ -286,6 +276,55 @@ export default function StreakScreen({ navigation, route }: Props) {
         onContinue={() => void handleCreateAccount()}
         onDismiss={() => void handleDeclineUpgrade()}
       />
+
+      <Modal visible={helpVisible} transparent animationType="fade" onRequestClose={() => setHelpVisible(false)}>
+        <View style={styles.helpBackdrop}>
+          <View style={[styles.helpCard, { maxHeight: '80%' }]}>
+            <View style={styles.helpCardHeader}>
+              <Text style={styles.helpCardTitle}>How streaks work</Text>
+              <TouchableOpacity style={styles.helpCloseBtn} onPress={() => setHelpVisible(false)}>
+                <Text style={styles.helpCloseBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Fire — the active streak */}
+              <View style={styles.helpSection}>
+                <View style={styles.helpSectionHeader}>
+                  <Image source={STREAK_ACTIVE_ICON_SMALL} style={styles.helpSectionIcon} resizeMode="contain" />
+                  <Text style={styles.helpSectionTitle}>Your streak</Text>
+                </View>
+                <Text style={styles.helpSectionBody}>
+                  Your streak counts the number of days in a row you've completed at least one lesson. Every day you show up, it grows.
+                </Text>
+                <Text style={styles.helpSectionSubtitle}>How to keep it going</Text>
+                <Text style={styles.helpSectionBody}>
+                  Finish at least one lesson every day. It doesn't have to be a long session, one completed lesson is enough to keep the streak alive for that day.
+                </Text>
+              </View>
+
+              {/* Ice — the frozen/grace state */}
+              <View style={[styles.helpSection, { marginBottom: 0 }]}>
+                <View style={styles.helpSectionHeader}>
+                  <Image source={STREAK_FROZEN_ICON_SMALL} style={styles.helpSectionIcon} resizeMode="contain" />
+                  <Text style={styles.helpSectionTitle}>Frozen streak</Text>
+                </View>
+                <Text style={styles.helpSectionBody}>
+                  Miss a day and your streak doesn't disappear right away, it freezes instead. A frozen streak gives you a few extra days to save it before it resets to zero.
+                </Text>
+                <Text style={styles.helpSectionSubtitle}>How to repair it</Text>
+                <Text style={styles.helpSectionBody}>
+                  While frozen, complete a set number of different lesson levels before the countdown runs out to bring your streak back to active. Replaying the same level twice doesn't count, each repair level has to be a different one.
+                </Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.helpGotItBtn} onPress={() => setHelpVisible(false)}>
+              <Text style={styles.helpGotItBtnText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -302,8 +341,44 @@ const styles = StyleSheet.create({
   },
   closeBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
   headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: colors.darkText },
+  helpBtn: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  helpBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.midText },
+  helpBackdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center', padding: 24,
+  },
+  helpCard: {
+    width: '100%', maxWidth: 420, backgroundColor: colors.white, borderRadius: 22,
+    paddingHorizontal: 20, paddingTop: 18, paddingBottom: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10,
+  },
+  helpCardHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14,
+  },
+  helpCardTitle: { fontFamily: 'Nunito_700Bold', fontSize: 19, color: colors.darkText },
+  helpCloseBtn: {
+    width: 30, height: 30, borderRadius: 15, backgroundColor: colors.lightBg,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  helpCloseBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.midText },
+  helpSection: { marginBottom: 20 },
+  helpSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  helpSectionIcon: { width: 30, height: 30 },
+  helpSectionTitle: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText },
+  helpSectionSubtitle: {
+    fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary,
+    letterSpacing: 0.3, marginTop: 10, marginBottom: 4,
+  },
+  helpSectionBody: { fontFamily: 'Nunito_400Regular', fontSize: 13.5, color: colors.mutedText, lineHeight: 20 },
+  helpGotItBtn: {
+    backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14,
+    alignItems: 'center', marginTop: 8,
+  },
+  helpGotItBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.white },
   scroll: { alignItems: 'center', paddingHorizontal: 22, paddingBottom: 16 },
-  celebrationLuma: { width: 90, height: 90, marginBottom: 4 },
+  celebrationLuma: { width: 105, height: 105, marginBottom: 4 },
   streakAnim: { width: 140, height: 140 },
   streakNum: { fontFamily: 'Nunito_700Bold', fontSize: 64, color: '#EA580C', lineHeight: 68 },
   streakLabel: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, marginBottom: 6 },
@@ -313,8 +388,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryBg, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 20,
   },
   xpBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
-  frozenIconWrap: { alignItems: 'center', justifyContent: 'center' },
-  frozenIconImg: { width: 84, height: 84 },
   freezeCard: {
     width: '100%', backgroundColor: colors.blueBg, borderRadius: 16,
     paddingHorizontal: 16, paddingVertical: 12, marginBottom: 16,
@@ -328,14 +401,13 @@ const styles = StyleSheet.create({
   },
   weekTitle: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText, marginBottom: 12 },
   daysRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  dayCol: { alignItems: 'center', gap: 6 },
-  dayDot: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: colors.lightBg, borderWidth: 2, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center',
+  dayCol: { alignItems: 'center' },
+  dayFireWrap: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  dayFireIcon: { width: 36, height: 36, position: 'absolute' },
+  dayFireNum: {
+    fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText, marginTop: 10,
+    textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
   },
-  dayIceIcon: { width: 20, height: 20 },
-  dayLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.mutedText },
   milestonesCard: {
     width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
@@ -357,17 +429,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
   },
-  guestCardLuma: { width: 44, height: 44 },
+  guestCardLuma: { width: 52, height: 52 },
   guestCardText: { flex: 1 },
   guestCardTitle: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.darkText, marginBottom: 2 },
   guestCardBody: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: colors.mutedText, lineHeight: 15 },
   guestCardBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
   guestCardBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.white },
-  footer: { paddingHorizontal: 22, paddingTop: 10 },
-  btn: {
-    backgroundColor: '#EA580C', borderRadius: 16, paddingVertical: 16, alignItems: 'center',
-    shadowColor: '#EA580C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
-  },
-  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
 });
 

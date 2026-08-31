@@ -15,11 +15,31 @@ export interface User {
   role: string;
   name?: string; // populated from profile.display_name after login
   email_verified: boolean;
+  /**
+   * False for Google and guest accounts, which have no password at all. Delete
+   * Account must not ask those users to confirm with one, since they have
+   * nothing to type and would be locked out of deleting their own account.
+   * Optional because a cached user object from an older build won't carry it;
+   * treat a missing value as "has a password", which is the safe default (it
+   * asks for confirmation rather than skipping it).
+   */
+  has_password?: boolean;
 }
+
+/** What the server did with a Google sign-in. Only `/auth/google` sets it.
+ *  - `created`  brand new account
+ *  - `claimed`  the caller's guest row was filled in, so progress carried over
+ *  - `restored` signed into a pre-existing account (the returning-user case,
+ *               since a reinstall mints a fresh guest). Any guest progress from
+ *               this session is gone, so the UI must say so rather than let the
+ *               numbers appear to change at random. */
+export type AccountAction = 'created' | 'claimed' | 'restored';
 
 export interface AuthResponse {
   user: User;
   tokens: Tokens;
+  // Optional: absent on every endpoint except /auth/google.
+  account_action?: AccountAction;
 }
 
 // "active" — normal streak. "frozen" — a day was missed but the streak is
@@ -206,6 +226,11 @@ export interface UserProfile {
   gender: 'male' | 'female' | null;
   age: number | null;
   timezone: string | null;
+  /** Server-side "has this account finished onboarding" flag — the
+   * authoritative source SplashScreen's routing checks, unlike the
+   * device-local flag in utils/storage.ts which resets on every
+   * reinstall/new device. See getNextOnboardingScreen(). */
+  onboarding_completed: boolean;
 }
 
 export interface AuthMeResponse {
@@ -402,6 +427,11 @@ export interface FormulaAttemptIn {
   ex_id: string;
   user_answer: string | string[] | number[] | null;
   response_ms?: number;
+  // Real Deepgram-verified outcome for read_ayah_and_speak / read_and_speak
+  // only — the backend can't grade these itself. Omitted for every other
+  // exercise type. See backend's session_engine.py process_answer() for how
+  // this is (to be) consumed.
+  speak_result?: 'passed' | 'failed' | 'skipped';
 }
 
 export interface FormulaAttemptOut {

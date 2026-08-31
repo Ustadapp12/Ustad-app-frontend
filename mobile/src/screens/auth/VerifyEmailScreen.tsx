@@ -12,6 +12,7 @@ import { colors } from '../../theme/colors';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
 import { playFeedbackSound } from '../../services/audioPlayer';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
 interface Props {
@@ -22,7 +23,8 @@ interface Props {
 const RESEND_COOLDOWN_S = 45;
 
 export default function VerifyEmailScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const storeUser = useAuthStore(s => s.user);
   const completeEmailVerification = useAuthStore(s => s.completeEmailVerification);
   const logout = useAuthStore(s => s.logout);
@@ -82,7 +84,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
         setShowCelebration(true);
         playFeedbackSound(true);
       } else {
-        navigation.replace('OnboardAge');
+        navigation.replace('OnboardUsername');
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 429) {
@@ -127,10 +129,10 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
       >
         <Text style={styles.closeIcon}>✕</Text>
       </TouchableOpacity>
-      <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
-        <View style={{ width: 110, height: 110, marginBottom: 8 }}>
+      <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
+        <View style={{ width: 130, height: 130, marginBottom: 8 }}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
-          <MascotShadow width={110} />
+          <MascotShadow width={130} />
         </View>
 
         <Text style={styles.heading}>Verify your email</Text>
@@ -148,6 +150,11 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
             placeholder="000000"
             placeholderTextColor={colors.placeholderText}
             textAlign="center"
+            // Without this, Android miscalculates the caret position against
+            // the 12px letterSpacing above and renders it well past the
+            // actual last digit — pinning selection explicitly to the real
+            // text end keeps it tracking the digits instead of drifting.
+            selection={{ start: code.length, end: code.length }}
           />
         </View>
 
@@ -173,7 +180,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
       visible={showCelebration}
       transparent
       animationType="fade"
-      onRequestClose={() => { setShowCelebration(false); navigation.replace('OnboardAge'); }}
+      onRequestClose={() => { setShowCelebration(false); navigation.replace('OnboardUsername'); }}
     >
       <View style={styles.celebBackdrop}>
         <View style={styles.celebCard}>
@@ -189,7 +196,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
           <Text style={styles.celebXp}>+{celebXp} XP</Text>
           <TouchableOpacity
             style={styles.celebBtn}
-            onPress={() => { setShowCelebration(false); navigation.replace('OnboardAge'); }}
+            onPress={() => { setShowCelebration(false); navigation.replace('OnboardUsername'); }}
           >
             <Text style={styles.celebBtnText}>Continue</Text>
           </TouchableOpacity>
@@ -208,7 +215,7 @@ const styles = StyleSheet.create({
   },
   closeIcon: { fontSize: 18, color: colors.mutedText, fontFamily: 'Nunito_700Bold' },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
-  luma: { width: 110, height: 110, marginBottom: 8 },
+  luma: { width: 130, height: 130, marginBottom: 8 },
   heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 6 },
   sub: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.mutedText, textAlign: 'center', marginBottom: 28, lineHeight: 20 },
   inputBox: {
