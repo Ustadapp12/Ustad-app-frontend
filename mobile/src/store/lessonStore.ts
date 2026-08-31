@@ -42,13 +42,27 @@ interface LessonState {
   // Surah number of the level just completed, for MapScreen to pick up on its
   // next focus — MapScreen only remounts once for the app's lifetime (it sits
   // underneath the lesson screens in the same stack), so its own cached level
-  // data for that surah otherwise never gets told to refresh.
+  // data for that surah otherwise never gets told to refresh. Also drives the
+  // SURAH_COMPLETE analytics check, so it stays true ONLY on a real
+  // completeSession() — never set by abandonSession.
   lastCompletedSurah: number | null;
+  // Surah number of whatever level session just ENDED, however it ended —
+  // set by completeSession() (same value as lastCompletedSurah, same moment)
+  // AND by abandonSession(). MapScreen's focus-refresh gates on this, not on
+  // lastCompletedSurah: abandonSession never invalidates the shared bootCache
+  // or this screen's own fullLevels state, so exiting a level any way other
+  // than finishing it (backing out, losing connection, the app getting
+  // killed mid-session) previously left the map showing whatever it had
+  // cached before that session started, with no signal telling it to
+  // refresh — the map looked "stuck" until a manual pull-to-refresh or an
+  // unrelated focus event that happened to also touch that surah.
+  lastVisitedSurah: number | null;
   loadGroup: (groupId: string) => Promise<void>;
   startSession: (initialStepIndex?: number) => Promise<void>;
   completeSession: () => Promise<SessionCompleteOut>;
   abandonSession: (opts?: { silent?: boolean }) => Promise<void>;
   clearLastCompletedSurah: () => void;
+  clearLastVisitedSurah: () => void;
   reset: () => void;
 }
 
@@ -68,6 +82,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   firstExercise: null,
   progressPct: 0,
   lastCompletedSurah: null,
+  lastVisitedSurah: null,
 
   loadGroup: async groupId => {
     const myGen = ++storeGeneration;
@@ -208,8 +223,12 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     // pre-completion statuses (was never invalidated, so the map/next node
     // silently kept showing whatever was cached before this lesson started).
     if (group?.surah_number != null) {
-      invalidateLevels([group.surah_number]);
-      set({ lastCompletedSurah: group.surah_number });
+      // Awaited: see invalidateLevels' own comment (services/bootCache.ts)
+      // for the exact race this closes -- finishing a lesson and closing
+      // the app right after used to be able to outrun the disk-cache clear,
+      // leaving stale pre-completion data for the next cold start to read.
+      await invalidateLevels([group.surah_number]);
+      set({ lastCompletedSurah: group.surah_number, lastVisitedSurah: group.surah_number });
     }
     void logAnalyticsEvent(AnalyticsEvents.LESSON_COMPLETE, { passed: passed ? 1 : 0, score_pct, mistakes });
     return completed;
@@ -222,6 +241,13 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     const id = sessionId;
     set({ sessionId: null });
     await clearPendingLessonSession();
+    // Set unconditionally, before the network calls below — abandoning is
+    // exactly the case that used to leave the map stale (see
+    // lastVisitedSurah's own comment), so this must not be skipped just
+    // because abandonLessonSessionById/abandonActiveLessonSession below fail
+    // (silent=true swallows that) or throw (silent=false, but the caller is
+    // already leaving the screen either way).
+    if (group?.surah_number != null) set({ lastVisitedSurah: group.surah_number });
     try {
       if (id) await abandonLessonSessionById(id);
       await abandonActiveLessonSession();
@@ -232,10 +258,11 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   },
 
   clearLastCompletedSurah: () => set({ lastCompletedSurah: null }),
+  clearLastVisitedSurah: () => set({ lastVisitedSurah: null }),
 
   reset: () => {
     clearPreloadedAudio();
-    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0, lastCompletedSurah: null });
+    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0, lastCompletedSurah: null, lastVisitedSurah: null });
   },
 }));
 

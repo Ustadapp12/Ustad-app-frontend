@@ -20,12 +20,19 @@ const ARABIC_LETTERS = [
   { char: 'ق', top: '75%', left: '8%', size: 24, rotate: '8deg', opacity: 0.045 },
 ];
 
-const PILLS = [
-  { emoji: '🌙', label: 'Hifz tracking' },
-  { emoji: '⚡', label: 'XP & streaks' },
-  { emoji: '📋', label: 'All scripts' },
-  { emoji: '🏆', label: 'Achievements' },
+// Rotating status line. Hydrate + a cold-started serverless backend can keep
+// this screen up for several seconds, and a motionless splash reads as a hang —
+// this is there to show the wait is progress, not a freeze. It advances on a
+// timer and holds on the last message rather than looping, because a list that
+// cycles back to "Loading" is exactly what a stuck screen looks like.
+const SPLASH_MESSAGES = [
+  'Loading…',
+  'Creating your world…',
+  'Planting the trees…',
+  'Preparing your journey…',
+  'Almost there…',
 ];
+const SPLASH_MESSAGE_MS = 1200;
 
 interface Props {
   navigation: RootNavProp;
@@ -33,7 +40,7 @@ interface Props {
 
 export default function SplashScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { user, isHydrated, startGuestSession } = useAuthStore();
+  const { user, isHydrated, startGuestSession, profile } = useAuthStore();
 
   const lumaY = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -41,6 +48,8 @@ export default function SplashScreen({ navigation }: Props) {
   // mount, in parallel with hydrate(), not after it finishes. Total wait is
   // max(hydrate time, 2200ms) instead of hydrate time + 2200ms.
   const [minDelayDone, setMinDelayDone] = useState(false);
+  const [msgIdx, setMsgIdx] = useState(0);
+  const msgFade = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     // Fade in
@@ -63,6 +72,20 @@ export default function SplashScreen({ navigation }: Props) {
     const timer = setTimeout(() => setMinDelayDone(true), 1000);
     return () => { clearTimeout(timer); loop.stop(); };
   }, []);
+
+  // Advance the status line: fade the current message out, swap it, fade back
+  // in. Chained off msgIdx rather than one interval so the fade and the text
+  // swap can never drift apart, and so it stops cleanly on the last message.
+  useEffect(() => {
+    if (msgIdx >= SPLASH_MESSAGES.length - 1) return;
+    const t = setTimeout(() => {
+      Animated.timing(msgFade, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+        setMsgIdx(i => i + 1);
+        Animated.timing(msgFade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+      });
+    }, SPLASH_MESSAGE_MS);
+    return () => clearTimeout(t);
+  }, [msgIdx, msgFade]);
 
   // Auto-navigate once both hydration and the minimum brand delay are done
   useEffect(() => {
@@ -101,7 +124,13 @@ export default function SplashScreen({ navigation }: Props) {
       // mid-flight — e.g. the user quit the app between SignUp and the final
       // onboarding step. Resume where they left off instead of dropping them
       // straight onto the map with onboarding never marked done.
-      const nextOnboardingScreen = await getNextOnboardingScreen();
+      //
+      // profile.onboarding_completed (freshly loaded by hydrate() before this
+      // runs) is the account-level source of truth — pass it through so an
+      // existing account never gets routed back into onboarding just because
+      // it's a new device/reinstall with no local flag set. See
+      // getNextOnboardingScreen()'s doc comment in utils/storage.ts.
+      const nextOnboardingScreen = await getNextOnboardingScreen(profile?.onboarding_completed);
       navigation.replace(nextOnboardingScreen ?? 'MainTabs');
       return;
     }
@@ -154,41 +183,19 @@ export default function SplashScreen({ navigation }: Props) {
           {/* Bismillah */}
           <Text style={styles.bismillah}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</Text>
 
-          {/* Welcome */}
-          <View style={styles.welcomeCard}>
-            <Text style={styles.welcomeText}>Welcome</Text>
-          </View>
-
-          {/* Luma */}
+          {/* Luma — the only brand mark on this screen now; wordmark image
+              and any title text removed per product ask (2026-08-27),
+              bigger to fill the space that freed up. */}
           <Animated.Image
-            source={require('../../../assets/images/lumo_transparent.png')}
+            source={require('../../../assets/images/lumo_kufi.png')}
             style={[styles.luma, { marginBottom: 0, transform: [{ translateY: lumaY }] }]}
             resizeMode="contain"
           />
-          <MascotShadow width={180} style={{ position: 'relative', marginTop: -18, marginBottom: 8 }} />
+          <MascotShadow width={210} style={{ position: 'relative', marginTop: -21, marginBottom: 8 }} />
 
-          {/* Wordmark — replaces the plain Arabic "أُسْتَاذ" text title with the
-              real brand mark (product-provided 2026-08-13). Square source
-              canvas with the actual artwork sitting in a thin horizontal
-              band through the middle, so the box is sized wider than tall
-              and resizeMode="contain" letterboxes it down to that band. */}
-          <Image
-            source={require('../../../assets/map/logo_app.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.subtitle}>USTAD · HIFZ</Text>
-          <Text style={styles.tagline}>The gamified way to memorise the Holy Quran</Text>
-
-          {/* Feature pills */}
-          <View style={styles.pillsRow}>
-            {PILLS.map(p => (
-              <View key={p.label} style={styles.pill}>
-                <Text style={styles.pillEmoji}>{p.emoji}</Text>
-                <Text style={styles.pillLabel}>{p.label}</Text>
-              </View>
-            ))}
-          </View>
+          <Animated.Text style={[styles.status, { opacity: msgFade }]}>
+            {SPLASH_MESSAGES[msgIdx]}
+          </Animated.Text>
         </Animated.View>
       </View>
     </TouchableOpacity>
@@ -213,79 +220,28 @@ const styles = StyleSheet.create({
   },
   bismillah: {
     fontFamily: 'NotoNaskhArabic_400Regular',
-    fontSize: 19,
+    fontSize: 27,
     color: '#C4A84C',
     letterSpacing: 1,
     marginBottom: 16,
     marginTop: 8,
+    textAlign: 'center',
     textShadowColor: 'rgba(196,168,76,0.4)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 8,
   },
-  welcomeCard: {
-    backgroundColor: 'rgba(42,125,79,0.25)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(42,125,79,0.45)',
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    marginBottom: 6,
-  },
-  welcomeText: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 20,
-    color: '#C4A84C',
-    letterSpacing: 1,
-  },
-  luma: {
-    width: 180,
-    height: 180,
-    marginBottom: 8,
-  },
-  logo: {
-    width: 260,
-    height: 130,
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
-    letterSpacing: 3.5,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  tagline: {
+  status: {
     fontFamily: 'Nunito_400Regular',
     fontSize: 14,
-    color: 'rgba(255,255,255,0.65)',
-    lineHeight: 22,
-    marginBottom: 20,
+    color: 'rgba(255,255,255,0.75)',
+    letterSpacing: 0.3,
+    marginTop: 10,
     textAlign: 'center',
-    maxWidth: 260,
   },
-  pillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingVertical: 7,
-    paddingHorizontal: 13,
-  },
-  pillEmoji: { fontSize: 13 },
-  pillLabel: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+  luma: {
+    width: 210,
+    height: 210,
+    marginBottom: 8,
   },
 });
 

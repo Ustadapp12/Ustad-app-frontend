@@ -5,10 +5,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { leaderboardApi } from '../../api';
 import { colors } from '../../theme/colors';
-import { useResponsiveScale } from '../../utils/responsive';
+import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
 import { isGuest } from '../../utils/guest';
 import GuestGate from '../../components/GuestGate';
 import MascotShadow from '../../components/MascotShadow';
+import LumoInfoModal from '../../components/LumoInfoModal';
+import LoadingStatusText from '../../components/LoadingStatusText';
 import type { LeaderboardEntry } from '../../types/api';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -40,7 +42,8 @@ export default function LeaderboardScreen() {
 }
 
 function LeaderboardContent() {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { user } = useAuthStore();
   const sc = useResponsiveScale();
   const styles = useMemo(() => makeStyles(sc, insets), [sc, insets]);
@@ -49,6 +52,7 @@ function LeaderboardContent() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -107,18 +111,20 @@ function LeaderboardContent() {
             style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
             resizeMode="contain"
           />
-          <MascotShadow width={sc(62)} style={{ position: 'relative', marginTop: -sc(6) }} />
+          <MascotShadow width={sc(100)} style={{ position: 'relative', marginTop: -sc(10) }} />
         </View>
       </View>
 
       {loading ? (
         <View style={styles.centerFill}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <LoadingStatusText />
         </View>
       ) : error ? (
         <View style={styles.centerFill}>
           <Text style={styles.errorText}>Couldn't load the leaderboard.</Text>
           <Text style={styles.errorRetry} onPress={() => void load()}>Tap to retry</Text>
+          <Text style={styles.feedbackLink} onPress={() => setFeedbackVisible(true)}>Give feedback</Text>
         </View>
       ) : !entries?.length ? (
         <View style={styles.centerFill}>
@@ -141,6 +147,7 @@ function LeaderboardContent() {
               )}
               {podium[0] && (
                 <View style={[styles.podiumItem, { marginBottom: sc(10) }]}>
+                  <Text style={styles.podiumCrown}>👑</Text>
                   <Text style={styles.podiumAvatarLarge}>{avatarForGender(podium[0].gender)}</Text>
                   <View style={[styles.podiumBadge, styles.podiumBadgeLarge, { backgroundColor: MEDAL_COLOR[1] }]}>
                     <Text style={styles.podiumRankTextLarge}>1</Text>
@@ -184,6 +191,14 @@ function LeaderboardContent() {
           </ScrollView>
         </View>
       )}
+
+      <LumoInfoModal
+        visible={feedbackVisible}
+        onClose={() => setFeedbackVisible(false)}
+        title="Still stuck?"
+        message="Email us and we'll sort it out."
+        contactEmail="helo.ustadapp@gmail.com"
+      />
     </View>
   );
 }
@@ -195,13 +210,14 @@ function makeStyles(sc: (n: number) => number, insets: any) {
     centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sc(32), gap: sc(10) },
     errorText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.mutedText, textAlign: 'center' },
     errorRetry: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.primary },
+    feedbackLink: { fontFamily: 'Nunito_400Regular', fontSize: sc(12), color: colors.mutedText, marginTop: sc(4) },
     header: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingHorizontal: sc(22), paddingBottom: sc(4),
     },
     headerLabel: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: colors.mutedText, letterSpacing: 1.5 },
     headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: sc(22), color: colors.darkText },
-    lumaImg: { width: sc(62), height: sc(62) },
+    lumaImg: { width: sc(100), height: sc(100) },
     podium: {
       flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end',
       paddingHorizontal: sc(20), paddingVertical: sc(14),
@@ -211,6 +227,12 @@ function makeStyles(sc: (n: number) => number, insets: any) {
     podiumItem: { flex: 1, alignItems: 'center', gap: 3 },
     podiumAvatar: { fontSize: sc(28) },
     podiumAvatarLarge: { fontSize: sc(36) },
+    podiumCrown: {
+      fontSize: sc(26),
+      textShadowColor: '#FFD700',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 12,
+    },
     podiumBadge: {
       width: sc(22), height: sc(22), borderRadius: sc(11), alignItems: 'center', justifyContent: 'center', marginTop: -6,
     },

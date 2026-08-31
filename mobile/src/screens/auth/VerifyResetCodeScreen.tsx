@@ -11,6 +11,7 @@ import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
 import { maskEmail } from '../../utils/validators';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 
 interface Props {
@@ -24,7 +25,8 @@ interface Props {
 const DEFAULT_RESEND_COOLDOWN_S = 30;
 
 export default function VerifyResetCodeScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { email } = route.params;
 
   const [code, setCode] = useState('');
@@ -106,13 +108,13 @@ export default function VerifyResetCodeScreen({ navigation, route }: Props) {
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         accessibilityLabel="Back"
       >
-        <Text style={styles.backIcon}>←</Text>
+        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
       </TouchableOpacity>
 
-      <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
-        <View style={{ width: 100, height: 100, marginBottom: 8 }}>
+      <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
+        <View style={{ width: 120, height: 120, marginBottom: 8 }}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
-          <MascotShadow width={100} />
+          <MascotShadow width={120} />
         </View>
 
         <Text style={styles.heading}>Enter your code</Text>
@@ -128,6 +130,11 @@ export default function VerifyResetCodeScreen({ navigation, route }: Props) {
             placeholder="000000"
             placeholderTextColor={colors.placeholderText}
             textAlign="center"
+            // Without this, Android miscalculates the caret position against
+            // the 12px letterSpacing above and renders it well past the
+            // actual last digit — pinning selection explicitly to the real
+            // text end keeps it tracking the digits instead of drifting.
+            selection={{ start: code.length, end: code.length }}
           />
         </View>
 
@@ -157,9 +164,9 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { fontSize: 20, color: colors.darkText, fontFamily: 'Nunito_700Bold' },
+  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
-  luma: { width: 100, height: 100, marginBottom: 8 },
+  luma: { width: 120, height: 120, marginBottom: 8 },
   heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 6 },
   sub: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.mutedText, textAlign: 'center', marginBottom: 28, lineHeight: 20 },
   inputBox: {

@@ -20,12 +20,25 @@ export type RootStackParamList = {
   OnboardPath: undefined;
   OnboardAssessment: undefined;
   MainTabs: undefined;
+  EditProfile: undefined;
+  ChangePassword: undefined;
+  Feedback: undefined;
   // Lesson half of the guided tour — a display-only clone of the lesson screen.
   GuidedTour: undefined;
   // Lesson flow (Phase 2)
-  LessonSession: { groupId: string; surahName: string; surahNumber: number };
+  LessonSession: {
+    groupId: string; surahName: string; surahNumber: number;
+    // Merged/review levels (the green-star map nodes) — hearts are neither
+    // shown nor ever lost throughout the whole level, not just specific
+    // phases within it.
+    isSpecial?: boolean;
+  };
   LessonComplete: {
     xp: number; scorePct: number; stars: number; gems?: number;
+    // Whole-session wall-clock time in seconds, from lesson start to the
+    // completing submit — omitted on the assessment/placement flow, which
+    // doesn't track it.
+    durationSec?: number;
     streakIncremented?: boolean; currentStreak?: number;
     streakRepaired?: boolean;
     // Present (and streakState === 'frozen') on a completion that made repair
@@ -37,6 +50,7 @@ export type RootStackParamList = {
   };
   // Modals
   Streak: { justIncremented?: boolean; currentStreak?: number } | undefined;
+  XP: undefined;
   // Post-lesson streak celebration — see StreakCelebrationScreen.
   // streakRepaired: true only on the exact completion that unfroze a frozen
   // streak — plays the ice-break-then-fire sequence instead of the plain loop.
@@ -45,6 +59,10 @@ export type RootStackParamList = {
   // finish it — its own screen (see StreakRepairProgressScreen), not a badge
   // on LessonSummaryScreen.
   StreakRepairProgress: { repairLevelsCompleted: number; repairLevelsRequired: number };
+  // Where a guest lands after every post-lesson streak celebration (that
+  // screen pins the shown streak at 0 for guests) — see
+  // GuestStreakPitchScreen and StreakCelebrationScreen.
+  GuestStreakPitch: undefined;
 };
 
 export type TabParamList = {

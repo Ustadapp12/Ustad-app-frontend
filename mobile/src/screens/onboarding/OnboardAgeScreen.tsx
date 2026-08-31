@@ -6,12 +6,14 @@ import { ApiError } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props { navigation: RootNavProp }
 
 export default function OnboardAgeScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const updateProfileFields = useAuthStore(s => s.updateProfileFields);
   const [age, setAge] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,7 +42,7 @@ export default function OnboardAgeScreen({ navigation }: Props) {
     <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('OnboardUsername')}>
-          <Text style={styles.backArrow}>←</Text>
+          <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
         </TouchableOpacity>
         <View style={styles.dots}>
           <View style={[styles.dot, styles.dotActive]} />
@@ -49,9 +51,9 @@ export default function OnboardAgeScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.content}>
-        <View style={{ width: 100, height: 100, marginBottom: 10 }}>
+        <View style={{ width: 120, height: 120, marginBottom: 10 }}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
-          <MascotShadow width={100} />
+          <MascotShadow width={120} />
         </View>
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>
         <Text style={styles.heading}>What is your age?</Text>
@@ -91,12 +93,12 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
     backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
   },
-  backArrow: { fontSize: 18, color: colors.darkText, fontWeight: '700' },
+  backArrow: { width: 18, height: 18, tintColor: colors.darkText },
   dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 8 },
-  luma: { width: 100, height: 100, marginBottom: 10 },
+  luma: { width: 120, height: 120, marginBottom: 10 },
   badge: {
     fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.primary,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',

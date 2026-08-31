@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { saveOnboarding } from '../../utils/storage';
 import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props { navigation: RootNavProp }
@@ -20,7 +21,8 @@ const GOALS = [
 type GoalKey = typeof GOALS[number]['key'];
 
 export default function OnboardGoalScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const [selected, setSelected] = useState<GoalKey | null>(null);
 
   async function handleContinue() {
@@ -34,7 +36,7 @@ export default function OnboardGoalScreen({ navigation }: Props) {
       {/* Header row */}
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backArrow}>←</Text>
+          <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
         </TouchableOpacity>
         <View style={styles.dots}>
           <View style={[styles.dot, styles.dotActive]} />
@@ -44,9 +46,9 @@ export default function OnboardGoalScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ width: 84, height: 84, alignSelf: 'center', marginBottom: 4 }}>
+        <View style={{ width: 100, height: 100, alignSelf: 'center', marginBottom: 4 }}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
-          <MascotShadow width={84} />
+          <MascotShadow width={100} />
         </View>
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>
         <Text style={styles.heading}>Why do you want to memorise the Quran?</Text>
@@ -104,12 +106,12 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
     backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
   },
-  backArrow: { fontSize: 18, color: colors.darkText, fontWeight: '700' },
+  backArrow: { width: 18, height: 18, tintColor: colors.darkText },
   dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
   scroll: { paddingHorizontal: 22, paddingBottom: 20 },
-  luma: { width: 84, height: 84, alignSelf: 'center', marginBottom: 4 },
+  luma: { width: 100, height: 100, alignSelf: 'center', marginBottom: 4 },
   badge: {
     fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.primary,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8,

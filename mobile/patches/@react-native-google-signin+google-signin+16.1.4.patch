@@ -1,0 +1,79 @@
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/checksums/checksums.lock b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/checksums/checksums.lock
+new file mode 100644
+index 0000000..a5f3545
+Binary files /dev/null and b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/checksums/checksums.lock differ
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/checksums/md5-checksums.bin b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/checksums/md5-checksums.bin
+new file mode 100644
+index 0000000..9ad9e87
+Binary files /dev/null and b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/checksums/md5-checksums.bin differ
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/checksums/sha1-checksums.bin b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/checksums/sha1-checksums.bin
+new file mode 100644
+index 0000000..dc389af
+Binary files /dev/null and b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/checksums/sha1-checksums.bin differ
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/fileChanges/last-build.bin b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/fileChanges/last-build.bin
+new file mode 100644
+index 0000000..f76dd23
+Binary files /dev/null and b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/fileChanges/last-build.bin differ
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/fileHashes/fileHashes.bin b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/fileHashes/fileHashes.bin
+new file mode 100644
+index 0000000..c9ba915
+Binary files /dev/null and b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/fileHashes/fileHashes.bin differ
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/fileHashes/fileHashes.lock b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/fileHashes/fileHashes.lock
+new file mode 100644
+index 0000000..fed30e5
+Binary files /dev/null and b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/fileHashes/fileHashes.lock differ
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/gc.properties b/node_modules/@react-native-google-signin/google-signin/android/.gradle/9.2.0/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock b/node_modules/@react-native-google-signin/google-signin/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+new file mode 100644
+index 0000000..9c5b7ab
+Binary files /dev/null and b/node_modules/@react-native-google-signin/google-signin/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock differ
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/buildOutputCleanup/cache.properties b/node_modules/@react-native-google-signin/google-signin/android/.gradle/buildOutputCleanup/cache.properties
+new file mode 100644
+index 0000000..93a7d18
+--- /dev/null
++++ b/node_modules/@react-native-google-signin/google-signin/android/.gradle/buildOutputCleanup/cache.properties
+@@ -0,0 +1,2 @@
++#Wed Aug 19 11:29:06 PKT 2026
++gradle.version=9.2.0
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/.gradle/vcs-1/gc.properties b/node_modules/@react-native-google-signin/google-signin/android/.gradle/vcs-1/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/RNGoogleSigninModule.java b/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/RNGoogleSigninModule.java
+index 8491bbd..17e6740 100644
+--- a/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/RNGoogleSigninModule.java
++++ b/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/RNGoogleSigninModule.java
+@@ -166,7 +166,31 @@ public class RNGoogleSigninModule extends NativeGoogleSigninSpec {
+             }
+         } catch (ApiException e) {
+             if (e.getStatusCode() == CommonStatusCodes.DEVELOPER_ERROR) {
+-                promiseWrapper.reject(String.valueOf(CommonStatusCodes.DEVELOPER_ERROR), "DEVELOPER_ERROR: Follow troubleshooting instructions at https://react-native-google-signin.github.io/docs/troubleshooting");
++                // PATCHED (UstadApp, 2026-08-28). Upstream replaces the whole
++                // ApiException with a bare doc link on this ONE branch --
++                // every other status code reaches promiseWrapper.reject(e)
++                // below and keeps Google's own text via ErrorDto's
++                // "make the error message more useful" heuristic.
++                //
++                // That discarded detail is the only thing that says WHICH
++                // developer-error check actually failed. Without it the app
++                // reports nothing but the integer 10, which is why a
++                // DEVELOPER_ERROR here has been undiagnosable in the field
++                // across every config audit. Keep the code ("10") exactly as
++                // before so no JS branching changes; only widen the message.
++                com.google.android.gms.common.api.Status status = e.getStatus();
++                String statusMessage = status != null ? status.getStatusMessage() : null;
++                String localized = e.getLocalizedMessage() != null ? e.getLocalizedMessage() : e.getMessage();
++                String detail = "DEVELOPER_ERROR"
++                        + " | statusMessage=" + statusMessage
++                        + " | localized=" + localized
++                        + " | codeString=" + GoogleSignInStatusCodes.getStatusCodeString(e.getStatusCode())
++                        + " | hasResolution=" + (status != null && status.hasResolution())
++                        + " | see https://react-native-google-signin.github.io/docs/troubleshooting";
++                // Also to logcat, so a device capture shows it even if the
++                // app's own reporting never reaches the network.
++                Log.w(NAME, detail, e);
++                promiseWrapper.reject(String.valueOf(CommonStatusCodes.DEVELOPER_ERROR), detail);
+             } else {
+                 promiseWrapper.reject(e);
+             }

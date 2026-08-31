@@ -1,0 +1,159 @@
+=== id 1 ===
+{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"logging":{},"prompts":{"listChanged":true},"resources":{}},"serverInfo":{"name":"firebase","version":"0.3.0"}}
+=== id 2 ===
+Must specify 'filter.issueId' or 'filter.issueVariantId' parameters.
+=== id 3 ===
+Must specify 'filter.issueId' or 'filter.issueVariantId' parameters.
+=== id 4 ===
+name: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/reports/topIssues
+filters: |
+  {}
+groups: |
+  - metrics:
+      - startTime: '2026-08-16T00:00:00Z'
+        endTime: '2026-08-23T23:59:59Z'
+        eventsCount: '42'
+        impactedUsersCount: '9'
+        sessionsCount: '42'
+    issue:
+      id: fa1262d06e995bc609cfab0e734a0076
+      title: com.ustadapp.MainApplication.onCreate
+      subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libreactnative.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~eWgA2_t0Z_sKwmFuLCcnWQ==/com.ustadapp-eUpJ688O0dGebyphso2W2g==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSource["
+      errorType: FATAL
+      sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8989CF03E40001367F0B72D672268C_2255264169255372314
+      uri: >-
+        https://console.firebase.google.com/v1/appid/project/ustadapp-c21a0/crashlytics/app/1:537760681130:android:7d80476724ea8b332bd4d3/issues/fa1262d06e995bc609cfab0e734a0076?&time=1786838400000:1787529599000
+      firstSeenVersion: 1.0.0
+      lastSeenVersion: 1.0.0
+      signals:
+        - signal: SIGNAL_REPETITIVE
+          description: The crashes events for this issue happened 5 times per user on average.
+        - signal: SIGNAL_EARLY
+          description: 100% of crashes events for this issue happened in the first second of a user's session.
+        - signal: SIGNAL_FRESH
+          description: This issue first appeared 5 days ago.
+      state: OPEN
+      name: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/issues/fa1262d06e995bc609cfab0e734a0076
+  - metrics:
+      - startTime: '2026-08-16T00:00:00Z'
+        endTime: '2026-08-23T23:59:59Z'
+        eventsCount: '18'
+        impactedUsersCount: '7'
+        sessionsCount: '18'
+    issue:
+      id: 8414d2705bd9752401057a4d03bf7219
+      title: com.facebook.soloader.SoLoader.doLoadLibraryBySoName
+      subtitle: "com.facebook.soloader.SoLoaderDSONotFoundError - couldn't find DSO to load: libgesturehandler.so\n\texisting SO sources: \n\t\tSoSource 0: ApplicationSoSource[DirectorySoSource[root = /data/app/~~TWVYUvic-K1YZhEU9J2CRQ==/com.ustadapp-obWJIzjOcUwZriDA6gFfyQ==/lib/arm64 flags = 0]]\n\t\tSoSource 1: DirectApkSoSour"
+      errorType: FATAL
+      sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A86EEBC017C00012D3B4C768DA5528E_2254530723350716152
+      uri: >-
+        https://console.firebase.google.com/v1/appid/project/ustadapp-c21a0/crashlytics/app/1:537760681130:android:7d80476724ea8b332bd4d3/issues/8414d2705bd9752401057a4d03bf7219?&time=1786838400000:1787529599000
+      firstSeenVersion: '1.0'
+      lastSeenVersion: 1.0.0
+      state: OPEN
+      name: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/issues/8414d2705bd9752401057a4d03bf7219
+  - metrics:
+      - startTime: '2026-08-16T00:00:00Z'
+        endTime: '2026-08-23T23:59:59Z'
+        eventsCount: '11'
+        impactedUsersCount: '1'
+        sessionsCount: '2'
+    issue:
+      id: f9ce28fb72c11620f8594e7f4c31bb12
+      title: 'Error: DEVELOPER_ERROR: Follow troubleshooting instructions at https://react-native-google-signin.github.io/docs/troubleshooting:0:0 - .<unknown>'
+      subtitle: 'io.invertase.firebase.crashlytics.JavaScriptError - DEVELOPER_ERROR: Follow troubleshooting instructions at https://react-native-google-signin.github.io/docs/troubleshooting'
+      errorType: NON_FATAL
+      sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A846BCB038600012EA84D7DAE7AF78F_2253827726622374137
+      uri: >-
+        https://console.firebase.google.com/v1/appid/project/ustadapp-c21a0/crashlytics/app/1:537760681130:android:7d80476724ea8b332bd4d3/issues/f9ce28fb72c11620f8594e7f4c31bb12?&time=1786838400000:1787529599000
+      firstSeenVersion: 1.0.0
+      lastSeenVersion: 1.0.0
+      state: OPEN
+      name: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/issues/f9ce28fb72c11620f8594e7f4c31bb12
+  - metrics:
+      - startTime: '2026-08-16T00:00:00Z'
+        endTime: '2026-08-23T23:59:59Z'
+        eventsCount: '9'
+        impactedUsersCount: '2'
+        sessionsCount: '8'
+    issue:
+      id: 4ea6dcb0379f548d33a0630d0e30883d
+      title: '[libreactnative.so] logging.cc - google::logging_fail()'
+      subtitle: SIGABRT
+      errorType: FATAL
+      sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88846301e70001276d8ffc9362f26f_2254976772239883956
+      uri: >-
+        https://console.firebase.google.com/v1/appid/project/ustadapp-c21a0/crashlytics/app/1:537760681130:android:7d80476724ea8b332bd4d3/issues/4ea6dcb0379f548d33a0630d0e30883d?&time=1786838400000:1787529599000
+      firstSeenVersion: 1.0.0
+      lastSeenVersion: 1.0.0
+      signals:
+        - signal: SIGNAL_FRESH
+          description: This issue first appeared 2 days ago.
+      state: OPEN
+      name: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/issues/4ea6dcb0379f548d33a0630d0e30883d
+  - metrics:
+      - startTime: '2026-08-16T00:00:00Z'
+        endTime: '2026-08-23T23:59:59Z'
+        eventsCount: '8'
+        impactedUsersCount: '4'
+        sessionsCount: '7'
+    issue:
+      id: 85c581edcdb39b941df627e7b1324a71
+      title: '[libc.so]'
+      subtitle: SIGABRT
+      errorType: FATAL
+      sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a8849fc03a200017462de0cebf4deeb_2254915895306968516
+      uri: >-
+        https://console.firebase.google.com/v1/appid/project/ustadapp-c21a0/crashlytics/app/1:537760681130:android:7d80476724ea8b332bd4d3/issues/85c581edcdb39b941df627e7b1324a71?&time=1786838400000:1787529599000
+      firstSeenVersion: 1.0.0
+      lastSeenVersion: 1.0.0
+      signals:
+        - signal: SIGNAL_FRESH
+          description: This issue first appeared 2 days ago.
+      state: OPEN
+      name: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/issues/85c581edcdb39b941df627e7b1324a71
+  - metrics:
+      - startTime: '2026-08-16T00:00:00Z'
+        endTime: '2026-08-23T23:59:59Z'
+        eventsCount: '3'
+        impactedUsersCount: '3'
+        sessionsCount: '3'
+    issue:
+      id: 379647d1cb983a243715fffc347114f1
+      title: com.swmansion.rnscreens.NativeProxy.<init>NativeProxy.kt:16:0 - .<unknown>
+      subtitle: >-
+        io.invertase.firebase.crashlytics.JavaScriptError - Exception in HostObject::get for prop 'RNSModule': java.lang.UnsatisfiedLinkError: No implementation found for com.facebook.jni.HybridData
+        com.swmansion.rnscreens.NativeProxy.initHybrid() (tried Java_com_swmansion_rnscreens_NativeProxy_initHybrid and Java_
+      errorType: NON_FATAL
+      sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A84647A02350001199D97EDEC2F9E70_2253815770317629836
+      uri: >-
+        https://console.firebase.google.com/v1/appid/project/ustadapp-c21a0/crashlytics/app/1:537760681130:android:7d80476724ea8b332bd4d3/issues/379647d1cb983a243715fffc347114f1?&time=1786838400000:1787529599000
+      firstSeenVersion: 1.0.0
+      lastSeenVersion: 1.0.0
+      state: OPEN
+      name: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/issues/379647d1cb983a243715fffc347114f1
+  - metrics:
+      - startTime: '2026-08-16T00:00:00Z'
+        endTime: '2026-08-23T23:59:59Z'
+        eventsCount: '1'
+        impactedUsersCount: '1'
+        sessionsCount: '1'
+    issue:
+      id: 206805337b8c4a006711eff07b46e3f9
+      title: com.ustadapp.MainActivity.onCreate
+      subtitle: >-
+        java.lang.IllegalStateException - Screen fragments should never be restored. Follow instructions from https://github.com/software-mansion/react-native-screens/issues/17#issuecomment-424704067 to
+        properly configure your main activity.
+      errorType: FATAL
+      sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6A8AF171036F00013A71FF7360C499A4_2255659587502721014
+      uri: >-
+        https://console.firebase.google.com/v1/appid/project/ustadapp-c21a0/crashlytics/app/1:537760681130:android:7d80476724ea8b332bd4d3/issues/206805337b8c4a006711eff07b46e3f9?&time=1786838400000:1787529599000
+      firstSeenVersion: '1.0'
+      lastSeenVersion: 1.0.9
+      state: OPEN
+      name: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/issues/206805337b8c4a006711eff07b46e3f9
+displayName: |
+  Top Issues
+usage: |
+  Counts events and distinct impacted users, grouped by issue.Issue groups are sorted by event count, in descending order.
+

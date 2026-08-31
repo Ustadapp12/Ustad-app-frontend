@@ -1,0 +1,71 @@
+{
+  "project_info": {
+    "project_number": "537760681130",
+    "project_id": "ustadapp-c21a0",
+    "storage_bucket": "ustadapp-c21a0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:537760681130:android:7d80476724ea8b332bd4d3",
+        "android_client_info": {
+          "package_name": "com.ustadapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "537760681130-ka7fc69voaqc12iglj711igv0ti7qisk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ustadapp",
+            "certificate_hash": "141d509a1949407646f431dcdbd4e6d2e7ae98a1"
+          }
+        },
+        {
+          "client_id": "537760681130-m7am8nn955ofpbpgn8t9u5ba10h10vaa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ustadapp",
+            "certificate_hash": "8d8b8fab941bc813d01e17c6d7bcad78e7fecf78"
+          }
+        },
+        {
+          "client_id": "537760681130-mts6mrtq2omd82412uvenlq8fed3v65l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ustadapp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "537760681130-t6a1682c0eh4r1pfjkq4fsisc2u09plt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ustadapp",
+            "certificate_hash": "c6641e2805d2b6e2ce1aa7e2fd4c11c36bd251fd"
+          }
+        },
+        {
+          "client_id": "537760681130-ovvm4uklrb2e331b7vvu40sj9n0jqfj7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMqbwFQZ8lPTCF90oXdzopd7oK6BUspYE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "537760681130-ovvm4uklrb2e331b7vvu40sj9n0jqfj7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -43,7 +43,25 @@ export async function requestMicPermission(): Promise<boolean> {
 
 /** Start recording. Returns the file path (used later as audioUri). */
 export async function startRecording(): Promise<void> {
-  await getRecorder().startRecorder();
+  try {
+    await getRecorder().startRecorder();
+  } catch (e) {
+    // The native recorder can be left thinking it's still recording after an
+    // interrupted session (backing out mid-recording, a call/notification
+    // cutting in, etc.) — every subsequent startRecorder() then throws
+    // against that same stuck instance, with no in-app way to recover short
+    // of a full app restart (which recreates _recorder from scratch, since
+    // getRecorder() only builds one the first time it's null). Reproduce
+    // that reset here instead of making the user restart the app: release
+    // the stuck instance, drop it, and retry once against a fresh one.
+    console.warn('[audioRecorder] startRecorder failed, resetting recorder and retrying:', e);
+    const stuck = _recorder;
+    _recorder = null;
+    if (stuck) {
+      await stuck.stopRecorder().catch(() => {});
+    }
+    await getRecorder().startRecorder();
+  }
 }
 
 /** Stop recording. Returns the local URI of the recorded file. */

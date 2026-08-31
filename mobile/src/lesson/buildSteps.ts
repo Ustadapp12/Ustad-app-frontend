@@ -257,13 +257,22 @@ export function buildStepsFromExerciseOut(
   }
 
   // Ensure every ayah block starts with a listen step.
-  // The backend may omit listen steps for non-first ayahs, so inject them.
+  // The backend may omit listen steps for non-first ayahs, so inject them —
+  // but only when that ayah has no listen step anywhere in its own exercises.
+  // Checking just "is this particular step already type listen" let a real
+  // listen step further into the same ayah's block slip through unnoticed,
+  // so an ayah whose first backend exercise wasn't listen got both an
+  // injected one AND its own real one (most visible on the first ayah, since
+  // lastAyahKey starts at '' and always triggers there).
+  const ayahKeysWithListen = new Set(
+    steps.filter(s => s.type === 'listen').map(s => `${s.ayah.surah_number}:${s.ayah.ayah_number}`),
+  );
   const withIntros: ExerciseStep[] = [];
   let lastAyahKey = '';
   for (const step of steps) {
     const key = `${step.ayah.surah_number}:${step.ayah.ayah_number}`;
     if (key !== lastAyahKey) {
-      if (step.type !== 'listen') {
+      if (step.type !== 'listen' && !ayahKeysWithListen.has(key)) {
         withIntros.push({
           ayah: step.ayah,
           type: 'listen',

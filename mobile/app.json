@@ -6,7 +6,10 @@
     "slug": "ustadapp",
     "scheme": "ustadapp",
     "version": "1.0.0",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "bundleIdentifier": "com.ustadapp",
       "buildNumber": "1"
@@ -15,6 +18,11 @@
       "package": "com.ustadapp",
       "versionCode": 1
     },
-    "plugins": []
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "509b45ae-b54d-4a4f-a153-ac367e640754"
+      }
+    }
   }
 }

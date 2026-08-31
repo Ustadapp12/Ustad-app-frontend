@@ -14,8 +14,10 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          // Packages that cannot be autolinked yet can be added manually here, for example:
-          // add(MyReactNativePackage())
+          // Reads the real on-screen nav-bar height natively — see
+          // UstadNavigationBarModule for why this exists instead of trusting
+          // react-native-safe-area-context's bridge value alone.
+          add(UstadNavigationBarPackage())
         },
     )
   }

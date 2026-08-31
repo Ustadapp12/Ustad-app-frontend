@@ -30,8 +30,18 @@ async function readEntry<T>(key: string, ttlMs: number): Promise<T | null> {
 }
 
 async function writeEntry<T>(key: string, data: T): Promise<void> {
-  const entry: Entry<T> = { data, savedAt: Date.now() };
-  await AsyncStorage.setItem(PREFIX + key, JSON.stringify(entry));
+  try {
+    const entry: Entry<T> = { data, savedAt: Date.now() };
+    await AsyncStorage.setItem(PREFIX + key, JSON.stringify(entry));
+  } catch {
+    // A cache write is best-effort by definition — readEntry above already
+    // treats any failure as a miss. Letting a full disk or a failed
+    // SQLite write reject here meant losing data the caller had already
+    // successfully fetched: loadSurahs/loadLessonGroup await this after the
+    // network call, so the throw discarded a good response, and bootCache's
+    // fire-and-forget `void setCachedLevelsToDisk(...)` turned it into an
+    // unhandled rejection.
+  }
 }
 
 export async function getCachedSurahs(

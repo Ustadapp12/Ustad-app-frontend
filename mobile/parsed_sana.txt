@@ -1,0 +1,1153 @@
+=== id 1 ===
+{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"logging":{},"prompts":{"listChanged":true},"resources":{}},"serverInfo":{"name":"firebase","version":"0.3.0"}}
+=== id 4 ===
+[]
+
+=== id 5 ===
+[]
+
+=== id 3 ===
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88846301e70001276d8ffc9362f26f_2254976772239883956
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254976772239883956'
+  eventTime: |
+    '2026-08-21T17:01:33Z'
+  receivedTime: |
+    '2026-08-21T17:01:37Z'
+  issue: |
+    id: 4ea6dcb0379f548d33a0630d0e30883d
+    title: '[libreactnative.so] logging.cc - google::logging_fail()'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88846301e70001276d8ffc9362f26f_2254976772239883956
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2757595136'
+    free: '157831168'
+  storage: |
+    used: '20873957376'
+    free: '5504319488'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '1'
+    displayName: 1.0.0 (1)
+  user: |
+    id: ae8cbbd9-2ed4-4764-b764-74cb9074b868
+  customKeys: |
+    screen: Map
+    os_version: '24'
+    surah_id: '113'
+    os: android
+    fabric: 'true'
+    js_engine: hermes
+  installationUuid: |
+    32A691F0556D53A0945E3D2C4C571C97104943ABBBB7B3CA2596B434F66E5C81
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  logs: |-
+    [2026-08-21T17:01:25.265Z] map: chapter shown {"chapterIdx":0,"MAP_H":6575,"nodeCount":38}
+    [2026-08-21T17:01:29.169Z] loadGroup: start {"groupId":"113_group_2"}
+    [2026-08-21T17:01:29.345Z] loadGroup: group+exercises fetched {"groupId":"113_group_2","exerciseCount":2}
+    [2026-08-21T17:01:29.361Z] loadGroup: steps built {"groupId":"113_group_2","stepCount":7}
+    [2026-08-21T17:01:29.414Z] startSession: start {"groupId":"113_group_2","initialStepIndex":0}
+    [2026-08-21T17:01:29.969Z] startSession: session created {"groupId":"113_group_2","sessionId":"4203f5d6-53d3-4f68-a4a0-f23f5c5ecc2a","hasFirstExercise":true}
+  breadcrumbs: |-
+    [2026-08-21T17:01:23.331Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T17:01:23.818Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T17:01:23.997Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T17:01:25.318Z] screen_view { firebase_screen: Map, firebase_screen_class: Map }
+    [2026-08-21T17:01:29.245Z] screen_view { firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+    [2026-08-21T17:01:30.062Z] lesson_start { lesson_group_id: 113_group_2, surah_number: 113, firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+  blameFrame: |
+    line: '1474'
+    file: logging.cc
+    symbol: google::logging_fail()
+    offset: '1474'
+    address: '6462856'
+    library: libreactnative.so
+    owner: DEVELOPER
+    blamed: true
+  threads: >-
+    Thread:  (crashed)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at google::logging_fail() (logging.cc:1474)
+
+    at google::LogMessage::SendToLog() (logging.cc:1488)
+
+    at google::LogMessage::Flush() (logging.cc:1311)
+
+    at google::LogMessageFatal::~LogMessageFatal() (logging.cc:2023)
+
+    at std::__ndk1::__function::__func<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0, std::__ndk1::allocator<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0>, void (folly::dynamic)>::operator()(folly::dynamic&&) (JavaTurboModule.cpp:125)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::dispatch(facebook::jni::alias_ref<facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::JCxxCallbackImpl,
+    facebook::react::JCallback>::JavaPart, facebook::react::JCallback, void>::_javaobject*>, facebook::react::NativeArray*&&) (function.h:425)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::call(_JNIEnv*, _jobject*, facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::NativeArray,
+    facebook::jni::detail::BaseHybridClass>::JavaPart, facebook::jni::JObject, void>::_javaobject*) (Registration-inl.h:66)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 161269e465864cdfb2434eb3b985dbc9
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a888448011d0001268d17aac23efd18_2254976719139147716
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254976719139147716'
+  eventTime: |
+    '2026-08-21T17:01:20Z'
+  receivedTime: |
+    '2026-08-21T17:01:24Z'
+  issue: |
+    id: 4ea6dcb0379f548d33a0630d0e30883d
+    title: '[libreactnative.so] logging.cc - google::logging_fail()'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a888448011d0001268d17aac23efd18_2254976719139147716
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2805960704'
+    free: '109465600'
+  storage: |
+    used: '20870303744'
+    free: '5507973120'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '1'
+    displayName: 1.0.0 (1)
+  user: |
+    id: ae8cbbd9-2ed4-4764-b764-74cb9074b868
+  customKeys: |
+    screen: Map
+    os_version: '24'
+    surah_id: '113'
+    os: android
+    fabric: 'true'
+    js_engine: hermes
+  installationUuid: |
+    32A691F0556D53A0945E3D2C4C571C97104943ABBBB7B3CA2596B434F66E5C81
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  logs: |-
+    [2026-08-21T17:01:00.299Z] map: chapter shown {"chapterIdx":0,"MAP_H":6575,"nodeCount":38}
+    [2026-08-21T17:01:13.760Z] loadGroup: start {"groupId":"113_group_2"}
+    [2026-08-21T17:01:13.955Z] loadGroup: group+exercises fetched {"groupId":"113_group_2","exerciseCount":2}
+    [2026-08-21T17:01:13.968Z] loadGroup: steps built {"groupId":"113_group_2","stepCount":7}
+    [2026-08-21T17:01:14.019Z] startSession: start {"groupId":"113_group_2","initialStepIndex":0}
+    [2026-08-21T17:01:14.649Z] startSession: session created {"groupId":"113_group_2","sessionId":"6409adc6-5f1a-43d0-9605-3e95ed314260","hasFirstExercise":true}
+  breadcrumbs: |-
+    [2026-08-21T17:00:56.388Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T17:00:56.821Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T17:00:57.022Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T17:00:58.182Z] screen_view { firebase_screen: OnboardPath, firebase_screen_class: OnboardPath }
+    [2026-08-21T17:01:00.337Z] screen_view { firebase_screen: Map, firebase_screen_class: Map }
+    [2026-08-21T17:01:03.658Z] screen_view { firebase_screen: Profile, firebase_screen_class: Profile }
+    [2026-08-21T17:01:10.645Z] screen_view { firebase_screen: Map, firebase_screen_class: Map }
+    [2026-08-21T17:01:13.836Z] screen_view { firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+    [2026-08-21T17:01:14.739Z] lesson_start { lesson_group_id: 113_group_2, surah_number: 113, firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+  blameFrame: |
+    line: '1474'
+    file: logging.cc
+    symbol: google::logging_fail()
+    offset: '1474'
+    address: '6462856'
+    library: libreactnative.so
+    owner: DEVELOPER
+    blamed: true
+  threads: >-
+    Thread:  (crashed)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at google::logging_fail() (logging.cc:1474)
+
+    at google::LogMessage::SendToLog() (logging.cc:1488)
+
+    at google::LogMessage::Flush() (logging.cc:1311)
+
+    at google::LogMessageFatal::~LogMessageFatal() (logging.cc:2023)
+
+    at std::__ndk1::__function::__func<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0, std::__ndk1::allocator<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0>, void (folly::dynamic)>::operator()(folly::dynamic&&) (JavaTurboModule.cpp:125)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::dispatch(facebook::jni::alias_ref<facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::JCxxCallbackImpl,
+    facebook::react::JCallback>::JavaPart, facebook::react::JCallback, void>::_javaobject*>, facebook::react::NativeArray*&&) (function.h:425)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::call(_JNIEnv*, _jobject*, facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::NativeArray,
+    facebook::jni::detail::BaseHybridClass>::JavaPart, facebook::jni::JObject, void>::_javaobject*) (Registration-inl.h:66)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 161269e465864cdfb2434eb3b985dbc9
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88842d008c000125c918e1f408fdac_2254976597680133707
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254976597680133707'
+  eventTime: |
+    '2026-08-21T17:00:52Z'
+  receivedTime: |
+    '2026-08-21T17:00:57Z'
+  issue: |
+    id: 4ea6dcb0379f548d33a0630d0e30883d
+    title: '[libreactnative.so] logging.cc - google::logging_fail()'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88842d008c000125c918e1f408fdac_2254976597680133707
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2569388032'
+    free: '346038272'
+  storage: |
+    used: '20862234624'
+    free: '5516042240'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '1'
+    displayName: 1.0.0 (1)
+  user: |
+    id: ae8cbbd9-2ed4-4764-b764-74cb9074b868
+  customKeys: |
+    os_version: '24'
+    os: android
+    fabric: 'true'
+    js_engine: hermes
+  installationUuid: |
+    32A691F0556D53A0945E3D2C4C571C97104943ABBBB7B3CA2596B434F66E5C81
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  breadcrumbs: |-
+    [2026-08-21T17:00:29.323Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T17:00:29.779Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T17:00:29.982Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T17:00:31.040Z] screen_view { firebase_screen: OnboardPath, firebase_screen_class: OnboardPath }
+    [2026-08-21T17:00:33.591Z] screen_view { firebase_screen: OnboardAssessment, firebase_screen_class: OnboardAssessment }
+  blameFrame: |
+    line: '1474'
+    file: logging.cc
+    symbol: google::logging_fail()
+    offset: '1474'
+    address: '6462856'
+    library: libreactnative.so
+    owner: DEVELOPER
+    blamed: true
+  threads: >-
+    Thread:  (crashed)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at google::logging_fail() (logging.cc:1474)
+
+    at google::LogMessage::SendToLog() (logging.cc:1488)
+
+    at google::LogMessage::Flush() (logging.cc:1311)
+
+    at google::LogMessageFatal::~LogMessageFatal() (logging.cc:2023)
+
+    at std::__ndk1::__function::__func<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0, std::__ndk1::allocator<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0>, void (folly::dynamic)>::operator()(folly::dynamic&&) (JavaTurboModule.cpp:125)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::dispatch(facebook::jni::alias_ref<facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::JCxxCallbackImpl,
+    facebook::react::JCallback>::JavaPart, facebook::react::JCallback, void>::_javaobject*>, facebook::react::NativeArray*&&) (function.h:425)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::call(_JNIEnv*, _jobject*, facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::NativeArray,
+    facebook::jni::detail::BaseHybridClass>::JavaPart, facebook::jni::JObject, void>::_javaobject*) (Registration-inl.h:66)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 161269e465864cdfb2434eb3b985dbc9
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88841103a300012502c9b1bd519fbb_2254976486949641366
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254976486949641366'
+  eventTime: |
+    '2026-08-21T17:00:26Z'
+  receivedTime: |
+    '2026-08-21T17:00:30Z'
+  issue: |
+    id: 4ea6dcb0379f548d33a0630d0e30883d
+    title: '[libreactnative.so] logging.cc - google::logging_fail()'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88841103a300012502c9b1bd519fbb_2254976486949641366
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2629857280'
+    free: '285569024'
+  storage: |
+    used: '20857487360'
+    free: '5520789504'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '1'
+    displayName: 1.0.0 (1)
+  user: |
+    id: ae8cbbd9-2ed4-4764-b764-74cb9074b868
+  customKeys: |
+    os_version: '24'
+    os: android
+    fabric: 'true'
+    js_engine: hermes
+  installationUuid: |
+    32A691F0556D53A0945E3D2C4C571C97104943ABBBB7B3CA2596B434F66E5C81
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  breadcrumbs: |-
+    [2026-08-21T17:00:01.319Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T17:00:01.787Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T17:00:02.020Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T17:00:03.157Z] screen_view { firebase_screen: OnboardPath, firebase_screen_class: OnboardPath }
+    [2026-08-21T17:00:05.399Z] screen_view { firebase_screen: OnboardAssessment, firebase_screen_class: OnboardAssessment }
+  blameFrame: |
+    line: '1474'
+    file: logging.cc
+    symbol: google::logging_fail()
+    offset: '1474'
+    address: '6462856'
+    library: libreactnative.so
+    owner: DEVELOPER
+    blamed: true
+  threads: >-
+    Thread:  (crashed)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at google::logging_fail() (logging.cc:1474)
+
+    at google::LogMessage::SendToLog() (logging.cc:1488)
+
+    at google::LogMessage::Flush() (logging.cc:1311)
+
+    at google::LogMessageFatal::~LogMessageFatal() (logging.cc:2023)
+
+    at std::__ndk1::__function::__func<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0, std::__ndk1::allocator<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0>, void (folly::dynamic)>::operator()(folly::dynamic&&) (JavaTurboModule.cpp:125)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::dispatch(facebook::jni::alias_ref<facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::JCxxCallbackImpl,
+    facebook::react::JCallback>::JavaPart, facebook::react::JCallback, void>::_javaobject*>, facebook::react::NativeArray*&&) (function.h:425)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::call(_JNIEnv*, _jobject*, facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::NativeArray,
+    facebook::jni::detail::BaseHybridClass>::JavaPart, facebook::jni::JObject, void>::_javaobject*) (Registration-inl.h:66)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 161269e465864cdfb2434eb3b985dbc9
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a8883f30222000124304c5a0c8782ea_2254976365175882036
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254976365175882036'
+  eventTime: |
+    '2026-08-21T16:59:58Z'
+  receivedTime: |
+    '2026-08-21T17:00:03Z'
+  issue: |
+    id: 4ea6dcb0379f548d33a0630d0e30883d
+    title: '[libreactnative.so] logging.cc - google::logging_fail()'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a8883f30222000124304c5a0c8782ea_2254976365175882036
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2659340288'
+    free: '256086016'
+  storage: |
+    used: '20852535296'
+    free: '5525741568'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '1'
+    displayName: 1.0.0 (1)
+  user: |
+    id: ae8cbbd9-2ed4-4764-b764-74cb9074b868
+  customKeys: |
+    os_version: '24'
+    os: android
+    fabric: 'true'
+    js_engine: hermes
+  installationUuid: |
+    32A691F0556D53A0945E3D2C4C571C97104943ABBBB7B3CA2596B434F66E5C81
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  breadcrumbs: |-
+    [2026-08-21T16:59:31.326Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T16:59:31.765Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T16:59:31.992Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T16:59:33.121Z] screen_view { firebase_screen: OnboardPath, firebase_screen_class: OnboardPath }
+    [2026-08-21T16:59:35.994Z] screen_view { firebase_screen: OnboardAssessment, firebase_screen_class: OnboardAssessment }
+  blameFrame: |
+    line: '1474'
+    file: logging.cc
+    symbol: google::logging_fail()
+    offset: '1474'
+    address: '6462856'
+    library: libreactnative.so
+    owner: DEVELOPER
+    blamed: true
+  threads: >-
+    Thread:  (crashed)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at google::logging_fail() (logging.cc:1474)
+
+    at google::LogMessage::SendToLog() (logging.cc:1488)
+
+    at google::LogMessage::Flush() (logging.cc:1311)
+
+    at google::LogMessageFatal::~LogMessageFatal() (logging.cc:2023)
+
+    at std::__ndk1::__function::__func<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0, std::__ndk1::allocator<facebook::react::(anonymous namespace)::createJavaCallback(facebook::jsi::Runtime&, facebook::jsi::Function&&,
+    std::__ndk1::shared_ptr<facebook::react::CallInvoker>)::$_0>, void (folly::dynamic)>::operator()(folly::dynamic&&) (JavaTurboModule.cpp:125)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::dispatch(facebook::jni::alias_ref<facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::JCxxCallbackImpl,
+    facebook::react::JCallback>::JavaPart, facebook::react::JCallback, void>::_javaobject*>, facebook::react::NativeArray*&&) (function.h:425)
+
+    at facebook::jni::detail::MethodWrapper<void (facebook::react::JCxxCallbackImpl::*)(facebook::react::NativeArray*), &facebook::react::JCxxCallbackImpl::invoke, facebook::react::JCxxCallbackImpl,
+    void, facebook::react::NativeArray*>::call(_JNIEnv*, _jobject*, facebook::jni::detail::JTypeFor<facebook::jni::HybridClass<facebook::react::NativeArray,
+    facebook::jni::detail::BaseHybridClass>::JavaPart, facebook::jni::JObject, void>::_javaobject*) (Registration-inl.h:66)
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    at
+
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 161269e465864cdfb2434eb3b985dbc9
+
+=== id 2 ===
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a8849fc03a200017462de0cebf4deeb_2254915895306968516
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254915895306968516'
+  eventTime: |
+    '2026-08-21T13:05:19Z'
+  receivedTime: |
+    '2026-08-21T13:05:26Z'
+  issue: |
+    id: 85c581edcdb39b941df627e7b1324a71
+    title: '[libc.so]'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a8849fc03a200017462de0cebf4deeb_2254915895306968516
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2841849856'
+    free: '73576448'
+  storage: |
+    used: '20723888128'
+    free: '5654388736'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '1'
+    displayName: 1.0.0 (1)
+  user: |
+    id: 04c45dfc-e5e0-4f15-b1d9-f8ac5aebeea0
+  customKeys: |
+    os_version: '24'
+    screen: Map
+    os: android
+    fabric: 'true'
+    js_engine: hermes
+  installationUuid: |
+    EC3257976313DA49E5B14BCF85C6873AEF5B3823CDAE2D0036114094E1B2848C
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  logs: |-
+    [2026-08-21T12:52:15.126Z] map: chapter shown {"chapterIdx":0,"MAP_H":6575,"nodeCount":38}
+    [2026-08-21T13:02:23.487Z] map: tileWindow changed {"scrollY":10,"start":0,"end":1,"MAP_H":6575,"chapterIdx":0}
+    [2026-08-21T13:02:24.876Z] loadGroup: start {"groupId":"114_group_1"}
+    [2026-08-21T13:02:25.114Z] loadGroup: group+exercises fetched {"groupId":"114_group_1","exerciseCount":2}
+    [2026-08-21T13:02:25.134Z] loadGroup: steps built {"groupId":"114_group_1","stepCount":7}
+    [2026-08-21T13:02:25.191Z] startSession: start {"groupId":"114_group_1","initialStepIndex":0}
+    [2026-08-21T13:02:26.395Z] startSession: session created {"groupId":"114_group_1","sessionId":"daf6a2cf-3e43-4780-b5b8-bda3a0d8a518","hasFirstExercise":true}
+  breadcrumbs: |-
+    [2026-08-21T12:52:12.478Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T12:52:12.916Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T12:52:13.283Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T12:52:14.391Z] screen_view { firebase_screen: Map, firebase_screen_class: Map }
+    [2026-08-21T13:01:57.611Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T13:02:24.981Z] screen_view { firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+    [2026-08-21T13:02:26.474Z] lesson_start { lesson_group_id: 114_group_1, surah_number: 114, firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+    [2026-08-21T13:02:55.217Z] screen_view { firebase_screen_class: MainActivity }
+  blameFrame: |
+    address: '441408'
+    library: libc.so
+    owner: SYSTEM
+    blamed: true
+  threads: |-
+    Thread:  (crashed)
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 2b6f13175e4056fe3ee11a9e40bf3aec
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a8848d7008200017103c0f243c2fbec_2254912485677256436
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254912485677256436'
+  eventTime: |
+    '2026-08-21T12:52:05Z'
+  receivedTime: |
+    '2026-08-21T12:52:14Z'
+  issue: |
+    id: 85c581edcdb39b941df627e7b1324a71
+    title: '[libc.so]'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a8848d7008200017103c0f243c2fbec_2254912485677256436
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2841231360'
+    free: '74194944'
+  storage: |
+    used: '20724850688'
+    free: '5653426176'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '1'
+    displayName: 1.0.0 (1)
+  user: |
+    id: 04c45dfc-e5e0-4f15-b1d9-f8ac5aebeea0
+  customKeys: |
+    screen: Map
+    os_version: '24'
+    surah_id: '114'
+    os: android
+    fabric: 'true'
+    js_engine: hermes
+  installationUuid: |
+    2883229321C0AE73D20AFBE891FADAA5029AF1DFADD96D4D8395E28B4029902E
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  logs: |-
+    [2026-08-21T12:47:23.610Z] map: chapter shown {"chapterIdx":0,"MAP_H":6575,"nodeCount":38}
+    [2026-08-21T12:51:39.472Z] loadGroup: start {"groupId":"114_group_1"}
+    [2026-08-21T12:51:39.674Z] loadGroup: group+exercises fetched {"groupId":"114_group_1","exerciseCount":2}
+    [2026-08-21T12:51:39.697Z] loadGroup: steps built {"groupId":"114_group_1","stepCount":7}
+    [2026-08-21T12:51:39.748Z] startSession: start {"groupId":"114_group_1","initialStepIndex":0}
+    [2026-08-21T12:51:40.150Z] startSession: session created {"groupId":"114_group_1","sessionId":"903a9b4b-6d0d-4162-835e-3def7122e129","hasFirstExercise":true}
+  breadcrumbs: |-
+    [2026-08-21T12:47:19.783Z] session_start
+    [2026-08-21T12:47:19.848Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T12:47:21.261Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T12:47:21.309Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T12:47:22.917Z] screen_view { firebase_screen: Map, firebase_screen_class: Map }
+    [2026-08-21T12:47:50.088Z] screen_view { firebase_screen: GuidedTour, firebase_screen_class: GuidedTour }
+    [2026-08-21T12:48:04.241Z] screen_view { firebase_screen: Map, firebase_screen_class: Map }
+    [2026-08-21T12:48:45.842Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T12:51:39.579Z] screen_view { firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+    [2026-08-21T12:51:40.263Z] lesson_start { lesson_group_id: 114_group_1, surah_number: 114, firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+  blameFrame: |
+    address: '441408'
+    library: libc.so
+    owner: SYSTEM
+    blamed: true
+  threads: |-
+    Thread:  (crashed)
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 2b6f13175e4056fe3ee11a9e40bf3aec
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a883869000c00015b462dad2904f08f_2254893784461238343
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254893784461238343'
+  eventTime: |
+    '2026-08-21T11:39:31Z'
+  receivedTime: |
+    '2026-08-21T12:44:13Z'
+  issue: |
+    id: 85c581edcdb39b941df627e7b1324a71
+    title: '[libc.so]'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a883869000c00015b462dad2904f08f_2254893784461238343
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2733072384'
+    free: '182353920'
+  storage: |
+    used: '20519694336'
+    free: '5858582528'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '5'
+    displayName: 1.0.0 (5)
+  installationUuid: |
+    D4047DAE07EC8D5CCECC599CEBEFC3331075E6A08857833B239540C7FBE3EB38
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  logs: |-
+    [2026-08-21T11:37:40.619Z] loadGroup: start {"groupId":"114_group_1"}
+    [2026-08-21T11:37:40.840Z] loadGroup: group+exercises fetched {"groupId":"114_group_1","exerciseCount":2}
+    [2026-08-21T11:37:40.871Z] loadGroup: steps built {"groupId":"114_group_1","stepCount":7}
+    [2026-08-21T11:37:40.929Z] startSession: start {"groupId":"114_group_1","initialStepIndex":0}
+    [2026-08-21T11:37:41.513Z] startSession: session created {"groupId":"114_group_1","sessionId":"4a682925-07fa-422e-a88d-4469b17c6f51","hasFirstExercise":true}
+  breadcrumbs: |-
+    [2026-08-21T11:37:13.271Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T11:37:13.733Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T11:37:13.974Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T11:37:15.233Z] screen_view { firebase_screen: Map, firebase_screen_class: Map }
+    [2026-08-21T11:37:18.662Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T11:37:40.718Z] screen_view { firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+    [2026-08-21T11:37:41.607Z] lesson_start { lesson_group_id: 114_group_1, surah_number: 114, firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+  blameFrame: |
+    address: '441408'
+    library: libc.so
+    owner: SYSTEM
+    blamed: true
+  threads: |-
+    Thread:  (crashed)
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 2b6f13175e4056fe3ee11a9e40bf3aec
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88384802a200015a7ff58dca9a6511_2254893177699783605
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254893177699783605'
+  eventTime: |
+    '2026-08-21T11:37:09Z'
+  receivedTime: |
+    '2026-08-21T11:37:14Z'
+  issue: |
+    id: 85c581edcdb39b941df627e7b1324a71
+    title: '[libc.so]'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88384802a200015a7ff58dca9a6511_2254893177699783605
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2550386688'
+    free: '365039616'
+  storage: |
+    used: '20519665664'
+    free: '5858611200'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '5'
+    displayName: 1.0.0 (5)
+  installationUuid: |
+    D4047DAE07EC8D5CCECC599CEBEFC3331075E6A08857833B239540C7FBE3EB38
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  logs: |-
+    [2026-08-21T11:37:03.723Z] loadGroup: start {"groupId":"114_group_1"}
+    [2026-08-21T11:37:03.931Z] loadGroup: group+exercises fetched {"groupId":"114_group_1","exerciseCount":2}
+    [2026-08-21T11:37:03.947Z] loadGroup: steps built {"groupId":"114_group_1","stepCount":7}
+    [2026-08-21T11:37:03.996Z] startSession: start {"groupId":"114_group_1","initialStepIndex":0}
+    [2026-08-21T11:37:04.547Z] startSession: session created {"groupId":"114_group_1","sessionId":"f3bc92af-b3c8-4113-b5a1-165e3dd38c76","hasFirstExercise":true}
+  breadcrumbs: |-
+    [2026-08-21T11:36:40.274Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T11:36:40.739Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T11:36:40.939Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T11:36:42.267Z] screen_view { firebase_screen: Map, firebase_screen_class: Map }
+    [2026-08-21T11:37:03.799Z] screen_view { firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+    [2026-08-21T11:37:04.661Z] lesson_start { lesson_group_id: 114_group_1, surah_number: 114, firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+  blameFrame: |
+    address: '441408'
+    library: libc.so
+    owner: SYSTEM
+    blamed: true
+  threads: |-
+    Thread:  (crashed)
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 2b6f13175e4056fe3ee11a9e40bf3aec
+- name: |
+    projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88383400da000159c90af8298d359c_2254893040098135145
+  platform: |
+    ANDROID
+  bundleOrPackage: |
+    com.ustadapp
+  eventId: |
+    '2254893040098135145'
+  eventTime: |
+    '2026-08-21T11:36:37Z'
+  receivedTime: |
+    '2026-08-21T11:36:42Z'
+  issue: |
+    id: 85c581edcdb39b941df627e7b1324a71
+    title: '[libc.so]'
+    subtitle: SIGABRT
+    errorType: FATAL
+    sampleEvent: projects/537760681130/apps/1:537760681130:android:7d80476724ea8b332bd4d3/events/6a88383400da000159c90af8298d359c_2254893040098135145
+  device: |
+    manufacturer: HUAWEI
+    model: HUAWEI NXT-L29
+    architecture: ARM64
+    displayName: HUAWEI (HUAWEI NXT-L29)
+    marketingName: Huawei NXT-L29
+    companyName: Huawei
+    formFactor: PHONE
+  memory: |
+    used: '2541445120'
+    free: '373981184'
+  storage: |
+    used: '20519714816'
+    free: '5858562048'
+  operatingSystem: |
+    displayVersion: '7.0'
+    os: UNKNOWN_OSNAME
+    modificationState: UNMODIFIED
+    deviceType: MOBILE
+    displayName: Unknown (7.0)
+  version: |
+    displayVersion: 1.0.0
+    buildVersion: '5'
+    displayName: 1.0.0 (5)
+  installationUuid: |
+    D4047DAE07EC8D5CCECC599CEBEFC3331075E6A08857833B239540C7FBE3EB38
+  crashlyticsSdkVersion: |
+    20.0.4
+  appOrientation: |
+    UNKNOWN_ORIENTATION
+  deviceOrientation: |
+    UNKNOWN_ORIENTATION
+  logs: |-
+    [2026-08-21T11:36:26.706Z] loadGroup: start {"groupId":"114_group_1"}
+    [2026-08-21T11:36:26.898Z] loadGroup: group+exercises fetched {"groupId":"114_group_1","exerciseCount":2}
+    [2026-08-21T11:36:26.913Z] loadGroup: steps built {"groupId":"114_group_1","stepCount":7}
+    [2026-08-21T11:36:26.969Z] startSession: start {"groupId":"114_group_1","initialStepIndex":0}
+    [2026-08-21T11:36:27.505Z] startSession: session created {"groupId":"114_group_1","sessionId":"1b24c366-dc6a-418c-8d31-aae6e1ec9b83","hasFirstExercise":true}
+  breadcrumbs: |-
+    [2026-08-21T11:36:20.323Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T11:36:20.748Z] app_open { firebase_screen_class: MainActivity, platform: android }
+    [2026-08-21T11:36:21.029Z] screen_view { firebase_screen: Splash, firebase_screen_class: Splash }
+    [2026-08-21T11:36:22.619Z] screen_view { firebase_screen_class: MainActivity }
+    [2026-08-21T11:36:22.945Z] screen_view { firebase_screen: Map, firebase_screen_class: Map }
+    [2026-08-21T11:36:26.789Z] screen_view { firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+    [2026-08-21T11:36:27.604Z] lesson_start { lesson_group_id: 114_group_1, surah_number: 114, firebase_screen: LessonSession, firebase_screen_class: LessonSession }
+  blameFrame: |
+    address: '441408'
+    library: libc.so
+    owner: SYSTEM
+    blamed: true
+  threads: |-
+    Thread:  (crashed)
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    at
+    ... frames omitted ...
+  processState: |
+    UNKNOWN_PROCESS_STATE
+  issueVariant: |
+    id: 2b6f13175e4056fe3ee11a9e40bf3aec
+

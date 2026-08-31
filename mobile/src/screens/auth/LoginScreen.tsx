@@ -11,17 +11,25 @@ import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import GoogleSignInButton from '../../components/GoogleSignInButton';
+import WelcomeBackModal from '../../components/WelcomeBackModal';
+import type { AccountAction } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 import { validateEmail, normalizeEmail } from '../../utils/validators';
 import { setLastEmailHint } from '../../utils/storage';
 import { useCyclingMessage } from '../../hooks/useCyclingMessage';
+import { safeBottomInset } from '../../utils/responsive';
 
 interface Props { navigation: RootNavProp }
 
 const LOGIN_MESSAGES = ['Logging in…', 'Connecting to the server…', 'Almost there…'];
 
+const MAIL_ICON = require('../../../assets/map/mail.png');
+const PASSWORD_ICON = require('../../../assets/map/password.png');
+
 export default function LoginScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const login = useAuthStore(s => s.login);
   const setDevUser = useAuthStore(s => s._devLogin);
 
@@ -97,13 +105,32 @@ export default function LoginScreen({ navigation }: Props) {
     }
   }
 
+  // Google never routes to VerifyEmail: the server marks these accounts
+  // verified because Google already asserted the address.
+  const [showWelcomeBack, setShowWelcomeBack] = useState(false);
+
+  function handleGoogleSuccess(action: AccountAction) {
+    if (action === 'restored') {
+      setShowWelcomeBack(true);
+      return;
+    }
+    // 'created' or 'claimed' from the Login screen's Google button means this
+    // Google identity had no existing account — the backend just made one,
+    // same as SignUpScreen's own Google button does. It needs onboarding too.
+    if (action === 'created' || action === 'claimed') {
+      navigation.replace('OnboardUsername');
+      return;
+    }
+    navigation.replace('MainTabs');
+  }
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 40 + insets.bottom }]} keyboardShouldPersistTaps="handled">
         {/* Luma */}
         <View style={styles.lumaWrap}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
-          <MascotShadow width={110} style={{ position: 'relative', marginTop: -11 }} />
+          <MascotShadow width={130} style={{ position: 'relative', marginTop: -13 }} />
         </View>
 
         <Text style={styles.heading}>Welcome back!</Text>
@@ -113,7 +140,7 @@ export default function LoginScreen({ navigation }: Props) {
         <View style={styles.fieldWrap}>
           <Text style={styles.fieldLabel}>EMAIL</Text>
           <View style={styles.inputRow}>
-            <Text style={styles.inputIcon}>✉️</Text>
+            <Image source={MAIL_ICON} style={styles.inputIcon} resizeMode="contain" />
             <TextInput
               style={styles.input}
               placeholder="ahmad@example.com"
@@ -132,7 +159,7 @@ export default function LoginScreen({ navigation }: Props) {
         <View style={styles.fieldWrap}>
           <Text style={styles.fieldLabel}>PASSWORD</Text>
           <View style={styles.inputRow}>
-            <Text style={styles.inputIcon}>🔒</Text>
+            <Image source={PASSWORD_ICON} style={styles.inputIcon} resizeMode="contain" />
             <PasswordInput
               value={password}
               onChangeText={handlePasswordChange}
@@ -168,13 +195,26 @@ export default function LoginScreen({ navigation }: Props) {
           {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Log In</Text>}
         </TouchableOpacity>
 
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <GoogleSignInButton
+          label="Sign in with Google"
+          onSuccess={handleGoogleSuccess}
+          onError={setFormError}
+          disabled={loading}
+        />
+
         {showCreateAccount ? (
           <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.inlineCreateWrap}>
             <Text style={styles.switchLink}>Create an account!</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.switchRow}>
-            <Text style={styles.switchText}>New to Ustad? </Text>
+            <Text style={styles.switchText}>New to UstadApp? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
               <Text style={styles.switchLink}>Create account</Text>
             </TouchableOpacity>
@@ -188,6 +228,11 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.loadingText}>{loadingMessage}</Text>
         </View>
       )}
+
+      <WelcomeBackModal
+        visible={showWelcomeBack}
+        onContinue={() => { setShowWelcomeBack(false); navigation.replace('MainTabs'); }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -198,7 +243,7 @@ const styles = StyleSheet.create({
   time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
   scroll: { paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' },
   lumaWrap: { alignItems: 'center', paddingVertical: 20 },
-  luma: { width: 110, height: 110 },
+  luma: { width: 130, height: 130 },
   heading: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
   sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
   fieldWrap: { marginBottom: 13 },
@@ -208,7 +253,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
     borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
   },
-  inputIcon: { fontSize: 16 },
+  inputIcon: { width: 18, height: 18 },
   input: { flex: 1, fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText },
   fieldError: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.red, marginTop: 4 },
   error: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
@@ -222,6 +267,9 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.7 },
   btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText },
   switchRow: { flexDirection: 'row', justifyContent: 'center' },
   switchText: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText },
   switchLink: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },

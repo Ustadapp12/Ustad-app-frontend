@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authApi } from '../../api';
@@ -11,11 +11,13 @@ import { LoadingRing } from '../../components/LoadingSpinner';
 import type { RootNavProp } from '../../navigation/types';
 import { validateEmail, normalizeEmail, maskEmail } from '../../utils/validators';
 import { getLastEmailHint, setLastEmailHint } from '../../utils/storage';
+import { safeBottomInset } from '../../utils/responsive';
 
 interface Props { navigation: RootNavProp }
 
 export default function ForgotPasswordScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailHint, setEmailHint] = useState<string | null>(null);
@@ -72,17 +74,17 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         accessibilityLabel="Back to login"
       >
-        <Text style={styles.backIcon}>←</Text>
+        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
       </TouchableOpacity>
 
-      <View style={[styles.content, { paddingTop: insets.top + 48 }]}>
+      <View style={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom }]}>
         <View style={styles.iconBadge}>
           <Text style={styles.iconGlyph}>✉️</Text>
         </View>
 
         <Text style={styles.heading}>Email</Text>
         <Text style={styles.sub}>
-          Enter the email on your account. If it exists, we'll send a code to reset your password.
+          Enter the email on your account. You'll get an email with a code if it exists.
         </Text>
 
         <View style={styles.fieldWrap}>
@@ -101,6 +103,11 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
               keyboardType="email-address"
               autoComplete="email"
               textAlign="center"
+              // Android miscalculates the caret position on centered
+              // TextInputs, rendering it well past the actual typed text —
+              // pinning selection explicitly to the real text end keeps it
+              // tracking what's actually typed instead of drifting.
+              selection={{ start: email.length, end: email.length }}
             />
           </View>
           {emailError && <Text style={styles.fieldError}>{emailError}</Text>}
@@ -132,7 +139,7 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { fontSize: 20, color: colors.darkText, fontFamily: 'Nunito_700Bold' },
+  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
   iconBadge: {
     width: 76, height: 76, borderRadius: 38, backgroundColor: colors.primaryBg,

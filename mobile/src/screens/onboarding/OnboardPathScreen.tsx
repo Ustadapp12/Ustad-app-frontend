@@ -2,8 +2,11 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
+import { usersApi } from '../../api';
+import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
+import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props { navigation: RootNavProp }
@@ -12,7 +15,8 @@ type PathKey = 'beginner' | 'intermediate';
 const PATH_MAP: Record<PathKey, 'fresh' | 'placement'> = { beginner: 'fresh', intermediate: 'placement' };
 
 export default function OnboardPathScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const [selected, setSelected] = useState<PathKey | null>(null);
 
   async function handleContinue() {
@@ -22,6 +26,24 @@ export default function OnboardPathScreen({ navigation }: Props) {
     if (selected === 'beginner') {
       await saveOnboarding({ completedAt: new Date().toISOString() });
       await setOnboardingDone(true);
+      // Persist account-level completion too — the local flag above is
+      // device-scoped and comes back false on a reinstall/new device even
+      // for an account that finished onboarding, which is what previously
+      // sent already-onboarded users back through the whole flow. Best
+      // effort: a network failure here must not trap the user, since
+      // getNextOnboardingScreen() falls back to the local flag either way.
+      //
+      // learner_mode: 'beginner' also triggers the backend's one-time
+      // beginner_level_selected XP award (see app/users/router.py) — this is
+      // the only place in the app that ever sends this field, so the award
+      // is tied specifically to picking this path, not to any other
+      // profile update.
+      try {
+        await usersApi.updateProfile({ onboarding_completed: true, learner_mode: 'beginner' });
+        useAuthStore.getState().updateProfileFields({ onboarding_completed: true, learner_mode: 'beginner' });
+      } catch {
+        // ignored — see comment above
+      }
       navigation.replace('MainTabs');
     } else {
       navigation.navigate('OnboardAssessment');
@@ -32,7 +54,7 @@ export default function OnboardPathScreen({ navigation }: Props) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backArrow}>←</Text>
+          <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
         </TouchableOpacity>
         <View style={styles.dots}>
           <View style={[styles.dot, styles.dotActive]} />
@@ -42,9 +64,9 @@ export default function OnboardPathScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ width: 84, height: 84, alignSelf: 'center', marginBottom: 4 }}>
+        <View style={{ width: 100, height: 100, alignSelf: 'center', marginBottom: 4 }}>
           <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
-          <MascotShadow width={84} />
+          <MascotShadow width={100} />
         </View>
         <Text style={styles.badge}>SETUP · STEP 2 OF 3</Text>
         <Text style={styles.heading}>Choose your path</Text>
@@ -115,12 +137,12 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
     backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
   },
-  backArrow: { fontSize: 18, color: colors.darkText, fontWeight: '700' },
+  backArrow: { width: 18, height: 18, tintColor: colors.darkText },
   dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
   scroll: { paddingHorizontal: 22, paddingBottom: 20 },
-  luma: { width: 84, height: 84, alignSelf: 'center', marginBottom: 4 },
+  luma: { width: 100, height: 100, alignSelf: 'center', marginBottom: 4 },
   badge: {
     fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',

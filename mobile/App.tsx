@@ -70,11 +70,19 @@ function App() {
         }
         return;
       }
-      if ((state === 'background' || state === 'inactive') && !graceTimer) {
+      if ((state === 'background' || state === 'inactive') && !wasBackgrounded) {
         wasBackgrounded = true;
+        // End the usage session right away instead of deferring it into the
+        // setTimeout below — a JS timer scheduled while backgrounded is not
+        // reliable in React Native (the engine gets throttled/suspended once
+        // the app actually leaves the foreground), so a delayed
+        // endUsageSession() call here almost never fires in practice, which
+        // left duration_s/last_screen NULL on nearly every real session. A
+        // quick app-switcher glance now produces two short session rows
+        // instead of one merged row, but that beats losing the data outright.
+        void endUsageSession();
         graceTimer = setTimeout(() => {
           abandonActiveLessonSessionSilent();
-          void endUsageSession();
           graceTimer = null;
         }, ABANDON_GRACE_MS);
       }

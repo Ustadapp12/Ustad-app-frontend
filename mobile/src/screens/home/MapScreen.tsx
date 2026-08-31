@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback, useReducer } from 'react';
 import {
   View, Text, StyleSheet, Animated, useWindowDimensions, Image, ActivityIndicator, TouchableOpacity,
   ScrollView, RefreshControl, type ImageSourcePropType,
@@ -12,16 +12,18 @@ import { useFocusEffect } from '@react-navigation/native';
 import PredictedProgressBar from '../../components/PredictedProgressBar';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import LoadingStatusText from '../../components/LoadingStatusText';
 import { useAuthStore } from '../../store/authStore';
 import { useLessonStore } from '../../store/lessonStore';
 import { learningApi } from '../../api';
+import { setCrashContext, addBreadcrumb, captureError } from '../../services/crashReporter';
 import { colors } from '../../theme/colors';
-import {
-  groupIntoPhases, CHAPTER_SEASONS, CHAPTER_COUNT, chapterSeasonLabel,
-} from '../../utils/mapPhases';
-import { STREAK_ACTIVE_EMOJI, STREAK_FROZEN_ICON, isStreakFrozen, streakColor, checkStreakFrozenPopup } from '../../utils/streak';
+import { groupIntoPhases } from '../../utils/mapPhases';
+import { STREAK_ACTIVE_ICON_SMALL, STREAK_FROZEN_ICON_SMALL, isStreakFrozen, streakColor, checkStreakFrozenPopup } from '../../utils/streak';
 import StreakFrozenModal from '../../components/StreakFrozenModal';
-import { getCachedRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel } from '../../services/bootCache';
+import AuthRequiredModal from '../../components/AuthRequiredModal';
+import { isGuest } from '../../utils/guest';
+import { getCachedRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel, subscribeRecommended, fetchLevels } from '../../services/bootCache';
 import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
 import { loadLessonGroup } from '../../services/cachedContent';
 import { getUnlockedSeasons, setTourOffered, unlockSeason, wasTourOffered } from '../../utils/storage';
@@ -33,25 +35,24 @@ import { useTourTarget } from '../../components/tour/useTourTarget';
 import type { SurahLevel } from '../../types/api';
 import type { MapNavProp } from '../../navigation/types';
 
-// Height of one background-Svg tile, in the same dp space as MAP_H.
+// Height of one background-Svg tile, in the same dp space as MAP_H. Splitting
+// the map into fixed-height tiles (each its own <Svg>) exists because a
+// single MAP_W×MAP_H Svg rasterizes into one Android bitmap, and Canvas has a
+// hard ~100MB-per-bitmap ceiling (RecordingCanvas.throwIfCannotDraw) — a tall
+// enough map blows past that outright ("Canvas: trying to draw too large
+// bitmap", a native crash with no JS exception to catch). That risk is
+// unrelated to how many tiles end up mounted at once.
 //
-// 3000 is a deliberate ceiling on how OFTEN tiles mount, not on how big each
-// one is. Tiles are virtualized (see tileWindow), and mounting one is far more
-// expensive than it looks: every tile builds its own <Defs> with two <Pattern>s
-// and their <SvgImage>s, and react-native-svg creates a real native view per
-// element. Under Fabric that happens in preallocateView on the UI thread's
-// frame callback — so a burst of tile mounts blocks input directly.
-//
-// This was measured, not guessed. At 1000dp (22 tiles) a fast fling ANR'd the
-// app outright: "Input dispatching timed out... Waited 5114ms", with the main
-// thread stack sitting in com.horcrux.svg.DefsView.<init> under
-// MountItemDispatcher.dispatchPreMountItems. Smaller tiles cut resident memory
-// but multiplied the number of mount events, and view creation — not bitmap
-// size — is the binding constraint while scrolling.
-//
-// At 3000dp the map is 8 tiles, a boundary is crossed only every ~3.4 screens,
-// and the window below keeps 2-3 resident (~65-97MB) — still far under the
-// ~367MB measured before any virtualization, and without the churn.
+// Tiles used to also be virtualized (only the ones near the viewport
+// mounted), because at the old season-based map's max size (21 surahs,
+// ~21800dp) that was 8 tiles / ~236MB resident if all mounted at once. That's
+// gone now that a chapter is capped at NODES_PER_CHAPTER — MAP_H tops out
+// around 2-3 tiles' worth regardless of how many surahs exist, which is the
+// same amount virtualization already kept resident at steady state. So every
+// tile for the current chapter just mounts up front now: no memory cost over
+// what was already resident most of the time, and it removes the window where
+// a tile scrolled into hadn't mounted yet — the "part of the map wasn't
+// there" bug a slower device could hit mid-scroll.
 const SVG_BG_TILE_H = 3000;
 
 // ── Asset refs (static, so Metro can bundle them) ──────────────────
@@ -105,8 +106,16 @@ const NODE_SRCS = {
   locked: require('../../../assets/map/node_locked.png'),
   current: require('../../../assets/map/node_current.png'),
   completed: require('../../../assets/map/node_completed.png'),
-  special: require('../../../assets/map/special.png'),
   specialDone: require('../../../assets/map/special_done.png'),
+  // Green + star — the art for EVERY reachable (unlocked, not yet
+  // completed) special/review node, not just the backend's recommended-next
+  // one. special.png used to fill that role, but it is byte-for-byte the
+  // same file as node_current.png (a blank green tile with no star at all),
+  // so an open review node rendered as an anonymous green blob — nothing
+  // marked it as a review. It is no longer referenced anywhere.
+  // Still never shown while locked: the star and the 🔒 badge overlap badly
+  // on the same small node, so a locked special keeps node_current.png.
+  recommendedSpecial: require('../../../assets/map/recommended_special.png'),
 } as const;
 
 // Rough heuristic for the loading overlay's progress bar (current-surah
@@ -171,6 +180,21 @@ function reviewXFraction(surahNum: number, afterGroup: number): number {
   const raw = Math.sin((surahNum * 100 + afterGroup * 7 + 53) * 12.9898) * 43758.5453;
   const frac = raw - Math.floor(raw);
   const base = afterGroup % 2 === 0 ? 0.28 : 0.62;
+  return Math.round(Math.min(0.74, Math.max(0.20, base + (frac - 0.5) * 0.34)) * 100) / 100;
+}
+// Same sine-hash technique as defaultXFractions/reviewXFraction above, but
+// keyed purely on a node's position WITHIN ITS CHAPTER (0-based) instead of
+// surah/level identity. This is what makes the road's zigzag — and
+// therefore MAP_H, tile boundaries, and the grass canvas built against it —
+// come out identical in every chapter, so paging between chapters only ever
+// changes which nodes sit on an otherwise-unchanged road, not the road
+// itself. Replaces SectionDef.xFractions for actual rendering below — that
+// field stays on the SectionDef/SECTIONS_DEF type (buildLevelsWithReviews
+// still fills it in) but nothing reads it for node position anymore.
+function chapterXFraction(posInChapter: number): number {
+  const raw = Math.sin((posInChapter * 37 + 11) * 12.9898) * 43758.5453;
+  const frac = raw - Math.floor(raw);
+  const base = posInChapter % 2 === 0 ? 0.62 : 0.28;
   return Math.round(Math.min(0.74, Math.max(0.20, base + (frac - 0.5) * 0.34)) * 100) / 100;
 }
 // CHUNK_SIZE=2 group builder — must match the backend's own lesson-group
@@ -297,17 +321,93 @@ const SURAH_TO_SEASON: Record<number, number> = {};
 PHASE_GROUPS.forEach((group, idx) => group.forEach(n => { SURAH_TO_SEASON[n] = idx; }));
 
 // ── Chapters: the slice of the map that's actually laid out at one time ──
-// Seasons grouped 3-at-a-time (see mapPhases). buildMapModel below receives a
-// chapter index and lays out ONLY that chapter's surahs, so MAP_H and the
-// mounted node/pill/label count are ~1/3 of the full journey's. Every other
-// derived structure (path geometry, tiles, labels, gates) falls out of the
-// sliced SECTIONS_DEF automatically — there is no second place that needs to
-// know about chapters.
-const CHAPTER_SURAHS: number[][] = CHAPTER_SEASONS.map(seasons =>
-  seasons.flatMap(s => PHASE_GROUPS[s] ?? []),
+// A chapter is a fixed count of NODES (not surahs, not seasons) — cut
+// wherever that count lands, splitting a surah or a season across the
+// boundary if that's where the count runs out. buildMapModel below receives
+// a chapter index and lays out only that chapter's slice, so MAP_H and the
+// mounted node/pill/label count stay roughly the same size every chapter,
+// which is also what keeps the grass/road tiles' decode risk uniform instead
+// of concentrated in whichever chapter happened to be heaviest under the old
+// season-aligned grouping.
+const NODES_PER_CHAPTER = 30;
+
+// Every level across every surah, in the same top-to-bottom order
+// SECTIONS_DEF already defines, flattened past surah boundaries — this is
+// the thing that actually gets cut into NODES_PER_CHAPTER-sized chapters.
+interface FlatLevel {
+  surahNum: number; name: string; arabicName: string; ayahCount: number;
+  level: { id: string; levelNum: number; isSpecial?: boolean };
+}
+const ALL_FLAT_LEVELS: FlatLevel[] = SECTIONS_DEF.flatMap(def =>
+  def.levels.map(lvl => ({
+    surahNum: def.surahNum, name: def.name, arabicName: def.arabicName, ayahCount: def.ayahCount, level: lvl,
+  })),
 );
+
+// A chapter's contents, in render order — a season-gate sign takes its OWN
+// slot at the same NODE_GAP rhythm a level does (not squeezed into an
+// existing gap between two levels), so it visually reads exactly like it
+// used to. Built as one continuous walk across every surah (not per-chapter)
+// so a gate always lands attached to the chapter holding the season's LAST
+// level — even when that level happens to be a chapter's 30th — rather than
+// ever becoming the first, parentless thing in the next chapter with no
+// section above it to attach its sign to.
+type ChapterSlot =
+  | { kind: 'level'; flat: FlatLevel }
+  | { kind: 'gate'; unlocksSeasonIdx: number };
+const CHAPTER_SLOTS: ChapterSlot[][] = (() => {
+  const chapters: ChapterSlot[][] = [[]];
+  let levelCountInChapter = 0;
+  let prevSeason: number | null = null;
+  for (const flat of ALL_FLAT_LEVELS) {
+    const season = SURAH_TO_SEASON[flat.surahNum] ?? 0;
+    if (prevSeason != null && season !== prevSeason) {
+      chapters[chapters.length - 1].push({ kind: 'gate', unlocksSeasonIdx: season });
+    }
+    if (levelCountInChapter >= NODES_PER_CHAPTER) {
+      chapters.push([]);
+      levelCountInChapter = 0;
+    }
+    chapters[chapters.length - 1].push({ kind: 'level', flat });
+    levelCountInChapter++;
+    prevSeason = season;
+  }
+  return chapters;
+})();
+const CHAPTER_COUNT = CHAPTER_SLOTS.length;
+// A trailing gate can occasionally push one chapter to 31 slots instead of
+// 30 (whenever a season boundary lands exactly on the 30th level) — MAP_H
+// (see buildMapModel) is sized off this MAX, not the flat 30 target, so
+// every chapter still gets the exact same fixed canvas regardless of which
+// one, if any, happened to need the extra slot.
+const MAX_CHAPTER_SLOTS = Math.max(NODES_PER_CHAPTER, ...CHAPTER_SLOTS.map(c => c.length));
+
+// Surah -> the chapter its FIRST level lands in. A surah can now be split
+// across a chapter boundary, so this is necessarily an approximation for a
+// split surah — but it matches the precision the rest of this screen already
+// works at (the recommendation itself is only ever a surah number, not a
+// specific level; see recommended?.surah_number below), so it's not losing
+// anything a split surah wouldn't already have been ambiguous about.
 const SURAH_TO_CHAPTER: Record<number, number> = {};
-CHAPTER_SURAHS.forEach((surahs, idx) => surahs.forEach(n => { SURAH_TO_CHAPTER[n] = idx; }));
+CHAPTER_SLOTS.forEach((slots, chapterIdx) => {
+  slots.forEach(slot => {
+    if (slot.kind === 'level' && !(slot.flat.surahNum in SURAH_TO_CHAPTER)) {
+      SURAH_TO_CHAPTER[slot.flat.surahNum] = chapterIdx;
+    }
+  });
+});
+
+// Which season indices a chapter's content actually touches — replaces the
+// old CHAPTER_SEASONS (a chapter used to BE a fixed set of whole seasons;
+// now it's whatever seasons happen to fall inside its slice, which can be a
+// partial season at either edge). Used only to decide which seasons' data to
+// prefetch for the chapter on screen — partial-or-whole doesn't matter for
+// that, the fetch is per-season regardless.
+const CHAPTER_SEASON_INDICES: number[][] = CHAPTER_SLOTS.map(slots => {
+  const seasons = new Set<number>();
+  slots.forEach(slot => { if (slot.kind === 'level') seasons.add(SURAH_TO_SEASON[slot.flat.surahNum] ?? 0); });
+  return Array.from(seasons).sort((a, b) => a - b);
+});
 
 // ── Pure helpers with no width dependency ──────────────────────────
 // Deterministic pseudo-scatter (no Math.random — same input always gives
@@ -354,12 +454,22 @@ interface DecorBird    { y: number; x: number }
 interface DecorSeasonGate { x: number; y: number; w: number; h: number; unlocksSeasonIdx: number }
 interface LabelBox { x: number; y: number; w: number; h: number; isLeft: boolean }
 interface PillBox { x: number; y: number; w: number; h: number }
+/** Where the "Begin/Continue here" tag hangs off its node. `left` is an
+ * offset from the node's own left edge (the tag's wrapper is a child of the
+ * node), so it can legitimately be negative for a tag on the node's left. */
+interface TagPlacement {
+  left: number;
+  alignItems: 'flex-start' | 'flex-end' | 'center';
+  above: boolean;
+}
 
 interface MapModel {
   MAP_W: number; SCALE: number; sc: (n: number) => number;
   NODE_SIZE: number; NODE_GAP: number; TOP_MARGIN: number; FOOTER_PAD: number;
   ACTION_CARD_W: number; ACTION_CARD_H: number;
+  NODE_TAG_W: number;
   BASE_SECTIONS: Section[]; MAP_H: number; ALL_NODES: SectionNode[];
+  comingSoonY: number | null;
   pathDForYRange: (startY: number, endY: number) => string;
   DECORATIONS: { birds: DecorBird[]; seasonGates: DecorSeasonGate[] };
   SKY_BOUNDARY_Y: number;
@@ -418,58 +528,107 @@ function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): Map
   // the road actually is, not just its centerline.
   const ROAD_HALF_WIDTH = sc(32);
 
-  // ── Layout: section defs → pixel positions ──
-  // Every consecutive pair of things along the road — node to node, node to
-  // season-sign, sign to node — sits exactly NODE_GAP apart. A season
-  // boundary gets one extra NODE_GAP step inserted for the sign, never a
-  // bigger single jump, so the whole path reads at one predictable rhythm
-  // instead of surah transitions feeling arbitrarily longer than a normal
-  // node-to-node step.
-  // Only the requested chapter's surahs are laid out — everything below
-  // (path, tiles, labels, pills, gates, MAP_H) derives from CHAPTER_DEFS, so
-  // slicing here is the single point that makes the map a chapter at a time.
-  // Falls back to chapter 0 rather than producing an empty map if an
-  // out-of-range index ever arrives.
-  const chapterDefs = SECTIONS_DEF.filter(d => SURAH_TO_CHAPTER[d.surahNum] === chapterIdx);
-  const CHAPTER_DEFS = chapterDefs.length
-    ? chapterDefs
-    : SECTIONS_DEF.filter(d => SURAH_TO_CHAPTER[d.surahNum] === 0);
+  // A season gate is a node, not a decoration: it occupies its own slot in
+  // CHAPTER_SLOTS at the exact same rhythm a level does (see below), sized a
+  // bit bigger than a level node so "Season N" reads clearly. Based on the
+  // road's own visible width (ROAD_HALF_WIDTH*2), scaled up 56% (was 30%;
+  // bumped another 20% at the user's request).
+  const SEASON_GATE_W = Math.round(ROAD_HALF_WIDTH * 2 * 1.56);
+  const SEASON_GATE_H = Math.round(SEASON_GATE_W / SEASON_GATE_ASPECT);
 
-  let y = TOP_MARGIN;
-  const seasonGateCenterYs: Record<number, number> = {};
-  const BASE_SECTIONS: Section[] = CHAPTER_DEFS.map((def, secIdx) => {
-    const nodes: SectionNode[] = def.levels.map((lvl, nIdx) => ({
-      id: lvl.id,
-      x: Math.round(def.xFractions[nIdx] * mapW - NODE_SIZE / 2),
-      y: y + nIdx * NODE_GAP,
+  // ── Layout: chapter slots → pixel positions ──
+  // Every consecutive pair of things along the road — node to node, node to
+  // season-sign, sign to node — sits exactly NODE_GAP apart, INCLUDING a
+  // season-sign step: a gate is its own slot in CHAPTER_SLOTS (see above),
+  // laid out at the exact same rhythm a level is, not squeezed into an
+  // existing gap. Only the requested chapter's slots are laid out —
+  // everything below (path, tiles, labels, pills, gates, MAP_H) derives from
+  // this one slice, so it's the single point that makes the map a chapter at
+  // a time. Falls back to chapter 0 rather than producing an empty map if an
+  // out-of-range index ever arrives.
+  const slots = CHAPTER_SLOTS[chapterIdx]?.length ? CHAPTER_SLOTS[chapterIdx] : CHAPTER_SLOTS[0];
+
+  // Fixed regardless of chapter content — sized off MAX_CHAPTER_SLOTS (every
+  // chapter's real slot count, levels + any gates, maxed across all of
+  // them — see its own comment), so MAP_H (and everything sized against it:
+  // tile boundaries, GRASS_EDGE_D, the road's own shape via chapterXFraction
+  // above) comes out identical for every chapter regardless of how many
+  // gates, if any, happen to land inside it. This is what actually makes
+  // grass/road reusable instead of rebuilt-per-chapter, not just equal
+  // level counts on their own.
+  const MAP_H = TOP_MARGIN + (MAX_CHAPTER_SLOTS - 1) * NODE_GAP + NODE_SIZE + FOOTER_PAD;
+
+  // Every slot — level OR gate — sits on the exact same x/y rhythm
+  // (chapterXFraction(idx), TOP_MARGIN + idx*NODE_GAP), so a gate is
+  // positioned exactly like a node would be at that slot, not centered
+  // around its own (much taller, ~3x a node) art afterward. Centering the
+  // sign's oversized art on a node-sized point was the actual bug: it pushed
+  // the sign's top edge up past TOP_MARGIN into the mountain skyline
+  // whenever a gate landed as a chapter's very first slot (season boundary
+  // landing right after a chapter's 30th level). Anchoring by TOP the same
+  // way a node is means a gate's top never rises above where a same-slot
+  // node's top would be, regardless of the art's own height.
+  //
+  // PATH_ANCHORS collects a center point for every slot in order, gates
+  // included, using the node-rhythm y (not the gate's own taller-art
+  // center) — this is what the round curve is threaded through below, so
+  // the visible road actually bends through the gate's slot instead of
+  // skipping straight past it to the next level (which used to leave gates
+  // stranded off the drawn curve rather than "on the path").
+  const PATH_ANCHORS: { x: number; y: number }[] = [];
+  const SEASON_GATES_DATA: DecorSeasonGate[] = [];
+
+  const BASE_SECTIONS: Section[] = [];
+  let currentSection: Section | null = null;
+  slots.forEach((slot, idx) => {
+    const centerX = chapterXFraction(idx) * mapW;
+    const centerY = TOP_MARGIN + idx * NODE_GAP + NODE_SIZE / 2;
+    PATH_ANCHORS.push({ x: centerX, y: centerY });
+    if (slot.kind === 'gate') {
+      SEASON_GATES_DATA.push({
+        x: Math.round(centerX - SEASON_GATE_W / 2),
+        y: TOP_MARGIN + idx * NODE_GAP,
+        w: SEASON_GATE_W,
+        h: SEASON_GATE_H,
+        unlocksSeasonIdx: slot.unlocksSeasonIdx,
+      });
+      return;
+    }
+    const { flat } = slot;
+    if (!currentSection || currentSection.surahNum !== flat.surahNum) {
+      if (currentSection) BASE_SECTIONS.push(currentSection);
+      currentSection = { surahNum: flat.surahNum, name: flat.name, arabicName: flat.arabicName, ayahCount: flat.ayahCount, nodes: [] };
+    }
+    currentSection.nodes.push({
+      id: flat.level.id,
+      x: Math.round(centerX - NODE_SIZE / 2),
+      y: TOP_MARGIN + idx * NODE_GAP,
       status: 'locked' as NodeStatus,
       stars: 0,
-      levelNum: lvl.levelNum,
-      isSpecial: lvl.isSpecial,
-    }));
-    const lastNodeY = y + (def.levels.length - 1) * NODE_GAP;
-    const nextDef = CHAPTER_DEFS[secIdx + 1];
-    const isSeasonBoundary = !!nextDef
-      && (SURAH_TO_SEASON[nextDef.surahNum] ?? 0) !== (SURAH_TO_SEASON[def.surahNum] ?? 0);
-    if (isSeasonBoundary) {
-      // Same "center" convention a node's own y implies (node.y + NODE_SIZE/2)
-      // — the sign occupies the slot exactly one NODE_GAP past the last
-      // node's center, and the next section's first node sits one more
-      // NODE_GAP past that, treating the sign as a full extra step rather
-      // than widening the gap around it.
-      seasonGateCenterYs[secIdx] = lastNodeY + NODE_SIZE / 2 + NODE_GAP;
-      y = lastNodeY + NODE_GAP * 2;
-    } else {
-      y = lastNodeY + NODE_GAP;
-    }
-    return { surahNum: def.surahNum, name: def.name, arabicName: def.arabicName, ayahCount: def.ayahCount, nodes };
+      levelNum: flat.level.levelNum,
+      isSpecial: flat.level.isSpecial,
+    });
   });
-  const lastSec = BASE_SECTIONS[BASE_SECTIONS.length - 1];
-  const MAP_H = lastSec.nodes[lastSec.nodes.length - 1].y + NODE_SIZE + FOOTER_PAD;
+  if (currentSection) BASE_SECTIONS.push(currentSection);
   const ALL_NODES = BASE_SECTIONS.flatMap(s => s.nodes);
 
-  // ── Path string + geometry through all node centres ──
-  const PATH_PTS = ALL_NODES.map(n => ({ x: n.x + NODE_SIZE / 2, y: n.y + NODE_SIZE / 2 }));
+  // The curriculum isn't full yet — the final chapter can come up short of
+  // MAX_CHAPTER_SLOTS (116 real levels ÷ 30 = 3 full chapters + a 26-level
+  // remainder, as of the 21-surah MVP). MAP_H is already sized for the max
+  // regardless (see above), so a short chapter's real content just stops
+  // early within that same fixed canvas — show a banner centered in the
+  // untouched remainder instead of leaving it looking simply empty.
+  let comingSoonY: number | null = null;
+  if (chapterIdx === CHAPTER_COUNT - 1 && slots.length < MAX_CHAPTER_SLOTS) {
+    const midIdx = (slots.length - 1 + (MAX_CHAPTER_SLOTS - 1)) / 2;
+    comingSoonY = TOP_MARGIN + midIdx * NODE_GAP + NODE_SIZE / 2;
+  }
+
+  // ── Path string + geometry through all node (and gate) centres ──
+  // Threaded through PATH_ANCHORS, not just ALL_NODES, so the drawn road
+  // actually bends through a gate's slot too instead of curving straight
+  // past it between the levels on either side (see PATH_ANCHORS above).
+  const PATH_PTS = PATH_ANCHORS;
 
   // Per-tile slice of the road path — see the SVG background tiling further
   // down (the ~100MB-per-bitmap comment): every tile is its own <Svg> clipped
@@ -659,56 +818,23 @@ function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): Map
   // Section-boundary midpoints — decoration scatter only (mosque/tree/bush
   // "extra pass at section boundaries" below). Season-gate signs do NOT use
   // this: they get their own precise slot from the layout loop above
-  // (seasonGateCenterYs), not a midpoint average, so their spacing matches
-  // every other node-to-node step exactly.
+  // (PATH_ANCHORS/SEASON_GATES_DATA), not a midpoint average, so their
+  // spacing matches every other node-to-node step exactly.
   const secMidYs = BASE_SECTIONS.slice(0, -1).map((sec, i) => {
     const lastY  = sec.nodes[sec.nodes.length - 1].y + NODE_SIZE / 2;
     const firstY = BASE_SECTIONS[i + 1].nodes[0].y + NODE_SIZE / 2;
     return Math.round((lastY + firstY) / 2);
   });
 
-  // A season gate is a node, not a decoration: centered exactly on the
-  // path's own centerline (pathXAt), sized a bit bigger than a level node so
-  // "Season N" reads clearly, sitting on the road before the new season's
-  // first level rather than parked off to one side like a tree or mosque.
-  // No placeSide/zone-registry involvement — it can't lose a collision
-  // check and silently disappear the way a cosmetic decoration could.
-  // Based on the road's own visible width (ROAD_HALF_WIDTH*2), scaled up
-  // 56% so "Season N" reads clearly — intentionally wider than the path
-  // it's sitting on (unlike a level node, which stays within it). (Was 30%;
-  // bumped another 20% at the user's request.)
-  const SEASON_GATE_W = Math.round(ROAD_HALF_WIDTH * 2 * 1.56);
-  const SEASON_GATE_H = Math.round(SEASON_GATE_W / SEASON_GATE_ASPECT);
-  const seasonGates: DecorSeasonGate[] = [];
-  // A gate at every season boundary (wherever SURAH_TO_SEASON changes from
-  // one section to the next) instead of two hardcoded indices — generalizes
-  // from the original 3-season map to however many PHASE_SIZES defines
-  // (currently 7, see mapPhases.ts). seasonGateCenterYs[i] is the exact slot
-  // the layout loop reserved for it — one NODE_GAP past section i's last
-  // node — so a boundary lands at index i whenever section i's season
-  // differs from section i+1's.
-  const seasonBoundaryIdxs: number[] = [];
-  BASE_SECTIONS.forEach((sec, i) => {
-    if (i === 0) return;
-    const prevSeason = SURAH_TO_SEASON[BASE_SECTIONS[i - 1].surahNum] ?? 0;
-    const thisSeason = SURAH_TO_SEASON[sec.surahNum] ?? 0;
-    if (thisSeason !== prevSeason) seasonBoundaryIdxs.push(i - 1);
-  });
-  seasonBoundaryIdxs.forEach((secIdx, gateIdx) => {
-    // The exact slot reserved for it in the layout loop above — one NODE_GAP
-    // past the previous section's last node — not a section-midpoint
-    // average, which could land anywhere depending on how much unrelated
-    // spacing (footer pad, etc.) happened to separate the two sections.
-    const gateY = seasonGateCenterYs[secIdx];
-    const centerX = pathXAt(gateY);
-    const unlocksSeasonIdx = SURAH_TO_SEASON[BASE_SECTIONS[secIdx + 1].surahNum] ?? gateIdx + 1;
-    seasonGates.push({
-      x: Math.round(centerX - SEASON_GATE_W / 2),
-      y: Math.round(gateY - SEASON_GATE_H / 2),
-      w: SEASON_GATE_W, h: SEASON_GATE_H,
-      unlocksSeasonIdx,
-    });
-  });
+  // Season gates themselves (SEASON_GATES_DATA) are built above, in the same
+  // slots.forEach pass that builds ALL_NODES — straight from each slot's own
+  // {kind:'gate'} marker, not reconstructed afterward by diffing
+  // BASE_SECTIONS' surah→season boundaries. That reconstruction used to be
+  // the only place a gate's render position came from, and it silently
+  // missed/misplaced a gate whenever the season boundary landed on the very
+  // first slot of a chapter (BASE_SECTIONS.forEach skipped i===0, so a gate
+  // there had no "previous section" to diff against within that chapter).
+  const seasonGates = SEASON_GATES_DATA;
 
   // Lesson nodes themselves — previously never registered here, so nothing
   // stopped a decoration from landing on top of a node as long as it cleared
@@ -723,10 +849,9 @@ function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): Map
   // consumed ~102px of the 170px NODE_GAP step around every single node —
   // more than the tallest decoration even needs, so ~95% of every placement
   // attempt across the whole map (3292 of 3468 in that run) failed on this
-  // check alone and virtually nothing ever placed. This still
-  // clears the node's own glow/pulse ring (see MapNode's pulseRing, sized
-  // off NODE_SIZE) with a few px to spare — it just stops being needlessly
-  // more generous than that ring actually requires.
+  // check alone and virtually nothing ever placed. sc(10)/sc(5) still clears
+  // the node art itself (which overhangs NODE_SIZE slightly on a special
+  // node — see nodeImgRecommendedSpecial) with a few px to spare.
   ALL_NODES.forEach(node => {
     const zoneH = NODE_SIZE + sc(10);
     const zoneY = node.y - sc(5);
@@ -829,7 +954,14 @@ function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): Map
     // ACTION_CARD_ASPECT rather than measured from content.
     ACTION_CARD_W: sc(230),
     ACTION_CARD_H: Math.round(sc(230) * ACTION_CARD_ASPECT),
-    BASE_SECTIONS, MAP_H, ALL_NODES,
+    // Fixed width of the "Begin/Continue here" tag beside the recommended
+    // node — both the real width of its wrapper box AND the maxWidth of the
+    // pill inside it, so the placement test below can never disagree with
+    // what actually renders (the same guarantee ACTION_CARD_W gives the
+    // card). Widened from sc(104): at that size "Continue here" ran right up
+    // against the pill's own horizontal padding with nothing to spare.
+    NODE_TAG_W: sc(118),
+    BASE_SECTIONS, MAP_H, ALL_NODES, comingSoonY,
     pathDForYRange,
     DECORATIONS: { birds, seasonGates },
     SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS,
@@ -840,7 +972,7 @@ function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): Map
 // ── Styles that depend on the model's `sc()` — rebuilt via useMemo whenever
 // the model changes (i.e. whenever screen width changes). ──
 function makeStyles(M: MapModel) {
-  const { sc, NODE_SIZE, ACTION_CARD_W, ACTION_CARD_H } = M;
+  const { sc, NODE_SIZE, ACTION_CARD_W, ACTION_CARD_H, NODE_TAG_W } = M;
   // Fractions of ACTION_CARD_W, not independent sc() constants — every piece
   // of the action card scales off the same one number, so it can never drift
   // out of proportion with the fixed card box the way separately-tuned sc()
@@ -870,7 +1002,6 @@ function makeStyles(M: MapModel) {
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 4, elevation: 3,
     },
     hudVal: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: '#DC2626' },
-    hudStreakEmoji: { fontSize: sc(16) },
     hudStreakIcon: { width: sc(16), height: sc(16) },
     loadingOverlay: {
       position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -879,16 +1010,54 @@ function makeStyles(M: MapModel) {
     },
     // Opaque variant for the initial load — see the comment at its use site.
     loadingOverlaySolid: { backgroundColor: colors.mapBg },
+    loadingOverlayText: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: '#fff', marginTop: sc(10) },
     node: { width: NODE_SIZE, height: NODE_SIZE, alignItems: 'center', justifyContent: 'center' },
     nodeImg: { position: 'absolute', width: NODE_SIZE, height: NODE_SIZE },
+    // No top/left set, so `node`'s own alignItems/justifyContent:'center'
+    // still centers this larger box — no manual offset math needed.
+    nodeImgRecommendedSpecial: { width: NODE_SIZE * 1.3, height: NODE_SIZE * 1.3 },
     nodeShadow: {
       position: 'absolute', bottom: -sc(4), width: NODE_SIZE * 0.8, height: sc(10), borderRadius: sc(6),
       backgroundColor: 'rgba(0,0,0,0.25)', left: NODE_SIZE * 0.1,
     },
-    pulseRing: { position: 'absolute', width: NODE_SIZE + sc(20), height: NODE_SIZE + sc(20), borderRadius: (NODE_SIZE + sc(20)) / 2, borderWidth: 3, borderColor: '#37A168' },
     nodeNumber: { fontFamily: 'Nunito_700Bold', fontSize: sc(20), color: 'white', textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
     lockIcon: { fontSize: sc(18) },
     nodeWrapper: { alignItems: 'center' },
+    // The tag is absolutely positioned BESIDE the node, never in normal flow.
+    //
+    // It used to be an in-flow child rendered before the node, which meant the
+    // one node carrying a tag was pushed down by the tag's height and sat off
+    // the road while every other node stayed at its own `node.y`. Taking it out
+    // of flow is what makes node position independent of whether a tag exists.
+    //
+    // An explicit NODE_TAG_W-wide box, NOT a shrink-wrapping one. The wrapper
+    // this sits in is only NODE_SIZE wide (it hugs the node), so an absolute
+    // child offset past NODE_SIZE used to be handed a NEGATIVE available
+    // width and collapsed to near-nothing — that, not the maxWidth, is what
+    // truncated the label to "Conti…". A declared width overflows the narrow
+    // parent instead of being squeezed by it (nothing up the tree clips).
+    // `left` and `alignItems` come per-instance from nodeTagPlacement().
+    nodeTagWrap: { position: 'absolute', width: NODE_TAG_W },
+    // Beside the node: same vertical center as the node itself. nodeWrapper's
+    // only in-flow child is the node, so the wrapper box is exactly NODE_SIZE
+    // tall and centering here needs no measurement of the tag.
+    nodeTagWrapBeside: { top: 0, height: NODE_SIZE, justifyContent: 'center' },
+    // Above the node, used only when a surah-name scroll occupies the one
+    // side that had room (see nodeTagPlacement). Anchored by `bottom` so the
+    // tag's own height doesn't need to be known: sc(14) of clear air between
+    // the tag's underside and the node's top edge, which also clears the
+    // scroll art's top (it starts sc(8) above the node).
+    nodeTagWrapAbove: { bottom: NODE_SIZE + sc(14) },
+    // White with black text always (never tints with Begin/Continue state) so
+    // it reads as a clickable label/tooltip rather than a status pill, drawing
+    // the eye the way a real callout would. maxWidth matches NODE_TAG_W so the
+    // placement test upstream can never disagree with the rendered width.
+    nodeTag: {
+      maxWidth: NODE_TAG_W, backgroundColor: 'white', borderRadius: sc(10),
+      paddingHorizontal: sc(9), paddingVertical: sc(4),
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3, elevation: 4,
+    },
+    nodeTagText: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#1A1A1A', letterSpacing: 0.2 },
     starsBadge: { position: 'absolute', bottom: -sc(6), backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: sc(8), paddingHorizontal: sc(4), paddingVertical: sc(1) },
     starsText: { fontSize: sc(8), color: '#FFD700' },
     // alignItems:'stretch' (not 'center') so the Text has a real width to
@@ -900,14 +1069,25 @@ function makeStyles(M: MapModel) {
       fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#3B2A12', textAlign: 'center',
       textShadowColor: 'rgba(255,255,255,0.85)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
     },
+    // Bigger than before (72→96 glow, 66→84 image) while keeping the image
+    // inset inside the glow circle rather than filling it edge to edge —
+    // 6px of padding on all sides between the image and the circle's rim.
     lumaGlow: {
-      width: sc(72), height: sc(72), borderRadius: sc(36),
+      width: sc(96), height: sc(96), borderRadius: sc(48),
       backgroundColor: 'rgba(255,255,255,0.18)',
       alignItems: 'center', justifyContent: 'center',
       shadowColor: '#fff', shadowOpacity: 0.6, shadowRadius: 8, elevation: 5,
     },
-    lumaImg: { width: sc(66), height: sc(66) },
+    lumaImg: { width: sc(84), height: sc(84) },
     endText: { fontFamily: 'Nunito_700Bold', fontSize: sc(11), color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: sc(4) },
+    // The big "Coming soon!" banner filling a short final chapter's unused
+    // reserved space (see comingSoonY) — deliberately much larger than
+    // endText above, which is a small footer note, not a banner.
+    comingSoonBanner: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+    comingSoonText: {
+      fontFamily: 'Nunito_700Bold', fontSize: sc(28), color: 'rgba(255,255,255,0.85)',
+      textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4,
+    },
     // ── Chapter paging — both signs side by side at the bottom, wooden
     // signpost art, same material as the season gate signs, text baked into
     // the image. Row is centered + gap-based so it re-centers responsively
@@ -1002,13 +1182,19 @@ function makeStyles(M: MapModel) {
 type Styles = ReturnType<typeof makeStyles>;
 
 // ── Speech bubble — pure CSS, sizes to text content ───────────────
-function SpeechBubble({ text, SB }: { text: string; SB: Styles['SB'] }) {
+// tailAngle rotates the tail away from its default straight-down point —
+// Lumo stands beside the active node (left or right, see scrollIsLeft), not
+// under it, so a straight-down tail pointed at Lumo's own head instead of
+// what the speech is actually about. Rotating it toward whichever side the
+// node is on (the opposite side from Lumo) reads as "pointing at the node"
+// without needing to reposition the bubble itself off of Lumo.
+function SpeechBubble({ text, SB, tailAngle }: { text: string; SB: Styles['SB']; tailAngle?: number }) {
   return (
     <View style={SB.wrapper}>
       <View style={SB.bubble}>
         <Text style={SB.text}>{text}</Text>
       </View>
-      <View style={SB.tail} />
+      <View style={[SB.tail, tailAngle ? { transform: [{ rotate: `${tailAngle}deg` }] } : null]} />
     </View>
   );
 }
@@ -1050,51 +1236,91 @@ function Pathway({ d, sc, patternId }: { d: string; sc: (n: number) => number; p
 // ── Map node — one visual shell for every non-completed/non-green status.
 // The ONLY differentiator for a real locked gate is the lock icon; nothing
 // is dimmed/faded anymore (dimming previously read as "broken", not "locked"). ──
-function MapNode({ status, stars, pulseAnim, goldAnim, levelNum, isFetching, isSpecial, S }: {
+function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpecial, tagLabel, tagPlacement, S }: {
   status: NodeStatus; stars: number;
-  pulseAnim: Animated.Value; goldAnim: Animated.Value;
-  levelNum: number; isFetching?: boolean; isSpecial?: boolean; S: Styles['S'];
+  goldAnim: Animated.Value;
+  levelNum: number; isFetching?: boolean; isSpecial?: boolean;
+  // "Begin here" (never completed a level yet) / "Continue here" (returning
+  // user) — shown only on the one node the backend recommends next.
+  // Undefined everywhere else.
+  tagLabel?: string;
+  // Where the tag hangs relative to the node. Decided by the caller, which is
+  // the only place that knows MAP_W, this node's x, and where the surah-name
+  // scroll sits — see nodeTagPlacement().
+  tagPlacement?: TagPlacement;
+  S: Styles['S'];
 }) {
-  const pulseScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
   const goldScale  = goldAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
-  // Special/review (collective) nodes get their own green-star art, not
-  // "whichever node the backend recommends next" (that was the old wiring —
-  // NodeStatus 'current', from backend 'in_progress' — see
-  // stageToNodeStatus; removed per product ask, since it lit up at most one
-  // node on the whole map and had nothing to do with review sessions).
-  // Special nodes stay on the green special.png even while locked (the star
-  // marks "this is a review session", independent of reachability) and swap
-  // to the gold special_done.png on completion — only the padlock icon
-  // (below) still gates on real lock status. Pulsing is reserved for a node
-  // that's actually reachable right now — a locked-but-green node shouldn't
-  // invite a tap that just shakes it.
-  const isPulsing = !!isSpecial && status !== 'locked' && status !== 'completed';
+  // Special/review (collective) node art, by status:
+  //   completed → gold special_done.png
+  //   locked    → plain green node_current.png. Green keeps it visually
+  //               distinct as "special" even while locked, but without the
+  //               star, which clashes with the 🔒 overlay drawn below.
+  //   open      → recommended_special.png (green + star). Every reachable
+  //               review node gets the star now, not only the backend's
+  //               recommended-next one: the old "merely unlocked" art
+  //               (special.png) is byte-identical to node_current.png, so
+  //               that case rendered as a blank green tile indistinguishable
+  //               from a locked node minus its padlock.
+  //
+  // The pulse ring that used to sit behind reachable special nodes is gone
+  // (removed 2026-08-28, user: "not working anyway") — the star art and the
+  // white "Begin/Continue here!" tag are the visual cues now.
   const nodeImgSrc = isSpecial
-    ? (status === 'completed' ? NODE_SRCS.specialDone : NODE_SRCS.special)
+    ? (status === 'completed' ? NODE_SRCS.specialDone
+      : status === 'locked' ? NODE_SRCS.current
+      : NODE_SRCS.recommendedSpecial)
     : (status === 'completed' ? NODE_SRCS.completed : NODE_SRCS.locked);
 
   return (
     <View style={S.nodeWrapper}>
+      {!!tagLabel && !!tagPlacement && (
+        <View
+          style={[
+            S.nodeTagWrap,
+            tagPlacement.above ? S.nodeTagWrapAbove : S.nodeTagWrapBeside,
+            { left: tagPlacement.left, alignItems: tagPlacement.alignItems },
+          ]}
+          pointerEvents="none"
+        >
+          {/* adjustsFontSizeToFit is the last line of defence only — the wrap
+              above is a real fixed NODE_TAG_W box (it used to inherit the
+              node's own NODE_SIZE-wide parent, which left it literally
+              negative space to lay out in and truncated "Continue here" to
+              "Conti…" on every device), so the label fits at full size. */}
+          <View style={S.nodeTag}>
+            <Text style={S.nodeTagText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+              {tagLabel}
+            </Text>
+          </View>
+        </View>
+      )}
       <View style={S.nodeShadow} />
       <Animated.View style={[
         S.node,
         status === 'completed' && { transform: [{ scale: goldScale }] },
-        isPulsing && { transform: [{ scale: pulseScale }] },
       ]}>
-        {isPulsing && (
-          <Animated.View style={[S.pulseRing, {
-            transform: [{ scale: pulseScale }],
-            opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
-          }]} />
-        )}
-        <Image source={nodeImgSrc} resizeMode="contain" style={S.nodeImg} />
+        {/* recommended_special.png has substantially more baked-in
+            transparent padding around its badge than every other node's
+            art (node_current.png, node_locked.png, etc.) — at the same
+            NODE_SIZE box that renders visibly smaller than the rest, not
+            bigger despite it being the one meant to draw the eye.
+            Compensating with a larger box specifically for this one
+            source (not touching NODE_SIZE globally, which every other
+            node also uses) so the visible badge actually matches. */}
+        <Image
+          source={nodeImgSrc}
+          resizeMode="contain"
+          style={nodeImgSrc === NODE_SRCS.recommendedSpecial ? [S.nodeImg, S.nodeImgRecommendedSpecial] : S.nodeImg}
+        />
         {status === 'locked' ? (
           <Text style={S.lockIcon}>🔒</Text>
         ) : status === 'pending' && isFetching ? (
           <ActivityIndicator size="small" color="#5A3A00" />
         ) : isSpecial ? (
-          // Review node: the star is already baked into special.png /
-          // special_done.png, so no separate glyph is drawn here.
+          // Review node: the star is already baked into
+          // recommended_special.png / special_done.png, so no separate glyph
+          // is drawn here.
           null
         ) : (
           <Text style={S.nodeNumber}>{levelNum}</Text>
@@ -1184,15 +1410,14 @@ function LevelActionCard({
 }
 
 // ── Luma mascot ───────────────────────────────────────────────────
-function LumaFloat({ style, speech, floatAnim, S, SB, sc }: { style?: object; speech?: string; floatAnim: Animated.Value; S: Styles['S']; SB: Styles['SB']; sc: (n: number) => number }) {
-  const ty = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
+function LumaFloat({ style, speech, speechTailAngle, S, SB, sc }: { style?: object; speech?: string; speechTailAngle?: number; S: Styles['S']; SB: Styles['SB']; sc: (n: number) => number }) {
   return (
     <View style={[{ alignItems: 'center' }, style]}>
-      {speech && <SpeechBubble text={speech} SB={SB} />}
+      {speech && <SpeechBubble text={speech} SB={SB} tailAngle={speechTailAngle} />}
       <View style={S.lumaGlow}>
-        <Animated.Image
-          source={require('../../../assets/images/lumo_transparent.png')}
-          style={[S.lumaImg, { transform: [{ translateY: ty }] }]}
+        <Image
+          source={require('../../../assets/images/lumo_kufi.png')}
+          style={S.lumaImg}
           resizeMode="contain"
         />
       </View>
@@ -1201,7 +1426,7 @@ function LumaFloat({ style, speech, floatAnim, S, SB, sc }: { style?: object; sp
           the shadow floating with him. Normal flow (not MascotShadow's
           default absolute-under-the-Image), pulled up under the glow
           circle's base via negative margin instead. */}
-      <MascotShadow width={sc(72)} style={{ position: 'relative', marginTop: -sc(10) }} />
+      <MascotShadow width={sc(96)} style={{ position: 'relative', marginTop: -sc(10) }} />
     </View>
   );
 }
@@ -1220,8 +1445,24 @@ export default function MapScreen({ navigation }: Props) {
   // such reset point.
   const mapInstanceId = useRef(Math.random().toString(36).slice(2)).current;
   const insets = useSafeAreaInsets();
-  const { learning, refreshLearning } = useAuthStore();
+  const { user, learning, refreshLearning } = useAuthStore();
+  // Never earned any XP yet = never actually completed a level (guests
+  // included — their XP is computed the same way, just unbanked). Drives
+  // "Begin here" vs "Continue here" on the recommended node's tag below.
+  const hasAnyProgress = (learning?.xp_total ?? 0) > 0;
+  // Guest streak/XP are never banked (see utils/guest.ts) — the HUD pills
+  // show dashes instead of the backend's computed-but-not-saved numbers, and
+  // tapping either pitches account creation instead of opening the real
+  // Streak page.
+  const isGuestUser = isGuest(user);
+  const [guestPromptVisible, setGuestPromptVisible] = useState(false);
   const { width, height } = useWindowDimensions();
+  // Forces a re-render when prefetchAll()'s recommendedNext() resolves in the
+  // background (it's fire-and-forget, so nothing else triggers one) — without
+  // this, Lumo's position can go stale until some unrelated state change
+  // happens to re-render the screen.
+  const [, forceRecommendedTick] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => subscribeRecommended(() => forceRecommendedTick()), []);
   // "You opened the map and your streak is frozen" — shown once per freeze
   // occurrence (see checkStreakFrozenPopup's AsyncStorage-backed gate), not
   // once per map visit. Re-checks whenever streak_state changes under this
@@ -1268,9 +1509,9 @@ export default function MapScreen({ navigation }: Props) {
   const styles = useMemo(() => makeStyles(M), [M]);
   const { S, SL, SB } = styles;
   const {
-    MAP_W, MAP_H, sc, NODE_SIZE, TOP_MARGIN, BASE_SECTIONS, DECORATIONS,
+    MAP_W, MAP_H, sc, NODE_SIZE, TOP_MARGIN, BASE_SECTIONS, DECORATIONS, comingSoonY,
     SKY_BOUNDARY_Y, GRASS_EDGE_D, SKY_CLOUDS, SKY_BIRDS, AYAH_PILLS, SURAH_LABELS,
-    pathDForYRange, ACTION_CARD_W, ACTION_CARD_H,
+    pathDForYRange, ACTION_CARD_W, ACTION_CARD_H, NODE_TAG_W,
   } = M;
   // Beside the node — level with it (not above, like the old retry bubble),
   // on whichever side of the road actually has room. "Parallel to the node"
@@ -1284,6 +1525,41 @@ export default function MapScreen({ navigation }: Props) {
       : Math.max(sc(8), Math.min(MAP_W - ACTION_CARD_W - sc(8), node.x - margin - ACTION_CARD_W));
     const top = node.y + NODE_SIZE / 2 - ACTION_CARD_H / 2;
     return { left, top };
+  }
+
+  // Where the "Begin/Continue here" tag goes. Right of the node is the
+  // default, but a side is only usable if the tag both fits inside the map
+  // AND clears that surah's name scroll — which is exactly what was broken:
+  // the scroll is anchored to its section's FIRST node (see SURAH_LABELS) and
+  // the recommended node is very often that same node, so tag and scroll were
+  // laid out on top of each other with neither aware of the other, and the
+  // tag ended up reading as a torn-off label pasted across "Al-Ikhlas".
+  //
+  // Order of preference: right, then left, then — when the scroll occupies
+  // the only side with room, which really happens (node x-centers are clamped
+  // to 0.20–0.74 of MAP_W, and the scroll always takes whichever side has
+  // MORE room) — above the node, clear of both.
+  function nodeTagPlacement(node: SectionNode, surahNum: number): TagPlacement {
+    const gap = sc(10);
+    const edge = sc(6);
+    const rightX = node.x + NODE_SIZE + gap;
+    const leftX  = node.x - gap - NODE_TAG_W;
+    const label = SURAH_LABELS[surahNum];
+    // Vertical overlap is checked against the node's own band: the tag is
+    // centered on the node and never taller than it.
+    const labelInTheWay = label != null
+      && label.y < node.y + NODE_SIZE
+      && label.y + label.h > node.y;
+    const clearsLabel = (x: number) =>
+      !labelInTheWay || x + NODE_TAG_W <= label!.x || x >= label!.x + label!.w;
+    const beside = (x: number, onLeft: boolean): TagPlacement => ({
+      left: Math.round(x - node.x),
+      alignItems: onLeft ? 'flex-end' : 'flex-start',
+      above: false,
+    });
+    if (rightX + NODE_TAG_W <= MAP_W - edge && clearsLabel(rightX)) return beside(rightX, false);
+    if (leftX >= edge && clearsLabel(leftX)) return beside(leftX, true);
+    return { left: Math.round((NODE_SIZE - NODE_TAG_W) / 2), alignItems: 'center', above: true };
   }
 
   // ── Guided tour ──────────────────────────────────────────────────
@@ -1537,8 +1813,8 @@ export default function MapScreen({ navigation }: Props) {
       // overwhelmingly common case.
       const startSurah = currentSurah ?? SECTIONS_DEF[0]?.surahNum;
       const startChapterIdx = startSurah != null ? (SURAH_TO_CHAPTER[startSurah] ?? 0) : 0;
-      const prioritySeasons = (CHAPTER_SEASONS[startChapterIdx] ?? [0])
-        .filter(i => i === 0 || unlockedSet.has(i));
+      const prioritySeasons = (CHAPTER_SEASON_INDICES[startChapterIdx] ?? [0])
+        .filter((i: number) => i === 0 || unlockedSet.has(i));
 
       const startTime = Date.now();
       await Promise.all([
@@ -1584,18 +1860,39 @@ export default function MapScreen({ navigation }: Props) {
   // lesson — never gets told to reload, so the map kept showing
   // pre-completion statuses indefinitely.
   //
-  // Gated on lastCompletedSurah rather than running on every focus: only a
-  // real completion ever invalidates anything (completeSession sets it;
-  // abandonSession — the cancel/exit path — never touches it or the shared
-  // cache). Without this guard the map re-fetched over the network on every
-  // single return regardless of cause — cancelling a level included — which
-  // is what made the map look like it "reloads" every time you came back to
-  // it, even though nothing had changed.
+  // Gated on lastVisitedSurah, not on plain focus: only a real lesson
+  // session (completed OR abandoned) sets it, so the map still doesn't
+  // re-fetch on every trivial focus change (switching tabs and back, for
+  // instance) — that's what made the map look like it "reloads" every time
+  // you came back to it even when nothing had changed, which was the whole
+  // reason this used to gate on completion alone.
+  //
+  // completion-only gating (2026-08-xx) was too narrow, though:
+  // abandonSession never invalidated anything, so leaving a level any way
+  // other than finishing it (backing out, losing connection, the app dying
+  // mid-session) left the map showing pre-session data with nothing to tell
+  // it otherwise — reported as "the map looked stale after exiting a level".
+  // lastVisitedSurah is set by BOTH completeSession and abandonSession (see
+  // lessonStore.ts), so this now runs on either.
   const isFirstFocusRef = useRef(true);
+  // Bumped once this effect's refresh has actually landed, so a SEPARATE
+  // effect (see jumpToRecommended's own useEffect below) can re-scroll the
+  // viewport to the recommended node on every return from a level, not just
+  // when the recommended node itself happens to change. The existing scroll-
+  // follow effect only re-scrolls on an id CHANGE (autoScrolledNodeIdRef
+  // dedup) — exiting a level without advancing (abandon, or a level that
+  // wasn't the last one) leaves firstActiveNode.id identical to before, so
+  // that effect silently does nothing and the viewport stays wherever it
+  // was left, which could be nowhere near "Continue here" (2026-08-28,
+  // user: "when I come back from a level the thing I should see is where
+  // the continue here button is"). A plain counter, not a boolean: two
+  // returns in a row must both trigger a re-scroll even if nothing else
+  // about the state changed between them.
+  const [returnedFromLevelTick, setReturnedFromLevelTick] = useState(0);
   useFocusEffect(
     useCallback(() => {
       if (isFirstFocusRef.current) { isFirstFocusRef.current = false; return; }
-      if (useLessonStore.getState().lastCompletedSurah == null) return;
+      if (useLessonStore.getState().lastVisitedSurah == null) return;
       let cancelled = false;
       (async () => {
         let currentSurah = getCachedRecommended()?.surah_number ?? null;
@@ -1619,33 +1916,43 @@ export default function MapScreen({ navigation }: Props) {
           if (!cancelled) setFullLevels(prev => ({ ...prev, [currentSurah]: sortedLevels(levels) }));
         } catch (e) { console.warn('[MapScreen] focus refresh failed:', e); }
 
-        // The surah the user just finished a lesson in may no longer be
-        // `currentSurah` above (finishing a surah's last level advances the
-        // "recommended next" pointer to the next surah) — without this, that
-        // just-finished surah's node statuses never get refreshed and its
-        // last node stays stuck non-golden with the next node stuck locked.
-        const completedSurah = useLessonStore.getState().lastCompletedSurah;
-        if (completedSurah != null && completedSurah !== currentSurah && !cancelled) {
+        // The surah the user just left a lesson session in (completed OR
+        // abandoned) may no longer be `currentSurah` above — finishing a
+        // surah's last level advances the "recommended next" pointer to the
+        // next surah, so without this, whichever surah the user was actually
+        // just looking at never gets refreshed: its last node stays stuck
+        // non-golden, or (the abandon case) it keeps showing whatever was
+        // cached before the session started at all.
+        const visitedSurah = useLessonStore.getState().lastVisitedSurah;
+        if (visitedSurah != null && visitedSurah !== currentSurah && !cancelled) {
           try {
-            const completedLevels = await learningApi.levels(completedSurah);
-            if (!cancelled) setFullLevels(prev => ({ ...prev, [completedSurah]: sortedLevels(completedLevels) }));
-            // completedSurah !== currentSurah only happens when finishing a
-            // level advanced "recommended next" to a different surah — i.e.
-            // completedSurah's own levels (review node included) are all
-            // done. The status check just confirms it off the same fetch
-            // rather than trusting that inference alone.
-            if (!cancelled && completedLevels.length > 0 && completedLevels.every(l => l.status === 'completed')) {
-              void logAnalyticsEvent(AnalyticsEvents.SURAH_COMPLETE, { surah_number: completedSurah });
+            const visitedLevels = await learningApi.levels(visitedSurah);
+            if (!cancelled) setFullLevels(prev => ({ ...prev, [visitedSurah]: sortedLevels(visitedLevels) }));
+            // Re-derives "was this surah actually finished" from the fresh
+            // fetch rather than trusting why the refresh was triggered —
+            // safe to run this check after an abandon too: an abandoned
+            // session's group only reads 'completed' here if it genuinely
+            // was (e.g. abandoning a Retry replay of an already-done level),
+            // never merely because a session existed and was exited.
+            if (!cancelled && visitedLevels.length > 0 && visitedLevels.every(l => l.status === 'completed')) {
+              void logAnalyticsEvent(AnalyticsEvents.SURAH_COMPLETE, { surah_number: visitedSurah });
             }
             useLessonStore.getState().clearLastCompletedSurah();
-          } catch (e) { console.warn('[MapScreen] completed-surah refresh failed:', e); }
-        } else if (completedSurah != null) {
+            useLessonStore.getState().clearLastVisitedSurah();
+          } catch (e) { console.warn('[MapScreen] visited-surah refresh failed:', e); }
+        } else if (visitedSurah != null) {
           useLessonStore.getState().clearLastCompletedSurah();
+          useLessonStore.getState().clearLastVisitedSurah();
         }
+        if (!cancelled) setReturnedFromLevelTick(t => t + 1);
       })();
       return () => { cancelled = true; };
     }, [learning]),
   );
+
+  // Immersive mode is now applied app-wide from RootNavigator (once, at
+  // mount) rather than toggled per-screen here — see that file. Map no
+  // longer needs its own focus/blur toggle.
 
   // On-demand fallback: fetch a single surah's first level the moment its
   // node is tapped, in case the background phase fetch hasn't landed yet.
@@ -1684,22 +1991,26 @@ export default function MapScreen({ navigation }: Props) {
           // just not confirmed yet. Tappable; see handleNodePress.
           return { ...node, status: 'pending' as NodeStatus, resolved: false };
         }
-        // Later levels of a surah whose first level already reads 'completed'
-        // have no fetch mechanism of their own once the surah stops being
-        // "current" (recommendedNext moves on) — without this they'd default
-        // to the layout's baseline 'locked' forever, even after the user
-        // actually finished them. Assume completed (3 stars, unconfirmed) —
-        // resolved:false marks it as a guess, so handleNodePress verifies the
-        // real status on tap before deciding retry-prompt vs. direct-start.
-        // Excludes the review node: its id here is still the static
-        // placeholder (`${surahNum}_review`), never a real lesson_group_id,
-        // until `group` above actually resolves it. Guessing "completed" for
-        // it let a tap reach handleRetryConfirm with that placeholder id and
-        // navigate into LessonSession with a groupId the backend has never
-        // heard of — locked (inert tap, no navigation) is the safe default
-        // until a real fetch confirms the level exists.
-        if (first?.status === 'completed' && !node.isSpecial) {
-          return { ...node, status: 'completed' as NodeStatus, stars: 3, resolved: false };
+        // Later levels of a surah whose first level reads 'completed' but
+        // whose full levels haven't arrived yet (surahsNeedingFullLevels'
+        // backfill below is fetching them). Shown as 'available': open,
+        // tappable, no gold, no stars.
+        //
+        // This used to guess 'completed' with a flat 3 stars, and that guess
+        // is not allowed to exist. The map is the user's record of their own
+        // work, and a node claiming three gold stars for a level they never
+        // played misjudges them — the one failure mode here that isn't
+        // merely cosmetic. 'available' can only ever be wrong in the
+        // harmless direction: it offers a level the user may have already
+        // finished, it never credits them with one they haven't.
+        //
+        // resolved:false marks it as unconfirmed either way, and
+        // handleNodePress resolves the real group (id AND status) from the
+        // backend before it will navigate — which is also what keeps this
+        // safe, since an unresolved node's `id` is still the static
+        // placeholder (`${surahNum}_${n}`), not a real lesson_group_id.
+        if (first?.status === 'completed') {
+          return { ...node, status: 'available' as NodeStatus, stars: 0, resolved: false };
         }
         return { ...node, resolved: false }; // stays computeLayout's default 'locked' — a real gate
       }),
@@ -1737,7 +2048,7 @@ export default function MapScreen({ navigation }: Props) {
           const nodeIdx = section.nodes.findIndex(n => n.id === node.id);
           const real = nodeIdx >= 0 ? sorted[nodeIdx] : undefined;
           if (real && real.status !== 'completed') {
-            navigation.navigate('LessonSession', { groupId: real.lesson_group_id, surahName: section.name, surahNumber: section.surahNum });
+            navigation.navigate('LessonSession', { groupId: real.lesson_group_id, surahName: section.name, surahNumber: section.surahNum, isSpecial: node.isSpecial });
             return;
           }
         } catch (e) {
@@ -1773,6 +2084,39 @@ export default function MapScreen({ navigation }: Props) {
       setStartPrompt({ section, node, groupId: lvl.lesson_group_id, ayahFrom: lvl.start_ayah, ayahTo: lvl.end_ayah });
       return;
     }
+    // Unresolved non-first node — enrichedSections marked this 'available'
+    // from the surah's first level alone, so `node.id` here is still the
+    // static placeholder, NOT a lesson_group_id the backend would recognise.
+    // Resolve the real group before offering to start it. This also settles
+    // the status honestly: the level may well already be completed, in which
+    // case the retry prompt is the right thing to show, not a start card.
+    if (!node.resolved) {
+      let real: SurahLevel | undefined;
+      try {
+        const levels = await fetchLevels(section.surahNum);
+        const sorted = sortedLevels(levels);
+        setFullLevels(prev => ({ ...prev, [section.surahNum]: sorted }));
+        // Position, not levelNum: review levels interleave, so a normal
+        // level's levelNum stops matching its index in the full sequence.
+        // Both lists share the order buildLevelsWithReviews and the
+        // backend's sort_order agree on.
+        const nodeIdx = section.nodes.findIndex(n => n.id === node.id);
+        real = nodeIdx >= 0 ? sorted[nodeIdx] : undefined;
+      } catch (e) {
+        console.warn('[MapScreen] start-tap level resolve failed:', e);
+      }
+      // No real group (fetch failed, or the backend has fewer groups than
+      // the static layout drew) — stay put. Better an unresponsive tap than
+      // navigating into a session for a groupId that doesn't exist.
+      if (!real) return;
+      if (real.status === 'locked') { shakeLockedNode(node.id); return; }
+      if (real.status === 'completed') { setRetryNodeId(real.lesson_group_id); return; }
+      setStartPrompt({
+        section, node, groupId: real.lesson_group_id,
+        ayahFrom: real.start_ayah, ayahTo: real.end_ayah,
+      });
+      return;
+    }
     const estimated = estimateAyahRange(node.levelNum ?? 1, section.ayahCount, node.isSpecial);
     const ayahFrom = node.startAyah ?? estimated.from;
     const ayahTo = node.endAyah ?? estimated.to;
@@ -1783,16 +2127,16 @@ export default function MapScreen({ navigation }: Props) {
   // handleRetryConfirm below, just for the not-yet-completed path.
   function handleStartConfirm() {
     if (!startPrompt) return;
-    const { section, groupId } = startPrompt;
+    const { section, groupId, node } = startPrompt;
     setStartPrompt(null);
-    navigation.navigate('LessonSession', { groupId, surahName: section.name, surahNumber: section.surahNum });
+    navigation.navigate('LessonSession', { groupId, surahName: section.name, surahNumber: section.surahNum, isSpecial: node.isSpecial });
   }
 
   // Only reached by the retry-prompt's "Retry" button — the one place a
   // completed node's tap actually navigates (and pays for the exercise fetch).
   function handleRetryConfirm(section: Section, node: SectionNode) {
     setRetryNodeId(null);
-    navigation.navigate('LessonSession', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum });
+    navigation.navigate('LessonSession', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum, isSpecial: node.isSpecial });
   }
 
   // Season 0 is always unlocked. Seasons 1+ need an explicit user unlock
@@ -1858,7 +2202,7 @@ export default function MapScreen({ navigation }: Props) {
     // Pull the first levels for the seasons we're paging into so their nodes
     // resolve real ids/statuses instead of sitting 'pending'. fetchPhase
     // de-dupes against fetchedPhasesRef, so re-entering a chapter is free.
-    for (const seasonIdx of CHAPTER_SEASONS[next] ?? []) {
+    for (const seasonIdx of CHAPTER_SEASON_INDICES[next] ?? []) {
       void fetchPhase(seasonIdx, currentSurahNumRef.current);
     }
   }
@@ -1884,13 +2228,122 @@ export default function MapScreen({ navigation }: Props) {
   let firstActiveNode: (typeof allEnrichedNodes)[number] | undefined =
     recommended ? allEnrichedNodes.find(n => n.id === recommended.lesson_group_id) : undefined;
   if (!firstActiveNode && recommended) {
-    firstActiveNode = allEnrichedNodes.find(n => n.surahNum === recommended.surah_number);
+    // Fallback for when that surah's real per-group ids haven't landed yet
+    // (only its first level has, so every other node still carries a static
+    // placeholder id). This used to take the surah's FIRST node outright,
+    // which put "Continue here" on an already-golden completed node — the
+    // one place the tag must never point. Take the first node that's
+    // actually startable instead, and only fall back to a completed one if
+    // the whole surah reads done.
+    const inSurah = allEnrichedNodes.filter(n => n.surahNum === recommended.surah_number);
+    firstActiveNode =
+      inSurah.find(n => n.status === 'current' || n.status === 'available' || n.status === 'pending')
+      ?? inSurah.find(n => n.status !== 'completed')
+      ?? inSurah[0];
   }
 
-  const pulseAnim = useRef(new Animated.Value(0)).current;
+  // The mount effect above resolves `currentSurah` from getCachedRecommended(),
+  // which is still null whenever MapScreen mounts before boot's deliberately
+  // un-awaited prefetchAll() has landed the recommendation — a plain race, and
+  // the one that produced the reported "levels 7 and 8 are done but 9 never
+  // opened" map. In that race the mount effect full-fetches the levels of the
+  // WRONG surah (mvp_surah_numbers[0]) and nothing ever corrects it:
+  // subscribeRecommended only forces a re-render, it re-runs no fetch. The
+  // surah actually on screen is then left with only its first level, and
+  // enrichedSections' no-full-data heuristic takes over — which fakes EVERY
+  // later normal node as completed with a flat 3 stars (hence a node showing
+  // gold ★★★ the user had never played) while leaving every review node at
+  // its baseline 'locked' (hence the next level never opening).
+  //
+  // Same heuristic, same symptom, for any other already-finished surah in the
+  // visible chapter. So: pull real levels for the recommended surah and for
+  // every visible surah whose first level reads 'completed', replacing the
+  // guesses with backend truth. fetchLevels() is cache-first with in-flight
+  // dedup (and writes through to the disk cache), so a surah already loaded
+  // by any other path costs nothing here.
+  const recommendedSurah = recommended?.surah_number ?? null;
+  const surahsNeedingFullLevels = BASE_SECTIONS
+    .map(sec => sec.surahNum)
+    .filter(n => !fullLevels[n] && (n === recommendedSurah || firstLevel[n]?.status === 'completed'))
+    .join(',');
+  useEffect(() => {
+    if (!surahsNeedingFullLevels) return;
+    let cancelled = false;
+    void (async () => {
+      for (const surahNum of surahsNeedingFullLevels.split(',').map(Number)) {
+        try {
+          const levels = await fetchLevels(surahNum);
+          if (cancelled) return;
+          setFullLevels(prev => ({ ...prev, [surahNum]: sortedLevels(levels) }));
+        } catch (e) {
+          // Leave the heuristic in place for this surah and stop retrying it
+          // this pass — the key below is unchanged by a failure, so this
+          // effect won't re-fire in a loop over it.
+          console.warn(`[MapScreen] full-levels backfill failed for surah ${surahNum}:`, e);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [surahsNeedingFullLevels]);
+
+  // Manually triggered "go to the recommended level" jump — same destination
+  // the cold-start effects further down settle on (see appliedRecSurahRef/
+  // autoScrolledNodeIdRef below), but callable on demand instead of only
+  // once per distinct recommendation. Wired to the Home tab's own tabPress
+  // below so every tap lands here, even a re-tap while already on this
+  // screen — clearing manualChapterRef is what lets it override a chapter
+  // the user paged to by hand, which the passive cold-start effects
+  // deliberately never do on their own.
+  const jumpToRecommended = useCallback(() => {
+    const surah = recommended?.surah_number;
+    if (surah == null) return;
+    manualChapterRef.current = false;
+    appliedRecSurahRef.current = surah;
+    const target = SURAH_TO_CHAPTER[surah] ?? 0;
+    if (target !== chapterIdx) {
+      // Cross-chapter: land at the new chapter's top, same as paging
+      // "next" — the existing chapterJump landing effect below takes it
+      // from there once the new chapter's model has built.
+      chapterJumpRef.current = 'top';
+      autoScrolledNodeIdRef.current = null;
+      setChapterIdx(target);
+      return;
+    }
+    if (!firstActiveNode) return;
+    autoScrolledNodeIdRef.current = firstActiveNode.id;
+    const targetY = Math.max(0, firstActiveNode.y - height / 2);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: targetY, animated: true });
+    });
+  }, [recommended?.surah_number, chapterIdx, firstActiveNode, height]);
+
+  // react-navigation fires 'tabPress' every time this tab's own button is
+  // pressed, including a re-press while it's already focused — unlike
+  // useFocusEffect, which only fires when navigating IN from another tab.
+  // That's the behavior asked for: tapping Home always jumps to the
+  // recommended level, whether you're switching tabs in or already here.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      jumpToRecommended();
+    });
+    return unsubscribe;
+  }, [navigation, jumpToRecommended]);
+
+  // Re-scroll to the recommended node every time a level session ends, full
+  // stop — see returnedFromLevelTick's own comment above for why the
+  // id-change-only scroll-follow effect further below isn't enough on its
+  // own. Skips tick 0 (the state's initial value, never an actual return).
+  // jumpToRecommended is safe to call unconditionally here: it already no-ops
+  // when there's no recommended surah, and already handles the cross-chapter
+  // case (finishing a chapter's last level) the same way a manual Home-tab
+  // tap does.
+  useEffect(() => {
+    if (returnedFromLevelTick === 0) return;
+    jumpToRecommended();
+  }, [returnedFromLevelTick, jumpToRecommended]);
+
   const goldAnim  = useRef(new Animated.Value(0)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
-  // One shared value (mirrors pulseAnim/goldAnim above) driving a shake on
+  // One shared value (mirrors goldAnim above) driving a shake on
   // whichever locked node was just tapped — the tap itself is a no-op
   // otherwise, which reads as the app ignoring you rather than as "locked."
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -1907,55 +2360,58 @@ export default function MapScreen({ navigation }: Props) {
     ]).start(() => setShakingNodeId(null));
   }
   const scrollY   = useRef(new Animated.Value(0)).current;
-  // Which background tiles are actually mounted right now — see the tiling
-  // comment below the background Svg for why only a window of them may be.
-  // Updated from the scroll listener rather than from `scrollY` itself, since
-  // that Value is native-driven and never reaches JS on its own.
-  const [tileWindow, setTileWindow] = useState({ start: 0, end: 2 });
+  // Last scroll position breadcrumbed, so the listener below only logs on a
+  // meaningful move rather than every pixel — see its own comment for why
+  // breadcrumbing scroll position matters here (the still-unsymbolicated
+  // libc.so SIGABRT, whose only lead so far is scroll position at crash time).
+  const lastBreadcrumbYRef = useRef(0);
+
+  // Grass decode-failure retry counters, keyed by tileIdx. Plain <Image>
+  // (unlike react-native-svg's Image) has a real onError — on a
+  // memory-constrained device the decode can fail outright rather than just
+  // race a cache-miss, and it does not retry itself. Bumping the counter
+  // changes that tile's Image `key`, forcing a fresh mount/decode attempt
+  // after a short delay instead of leaving it permanently blank.
+  const [grassRetry, setGrassRetry] = useState<Record<number, number>>({});
   const onScroll  = Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
     {
       useNativeDriver: true,
       listener: (e: any) => {
-        const y = e.nativeEvent.contentOffset.y as number;
-        // One screen of slack above and below the viewport, so a tile is
-        // always mounted and rasterized well before it scrolls into view.
-        const start = Math.max(0, Math.floor((y - height) / SVG_BG_TILE_H));
-        const end = Math.ceil((y + height * 2) / SVG_BG_TILE_H);
-        setTileWindow(prev => (prev.start === start && prev.end === end ? prev : { start, end }));
+        // Reported crash: the app closes while scrolling the map — no JS
+        // exception ever reaches ErrorUtils for that, because the failure
+        // mode documented above (a native bitmap allocation over Canvas's
+        // ~100MB ceiling) aborts the process straight from native code. This
+        // whole listener is therefore wrapped, and scroll position is
+        // breadcrumbed (throttled to a real move, not every pixel), so that
+        // WHEN it crashes again, Crashlytics has the exact scroll position
+        // and map size that preceded it, sitting right next to the
+        // now-symbolicated native stack (see the Gradle
+        // nativeSymbolUploadEnabled change) instead of a bare offset with no
+        // lead-up context.
+        try {
+          const y = e.nativeEvent.contentOffset.y as number;
+          if (Math.abs(y - lastBreadcrumbYRef.current) < height / 2) return;
+          lastBreadcrumbYRef.current = y;
+          addBreadcrumb('map: scrolled', { scrollY: Math.round(y), MAP_H: Math.round(MAP_H), chapterIdx });
+        } catch (err) {
+          captureError(err, { where: 'MapScreen.onScroll', chapterIdx, MAP_H: Math.round(MAP_H) });
+        }
       },
     },
   );
 
   useEffect(() => {
     Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1, duration: 900,  useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 0, duration: 900,  useNativeDriver: true }),
-    ])).start();
-    Animated.loop(Animated.sequence([
       Animated.timing(goldAnim,  { toValue: 1, duration: 1400, useNativeDriver: true }),
       Animated.timing(goldAnim,  { toValue: 0, duration: 1400, useNativeDriver: true }),
     ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(floatAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
-      Animated.timing(floatAnim, { toValue: 0, duration: 1300, useNativeDriver: true }),
-    ])).start();
   }, []);
 
-  // Luma: beside the first active node, always on the opposite side from
-  // that surah's scroll label (they'd otherwise compete for the same side).
-  const scrollIsLeft = firstActiveNode ? SURAH_LABELS[firstActiveNode.surahNum]?.isLeft ?? (firstActiveNode.x > MAP_W / 2) : false;
-  const lumaLeft = firstActiveNode
-    ? (!scrollIsLeft
-        ? Math.max(0, firstActiveNode.x - sc(112))
-        : firstActiveNode.x + NODE_SIZE + sc(6))
-    : sc(4);
-  const lumaTop   = firstActiveNode ? firstActiveNode.y - sc(36) : sc(80);
-  const lumaSpeech = firstActiveNode?.status === 'current'
-    ? "Ready for today's lesson? 💪"
-    : 'Begin here! ✨';
-
-  // Keep the viewport following Lumo: on first load (opening the map fresh)
+  // Keep the viewport following the recommended node (formerly framed as
+  // "following Lumo" — Lumo no longer stands beside it, but the
+  // scroll-to-reveal behavior is unchanged):
+  // on first load (opening the map fresh)
   // and again any time firstActiveNode moves to a different node (finishing
   // a level advances the recommendation to N+1, a pull-to-refresh may also
   // reveal a new node), scroll so that node is in view instead of leaving
@@ -1974,34 +2430,19 @@ export default function MapScreen({ navigation }: Props) {
     if (autoScrolledNodeIdRef.current === firstActiveNode.id) return;
     autoScrolledNodeIdRef.current = firstActiveNode.id;
     const targetY = Math.max(0, firstActiveNode.y - height / 2);
-    // Mount the destination's tiles before jumping there. The scroll
-    // listener would get there on its own (an animated scrollTo emits
-    // onScroll the whole way), but seeding it means the tiles are already
-    // rasterizing during the scroll rather than starting only once it lands.
-    setTileWindow(prev => {
-      const start = Math.max(0, Math.floor((targetY - height) / SVG_BG_TILE_H));
-      const end = Math.ceil((targetY + height * 2) / SVG_BG_TILE_H);
-      return prev.start === start && prev.end === end ? prev : { start, end };
-    });
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: targetY, animated: true });
     });
   }, [firstActiveNode?.id, loadingPaths, height]);
 
   // Land the viewport after a chapter switch. Runs after the new chapter has
-  // laid out, so MAP_H is already the new chapter's height — seeding
-  // tileWindow here (same as the auto-scroll above) means the destination's
-  // background is rasterizing rather than popping in after the jump.
+  // laid out, so MAP_H is already the new chapter's height.
   // Not animated: this is a change of place, not a move within one.
   useEffect(() => {
     const land = chapterJumpRef.current;
     if (!land) return;
     chapterJumpRef.current = null;
     const targetY = land === 'top' ? 0 : Math.max(0, MAP_H - height);
-    setTileWindow(() => ({
-      start: Math.max(0, Math.floor((targetY - height) / SVG_BG_TILE_H)),
-      end: Math.ceil((targetY + height * 2) / SVG_BG_TILE_H),
-    }));
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: targetY, animated: false });
     });
@@ -2025,6 +2466,20 @@ export default function MapScreen({ navigation }: Props) {
     setChapterResolved(true);
   }, [recommended?.surah_number, loadingPaths]);
 
+  // Crash context, not app behavior — this screen had none of the
+  // breadcrumb/context wiring the rest of the app relies on (see
+  // authStore/lessonStore/api/client.ts), despite being the one screen
+  // reported to crash the app on scroll. `setCrashContext` tags every crash
+  // report from here on with which chapter/surah was open and how tall its
+  // map is (tile-mount OOM is a known failure mode for a tall MAP_H — see
+  // the comment above the tiled Svg render below), so a crash report shows
+  // that context even if it happens before the user does anything else.
+  useEffect(() => {
+    if (!chapterResolved) return;
+    setCrashContext({ screen: 'Map', surah_id: recommended?.surah_number });
+    addBreadcrumb('map: chapter shown', { chapterIdx, MAP_H: Math.round(MAP_H), nodeCount: allEnrichedNodes.length });
+  }, [chapterResolved, chapterIdx, MAP_H, recommended?.surah_number, allEnrichedNodes.length]);
+
   const skyPct = Math.min(95, (SKY_BOUNDARY_Y / MAP_H) * 100);
 
   const svgBgTileCount = Math.max(1, Math.ceil(MAP_H / SVG_BG_TILE_H));
@@ -2040,16 +2495,32 @@ export default function MapScreen({ navigation }: Props) {
         onLayout={e => setHudHeight(e.nativeEvent.layout.height)}
       >
         <View style={S.hudRow}>
-          <TouchableOpacity {...streakTarget} style={[S.hudPill, glowStreak && TOUR_GLOW]} activeOpacity={0.7} onPress={() => navigation.navigate('Streak')}>
-            {isStreakFrozen(learning?.streak_state)
-              ? <Image source={STREAK_FROZEN_ICON} style={S.hudStreakIcon} resizeMode="contain" />
-              : <Text style={S.hudStreakEmoji}>{STREAK_ACTIVE_EMOJI}</Text>}
-            <Text style={[S.hudVal, { color: streakColor(learning?.streak_state) }]}>{learning ? learning.current_streak : '…'}</Text>
+          <TouchableOpacity
+            {...streakTarget}
+            style={[S.hudPill, glowStreak && TOUR_GLOW]}
+            activeOpacity={0.7}
+            onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('Streak'))}
+          >
+            <Image
+              source={isStreakFrozen(learning?.streak_state) ? STREAK_FROZEN_ICON_SMALL : STREAK_ACTIVE_ICON_SMALL}
+              style={S.hudStreakIcon}
+              resizeMode="contain"
+            />
+            <Text style={[S.hudVal, { color: streakColor(learning?.streak_state) }]}>
+              {learning ? (isGuestUser ? '—' : learning.current_streak) : '…'}
+            </Text>
           </TouchableOpacity>
-          <View {...xpTarget} collapsable={false} style={[S.hudPill, glowXp && TOUR_GLOW]}>
+          <TouchableOpacity
+            {...xpTarget}
+            style={[S.hudPill, glowXp && TOUR_GLOW]}
+            activeOpacity={0.7}
+            onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('XP'))}
+          >
             <Text>⚡</Text>
-            <Text style={[S.hudVal, { color: '#2A7D4F' }]}>{learning ? `${learning.xp_total} XP` : '… XP'}</Text>
-          </View>
+            <Text style={[S.hudVal, { color: '#2A7D4F' }]}>
+              {learning ? (isGuestUser ? '— XP' : `${learning.xp_total} XP`) : '… XP'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -2070,6 +2541,7 @@ export default function MapScreen({ navigation }: Props) {
         // it re-fetches.
         <View style={[S.loadingOverlay, !chapterResolved && S.loadingOverlaySolid]} pointerEvents="none">
           <LoadingRing size={64} color="#fff" />
+          <LoadingStatusText style={S.loadingOverlayText} />
         </View>
       )}
 
@@ -2155,63 +2627,123 @@ export default function MapScreen({ navigation }: Props) {
               viewBox is simply clipped, so nothing else here needed to
               change.
 
-              Only the tiles inside tileWindow are mounted, though, because
-              tiling alone does NOT reduce total memory — it just divides the
-              same MAP_W×MAP_H×4 bytes across several bitmaps instead of one.
-              At 21 surahs (116 nodes) MAP_H is ~21800dp, which is ~57000
-              physical px on a 1080p phone: 8 tiles totalling ~236MB of
-              bitmap, and ~497MB on a 1440p device. That is at or past the
-              whole app heap, and it's a native allocation — when it fails
-              there's no JS exception to catch, the UI just freezes on the
-              navigator's background colour until the app is force-closed.
-              Mounting only the viewport's own tiles (plus a screen of slack
-              either side, see the scroll listener) keeps this at ~2-3 tiles
-              regardless of how many surahs the map grows to. */}
-          {Array.from({ length: svgBgTileCount }, (_, i) => i)
-            .filter(tileIdx => tileIdx >= tileWindow.start && tileIdx <= tileWindow.end)
-            .map(tileIdx => {
-              const tileTop = tileIdx * SVG_BG_TILE_H;
-              const tileH = Math.min(SVG_BG_TILE_H, MAP_H - tileTop);
-              return (
-                <Svg
-                  key={`bgtile-${tileIdx}`}
-                  width={MAP_W}
-                  height={tileH}
-                  viewBox={`0 ${tileTop} ${MAP_W} ${tileH}`}
-                  style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH, overflow: 'hidden' }]}
-                >
-                  {/* Defs ids scoped per tile AND per mount (mapInstanceId) —
-                      react-native-svg mis-resolves url(#id) references (patterns
-                      silently stop painting, falling back to a flat fill) when
-                      the same id exists more than once at once. tileIdx alone
-                      isn't enough: it always restarts at 0, so a REmount (leave
-                      the map, come back) recreates ids identical to the
-                      previous mount's, which is exactly the collision this
-                      guards against. */}
-                  <Defs>
-                    <Pattern id={`grassPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>
-                      <SvgImage href={GRASS_SRC} x={0} y={0} width={sc(140)} height={sc(140)} preserveAspectRatio="xMidYMid slice" />
-                    </Pattern>
-                    <Pattern id={`brickPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(46)} height={sc(46)}>
-                      <SvgImage href={BRICK_SRC} x={0} y={0} width={sc(46)} height={sc(46)} preserveAspectRatio="xMidYMid slice" />
-                    </Pattern>
-                  </Defs>
+              All tiles for the current chapter mount up front — no
+              scroll-driven virtualization. That used to matter (tiling alone
+              doesn't reduce total memory, and at the old season-based map's
+              max size, 21 surahs, MAP_H was ~21800dp: 8 tiles, ~236MB of
+              bitmap all at once if fully mounted, at or past the whole app
+              heap as a native allocation with no JS exception to catch).
+              Now that a chapter is capped at NODES_PER_CHAPTER, MAP_H tops
+              out around 2-3 tiles regardless of how many surahs exist — the
+              same amount virtualization used to keep resident anyway — so
+              mounting them all costs about the same while removing the
+              window where a tile scrolled into hadn't mounted yet. */}
+          {/* Grass used to be an SVG <Pattern> (see the removed comment this
+              replaces) exactly like the road still is below. That mechanism
+              rasterizes its child <SvgImage> synchronously into a shader the
+              instant a Path needs painting (Brush.java#setupPaint) — if
+              grass.jpg isn't ALREADY in Fresco's decoded-bitmap cache at that
+              exact moment, nothing gets drawn and the blank result is baked
+              into the shader permanently, exposing colors.mapBg (flat green)
+              underneath. Every tile mount is a fresh native ImageView with no
+              memory of prior cache-warmth, so this raced on every fresh tile,
+              worse odds on lower-RAM/slower devices, which is why it showed
+              up on a Huawei phone specifically. Plain Image, done below, sidesteps
+              this entirely: it decodes grass.jpg once and lets Android's own
+              BitmapShader/TileMode.REPEAT do the tiling, the same primitive
+              Pattern uses internally, just without the synchronous-bake step
+              racing an async decode. This is the same fix already applied to
+              SKY_SRC/MOUNTAINS_SRC above ("plain Image doesn't carry the
+              remount bug per-tile SvgImages had") — grass was just left on
+              the old mechanism at the time because Pattern requires an
+              SVG-namespace child, and plain Image isn't one. */}
+          {(() => {
+            const grassPlainTop = SKY_BOUNDARY_Y + sc(20);
+            return Array.from({ length: svgBgTileCount }, (_, i) => i)
+              .map(tileIdx => {
+                const tileTop = tileIdx * SVG_BG_TILE_H;
+                const tileH = Math.min(SVG_BG_TILE_H, MAP_H - tileTop);
+                // The torn/jagged sky-grass seam (GRASS_EDGE_D) only ever
+                // falls inside tile 0 — it's pinned to SKY_BOUNDARY_Y, near
+                // the top of the whole map, not to any per-tile offset.
+                // Below grassPlainTop the shape GRASS_EDGE_D traces is
+                // already a plain rect (see its own comment), so that's the
+                // only sliver that still needs the old Pattern mechanism —
+                // and the plain Image below fully covers it regardless, so
+                // even a repeat of the old bug here is invisible.
+                const grassImgTop = tileIdx === 0 ? grassPlainTop : tileTop;
+                const grassImgH = tileTop + tileH - grassImgTop;
+                return (
+                  <React.Fragment key={`bgtile-${tileIdx}`}>
+                    {tileIdx === 0 && (
+                      <Svg
+                        width={MAP_W}
+                        height={tileH}
+                        viewBox={`0 ${tileTop} ${MAP_W} ${tileH}`}
+                        style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH, overflow: 'hidden' }]}
+                      >
+                        <Defs>
+                          <Pattern id={`grassPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>
+                            <SvgImage href={GRASS_SRC} x={0} y={0} width={sc(140)} height={sc(140)} preserveAspectRatio="xMidYMid slice" />
+                          </Pattern>
+                        </Defs>
+                        <Path d={GRASS_EDGE_D} fill={`url(#grassPattern-${mapInstanceId}-${tileIdx})`} />
+                      </Svg>
+                    )}
 
-                  {/* Grass texture wash — a jagged/torn edge (not a flat cut) where
-                      it meets the sky. Fully opaque — this is the actual ground,
-                      not a faded overlay. */}
-                  <Path d={GRASS_EDGE_D} fill={`url(#grassPattern-${mapInstanceId}-${tileIdx})`} />
+                    {grassImgH > 0 && (
+                      <Image
+                        key={`grass-${tileIdx}-${grassRetry[tileIdx] ?? 0}`}
+                        source={GRASS_SRC}
+                        resizeMode="repeat"
+                        style={{ position: 'absolute', left: 0, top: grassImgTop, width: MAP_W, height: grassImgH }}
+                        onError={() => {
+                          // Capped at 4 retries — on a device this starved
+                          // for memory, retrying forever would just keep
+                          // competing for the same scarce memory instead of
+                          // letting it recover. Give up onto the flat
+                          // colors.mapBg fallback rather than hammering it.
+                          if ((grassRetry[tileIdx] ?? 0) >= 4) return;
+                          // Give the device a moment (GC, whatever else is
+                          // competing for memory) rather than retrying
+                          // instantly into the same failure.
+                          setTimeout(() => {
+                            setGrassRetry(prev => ({ ...prev, [tileIdx]: (prev[tileIdx] ?? 0) + 1 }));
+                          }, 800);
+                        }}
+                      />
+                    )}
 
-                  {/* Road path — brick-textured, carved-in look. Sliced to this
-                      tile's own y-range (see pathDForYRange) rather than
-                      handing every tile the whole road — passing the full
-                      path to every tile was the actual cost, not the tiling
-                      itself. */}
-                  <Pathway d={pathDForYRange(tileTop, tileTop + tileH)} sc={sc} patternId={`brickPattern-${mapInstanceId}-${tileIdx}`} />
-
-                </Svg>
-              );
-            })}
+                    {/* Road — brick-textured, carved-in look. Still Pattern-based
+                        (a curved stroke isn't a shape a plain Image can fill),
+                        so it keeps the same id-scoping guard as before: Defs
+                        ids scoped per tile AND per mount (mapInstanceId) since
+                        react-native-svg mis-resolves url(#id) references
+                        (patterns silently stop painting, falling back to a
+                        flat fill) when the same id exists more than once at
+                        once, and tileIdx alone isn't enough — it always
+                        restarts at 0, so a remount recreates ids identical to
+                        the previous mount's. Sliced to this tile's own
+                        y-range (pathDForYRange) rather than handing every
+                        tile the whole road — passing the full path to every
+                        tile was the actual cost, not the tiling itself. */}
+                    <Svg
+                      width={MAP_W}
+                      height={tileH}
+                      viewBox={`0 ${tileTop} ${MAP_W} ${tileH}`}
+                      style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH, overflow: 'hidden' }]}
+                    >
+                      <Defs>
+                        <Pattern id={`brickPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(46)} height={sc(46)}>
+                          <SvgImage href={BRICK_SRC} x={0} y={0} width={sc(46)} height={sc(46)} preserveAspectRatio="xMidYMid slice" />
+                        </Pattern>
+                      </Defs>
+                      <Pathway d={pathDForYRange(tileTop, tileTop + tileH)} sc={sc} patternId={`brickPattern-${mapInstanceId}-${tileIdx}`} />
+                    </Svg>
+                  </React.Fragment>
+                );
+              });
+          })()}
           {/* Static sky clouds — marking the sky before the road begins */}
           {SKY_CLOUDS.map((c, i) => (
             <Image key={`skycloud${i}`} source={CLOUD_SRC} resizeMode="contain" style={{ position: 'absolute', left: c.x, top: c.y, width: c.w, height: c.h, opacity: 0.9 }} />
@@ -2309,11 +2841,12 @@ export default function MapScreen({ navigation }: Props) {
                       <MapNode
                         status={node.status}
                         stars={node.stars}
-                        pulseAnim={pulseAnim}
                         goldAnim={goldAnim}
                         levelNum={idx}
                         isFetching={node.status === 'pending' && fetchingSurah === section.surahNum}
                         isSpecial={node.isSpecial}
+                        tagLabel={node.id === firstActiveNode?.id ? (hasAnyProgress ? 'Continue here' : 'Begin here') : undefined}
+                        tagPlacement={node.id === firstActiveNode?.id ? nodeTagPlacement(node, section.surahNum) : undefined}
                         S={S}
                       />
                     </TouchableOpacity>
@@ -2328,18 +2861,6 @@ export default function MapScreen({ navigation }: Props) {
               })
             );
           })()}
-
-          {/* Luma — beside the active node, x derived from node position */}
-          {firstActiveNode && (
-            <LumaFloat
-              style={{ position: 'absolute', left: lumaLeft, top: lumaTop }}
-              speech={lumaSpeech}
-              floatAnim={floatAnim}
-              S={S}
-              SB={SB}
-              sc={sc}
-            />
-          )}
 
           {/* Season-gate tap message — "finish the season" if not yet
               eligible, or an Unlock confirm button once it is. Confirming
@@ -2359,7 +2880,6 @@ export default function MapScreen({ navigation }: Props) {
               <View style={{ position: 'absolute', left: g.x + g.w / 2 - sc(70), top: g.y - sc(90), alignItems: 'center' }}>
                 <LumaFloat
                   speech={checking ? 'Checking…' : eligible ? `🎉 ${seasonLabel} complete!` : `Finish ${seasonLabel} to unlock this season!`}
-                  floatAnim={floatAnim}
                   S={S}
                   SB={SB}
                   sc={sc}
@@ -2430,6 +2950,16 @@ export default function MapScreen({ navigation }: Props) {
             );
           })()}
 
+          {/* Reserved space for a short final chapter (curriculum doesn't
+              fill NODES_PER_CHAPTER yet) — see comingSoonY in buildMapModel.
+              Centered on the y it computed, same grass/road tiles behind it
+              as everywhere else, just no nodes here yet. */}
+          {comingSoonY != null && (
+            <View style={[S.comingSoonBanner, { top: comingSoonY - sc(20) }]}>
+              <Text style={S.comingSoonText}>Coming soon!</Text>
+            </View>
+          )}
+
           {/* End of the chapter — both paging signs side by side, parallel to
               where the path itself ends, instead of previous-at-top/
               next-at-bottom. Row is centered and gap-based (not fixed
@@ -2450,7 +2980,6 @@ export default function MapScreen({ navigation }: Props) {
                       style={{ width: sc(108), height: sc(108) / PREVIOUS_STAGE_ASPECT }}
                       resizeMode="contain"
                     />
-                    <Text style={S.chapterSignCaption}>{chapterSeasonLabel(chapterIdx - 1)}</Text>
                   </TouchableOpacity>
                 )}
                 {chapterIdx < CHAPTER_COUNT - 1 && (
@@ -2459,16 +2988,11 @@ export default function MapScreen({ navigation }: Props) {
                     activeOpacity={0.85}
                     onPress={() => goToChapter(chapterIdx + 1, 'top')}
                   >
-                    {/* Floats over the image's top-right corner rather than
-                        stacking above it, so both signs' images stay level
-                        with each other whether or not a badge is present. */}
-                    <View style={S.chapterNewBadgeFloat}><Text style={S.chapterNewBadgeText}>NEW</Text></View>
                     <Image
                       source={NEXT_STAGE_SRC}
                       style={{ width: sc(108), height: sc(108) / NEXT_STAGE_ASPECT }}
                       resizeMode="contain"
                     />
-                    <Text style={S.chapterSignCaption}>{chapterSeasonLabel(chapterIdx + 1)}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -2494,6 +3018,16 @@ export default function MapScreen({ navigation }: Props) {
           onDismiss={() => setFrozenPopupVisible(false)}
         />
       )}
+
+      <AuthRequiredModal
+        visible={guestPromptVisible}
+        title="Create an account"
+        body="Guest streak and XP aren't saved. Create a free account to start banking them for real."
+        ctaLabel="Create account"
+        dismissLabel="Not now"
+        onContinue={() => { setGuestPromptVisible(false); navigation.navigate('SignUp'); }}
+        onDismiss={() => setGuestPromptVisible(false)}
+      />
     </View>
   );
 }

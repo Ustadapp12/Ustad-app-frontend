@@ -35,8 +35,20 @@ import type { TourTargetKey } from './tourSteps';
  * sides. A previous version added `insets.top` here to reconcile the overlay's
  * separate Modal window; that constant was derived on one device and was pure
  * error on any device whose measureInWindow origin differed.
+ *
+ * `extraBottomHeight` (default 0) grows the PUBLISHED rect's height beyond
+ * what was actually measured, without touching the real element or its
+ * layout at all. Added for the tab bar's icon+label cutout (2026-08-28,
+ * user: "account that in too, dont create separate box just increase size
+ * from below including that") — MainTabs' TabIcon only wraps the small icon
+ * chip (the label text is rendered separately by react-navigation's own tab
+ * bar internals, outside that wrapper), so the icon chip is the only thing
+ * this hook can actually measure. Extending the reported height downward
+ * covers the label in the spotlight cutout without wrapping icon+label in a
+ * new container and re-measuring both, which would be the "separate box"
+ * this was explicitly asked not to do.
  */
-export function useTourTarget(key: TourTargetKey, radius: number | 'round') {
+export function useTourTarget(key: TourTargetKey, radius: number | 'round', extraBottomHeight = 0) {
   // Deliberately untyped: this same ref is attached to a plain View (the HUD
   // pills, the lesson header rows, the tab icon chip). All of them expose
   // measureInWindow, which is all this needs, but they share no common
@@ -52,9 +64,11 @@ export function useTourTarget(key: TourTargetKey, radius: number | 'round') {
       // really laid out yet (or has just unmounted). Publishing that would
       // move the spotlight to the top-left corner, which is worse than
       // leaving the previous good rect in place until the next pass.
-      if (width > 0 && height > 0) setRect(key, { x, y, width, height, radius });
+      if (width > 0 && height > 0) {
+        setRect(key, { x, y, width, height: height + extraBottomHeight, radius });
+      }
     });
-  }, [key, radius, setRect]);
+  }, [key, radius, extraBottomHeight, setRect]);
 
   const onLayout = useCallback(() => { measure(); }, [measure]);
 

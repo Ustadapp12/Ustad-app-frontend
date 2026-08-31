@@ -1,5 +1,5 @@
 /**
- * Generate the iOS AppIcon set from assets/images/lumo_transparent.png.
+ * Generate the iOS AppIcon set from assets/images/lumo_kufi.png.
  * Run: node scripts/generate-ios-icons.mjs
  */
 import sharp from 'sharp';
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const src = path.join(root, 'assets', 'images', 'lumo_transparent.png');
+const src = path.join(root, 'assets', 'images', 'lumo_kufi.png');
 const appIconSet = path.join(
   root, 'ios', 'UstadApp', 'Images.xcassets', 'AppIcon.appiconset',
 );
@@ -32,7 +32,7 @@ const SLOTS = [
   { idiom: 'ios-marketing', size: 1024, scale: 1 },
 ];
 
-async function icon(px, padding = 0.16) {
+async function icon(px, padding = 0.24) {
   const inner = Math.round(px * (1 - padding * 2));
   const mascot = await sharp(src)
     .resize(inner, inner, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })

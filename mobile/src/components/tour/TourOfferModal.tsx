@@ -19,13 +19,13 @@ export default function TourOfferModal({ visible, onAccept, onDecline }: Props) 
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDecline}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={{ width: 96, height: 96, marginBottom: 4 }}>
+          <View style={{ width: 112, height: 112, marginBottom: 4 }}>
             <Image
               source={require('../../../assets/images/lumo_transparent.png')}
               style={[styles.lumo, { marginBottom: 0 }]}
               resizeMode="contain"
             />
-            <MascotShadow width={96} />
+            <MascotShadow width={112} />
           </View>
           <Text style={styles.title}>Want a quick tour?</Text>
           <Text style={styles.body}>
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 14,
   },
-  lumo: { width: 96, height: 96, marginBottom: 4 },
+  lumo: { width: 112, height: 112, marginBottom: 4 },
   title: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, marginBottom: 8 },
   body: {
     fontFamily: 'Nunito_400Regular',

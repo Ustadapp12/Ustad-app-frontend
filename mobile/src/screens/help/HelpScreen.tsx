@@ -6,6 +6,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
+import { safeBottomInset } from '../../utils/responsive';
 
 const FAQS = [
   {
@@ -50,7 +51,8 @@ function FaqCard({ q, a, lumaAnim }: { q: string; a: string; lumaAnim: Animated.
 }
 
 export default function HelpScreen() {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const lumaY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -87,7 +89,7 @@ export default function HelpScreen() {
               style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
               resizeMode="contain"
             />
-            <MascotShadow width={88} style={{ position: 'relative', marginTop: -9 }} />
+            <MascotShadow width={105} style={{ position: 'relative', marginTop: -11 }} />
           </View>
         </View>
 
@@ -129,7 +131,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 8, borderBottomWidth: 8, borderLeftWidth: 10,
     borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: 'white',
   },
-  lumaImg: { width: 88, height: 88 },
+  lumaImg: { width: 105, height: 105 },
 
   sectionLabel: {
     fontFamily: 'Nunito_700Bold', fontSize: 10, color: 'rgba(255,255,255,0.5)',

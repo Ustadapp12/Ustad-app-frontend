@@ -9,6 +9,11 @@ import type { RootNavProp } from '../navigation/types';
 interface Props {
   /** What the guest was trying to reach — used to make the pitch specific. */
   feature: string;
+  /** Override the default title/body copy for a specific moment (e.g. the
+   * post-lesson streak pitch) instead of the generic "{feature} needs an
+   * account" phrasing. */
+  title?: string;
+  body?: string;
 }
 
 /**
@@ -22,7 +27,7 @@ interface Props {
  * The tab itself stays tappable — being able to look around and see what's
  * behind the door is the point.
  */
-export default function GuestGate({ feature }: Props) {
+export default function GuestGate({ feature, title, body }: Props) {
   const navigation = useNavigation<RootNavProp>();
   const insets = useSafeAreaInsets();
 
@@ -47,13 +52,13 @@ export default function GuestGate({ feature }: Props) {
           style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatAnim }] }]}
           resizeMode="contain"
         />
-        <MascotShadow width={150} style={{ position: 'relative', marginTop: -15, marginBottom: 12 }} />
+        <MascotShadow width={165} style={{ position: 'relative', marginTop: -17, marginBottom: 12 }} />
 
         <View style={styles.card}>
-          <Text style={styles.title}>Create an account to save your progress</Text>
+          <Text style={styles.title}>{title ?? 'Create an account to save your progress'}</Text>
           <Text style={styles.body}>
-            {feature} needs an account. Sign up free to keep your streak, your XP and
-            everything you memorise. It takes a moment.
+            {body ?? `${feature} needs an account. Sign up free to keep your streak, your XP and
+            everything you memorise. It takes a moment.`}
           </Text>
 
           <TouchableOpacity
@@ -72,7 +77,7 @@ export default function GuestGate({ feature }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg },
   inner: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 40 },
-  lumo: { width: 150, height: 150, marginBottom: 12 },
+  lumo: { width: 165, height: 165, marginBottom: 12 },
   card: {
     backgroundColor: colors.white,
     borderRadius: 22,

@@ -25,7 +25,7 @@ async function writePng(buffer, outPath) {
   await fs.promises.writeFile(outPath, buffer);
 }
 
-async function icon(size, padding = 0.20) {
+async function icon(size, padding = 0.16) {
   const inner = Math.round(size * (1 - padding * 2));
   const mascot = await sharp(src)
     .resize(inner, inner, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
@@ -61,9 +61,18 @@ async function main() {
   // foreground layer survives launcher masking (circle/squircle/etc.) — fill
   // the full 280x280 canvas edge-to-edge and every launcher crops the
   // mascot's extremities. Resize to ~66/108 of the canvas and composite
-  // centered on a transparent 280x280 canvas instead.
+  // centered on a transparent 280x280 canvas instead. Some OEM launchers
+  // (One UI, MIUI, icon packs) zoom the foreground past that spec minimum,
+  // so this still shrinks a little further below the 66dp floor for
+  // real-world margin — 0.92, not the full spec-minimum 1.0, so it stays
+  // consistently uncropped across launchers instead of being sized for only
+  // the strict-spec ones. This is a proportion of the source image, not a
+  // fixed pixel count, so it comes out consistently sized on every density
+  // bucket Android actually renders (mdpi through xxxhdpi) — there's no
+  // per-device special-casing to get "right" here, the density buckets
+  // already are that.
   const FOREGROUND_SIZE = 280;
-  const SAFE_ZONE_SIZE = Math.round(FOREGROUND_SIZE * (66 / 108));
+  const SAFE_ZONE_SIZE = Math.round(FOREGROUND_SIZE * (66 / 108) * 0.92);
   const mascotFg = await sharp(src)
     .resize(SAFE_ZONE_SIZE, SAFE_ZONE_SIZE, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()

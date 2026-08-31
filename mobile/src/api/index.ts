@@ -62,6 +62,26 @@ export const authApi = {
   guest: () =>
     api<AuthResponse>('/auth/guest', { method: 'POST' }, false),
 
+  // Sign in, sign up, and guest conversion all at once — only the server can
+  // tell them apart, by checking whether the verified Google email already has
+  // an account, and it reports which happened via `account_action`.
+  //
+  // auth: true on purpose (note register/login pass false). The caller is
+  // normally a guest, and sending that bearer is what lets the server claim
+  // that exact row instead of orphaning it. api() omits the header when no
+  // token exists, so a genuinely signed-out caller still works.
+  google: (body: {
+    id_token: string;
+    pending_xp: number;
+    pending_streak: number;
+  }) =>
+    api<AuthResponse>(
+      '/auth/google',
+      { method: 'POST', body: JSON.stringify(body) },
+      true,
+      { retryOnNetworkError: true },
+    ),
+
   // Claims the *current* guest account by attaching credentials to the same
   // user row, so level progress survives. pending_xp/pending_streak hand back
   // what the guest earned but was never banked (the server clamps them).
@@ -130,10 +150,13 @@ export const usersApi = {
       body: JSON.stringify(body),
     }),
 
-  deleteAccount: (password: string) =>
+  // Password is optional because Google-only accounts have none. The server
+  // requires it whenever the row does have a password, and otherwise treats a
+  // valid access token as sufficient confirmation.
+  deleteAccount: (password?: string) =>
     api<void>('/users/me/delete', {
       method: 'POST',
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password: password ?? null }),
     }),
 
   updateGender: (gender: 'male' | 'female') =>
@@ -411,21 +434,43 @@ export const progressApi = {
   },
 };
 
+// ── Feedback ─────────────────────────────────────────────────────
+
+export const feedbackApi = {
+  // Guests have a real bearer token (see authApi.guest), so this rides the
+  // default auth: true like any other call and the backend can attach the
+  // submitting user's id when one is present — it never requires it.
+  submit: (body: {
+    message: string;
+    rating?: number; // 1-5, omitted if the user skipped the emoji rating
+    name?: string;
+    email?: string;
+  }) =>
+    api<{ success: boolean }>('/feedback', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+};
+
 // ── Usage sessions ───────────────────────────────────────────────
 // App-foreground-to-background envelope, distinct from a lesson session —
 // see services/usageSession.ts for the AppState wiring that calls these.
 
+// Redeclared rather than imported from usageSession.ts, which imports
+// usageApi from this file — importing the type back would be circular.
+type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'resume';
+
 export const usageApi = {
-  startSession: (body: { platform: string; app_version?: string; device_model?: string }) =>
+  startSession: (body: { platform: string; app_version?: string; device_model?: string; os_version?: string; entry_method?: EntryMethod }) =>
     api<{ session_id: string }>('/usage/sessions', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
 
-  endSession: (sessionId: string) =>
+  endSession: (sessionId: string, body: { last_screen?: string; previous_screen?: string } = {}) =>
     api<{ session_id: string; duration_s: number }>(`/usage/sessions/${sessionId}/end`, {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
     }),
 };
 

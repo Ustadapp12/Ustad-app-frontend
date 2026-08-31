@@ -17,6 +17,36 @@ type SoundLike = {
 
 let activeSound: SoundLike | null = null;
 
+// ── Staleness token ──────────────────────────────────────────────────
+// Root cause of a real production incident (2026-08-28): a user tapped
+// several "play" buttons across several exercises while the network was
+// degraded. Every tap's on-demand `new Sound(url, ...)` load sat buffering
+// -- nothing tracked those in-flight, not-yet-loaded loads at all, only
+// whatever had ALREADY finished loading and become `activeSound`. Calling
+// stopActiveSound() on the next tap stopped the CURRENT sound but had no
+// handle on the earlier ones still buffering in the background. Minutes
+// later, when the network recovered, every one of those stale loads finished
+// buffering within the same window and each one's callback did exactly what
+// it always does: set activeSound and call .play() -- so five unrelated
+// clips, requested on five different exercises, all started playing at
+// once, long after the learner had moved on. LessonSessionScreen.tsx had its
+// own activeExerciseId guard for this, but it checked staleness BEFORE
+// awaiting playAudioUrl (a no-op -- nothing can have changed yet at that
+// point) instead of after, and it only covered calls that went through its
+// own playUrl() wrapper, not this module directly.
+//
+// The real fix has to live here, at the one choke point every play request
+// -- from any screen, any component -- actually passes through. Every call
+// to playAudioUrl() stamps itself with the current token BEFORE any async
+// work starts. The on-demand load path re-checks its stamp the instant the
+// network load finishes, right before the point of no return (.play()) --
+// if a newer request (or an explicit stop) has since bumped the token, the
+// stale one silently releases itself and never plays, never touches
+// activeSound, never flips the "is audio playing" UI state. The preloaded
+// path needs no such check: it calls .play() synchronously, with no window
+// for staleness to develop.
+let playToken = 0;
+
 // ── System-audio playing state ──────────────────────────────────────
 // A simple pub-sub so UI (e.g. the wave animation) can react to actual
 // playback start/stop without every call site having to thread state
@@ -45,6 +75,26 @@ export function isAudioPlaying(): boolean {
 /** Set the playback speed for all subsequent play() calls. 0.75 / 1 / 1.25. */
 export function setPlaybackSpeed(speed: number): void {
   currentSpeed = speed;
+}
+
+/**
+ * Put the process-wide audio session into playback mode.
+ *
+ * Must run before EVERY play, not once at startup: the recorder flips the
+ * shared AVAudioSession into PlayAndRecord and does not put it back, so any
+ * playback after a speak exercise inherits that mode and routes to the
+ * earpiece. Cheap and idempotent, so calling it per play is fine.
+ *
+ * No-op on Android, where the category concept does not exist.
+ */
+function ensurePlaybackCategory(): void {
+  try {
+    const SoundModule = require('react-native-sound');
+    (SoundModule.default ?? SoundModule).setCategory('Playback');
+  } catch {
+    // Native module unavailable (Jest, Expo Go) — playback will fail later
+    // and be reported there; nothing useful to do here.
+  }
 }
 
 function stopActiveSound() {
@@ -115,8 +165,14 @@ export async function preloadAudioUrls(urls: string[]): Promise<void> {
 /** Alias used by expo-originated screens. */
 export const playAudio = playAudioUrl;
 
-/** Stop any currently playing audio. */
+/** Stop any currently playing audio, AND invalidate any still-loading
+ * in-flight request (see playToken's own comment) so it cannot start
+ * playing later once its network load finally finishes. This is the
+ * function every screen-change hook below calls -- it is what makes "leaving
+ * the page" actually mean the audio stops, not just "whatever's audible
+ * right now stops, but three other buffering clips are still queued up." */
 export function stopAudio(): void {
+  playToken++;
   stopActiveSound();
 }
 
@@ -130,6 +186,7 @@ export function pauseAudio(): void {
 /** Resume a paused sound (no-op if nothing paused). */
 export function resumeAudio(): void {
   if (!activeSound) return;
+  ensurePlaybackCategory();
   try { activeSound.play(() => {}); } catch { /* ignore */ }
   setSystemPlaying(true);
 }
@@ -179,12 +236,32 @@ function safeDurationMs(sound: SoundLike): number {
  */
 export async function playAudioUrl(url: string, onStart?: () => void): Promise<void> {
   if (!url) return;
+  // Stamped before ANY async work (including preloadedSounds.get, which is
+  // sync, but the point is this must be the very first thing that happens)
+  // so a later call -- or an explicit stopAudio() -- can invalidate this one
+  // regardless of which branch below it takes.
+  const myToken = ++playToken;
 
   const preloaded = preloadedSounds.get(url) as SoundLike | undefined;
 
   if (preloaded) {
     stopActiveSound();
     try {
+      // iOS: re-assert the Playback category before every play.
+      //
+      // setCategory is a PROCESS-wide AVAudioSession setting, not a per-Sound
+      // one. react-native-audio-recorder-player puts the session into
+      // PlayAndRecord when a speak exercise records, and leaves it there. In
+      // that mode iOS routes output to the receiver, so the next ayah played
+      // back through this path came out of the EARPIECE, quietly, instead of
+      // the speaker — for the rest of the lesson.
+      //
+      // The other two playback paths (preloadAudioUrls and the lazy-load
+      // fallback below) already called this; this one did not, and it is the
+      // path a real lesson always takes, because loadGroup preloads every
+      // clip up front. Android ignores the category entirely, which is why
+      // device testing there never surfaced it.
+      ensurePlaybackCategory();
       preloaded.setCurrentTime(0);
       preloaded.setSpeed(currentSpeed);
       activeSound = preloaded;
@@ -232,6 +309,18 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
           return;
         }
         const s = sound as unknown as SoundLike;
+        // The network load above is the whole reason this path can go
+        // stale -- see playToken's comment. A newer playAudioUrl() call, or
+        // an explicit stopAudio(), bumps the token while this was still
+        // buffering. If that happened, this clip must never reach the
+        // speaker: release it immediately and resolve without touching
+        // activeSound or the "is audio playing" UI state at all, exactly as
+        // if this call had never been made.
+        if (myToken !== playToken) {
+          try { s.release(); } catch { /* ignore */ }
+          resolve();
+          return;
+        }
         s.setSpeed(currentSpeed);
         activeSound = s;
         activeSoundIsPreloaded = false;
@@ -302,6 +391,7 @@ wrongSfx = loadSfx('wrong.wav');
 /** Play the short correct/wrong feedback chime. Fire-and-forget. */
 export function playFeedbackSound(correct: boolean): void {
   try {
+    ensurePlaybackCategory();
     const sfx = correct ? correctSfx : wrongSfx;
     sfx?.stop();
     sfx?.setCurrentTime(0);

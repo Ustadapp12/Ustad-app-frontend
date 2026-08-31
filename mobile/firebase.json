@@ -1,0 +1,7 @@
+{
+  "react-native": {
+    "crashlytics_disable_auto_disabler": true,
+    "crashlytics_javascript_exception_handler_chaining_enabled": true,
+    "google_analytics_automatic_screen_reporting_enabled": false
+  }
+}

@@ -15,6 +15,25 @@ const KEYS = {
   tourSeen: '@ustadapp/tour/seen',
 } as const;
 
+/**
+ * JSON.parse that yields null instead of throwing on a corrupt value.
+ *
+ * Every reader below is on a path the app cannot recover from by crashing:
+ * getStoredUser/getOnboarding run inside hydrate() and the Splash routing
+ * decision, so an unparseable value used to surface as a permanently stuck
+ * Splash screen with no error and no crash report. A wiped preference is a
+ * far better failure than a bricked launch, and AsyncStorage values do get
+ * truncated in practice (process killed mid-write, disk full, OS migration).
+ */
+function safeJsonParse<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
 // In-memory cache + in-flight dedup: getTokens() is called once per parallel
 // API request (e.g. the Map screen fires one per surah via Promise.allSettled).
 // Without this, each call hits the OS Keystore independently, which isn't
@@ -27,18 +46,36 @@ export async function getTokens(): Promise<Tokens | null> {
   if (tokensCache !== undefined) return tokensCache;
   if (!tokensInFlight) {
     tokensInFlight = (async () => {
-      let tokens = await getSecureTokens();
-      if (!tokens) {
-        const legacy = await AsyncStorage.getItem(KEYS.tokensLegacy);
-        if (legacy) {
-          tokens = JSON.parse(legacy) as Tokens;
-          await setSecureTokens(tokens);
-          await AsyncStorage.removeItem(KEYS.tokensLegacy);
+      try {
+        let tokens = await getSecureTokens();
+        if (!tokens) {
+          const legacy = await AsyncStorage.getItem(KEYS.tokensLegacy);
+          if (legacy) {
+            // A half-written or truncated legacy value must not take the whole
+            // app down with it: this runs on the hydrate() critical path, and a
+            // throw here leaves isHydrated false forever (permanent Splash).
+            // Treat unparseable as "no legacy tokens" and drop it.
+            tokens = safeJsonParse<Tokens>(legacy);
+            if (tokens) {
+              await setSecureTokens(tokens);
+            }
+            await AsyncStorage.removeItem(KEYS.tokensLegacy);
+          }
         }
+        tokensCache = tokens;
+        return tokens;
+      } catch {
+        // Keystore/AsyncStorage unavailable. Report "signed out" rather than
+        // rejecting — a rejection would be cached in tokensInFlight below and
+        // re-thrown to every later caller for the rest of the process.
+        return null;
+      } finally {
+        // MUST be in `finally`: leaving this to the success path meant any
+        // throw above stranded a rejected promise in tokensInFlight, and every
+        // subsequent getTokens() re-returned it — so one bad read permanently
+        // un-authenticated every request until the app was force-closed.
+        tokensInFlight = null;
       }
-      tokensCache = tokens;
-      tokensInFlight = null;
-      return tokens;
     })();
   }
   return tokensInFlight;
@@ -52,7 +89,7 @@ export async function setTokens(tokens: Tokens | null): Promise<void> {
 
 export async function getStoredUser(): Promise<User | null> {
   const raw = await AsyncStorage.getItem(KEYS.user);
-  return raw ? (JSON.parse(raw) as User) : null;
+  return safeJsonParse<User>(raw);
 }
 
 export async function setStoredUser(user: User | null): Promise<void> {
@@ -62,7 +99,7 @@ export async function setStoredUser(user: User | null): Promise<void> {
 
 export async function getOnboarding(): Promise<OnboardingAnswers> {
   const raw = await AsyncStorage.getItem(KEYS.onboarding);
-  return raw ? (JSON.parse(raw) as OnboardingAnswers) : {};
+  return safeJsonParse<OnboardingAnswers>(raw) ?? {};
 }
 
 export async function saveOnboarding(patch: Partial<OnboardingAnswers>): Promise<OnboardingAnswers> {
@@ -84,7 +121,8 @@ export async function setOnboardingDone(done: boolean): Promise<void> {
 // user-confirmed unlocks (Season 2, Season 3) live here.
 export async function getUnlockedSeasons(): Promise<number[]> {
   const raw = await AsyncStorage.getItem(KEYS.seasonsUnlocked);
-  return raw ? (JSON.parse(raw) as number[]) : [];
+  const parsed = safeJsonParse<number[]>(raw);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 export async function unlockSeason(seasonIdx: number): Promise<number[]> {
@@ -133,18 +171,41 @@ export async function getReciterId(): Promise<string> {
  * never meant to survive a restart.
  * A user who picks "beginner" is marked done immediately (OnboardPathScreen)
  * and never reaches this function again.
+ *
+ * `serverOnboardingCompleted` is the account-level signal from
+ * profile.onboarding_completed (see types/api.ts UserProfile), fetched fresh
+ * on every hydrate(). It is authoritative once known: the local `done` flag
+ * below is device-scoped AsyncStorage, so it comes back false on every
+ * reinstall/new device even for an account that finished onboarding long
+ * ago — that used to send already-onboarded users back through the entire
+ * flow. Pass it whenever it's known (i.e. the profile has loaded); leave it
+ * `undefined` only when there's no account data to check yet (offline, fetch
+ * failed), which falls back to the local flag as a best-effort cache. Either
+ * way the local flag is kept in sync with the server's answer below, so a
+ * later launch where the network is slow/unavailable still routes correctly.
  */
-export async function getNextOnboardingScreen(): Promise<'OnboardAge' | 'OnboardPath' | null> {
+export async function getNextOnboardingScreen(
+  serverOnboardingCompleted?: boolean,
+): Promise<'OnboardUsername' | 'OnboardPath' | null> {
   const onboarding = await getOnboarding();
-  const isDone = await isOnboardingDone();
+  const isDone = serverOnboardingCompleted ?? await isOnboardingDone();
 
-  if (isDone) return null; // Onboarding complete
+  if (isDone) {
+    if (serverOnboardingCompleted === true) await setOnboardingDone(true);
+    return null; // Onboarding complete
+  }
+  if (serverOnboardingCompleted === false) await setOnboardingDone(false);
 
   if (onboarding.currentStep === 'path' || onboarding.currentStep === 'assessment') {
     return 'OnboardPath'; // Checkpoint B — always restart at the placement question
   }
 
-  return 'OnboardAge'; // Checkpoint A incomplete (or never started) — restart from the top
+  // Checkpoint A incomplete (or never started) — restart from the very top,
+  // which is the username question. This used to return 'OnboardAge', which
+  // meant a resumed onboarding skipped the name step entirely and the account
+  // kept its placeholder display_name ("Learner", or "Guest" on a claimed
+  // guest row) forever.
+  return 'OnboardUsername';
 }
 
 export async function setReciterId(id: string): Promise<void> {

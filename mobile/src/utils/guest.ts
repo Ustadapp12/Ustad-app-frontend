@@ -33,23 +33,23 @@ const KEYS = {
 
 export interface PendingGuestProgress {
   xp: number;
-  streak: number;
 }
 
-/** Accumulates — a guest may finish more than one level before signing up. */
-export async function addPendingGuestProgress(xp: number, streak: number): Promise<void> {
+/**
+ * XP only — a guest's streak is never parked or banked at all (product
+ * decision: a guest's streak always reads as 0/dash everywhere, and signing
+ * up always starts a real streak at day one, never backfilled from whatever
+ * a guest's session showed). XP still accumulates across levels the same way
+ * it always did.
+ */
+export async function addPendingGuestProgress(xp: number): Promise<void> {
   const current = await getPendingGuestProgress();
   await AsyncStorage.setItem(KEYS.pendingXp, String(current.xp + Math.max(xp, 0)));
-  // A streak is a standing total, not something to sum.
-  await AsyncStorage.setItem(KEYS.pendingStreak, String(Math.max(current.streak, streak)));
 }
 
 export async function getPendingGuestProgress(): Promise<PendingGuestProgress> {
-  const [xp, streak] = await Promise.all([
-    AsyncStorage.getItem(KEYS.pendingXp),
-    AsyncStorage.getItem(KEYS.pendingStreak),
-  ]);
-  return { xp: Number(xp) || 0, streak: Number(streak) || 0 };
+  const xp = await AsyncStorage.getItem(KEYS.pendingXp);
+  return { xp: Number(xp) || 0 };
 }
 
 export async function clearPendingGuestProgress(): Promise<void> {

@@ -11,6 +11,16 @@ prepare_react_native_project!
 # @react-native-firebase (static frameworks)
 $RNFirebaseAsStaticFramework = true
 
+# Link FirebaseAnalytics WITHOUT the ad-identifier (IDFA) variant.
+#
+# Without this, CocoaPods resolves FirebaseAnalytics/IdentitySupport, which
+# pulls in GoogleAppMeasurement/IdentitySupport and makes the binary capable of
+# reading the IDFA. PrivacyInfo.xcprivacy declares NSPrivacyTracking = false and
+# there is no NSUserTrackingUsageDescription, so a binary that CAN read the IDFA
+# is inconsistent with what it declares. App Review rejects on exactly that
+# mismatch. We only ever want first-party product analytics, never attribution.
+$RNFirebaseAnalyticsWithoutAdIdSupport = true
+
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
