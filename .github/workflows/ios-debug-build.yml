@@ -108,22 +108,31 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('credentials.json', 'utf8')); console.log('credentials.json is valid JSON')"
 
       - name: Stamp a build number that can't collide with production
-        # eas.json's "development" profile deliberately has NO autoIncrement:
-        # it produced "2" on its very first real run here (2026-09-02), an
-        # exact collision with the already-submitted production build
-        # 1.0.0 (2), which hung eas submit for 40+ minutes against Apple's
-        # servers. Whatever EAS's autoIncrement is actually counting, it is
-        # not the true App Store Connect max, so it isn't trusted here.
-        # 1000 + this workflow's own run number is deterministic, always
-        # increasing, and far outside any range production's own
-        # autoIncrement could plausibly reach.
+        # This is a BARE workflow project (ios/ is committed, not generated
+        # by `expo prebuild`), so the real, actual build number embedded in
+        # the compiled binary is ios/UstadApp.xcodeproj/project.pbxproj's
+        # CURRENT_PROJECT_VERSION — NOT app.json's ios.buildNumber, which
+        # this bare setup never reads at build time. (Confirmed the hard
+        # way 2026-09-02: patching app.json here had zero effect — the
+        # resulting build still carried build# 1, the exact number that had
+        # already hung two prior submissions colliding with each other and
+        # with production's own build 1.0.0 (2).) Info.plist's CFBundleVersion
+        # already references $(CURRENT_PROJECT_VERSION), so patching this one
+        # file is enough. project.pbxproj's checked-in baseline was bumped to
+        # 100 in the same commit as this fix; adding the run number on top
+        # keeps every run's number unique without relying on eas.json
+        # autoIncrement, which was ALSO tried and also collided (see the
+        # git history of this file for the full story).
         run: |
           node -e "
             const fs = require('fs');
-            const appJson = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-            appJson.expo.ios.buildNumber = String(1000 + ${{ github.run_number }});
-            fs.writeFileSync('app.json', JSON.stringify(appJson, null, 2));
-            console.log('ios.buildNumber ->', appJson.expo.ios.buildNumber);
+            const path = 'ios/UstadApp.xcodeproj/project.pbxproj';
+            const build = String(100 + ${{ github.run_number }});
+            const before = fs.readFileSync(path, 'utf8');
+            const after = before.replace(/CURRENT_PROJECT_VERSION = \d+;/g, 'CURRENT_PROJECT_VERSION = ' + build + ';');
+            if (after === before) { throw new Error('CURRENT_PROJECT_VERSION pattern not found — refusing to build with a stale number'); }
+            fs.writeFileSync(path, after);
+            console.log('CURRENT_PROJECT_VERSION ->', build);
           "
 
       - name: Build iOS (development profile — Debug config, store-signed for TestFlight)
