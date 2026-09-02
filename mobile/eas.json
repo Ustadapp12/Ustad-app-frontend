@@ -5,7 +5,6 @@
   "build": {
     "development": {
       "distribution": "store",
-      "autoIncrement": true,
       "ios": {
         "credentialsSource": "local",
         "buildConfiguration": "Debug"

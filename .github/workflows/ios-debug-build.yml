@@ -107,6 +107,25 @@ jobs:
           "
           node -e "JSON.parse(require('fs').readFileSync('credentials.json', 'utf8')); console.log('credentials.json is valid JSON')"
 
+      - name: Stamp a build number that can't collide with production
+        # eas.json's "development" profile deliberately has NO autoIncrement:
+        # it produced "2" on its very first real run here (2026-09-02), an
+        # exact collision with the already-submitted production build
+        # 1.0.0 (2), which hung eas submit for 40+ minutes against Apple's
+        # servers. Whatever EAS's autoIncrement is actually counting, it is
+        # not the true App Store Connect max, so it isn't trusted here.
+        # 1000 + this workflow's own run number is deterministic, always
+        # increasing, and far outside any range production's own
+        # autoIncrement could plausibly reach.
+        run: |
+          node -e "
+            const fs = require('fs');
+            const appJson = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            appJson.expo.ios.buildNumber = String(1000 + ${{ github.run_number }});
+            fs.writeFileSync('app.json', JSON.stringify(appJson, null, 2));
+            console.log('ios.buildNumber ->', appJson.expo.ios.buildNumber);
+          "
+
       - name: Build iOS (development profile — Debug config, store-signed for TestFlight)
         run: eas build --platform ios --profile development --non-interactive
 
