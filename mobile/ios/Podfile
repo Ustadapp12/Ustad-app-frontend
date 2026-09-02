@@ -48,7 +48,14 @@ target 'UstadApp' do
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_config|
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-        if target.name == 'RNFBAnalytics'
+        # Static-frameworks linkage + Clang modules causes React Native Firebase's
+        # ObjC bridge files to lose Objective-C parsing context (RCTBridgeModule
+        # "must be imported... before it is required", then a cascade of
+        # ISO-C99-implicit-int errors on every subsequent method signature).
+        # RNFBAnalytics needed this disabled already; RNFBApp and RNFBCrashlytics
+        # hit the identical failure once a real `pod install` + Xcode build finally
+        # ran (2026-09-01 — this project's first ever, via EAS cloud build).
+        if ['RNFBAnalytics', 'RNFBApp', 'RNFBCrashlytics'].include?(target.name)
           build_config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
         end
       end

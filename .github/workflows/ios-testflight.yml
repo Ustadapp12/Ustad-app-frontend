@@ -7,9 +7,18 @@
 # One-time manual prerequisites (see mobile/docs/FIREBASE_ANALYTICS.md and
 # CHANGES.md 2026-08-10 entry for context):
 #   1. Apple Developer Program enrollment.
-#   2. `eas credentials` run once (interactively) for iOS — lets EAS manage
-#      the distribution certificate + provisioning profile remotely, which is
-#      what makes `eas build --non-interactive` below work without prompts.
+#   2. iOS distribution certificate + App Store provisioning profile for
+#      `com.ustadapp`, generated manually (Certificates, Identifiers &
+#      Profiles) rather than via `eas credentials`'s automatic Apple login —
+#      that login kept failing for this account (2026-08-31, possibly a
+#      Managed Apple ID). Instead: a CSR was generated locally with OpenSSL,
+#      the account owner uploaded it themselves in their own browser to issue
+#      the certificate, and the .p12 (cert + private key, password-protected)
+#      plus .mobileprovision are consumed via EAS's LOCAL credentials mode
+#      (mobile/eas.json's production.ios.credentialsSource = "local", read
+#      from a generated mobile/credentials.json — see the step below that
+#      writes it from secrets). This avoids any Apple login inside CI or
+#      eas-cli entirely.
 #   3. An iOS app registered in the `ustadapp-c21a0` Firebase project, with
 #      GoogleService-Info.plist downloaded and base64'd into the
 #      GOOGLE_SERVICE_INFO_PLIST secret below (same idea as Android's
@@ -25,7 +34,8 @@
 #      Apple ID email (Internal track: no Beta App Review, up to 100 testers).
 #
 # Required repo secrets: EXPO_TOKEN, GOOGLE_SERVICE_INFO_PLIST,
-# ASC_API_KEY_P8, ASC_API_KEY_ID, ASC_API_ISSUER_ID.
+# ASC_API_KEY_P8, ASC_API_KEY_ID, ASC_API_ISSUER_ID, IOS_DISTRIBUTION_P12,
+# IOS_DISTRIBUTION_P12_PASSWORD, IOS_PROVISIONING_PROFILE.
 
 name: iOS TestFlight (Internal)
 
@@ -89,6 +99,39 @@ jobs:
             exit 1
           fi
           echo "$ASC_API_KEY_P8" | base64 -d > asc-api-key.p8
+
+      - name: Install iOS signing credentials (local mode, no Apple login)
+        env:
+          IOS_DISTRIBUTION_P12: ${{ secrets.IOS_DISTRIBUTION_P12 }}
+          IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          if [ -z "$IOS_DISTRIBUTION_P12" ] || [ -z "$IOS_PROVISIONING_PROFILE" ]; then
+            echo "IOS_DISTRIBUTION_P12 / IOS_PROVISIONING_PROFILE secret not set — cannot sign the build." >&2
+            exit 1
+          fi
+          echo "$IOS_DISTRIBUTION_P12" | base64 -d > ios_distribution.p12
+          echo "$IOS_PROVISIONING_PROFILE" | base64 -d > ios_distribution.mobileprovision
+          # Built via Node's JSON.stringify rather than shell string interpolation —
+          # a heredoc would silently break (invalid JSON, or a leaked raw value)
+          # if the password secret ever contains a trailing newline, a quote,
+          # or a backslash. trim() also guards against a newline picked up from
+          # copy-pasting the password out of a text file.
+          node -e "
+            const fs = require('fs');
+            const password = process.env.IOS_DISTRIBUTION_P12_PASSWORD.trim();
+            const config = {
+              ios: {
+                provisioningProfilePath: 'ios_distribution.mobileprovision',
+                distributionCertificate: {
+                  path: 'ios_distribution.p12',
+                  password,
+                },
+              },
+            };
+            fs.writeFileSync('credentials.json', JSON.stringify(config, null, 2));
+          "
+          node -e "JSON.parse(require('fs').readFileSync('credentials.json', 'utf8')); console.log('credentials.json is valid JSON')"
 
       - name: Build iOS (production profile — store distribution, required for TestFlight)
         run: eas build --platform ios --profile production --non-interactive

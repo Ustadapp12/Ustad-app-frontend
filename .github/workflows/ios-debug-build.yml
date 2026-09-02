@@ -1,0 +1,118 @@
+# iOS DEBUG-configuration build, submitted to the same TestFlight Internal
+# Testing group as ios-testflight.yml. Purpose: install ONCE, then iterate on
+# JS/TS with a locally-running Metro server (live reload + logs, no Xcode/Mac)
+# — only re-run this workflow when a NATIVE dependency changes (new native
+# module, Info.plist/entitlement change, etc.), never for plain JS edits.
+#
+# Works because AppDelegate.swift's `bundleURL()` already branches on
+# `#if DEBUG` to load from RCTBundleURLProvider (Metro) instead of the
+# embedded main.jsbundle — that's stock React Native, already in place, no
+# expo-dev-client wiring needed. `mobile/eas.json`'s "development" profile
+# just sets `ios.buildConfiguration: "Debug"` so that branch actually compiles
+# in, while still signing with the normal Distribution cert/profile so it can
+# go through TestFlight like any other build.
+#
+# Reuses every credential/secret from ios-testflight.yml as-is — same Apple
+# Distribution cert, same App Store provisioning profile, same ASC API key,
+# same Internal Testing group. No new Apple portal work.
+#
+# Manually triggered (workflow_dispatch) — run it whenever you need a fresh
+# Debug install on your phone (e.g. after adding a native dependency).
+
+name: iOS Debug Build (Internal Testing)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-debug-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-submit:
+    name: EAS build (development profile) + submit to TestFlight
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install GoogleService-Info.plist
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            echo "GOOGLE_SERVICE_INFO_PLIST secret not set — Firebase Analytics will not initialize on this build." >&2
+            exit 1
+          fi
+          mkdir -p ios/UstadApp
+          echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 -d > ios/UstadApp/GoogleService-Info.plist
+          node scripts/link-firebase-ios.mjs
+
+      - name: Install App Store Connect API key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          if [ -z "$ASC_API_KEY_P8" ]; then
+            echo "ASC_API_KEY_P8 secret not set — cannot submit to TestFlight." >&2
+            exit 1
+          fi
+          echo "$ASC_API_KEY_P8" | base64 -d > asc-api-key.p8
+
+      - name: Install iOS signing credentials (local mode, no Apple login)
+        env:
+          IOS_DISTRIBUTION_P12: ${{ secrets.IOS_DISTRIBUTION_P12 }}
+          IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          if [ -z "$IOS_DISTRIBUTION_P12" ] || [ -z "$IOS_PROVISIONING_PROFILE" ]; then
+            echo "IOS_DISTRIBUTION_P12 / IOS_PROVISIONING_PROFILE secret not set — cannot sign the build." >&2
+            exit 1
+          fi
+          echo "$IOS_DISTRIBUTION_P12" | base64 -d > ios_distribution.p12
+          echo "$IOS_PROVISIONING_PROFILE" | base64 -d > ios_distribution.mobileprovision
+          node -e "
+            const fs = require('fs');
+            const password = process.env.IOS_DISTRIBUTION_P12_PASSWORD.trim();
+            const config = {
+              ios: {
+                provisioningProfilePath: 'ios_distribution.mobileprovision',
+                distributionCertificate: {
+                  path: 'ios_distribution.p12',
+                  password,
+                },
+              },
+            };
+            fs.writeFileSync('credentials.json', JSON.stringify(config, null, 2));
+          "
+          node -e "JSON.parse(require('fs').readFileSync('credentials.json', 'utf8')); console.log('credentials.json is valid JSON')"
+
+      - name: Build iOS (development profile — Debug config, store-signed for TestFlight)
+        run: eas build --platform ios --profile development --non-interactive
+
+      - name: Submit latest build to TestFlight
+        env:
+          EXPO_ASC_API_KEY_PATH: asc-api-key.p8
+          EXPO_ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: eas submit --platform ios --profile development --non-interactive --latest

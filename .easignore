@@ -1,0 +1,104 @@
+# EAS Build uploads the project archive using this file instead of every
+# .gitignore in the repo (root .gitignore AND mobile/.gitignore) — but ONLY
+# when placed at the git repository root. It was previously at
+# mobile/.easignore, which EAS Build never actually read (confirmed against
+# Expo's own docs: ".easignore ... can only be located in the root of your
+# git repository"), so EAS silently fell back to respecting mobile/.gitignore
+# this whole time — which is exactly why ios/UstadApp/GoogleService-Info.plist
+# kept vanishing from the archive even though the CI workflow wrote it to disk
+# right before the build ran ("Build input file cannot be found" in Xcode).
+#
+# This file merges both .gitignore files' rules, rewritten relative to the
+# repo root (mobile/.gitignore's patterns get a mobile/ or mobile/**/ prefix
+# depending on whether they were already anchored), with ONE deliberate
+# omission: the two Firebase config files below are intentionally NOT listed
+# as ignored here, so EAS Build picks them up from local disk when CI writes
+# them from secrets, the same way it already works for the iOS signing
+# credentials (credentials.json / *.p12 / *.mobileprovision), which are
+# handled through eas-cli's separate credentials upload path and were never
+# affected by this bug.
+#
+# Deliberately NOT ignored (must reach the EAS build machine):
+#   android/app/google-services.json
+#   mobile/ios/GoogleService-Info.plist
+#   mobile/ios/UstadApp/GoogleService-Info.plist
+
+# --- from the repo-root .gitignore (already root-relative, copied as-is) ---
+node_modules/
+mobile/node_modules/
+.expo/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/app/.cxx/
+mobile/ios/build/
+mobile/ios/Pods/
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+.idea/
+.vscode/
+*.tsbuildinfo
+
+# --- from mobile/.gitignore, rewritten relative to the repo root ---
+mobile/**/.DS_Store
+mobile/**/build/
+mobile/**/*.pbxuser
+!mobile/**/default.pbxuser
+mobile/**/*.mode1v3
+!mobile/**/default.mode1v3
+mobile/**/*.mode2v3
+!mobile/**/default.mode2v3
+mobile/**/*.perspectivev3
+!mobile/**/default.perspectivev3
+mobile/**/xcuserdata
+mobile/**/*.xccheckout
+mobile/**/*.moved-aside
+mobile/**/DerivedData
+mobile/**/*.hmap
+mobile/**/*.ipa
+mobile/**/*.xcuserstate
+mobile/**/.xcode.env.local
+mobile/**/.idea
+mobile/**/.gradle
+mobile/**/local.properties
+mobile/**/*.iml
+mobile/**/*.hprof
+mobile/**/.cxx/
+mobile/**/*.keystore
+!mobile/**/debug.keystore
+mobile/**/.kotlin/
+mobile/**/npm-debug.log
+mobile/**/yarn-error.log
+mobile/**/fastlane/report.xml
+mobile/**/fastlane/Preview.html
+mobile/**/fastlane/screenshots
+mobile/**/fastlane/test_output
+mobile/android/keystore.properties
+mobile/android/RELEASE_SIGNING_SECRETS.env
+mobile/**/.env
+mobile/**/.env.*
+!mobile/**/.env.example
+mobile/**/credentials.json
+mobile/**/*.jsbundle
+mobile/**/*.bundle
+mobile/**/Pods/
+/mobile/vendor/bundle/
+mobile/**/.metro-health-check*
+/mobile/coverage
+mobile/.yarn/*
+!mobile/.yarn/patches
+!mobile/.yarn/plugins
+!mobile/.yarn/releases
+!mobile/.yarn/sdks
+!mobile/.yarn/versions

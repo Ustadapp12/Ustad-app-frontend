@@ -4,8 +4,11 @@
   },
   "build": {
     "development": {
-      "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "store",
+      "ios": {
+        "credentialsSource": "local",
+        "buildConfiguration": "Debug"
+      }
     },
     "preview": {
       "distribution": "internal"
@@ -19,7 +22,20 @@
   },
   "submit": {
     "production": {
-      "ios": {}
+      "ios": {
+        "ascAppId": "6807111793",
+        "ascApiKeyPath": "asc-api-key.p8",
+        "ascApiKeyId": "SGRPZT7S2V",
+        "ascApiKeyIssuerId": "3bbd0669-03ec-4a9e-9d17-1a7eaf8f1980"
+      }
+    },
+    "development": {
+      "ios": {
+        "ascAppId": "6807111793",
+        "ascApiKeyPath": "asc-api-key.p8",
+        "ascApiKeyId": "SGRPZT7S2V",
+        "ascApiKeyIssuerId": "3bbd0669-03ec-4a9e-9d17-1a7eaf8f1980"
+      }
     }
   }
 }
