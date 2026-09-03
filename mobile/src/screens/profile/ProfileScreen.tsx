@@ -17,6 +17,7 @@ import { isStreakFrozen } from '../../utils/streak';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
 import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
+import ReleaseNotesModal from '../../components/ReleaseNotesModal';
 import type { ScriptPreference } from '../../types/api';
 import type { ProfileNavProp } from '../../navigation/types';
 import { APP_VERSION } from '../../utils/appVersion';
@@ -102,6 +103,7 @@ function ProfileContent({ navigation }: Props) {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [fontModalVisible, setFontModalVisible] = useState(false);
+  const [releaseNotesVisible, setReleaseNotesVisible] = useState(false);
   const [comingSoonVisible, setComingSoonVisible] = useState(false);
 
   const currentFont = FONT_OPTIONS.find(f => f.key === script) ?? FONT_OPTIONS[0];
@@ -340,7 +342,9 @@ function ProfileContent({ navigation }: Props) {
           <Text style={styles.deleteText}>Delete Account</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>v{APP_VERSION}</Text>
+        <TouchableOpacity onPress={() => setReleaseNotesVisible(true)}>
+          <Text style={[styles.versionText, styles.versionTextLink]}>v{APP_VERSION}</Text>
+        </TouchableOpacity>
 
         <View style={{ height: insets.bottom + 24 }} />
       </ScrollView>
@@ -484,6 +488,11 @@ function ProfileContent({ navigation }: Props) {
         onClose={() => setComingSoonVisible(false)}
       />
 
+      <ReleaseNotesModal
+        visible={releaseNotesVisible}
+        onClose={() => setReleaseNotesVisible(false)}
+      />
+
       <AuthRequiredModal
         visible={authPromptVisible}
         title="Create an account"
@@ -588,6 +597,7 @@ function makeStyles(sc: (n: number) => number) {
     },
     deleteText: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.mutedText },
     versionText: { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: colors.mutedText, textAlign: 'center', marginTop: sc(20) },
+    versionTextLink: { textDecorationLine: 'underline' },
     // Delete modal
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: sc(24) },
     modalCard: { backgroundColor: colors.white, borderRadius: sc(20), padding: sc(24), width: '100%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
