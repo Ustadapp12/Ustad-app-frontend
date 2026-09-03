@@ -981,6 +981,12 @@ function makeStyles(M: MapModel) {
   // layout box positions below (top/left/width/height) use real percentage
   // strings since RN resolves those against the card's own fixed dimensions.
   const acw = (fraction: number) => Math.round(ACTION_CARD_W * fraction);
+  // Total diameter of the feedback button's outer ring — also used, as the
+  // same sc(54) literal, at the JSX call site below to compute its
+  // horizontal position (that call site has its own `sc` from the same
+  // model, so the two always agree without sharing a variable across
+  // scopes).
+  const FEEDBACK_FAB_SIZE = sc(54);
   const S = StyleSheet.create({
     // Ground green, not sky blue — this is the fallback fill for whatever
     // isn't covered by the sky backdrop or the map's own content (e.g.
@@ -1003,15 +1009,36 @@ function makeStyles(M: MapModel) {
     },
     hudVal: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: '#DC2626' },
     hudStreakIcon: { width: sc(16), height: sc(16) },
-    // Bottom-right, above the Profile tab (the rightmost of the 4 tabs) and
-    // clear of the 64px tab bar — see TAB_BAR_CONTENT_H's comment above.
-    // zIndex above the loading overlay (20) so it's tappable immediately,
-    // even before the map itself has resolved.
+    // Above the Profile tab (the rightmost of the 4 tabs), close over the
+    // 64px tab bar — `right` itself is computed at the JSX call site (needs
+    // live screen width, not available inside this style factory), this
+    // just carries size/color/shadow. zIndex above the loading overlay (20)
+    // so it's tappable immediately, even before the map itself has resolved.
+    // Vertical gap shrunk from sc(16) to sc(6) (2026-09-03, "bring it down,
+    // its too high") so it reads as sitting right above Profile's icon
+    // rather than floating independently above the tab bar.
     feedbackFab: {
-      position: 'absolute', right: sc(16), bottom: 64 + sc(16), zIndex: 25,
-      width: sc(46), height: sc(46), borderRadius: sc(23),
-      backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+      position: 'absolute', bottom: 64 + sc(6), zIndex: 25,
+      width: FEEDBACK_FAB_SIZE, height: FEEDBACK_FAB_SIZE, borderRadius: FEEDBACK_FAB_SIZE / 2,
+      alignItems: 'center', justifyContent: 'center',
       shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 6,
+    },
+    // Concentric rings, dark-to-light green (app palette, incl. #05966A —
+    // the reference image's own black/gray/white structure restyled into
+    // green) — each ring is 100% of its parent, so nesting three Views of
+    // shrinking fixed size with center alignment draws them as bands
+    // automatically, no manual radius math per ring.
+    feedbackRingOuter: {
+      width: FEEDBACK_FAB_SIZE, height: FEEDBACK_FAB_SIZE, borderRadius: FEEDBACK_FAB_SIZE / 2,
+      backgroundColor: colors.primaryDark, alignItems: 'center', justifyContent: 'center',
+    },
+    feedbackRingMid: {
+      width: FEEDBACK_FAB_SIZE - sc(10), height: FEEDBACK_FAB_SIZE - sc(10), borderRadius: (FEEDBACK_FAB_SIZE - sc(10)) / 2,
+      backgroundColor: '#05966A', alignItems: 'center', justifyContent: 'center',
+    },
+    feedbackRingInner: {
+      width: FEEDBACK_FAB_SIZE - sc(20), height: FEEDBACK_FAB_SIZE - sc(20), borderRadius: (FEEDBACK_FAB_SIZE - sc(20)) / 2,
+      backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
     },
     loadingOverlay: {
       position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -3183,25 +3210,47 @@ export default function MapScreen({ navigation }: Props) {
       </Animated.ScrollView>
 
       {/* Floating feedback button — fixed over the map (outside the
-          ScrollView, so it never scrolls away), bottom-right above the
-          Profile tab. TAB_BAR_CONTENT_H (64) is duplicated from
-          MainTabs.tsx rather than imported: MainTabs imports MapScreen to
-          render the Home tab, so the reverse import would be circular. */}
+          ScrollView, so it never scrolls away). TAB_BAR_CONTENT_H (64) is
+          duplicated from MainTabs.tsx rather than imported: MainTabs
+          imports MapScreen to render the Home tab, so the reverse import
+          would be circular.
+
+          Horizontal position is computed, not a fixed `right` margin: the
+          tab bar's 4 tabs are equal-width flex:1 columns spanning the full
+          screen width with no side padding (see MainTabs.tsx), so the
+          Profile tab's icon sits centered at 7/8 of the screen width —
+          1/8 of the width in from the right edge. Centering this button on
+          that same point (rather than eyeballing a fixed pixel offset)
+          keeps it aligned with Profile across different screen widths.
+          Previously a plain `right: sc(16)` put it near, but not exactly
+          over, the Profile icon. */}
       <TouchableOpacity
-        style={S.feedbackFab}
+        style={[S.feedbackFab, { right: width / 8 - sc(54) / 2 }]}
         activeOpacity={0.8}
         onPress={() => navigation.navigate('Feedback')}
       >
-        {/* Message-bubble-with-lines, outline style — same family as the
-            reference icon (minus the pencil, to stay legible this small). */}
-        <Svg width={sc(24)} height={sc(24)} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-            stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-          />
-          <Line x1={7} y1={9} x2={17} y2={9} stroke="#fff" strokeWidth={1.6} strokeLinecap="round" />
-          <Line x1={7} y1={13} x2={14} y2={13} stroke="#fff" strokeWidth={1.6} strokeLinecap="round" />
-        </Svg>
+        {/* Concentric rings (dark green outer, #05966A middle, white
+            center) instead of the old flat green circle — same structure
+            as the reference image, restyled into the app's own green
+            palette rather than its neutral black/gray/white. */}
+        <View style={S.feedbackRingOuter}>
+          <View style={S.feedbackRingMid}>
+            <View style={S.feedbackRingInner}>
+              {/* Message-bubble-with-lines, outline style — same family as
+                  the reference icon (minus the pencil, to stay legible this
+                  small). Dark stroke now that it sits on the white center
+                  ring instead of a solid green fill. */}
+              <Svg width={sc(20)} height={sc(20)} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                  stroke={colors.primaryDark} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+                />
+                <Line x1={7} y1={9} x2={17} y2={9} stroke={colors.primaryDark} strokeWidth={1.6} strokeLinecap="round" />
+                <Line x1={7} y1={13} x2={14} y2={13} stroke={colors.primaryDark} strokeWidth={1.6} strokeLinecap="round" />
+              </Svg>
+            </View>
+          </View>
+        </View>
       </TouchableOpacity>
 
       <TourOfferModal
