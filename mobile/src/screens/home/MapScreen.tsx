@@ -1094,26 +1094,44 @@ function makeStyles(M: MapModel) {
     // parent instead of being squeezed by it (nothing up the tree clips).
     // `left` and `alignItems` come per-instance from nodeTagPlacement().
     nodeTagWrap: { position: 'absolute', width: NODE_TAG_W },
-    // Beside the node: same vertical center as the node itself. nodeWrapper's
-    // only in-flow child is the node, so the wrapper box is exactly NODE_SIZE
-    // tall and centering here needs no measurement of the tag.
-    nodeTagWrapBeside: { top: 0, height: NODE_SIZE, justifyContent: 'center' },
-    // Above the node, used only when a surah-name scroll occupies the one
-    // side that had room (see nodeTagPlacement). Anchored by `bottom` so the
-    // tag's own height doesn't need to be known: sc(14) of clear air between
-    // the tag's underside and the node's top edge, which also clears the
-    // scroll art's top (it starts sc(8) above the node).
+    // Always above the node now (see nodeTagPlacement) — was previously the
+    // fallback used only when a surah-name scroll blocked both sides.
+    // Anchored by `bottom` so the tag's own height doesn't need to be
+    // known: sc(14) of clear air between the tag's underside and the
+    // node's top edge, which also clears the scroll art's top (it starts
+    // sc(8) above the node).
     nodeTagWrapAbove: { bottom: NODE_SIZE + sc(14) },
     // White with black text always (never tints with Begin/Continue state) so
     // it reads as a clickable label/tooltip rather than a status pill, drawing
     // the eye the way a real callout would. maxWidth matches NODE_TAG_W so the
     // placement test upstream can never disagree with the rendered width.
+    // Faint gold border (2026-09-03) so it reads as a deliberate callout
+    // rather than a plain white chip — subtle enough not to compete with the
+    // gold "completed" node glow elsewhere on the map.
     nodeTag: {
       maxWidth: NODE_TAG_W, backgroundColor: 'white', borderRadius: sc(10),
       paddingHorizontal: sc(9), paddingVertical: sc(4),
+      borderWidth: 1, borderColor: 'rgba(224,188,78,0.55)',
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3, elevation: 4,
     },
     nodeTagText: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#1A1A1A', letterSpacing: 0.2 },
+    // Downward-pointing callout arrow, aimed at the node below — two
+    // stacked CSS-triangles (RN has no native triangle primitive): a
+    // slightly larger gold one behind, a slightly smaller white one
+    // centered on top, so a thin gold sliver reads as the arrow's own
+    // border, matching nodeTag's borderColor above.
+    nodeTagArrowGold: {
+      position: 'absolute', bottom: -sc(7), alignSelf: 'center',
+      width: 0, height: 0,
+      borderLeftWidth: sc(7), borderRightWidth: sc(7), borderTopWidth: sc(7),
+      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: 'rgba(224,188,78,0.55)',
+    },
+    nodeTagArrowFill: {
+      position: 'absolute', bottom: -sc(5.5), alignSelf: 'center',
+      width: 0, height: 0,
+      borderLeftWidth: sc(5.5), borderRightWidth: sc(5.5), borderTopWidth: sc(5.5),
+      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: 'white',
+    },
     starsBadge: { position: 'absolute', bottom: -sc(6), backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: sc(8), paddingHorizontal: sc(4), paddingVertical: sc(1) },
     starsText: { fontSize: sc(8), color: '#FFD700' },
     // alignItems:'stretch' (not 'center') so the Text has a real width to
@@ -1344,7 +1362,7 @@ function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpecial, tag
         <View
           style={[
             S.nodeTagWrap,
-            tagPlacement.above ? S.nodeTagWrapAbove : S.nodeTagWrapBeside,
+            S.nodeTagWrapAbove,
             { left: tagPlacement.left, alignItems: tagPlacement.alignItems },
           ]}
           pointerEvents="none"
@@ -1358,6 +1376,8 @@ function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpecial, tag
             <Text style={S.nodeTagText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
               {tagLabel}
             </Text>
+            <View style={S.nodeTagArrowGold} />
+            <View style={S.nodeTagArrowFill} />
           </View>
         </View>
       )}
@@ -1602,38 +1622,19 @@ export default function MapScreen({ navigation }: Props) {
     return { left, top };
   }
 
-  // Where the "Begin/Continue here" tag goes. Right of the node is the
-  // default, but a side is only usable if the tag both fits inside the map
-  // AND clears that surah's name scroll — which is exactly what was broken:
-  // the scroll is anchored to its section's FIRST node (see SURAH_LABELS) and
-  // the recommended node is very often that same node, so tag and scroll were
-  // laid out on top of each other with neither aware of the other, and the
-  // tag ended up reading as a torn-off label pasted across "Al-Ikhlas".
+  // Where the "Begin/Continue here" tag goes — always centered directly
+  // above the node (2026-09-03: "the continue button should be above the
+  // node, dont change distance between the nodes"). Node layout/spacing is
+  // untouched; this only repositions the tag relative to its own node.
   //
-  // Order of preference: right, then left, then — when the scroll occupies
-  // the only side with room, which really happens (node x-centers are clamped
-  // to 0.20–0.74 of MAP_W, and the scroll always takes whichever side has
-  // MORE room) — above the node, clear of both.
-  function nodeTagPlacement(node: SectionNode, surahNum: number): TagPlacement {
-    const gap = sc(10);
-    const edge = sc(6);
-    const rightX = node.x + NODE_SIZE + gap;
-    const leftX  = node.x - gap - NODE_TAG_W;
-    const label = SURAH_LABELS[surahNum];
-    // Vertical overlap is checked against the node's own band: the tag is
-    // centered on the node and never taller than it.
-    const labelInTheWay = label != null
-      && label.y < node.y + NODE_SIZE
-      && label.y + label.h > node.y;
-    const clearsLabel = (x: number) =>
-      !labelInTheWay || x + NODE_TAG_W <= label!.x || x >= label!.x + label!.w;
-    const beside = (x: number, onLeft: boolean): TagPlacement => ({
-      left: Math.round(x - node.x),
-      alignItems: onLeft ? 'flex-end' : 'flex-start',
-      above: false,
-    });
-    if (rightX + NODE_TAG_W <= MAP_W - edge && clearsLabel(rightX)) return beside(rightX, false);
-    if (leftX >= edge && clearsLabel(leftX)) return beside(leftX, true);
+  // This used to prefer beside-the-node (right, then left) and only fall
+  // back to above when a surah-name scroll blocked both sides — the sc(14)
+  // gap nodeTagWrapAbove reserves above the node already clears that
+  // scroll's own top edge (sc(8) above the node) in every case, which is
+  // exactly why "above" was safe to use as that fallback; going there
+  // unconditionally now carries the same guarantee, so the label-collision
+  // math the beside-based version needed no longer applies.
+  function nodeTagPlacement(): TagPlacement {
     return { left: Math.round((NODE_SIZE - NODE_TAG_W) / 2), alignItems: 'center', above: true };
   }
 
@@ -3052,7 +3053,7 @@ export default function MapScreen({ navigation }: Props) {
                         isFetching={node.status === 'pending' && fetchingSurah === section.surahNum}
                         isSpecial={node.isSpecial}
                         tagLabel={node.id === firstActiveNode?.id ? (hasAnyProgress ? 'Continue here' : 'Begin here') : undefined}
-                        tagPlacement={node.id === firstActiveNode?.id ? nodeTagPlacement(node, section.surahNum) : undefined}
+                        tagPlacement={node.id === firstActiveNode?.id ? nodeTagPlacement() : undefined}
                         S={S}
                       />
                     </TouchableOpacity>
