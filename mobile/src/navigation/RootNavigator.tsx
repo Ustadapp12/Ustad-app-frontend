@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
-import { Alert, BackHandler } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { BackHandler } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../store/authStore';
 import SplashScreen from '../screens/startup/SplashScreen';
 import StreakLostModal from '../components/StreakLostModal';
+import ExitAppModal from '../components/ExitAppModal';
 import { navigationRef } from './navigationRef';
 import { logScreenView } from '../services/analytics';
 import { recordScreenView } from '../services/screenHistory';
@@ -98,13 +99,13 @@ export default function RootNavigator() {
   // fires, since BackHandler calls listeners most-recently-added-first and
   // stops at the first one returning true). At that point Android's default
   // behavior would exit the app immediately with no confirmation — ask first.
+  // Uses the app's own ExitAppModal (Lumo card, Leave/Stay) instead of the
+  // bare native Alert, matching every other confirm dialog in the app.
+  const [exitConfirmVisible, setExitConfirmVisible] = useState(false);
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (navigationRef.current?.canGoBack()) return false;
-      Alert.alert('Exit app', 'Do you want to close the app?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() },
-      ]);
+      setExitConfirmVisible(true);
       return true;
     });
     return () => sub.remove();
@@ -153,6 +154,11 @@ export default function RootNavigator() {
       {streakJustLost !== null && (
         <StreakLostModal priorStreak={streakJustLost} onDismiss={clearStreakJustLost} />
       )}
+      <ExitAppModal
+        visible={exitConfirmVisible}
+        onStay={() => setExitConfirmVisible(false)}
+        onLeave={() => BackHandler.exitApp()}
+      />
       <Stack.Navigator
         initialRouteName="Splash"
         screenOptions={{

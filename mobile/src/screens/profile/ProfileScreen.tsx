@@ -18,6 +18,7 @@ import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
 import type { ScriptPreference } from '../../types/api';
 import type { ProfileNavProp } from '../../navigation/types';
+import { APP_VERSION } from '../../utils/appVersion';
 
 interface Props { navigation: ProfileNavProp }
 
@@ -339,6 +340,8 @@ function ProfileContent({ navigation }: Props) {
           <Text style={styles.deleteText}>Delete Account</Text>
         </TouchableOpacity>
 
+        <Text style={styles.versionText}>v{APP_VERSION}</Text>
+
         <View style={{ height: insets.bottom + 24 }} />
       </ScrollView>
 
@@ -585,6 +588,7 @@ function makeStyles(sc: (n: number) => number) {
       alignItems: 'center',
     },
     deleteText: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.mutedText },
+    versionText: { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: colors.mutedText, textAlign: 'center', marginTop: sc(20) },
     // Delete modal
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: sc(24) },
     modalCard: { backgroundColor: colors.white, borderRadius: sc(20), padding: sc(24), width: '100%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },

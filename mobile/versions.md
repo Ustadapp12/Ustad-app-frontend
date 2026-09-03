@@ -76,3 +76,90 @@ OneDrive (kept the BuildProjects version, did not overwrite). package.json
 unchanged, so node_modules/patches were not re-copied. Verified post-build via
 aapt2 on the extracted base module: versionCode/versionName landed correctly,
 JS bundle (3.87MB) contains current-source strings, not stale.
+
+**26090101** / 1.0.26 — AAB — 2026-09-01 — Backend on **testing**
+(ustad-app-backend-testing.vercel.app), not production — unchanged, no
+explicit switch requested. Two source changes: (1) MapScreen.tsx — every
+currently-open map node (not just the backend-recommended one) now renders a
+breathing color-matched glow behind it, gray for normal levels / green for
+special-review ones; (2) MainTabs.tsx — removed `insets.bottom` entirely from
+the tab bar's height/padding calc (was reserving space for the Android nav
+bar even though it persists on screen on the user's real device instead of
+actually staying hidden — see changes-2026-09-01.md for the root-cause trace
+through `edgeToEdgeEnabled=true` in gradle.properties). Tab bar is now a flat
+64px with 0 bottom padding, always. `android/` diffed clean against source
+(only the known splash_logo.png/local-build-artifact noise). Verified
+post-build: `versionCode="26090101" versionName="1.0.26"` confirmed in the
+pre-compiled bundle manifest
+(`intermediates/bundle_manifest/release/.../AndroidManifest.xml`); JS bundle
+(`generated/assets/react/release/index.android.bundle`, timestamp 13:39:48)
+confirmed generated *after* both edited source files were synced (13:15,
+13:30) and Metro's own log showed a real fresh bundle run, not
+up-to-date/cached.
+
+Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`
+
+**26090101** / 1.0.26 — APK — 2026-09-01 — same source as the AAB above
+(same versionCode reused — for direct device-install testing of the tab-bar
+padding removal and glow changes, not a separate release). Backend on
+testing. Verified via `aapt2 dump badging`: versionCode/versionName landed
+correctly.
+
+Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\apk\release\app-release.apk`
+
+**26090102** / 1.0.27 — AAB — 2026-09-01 — Backend on **testing**
+(ustad-app-backend-testing.vercel.app) — explicitly confirmed by the user
+for this build, unchanged. Adds one more source change on top of 1.0.26:
+replaced the native `Alert.alert` app-exit confirmation with a custom
+Lumo-card popup (new `src/components/ExitAppModal.tsx`, wired into
+`RootNavigator.tsx`) — Leave (red, left) / Stay (green, right), per explicit
+user request. `android/` unchanged since the last diff check. Verified
+post-build: `versionCode="26090102" versionName="1.0.27"` confirmed in the
+pre-compiled bundle manifest; JS bundle (`index.android.bundle`, timestamp
+14:37:21) confirmed generated after `RootNavigator.tsx` (14:10:46) and
+`ExitAppModal.tsx` (14:10:24) were synced, and Metro's own log showed a real
+fresh bundle run.
+
+Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`
+
+**26090118** / 1.0.28 — AAB — 2026-09-01 — Backend on **testing**
+(ustad-app-backend-testing.vercel.app), unchanged. Full batch from this
+session: Profile screen version footer (new `src/utils/appVersion.ts`,
+reads `process.env.VERSION_NAME` inlined via a new
+`babel-plugin-transform-inline-environment-variables` devDependency —
+added to `babel.config.js` and installed in **both** OneDrive and
+BuildProjects node_modules, since neither is covered by the src/assets
+robocopy sync); MapScreen node-glow shrunk (1.4x/1.75x → 1.14x/1.32x of
+NODE_SIZE, lower opacity/shadow) plus a 1.06x "pop" scale on open nodes;
+MapScreen AppState foreground-refresh fix — the map previously only
+re-fetched after a lesson session ended, never on a plain
+background-to-foreground reopen, which is what let stale `fullLevels`/
+`recommended` render a "Continue here" tag next to a still-locked-looking
+node until a manual pull-to-refresh corrected it; new floating
+feedback-icon button on MapScreen (bottom-right, above the Profile tab,
+outline message-bubble SVG icon, opens the same Feedback screen as
+Profile's own entry, unguarded so guests can use it too); SplashScreen
+status-message interval 1200ms → 2200ms; LessonSessionScreen —
+`read_ayah_and_speak`/`read_and_speak` exercise cards now show
+"· Verse N" (every other exercise type already had it; these two were
+the only ones missing it).
+
+Verified post-build: JS bundle is Hermes bytecode, generated 18:35 (after
+every touched source file was synced by 18:13); `versionCode="26090118"
+versionName="1.0.28" package="com.ustadapp"` confirmed in the
+pre-compiled bundle manifest; bundle content directly checked — the
+literal `"1.0.28"` string is present (confirms the new env-var inlining
+actually substituted, not just silently fell back to the "1.0.0"
+default), zero leftover `"VERSION_NAME"` text (clean substitution, no
+broken reference), `"feedbackFab"` string present (confirms MapScreen's
+new code compiled in, not a stale cached bundle). `signReleaseBundle` ran
+against the real release keystore (`keystore.properties` present) — not
+debug-signed.
+
+Not independently verified this session: actual on-device behavior of the
+AppState foreground-refresh fix and the version-footer display — both are
+new logic that should be exercised on a real phone (ideally via the
+closed-testing track, same as the Dua stale-build incident) before being
+treated as confirmed working, not just "builds clean."
+
+Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`

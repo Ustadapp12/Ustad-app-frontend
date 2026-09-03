@@ -32,7 +32,7 @@ const SPLASH_MESSAGES = [
   'Preparing your journey…',
   'Almost there…',
 ];
-const SPLASH_MESSAGE_MS = 1200;
+const SPLASH_MESSAGE_MS = 2200;
 
 interface Props {
   navigation: RootNavProp;

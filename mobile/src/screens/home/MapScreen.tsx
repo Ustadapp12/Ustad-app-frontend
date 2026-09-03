@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback, useReducer } from 'react';
 import {
   View, Text, StyleSheet, Animated, useWindowDimensions, Image, ActivityIndicator, TouchableOpacity,
-  ScrollView, RefreshControl, type ImageSourcePropType,
+  ScrollView, RefreshControl, AppState, type ImageSourcePropType,
 } from 'react-native';
 import Svg, {
-  Defs, Path, G, Pattern, Image as SvgImage,
+  Defs, Path, G, Pattern, Image as SvgImage, Line,
 } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1003,6 +1003,16 @@ function makeStyles(M: MapModel) {
     },
     hudVal: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: '#DC2626' },
     hudStreakIcon: { width: sc(16), height: sc(16) },
+    // Bottom-right, above the Profile tab (the rightmost of the 4 tabs) and
+    // clear of the 64px tab bar — see TAB_BAR_CONTENT_H's comment above.
+    // zIndex above the loading overlay (20) so it's tappable immediately,
+    // even before the map itself has resolved.
+    feedbackFab: {
+      position: 'absolute', right: sc(16), bottom: 64 + sc(16), zIndex: 25,
+      width: sc(46), height: sc(46), borderRadius: sc(23),
+      backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 6,
+    },
     loadingOverlay: {
       position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
       alignItems: 'center', justifyContent: 'center',
@@ -1016,6 +1026,25 @@ function makeStyles(M: MapModel) {
     // No top/left set, so `node`'s own alignItems/justifyContent:'center'
     // still centers this larger box — no manual offset math needed.
     nodeImgRecommendedSpecial: { width: NODE_SIZE * 1.3, height: NODE_SIZE * 1.3 },
+    // Halo behind every currently-open (unlocked, not yet completed) node,
+    // color-matched to what the node itself is — gray for a normal level,
+    // green for a special/review one — so "you can play this right now"
+    // reads at a glance across the whole map, not just on the one
+    // backend-recommended node (that one keeps its separate "Begin/Continue
+    // here" tag on top). Sized bigger for special nodes since their own
+    // image (recommendedSpecial) already renders at 1.3x NODE_SIZE.
+    // Tightened 2026-09-01 (user: original was "too ugly and too big") — a
+    // close highlight ring hugging the node's own edge, not a diffuse halo.
+    nodeGlowNormal: {
+      position: 'absolute', width: NODE_SIZE * 1.14, height: NODE_SIZE * 1.14, borderRadius: NODE_SIZE * 0.57,
+      backgroundColor: 'rgba(176,184,200,0.35)',
+      shadowColor: colors.nodeLocked, shadowOpacity: 0.55, shadowRadius: sc(5), shadowOffset: { width: 0, height: 0 }, elevation: 4,
+    },
+    nodeGlowSpecial: {
+      position: 'absolute', width: NODE_SIZE * 1.32, height: NODE_SIZE * 1.32, borderRadius: NODE_SIZE * 0.66,
+      backgroundColor: 'rgba(42,125,79,0.32)',
+      shadowColor: colors.primary, shadowOpacity: 0.55, shadowRadius: sc(6), shadowOffset: { width: 0, height: 0 }, elevation: 4,
+    },
     nodeShadow: {
       position: 'absolute', bottom: -sc(4), width: NODE_SIZE * 0.8, height: sc(10), borderRadius: sc(6),
       backgroundColor: 'rgba(0,0,0,0.25)', left: NODE_SIZE * 0.1,
@@ -1251,6 +1280,16 @@ function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpecial, tag
   S: Styles['S'];
 }) {
   const goldScale  = goldAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
+  // Open = unlocked and playable right now, whether or not it's the one
+  // backend-recommended node — every open node glows, not just that one.
+  // Locked and completed nodes never do: locked has nothing to invite the
+  // player toward yet, and completed already has its own gold pop (goldScale
+  // above) as its "done" cue.
+  const isOpen = status !== 'locked' && status !== 'completed';
+  // Reuses goldAnim (already looping continuously for the completed pop)
+  // to breathe the glow's opacity instead of starting a second animation
+  // loop per node.
+  const glowOpacity = goldAnim.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] });
   // Special/review (collective) node art, by status:
   //   completed → gold special_done.png
   //   locked    → plain green node_current.png. Green keeps it visually
@@ -1299,7 +1338,16 @@ function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpecial, tag
       <Animated.View style={[
         S.node,
         status === 'completed' && { transform: [{ scale: goldScale }] },
+        // Open nodes sit a touch larger than locked ones — a "pop out" cue
+        // that reads even with the glow now much smaller (2026-09-01).
+        isOpen && { transform: [{ scale: 1.06 }] },
       ]}>
+        {isOpen && (
+          <Animated.View
+            pointerEvents="none"
+            style={[isSpecial ? S.nodeGlowSpecial : S.nodeGlowNormal, { opacity: glowOpacity }]}
+          />
+        )}
         {/* recommended_special.png has substantially more baked-in
             transparent padding around its badge than every other node's
             art (node_current.png, node_locked.png, etc.) — at the same
@@ -1771,6 +1819,35 @@ export default function MapScreen({ navigation }: Props) {
       setRefreshing(false);
     }
   }, [learning]);
+
+  // MapScreen only mounts once for the app's lifetime (see the comments on
+  // lastVisitedSurah/the focus-effect above), so the initial-load effect
+  // below never runs again after the very first open. The ONLY other refresh
+  // path was the focus-effect a few lines up, gated on lastVisitedSurah —
+  // which is set exclusively by completeSession/abandonSession. Reopening
+  // the app from the background WITHOUT having just finished or left a
+  // lesson (e.g. just switching away and back, or a real cold start where
+  // this component instance survives) hit neither path: fullLevels,
+  // getCachedRecommended(), and unlockedSeasons kept showing whatever was
+  // already in memory, however old, with nothing to re-validate it against
+  // the backend — reported 2026-09-01 as "Continue here" landing next to a
+  // node that still rendered locked, self-correcting only on a manual
+  // pull-to-refresh. Re-running the same handleRefresh() pull-to-refresh
+  // uses (recommendedNext + current-surah levels + every already-loaded
+  // surah, all from the network, none from cache) on every real
+  // background-to-foreground transition closes that gap, and reuses the
+  // exact same RefreshControl spinner as the visible "still loading" signal.
+  const appStateRef = useRef(AppState.currentState);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      const prev = appStateRef.current;
+      appStateRef.current = next;
+      if (next === 'active' && prev.match(/inactive|background/)) {
+        void handleRefresh();
+      }
+    });
+    return () => sub.remove();
+  }, [handleRefresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3002,6 +3079,28 @@ export default function MapScreen({ navigation }: Props) {
           </View>
         </View>
       </Animated.ScrollView>
+
+      {/* Floating feedback button — fixed over the map (outside the
+          ScrollView, so it never scrolls away), bottom-right above the
+          Profile tab. TAB_BAR_CONTENT_H (64) is duplicated from
+          MainTabs.tsx rather than imported: MainTabs imports MapScreen to
+          render the Home tab, so the reverse import would be circular. */}
+      <TouchableOpacity
+        style={S.feedbackFab}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('Feedback')}
+      >
+        {/* Message-bubble-with-lines, outline style — same family as the
+            reference icon (minus the pencil, to stay legible this small). */}
+        <Svg width={sc(24)} height={sc(24)} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+            stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+          />
+          <Line x1={7} y1={9} x2={17} y2={9} stroke="#fff" strokeWidth={1.6} strokeLinecap="round" />
+          <Line x1={7} y1={13} x2={14} y2={13} stroke="#fff" strokeWidth={1.6} strokeLinecap="round" />
+        </Svg>
+      </TouchableOpacity>
 
       <TourOfferModal
         visible={tourOfferVisible}

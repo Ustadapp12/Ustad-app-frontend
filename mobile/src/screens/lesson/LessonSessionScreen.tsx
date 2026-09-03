@@ -1856,7 +1856,7 @@ function ReadAyahAndSpeak({
             <View style={EX.bubbleTail} />
             <Text style={EX.characterName}>Ustad {character.name} says:</Text>
             <Text style={EX.bubbleText}>{speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT['read_ayah_and_speak']}</Text>
-            <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
+            <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
           </View>
         </View>
 
@@ -2156,7 +2156,7 @@ export function ReadAndSpeak({
             <View style={EX.bubbleTail} />
             <Text style={EX.characterName}>Ustad {character.name} says:</Text>
             <Text style={EX.bubbleText}>{speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT['read_and_speak']}</Text>
-            <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
+            <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
           </View>
         </View>
 
@@ -2934,7 +2934,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           }
         }
         submitLockRef.current = false;
-        setSubmitting(false);
       };
 
       // Speak exercises handle their own result UI internally; advance
@@ -2947,10 +2946,12 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
 
       if (immediateAdvance) {
         void advanceFn();
+        setSubmitting(false);
       } else {
         // Show feedback banner; user presses Continue / GOT IT to advance
         pendingAdvanceFn.current = advanceFn;
         setFeedback(result);
+        setSubmitting(false);
       }
     } catch (e: any) {
       // Defensive reset, not an active retry path: every branch below ends by
