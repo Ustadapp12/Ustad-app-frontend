@@ -10,6 +10,7 @@ import { useAuthStore } from './src/store/authStore';
 import { useLessonStore } from './src/store/lessonStore';
 import RootNavigator from './src/navigation/RootNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import AndroidKeyboardDoneBar from './src/components/AndroidKeyboardDoneBar';
 
 const LEARNING_ME_POLL_MS = 60_000;
 
@@ -98,6 +99,7 @@ function App() {
       <SafeAreaProvider>
         <ErrorBoundary>
           <RootNavigator />
+          <AndroidKeyboardDoneBar />
         </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
