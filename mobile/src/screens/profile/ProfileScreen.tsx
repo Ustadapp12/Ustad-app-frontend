@@ -12,12 +12,15 @@ import { PRIVACY_URL, TERMS_URL } from '../../config';
 import PasswordInput from '../../components/PasswordInput';
 import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
 import { isGuest } from '../../utils/guest';
-import { characterSrcFor } from '../../utils/avatar';
+import { characterSrcFor, avatarSrcsForGender, currentAvatarVariantIndex } from '../../utils/avatar';
+import { usersApi } from '../../api';
+import { ApiError } from '../../api/client';
 import { isStreakFrozen } from '../../utils/streak';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
 import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
 import ReleaseNotesModal from '../../components/ReleaseNotesModal';
+import AvatarPickerModal from '../../components/AvatarPickerModal';
 import type { ScriptPreference } from '../../types/api';
 import type { ProfileNavProp } from '../../navigation/types';
 import { APP_VERSION } from '../../utils/appVersion';
@@ -56,7 +59,7 @@ function GuestAvatarIcon({ size }: { size: number }) {
 function ProfileContent({ navigation }: Props) {
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
-  const { user, learning, profile, logout, deleteAccount } = useAuthStore();
+  const { user, learning, profile, logout, deleteAccount, updateProfileFields } = useAuthStore();
   const { script, setScript } = useScriptStore();
   const sc = useResponsiveScale();
   const styles = useMemo(() => makeStyles(sc), [sc]);
@@ -92,8 +95,28 @@ function ProfileContent({ navigation }: Props) {
   // characterSrcFor falls back to the male pool rather than always
   // defaulting to one specific character. Same user id it was assigned
   // under at Welcome, so this is always the one they were introduced to,
-  // never a fresh pick.
-  const avatarSrc = characterSrcFor(user?.id ?? '', profile?.gender);
+  // never a fresh pick — unless profile.avatar_variant is set, in which
+  // case that explicit choice always wins.
+  const avatarSrc = characterSrcFor(user?.id ?? '', profile?.gender, profile?.avatar_variant);
+
+  const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+
+  async function handleSaveAvatarVariant(variant: number) {
+    setAvatarSaving(true);
+    try {
+      await usersApi.updateAvatarVariant(variant);
+      updateProfileFields({ avatar_variant: variant });
+      setAvatarPickerVisible(false);
+    } catch (e) {
+      Alert.alert(
+        'Something went wrong',
+        e instanceof ApiError ? e.message : 'Could not save your avatar. Please try again.',
+      );
+    } finally {
+      setAvatarSaving(false);
+    }
+  }
 
   const displayName = user?.name ?? 'Learner';
   const initials = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -176,7 +199,7 @@ function ProfileContent({ navigation }: Props) {
                 />
               )}
             </View>
-            <TouchableOpacity style={styles.editBadge} onPress={() => guarded(comingSoon)}>
+            <TouchableOpacity style={styles.editBadge} onPress={() => guarded(() => setAvatarPickerVisible(true))}>
               <Text style={{ fontSize: sc(18) }}>✏️</Text>
             </TouchableOpacity>
           </View>
@@ -492,6 +515,17 @@ function ProfileContent({ navigation }: Props) {
         visible={releaseNotesVisible}
         onClose={() => setReleaseNotesVisible(false)}
       />
+
+      {!isGuestUser && (
+        <AvatarPickerModal
+          visible={avatarPickerVisible}
+          variantSrcs={avatarSrcsForGender(profile?.gender)}
+          initialVariant={currentAvatarVariantIndex(user?.id ?? '', profile?.avatar_variant)}
+          saving={avatarSaving}
+          onSave={handleSaveAvatarVariant}
+          onClose={() => setAvatarPickerVisible(false)}
+        />
+      )}
 
       <AuthRequiredModal
         visible={authPromptVisible}

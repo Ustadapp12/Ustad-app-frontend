@@ -226,6 +226,11 @@ export interface UserProfile {
   gender: 'male' | 'female' | null;
   age: number | null;
   timezone: string | null;
+  /** Which of the 2 same-gender avatar art variants the user picked (0 or
+   * 1, indexing utils/avatar.ts's MALE_SRCS/FEMALE_SRCS) — null means no
+   * explicit choice yet, so characterSrcFor() falls back to its existing
+   * deterministic hash-of-user-id pick. */
+  avatar_variant: number | null;
   /** Server-side "has this account finished onboarding" flag — the
    * authoritative source SplashScreen's routing checks, unlike the
    * device-local flag in utils/storage.ts which resets on every

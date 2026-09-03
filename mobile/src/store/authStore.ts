@@ -392,7 +392,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       profile: {
         display_name: null, avatar_url: null, learner_mode: null, script_preference: null,
         daily_goal_minutes: null, streak_goal_days: null, motivation: null, gender: null, age: null,
-        timezone: null, onboarding_completed: false,
+        timezone: null, onboarding_completed: false, avatar_variant: null,
         ...state.profile,
         ...patch,
       },
@@ -409,7 +409,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const profileDefaults: UserProfile = {
         display_name: null, avatar_url: null, learner_mode: null, script_preference: null,
         daily_goal_minutes: null, streak_goal_days: null, motivation: null, gender: null, age: null,
-        timezone: null, onboarding_completed: false,
+        timezone: null, onboarding_completed: false, avatar_variant: null,
       };
       return {
         user,

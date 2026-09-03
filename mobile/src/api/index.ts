@@ -176,6 +176,12 @@ export const usersApi = {
       method: 'PATCH',
       body: JSON.stringify({ name }),
     }),
+
+  updateAvatarVariant: (avatar_variant: number) =>
+    api<{ avatar_variant: number }>('/users/me/avatar-variant', {
+      method: 'PATCH',
+      body: JSON.stringify({ avatar_variant }),
+    }),
 };
 
 /** PATCH profile only when logged in — safe during pre-auth onboarding. */
