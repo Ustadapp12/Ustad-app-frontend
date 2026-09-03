@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback, useReducer } from 'react';
 import {
   View, Text, StyleSheet, Animated, useWindowDimensions, Image, ActivityIndicator, TouchableOpacity,
-  ScrollView, RefreshControl, AppState, type ImageSourcePropType,
+  ScrollView, RefreshControl, AppState, Platform, type ImageSourcePropType,
 } from 'react-native';
 import Svg, {
-  Defs, Path, G, Pattern, Image as SvgImage, Line,
+  Defs, Path, G, Pattern, Image as SvgImage, Line, Rect,
 } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -2818,7 +2818,41 @@ export default function MapScreen({ navigation }: Props) {
                       </Svg>
                     )}
 
-                    {grassImgH > 0 && (
+                    {/* iOS-only branch: Image's resizeMode="repeat" tiles
+                        GRASS_SRC at its raw 640x640px size in POINTS,
+                        ignoring density scaling entirely (a documented RN/
+                        iOS quirk — Android's own Image implementation does
+                        NOT have this problem, see the plain-Image branch
+                        below). On a 3x-density iPhone that's a ~640pt tile
+                        against a ~390-430pt-wide screen — one repeat
+                        spanning more than the whole visible width, reported
+                        2026-09-03 as "the grass looks way too big on iOS."
+                        Pattern (already used above for tile 0's jagged sky
+                        seam) lets the tile size be set explicitly in scaled
+                        points instead, same sc(140) every other grass
+                        reference on this screen uses, so it matches
+                        Android's actual on-screen tile size instead of
+                        whatever iOS's repeat happens to render. Safe to use
+                        here specifically because the synchronous-bake-vs-
+                        async-decode race that made Pattern unusable for
+                        grass on Android (see the big comment above — Fresco,
+                        Brush.java#setupPaint) is an Android/Fresco-specific
+                        mechanism; iOS's SVG renderer doesn't share it. */}
+                    {grassImgH > 0 && Platform.OS === 'ios' && (
+                      <Svg
+                        width={MAP_W}
+                        height={grassImgH}
+                        style={{ position: 'absolute', left: 0, top: grassImgTop }}
+                      >
+                        <Defs>
+                          <Pattern id={`grassPatternIOS-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>
+                            <SvgImage href={GRASS_SRC} x={0} y={0} width={sc(140)} height={sc(140)} preserveAspectRatio="xMidYMid slice" />
+                          </Pattern>
+                        </Defs>
+                        <Rect x={0} y={0} width={MAP_W} height={grassImgH} fill={`url(#grassPatternIOS-${mapInstanceId}-${tileIdx})`} />
+                      </Svg>
+                    )}
+                    {grassImgH > 0 && Platform.OS !== 'ios' && (
                       <Image
                         key={`grass-${tileIdx}-${grassRetry[tileIdx] ?? 0}`}
                         source={GRASS_SRC}
