@@ -1,5 +1,6 @@
 ﻿import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, ActivityIndicator, Linking } from 'react-native';
+import LottieView from 'lottie-react-native';
 import Svg, { Circle, Ellipse } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
@@ -12,7 +13,7 @@ import PasswordInput from '../../components/PasswordInput';
 import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
 import { isGuest } from '../../utils/guest';
 import { characterSrcFor } from '../../utils/avatar';
-import { isStreakFrozen, STREAK_ACTIVE_EMOJI, STREAK_FROZEN_ICON, freezeDaysLabel } from '../../utils/streak';
+import { isStreakFrozen } from '../../utils/streak';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
 import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
@@ -198,13 +199,28 @@ function ProfileContent({ navigation }: Props) {
 
         {/* Stats grid */}
         <View style={styles.statsGrid}>
-          <View style={styles.statCell}>
-            {isStreakFrozen(learning?.streak_state)
-              ? <Image source={STREAK_FROZEN_ICON} style={styles.statIcon} resizeMode="contain" />
-              : <Text style={styles.statEmoji}>{STREAK_ACTIVE_EMOJI}</Text>}
+          <TouchableOpacity
+            style={styles.statCell}
+            activeOpacity={0.7}
+            onPress={() => guarded(() => navigation.navigate('Streak'))}
+          >
+            {/* Animated flame, not the old static emoji/frozen-icon — same
+                streak.json/streak_frozen.json Lottie pair StreakScreen's own
+                hero animation uses, just at settings-icon scale. Tappable
+                now too, replacing the separate "Streak & Rewards" row that
+                used to live in the LEARNING section below (removed —
+                redundant with this once it does the same thing). */}
+            <LottieView
+              renderMode="SOFTWARE"
+              source={isStreakFrozen(learning?.streak_state)
+                ? require('../../../assets/animations/streak_frozen.json')
+                : require('../../../assets/animations/streak.json')}
+              autoPlay loop
+              style={styles.statStreakAnim}
+            />
             <Text style={styles.statValue}>{isGuestUser ? '—' : (learning?.current_streak ?? 0)}</Text>
             <Text style={styles.statLabel}>Day Streak</Text>
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.statCell, styles.statCellBorder]}
             activeOpacity={0.7}
@@ -238,22 +254,6 @@ function ProfileContent({ navigation }: Props) {
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Arabic Font</Text>
               <Text style={styles.settingValue}>{currentFont.label}</Text>
-            </View>
-            <Text style={styles.settingArrow}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.settingRow} onPress={() => guarded(() => navigation.navigate('Streak'))}>
-            {isStreakFrozen(learning?.streak_state)
-              ? <Image source={STREAK_FROZEN_ICON} style={styles.settingIcon} resizeMode="contain" />
-              : <Text style={styles.settingEmoji}>{STREAK_ACTIVE_EMOJI}</Text>}
-            <View style={styles.settingContent}>
-              <Text style={styles.settingLabel}>Streak & Rewards</Text>
-              <Text style={styles.settingValue}>
-                {isGuestUser
-                  ? '— day streak'
-                  : isStreakFrozen(learning?.streak_state)
-                  ? `${learning?.current_streak ?? 0} day streak: ${freezeDaysLabel(learning?.freeze_days_remaining ?? 0)}`
-                  : `${learning?.current_streak ?? 0} day streak`}
-              </Text>
             </View>
             <Text style={styles.settingArrow}>›</Text>
           </TouchableOpacity>
@@ -541,7 +541,9 @@ function makeStyles(sc: (n: number) => number) {
     statCell: { flex: 1, alignItems: 'center', paddingVertical: sc(10), gap: 3 },
     statCellBorder: { borderLeftWidth: 1, borderLeftColor: colors.border },
     statEmoji: { fontSize: sc(18) },
-    statIcon: { width: sc(18), height: sc(18) },
+    // Bigger than the plain emoji it replaces (statEmoji, sc(18)) — an
+    // animation this small barely reads as moving at all.
+    statStreakAnim: { width: sc(28), height: sc(28) },
     statValue: { fontFamily: 'Nunito_700Bold', fontSize: sc(18), color: colors.darkText },
     statLabel: { fontFamily: 'Nunito_400Regular', fontSize: sc(9), color: colors.mutedText, letterSpacing: 0.3 },
     section: {
