@@ -2672,6 +2672,24 @@ export default function MapScreen({ navigation }: Props) {
         </View>
       )}
 
+      {/* Pull-to-refresh's overscroll bounce translates the ScrollView's
+          content DOWN, briefly exposing a sliver at the very top of the
+          ScrollView's own frame (container's y=0 downward — HUD is an
+          absolute overlay, so the ScrollView's frame really does start at
+          the true top of the screen) that the content normally fully
+          covers. Since the ScrollView itself has no background, that
+          sliver showed S.container's flat colors.mapBg (green) sitting
+          directly above the sky gradient's blue, a jarring seam reported
+          2026-09-03 as "a green gradient leaking" when pulling down. This
+          strip sits behind the ScrollView (earlier in the tree = lower
+          z-order), pinned to that same top region and colored to match the
+          sky gradient's own topmost color, so the reveal blends into the
+          sky instead of clashing with it — invisible the rest of the time
+          since the ScrollView's own content paints over it at every normal
+          scroll position. Height is a fixed generous buffer, not tied to
+          the actual bounce distance (iOS doesn't expose that), sized well
+          past any real pull-to-refresh travel. */}
+      <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: sc(200), backgroundColor: '#4FB3E8' }} />
       <Animated.ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
