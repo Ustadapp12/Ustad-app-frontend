@@ -1700,6 +1700,19 @@ export default function MapScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const autoScrolledNodeIdRef = useRef<string | null>(null);
+  // Set right before any fetch that resolves a node's real id/status from a
+  // placeholder (tapping an unresolved node, checking a season gate's
+  // eligibility, confirming a season unlock, paging into a new chapter) —
+  // every one of those can incidentally change firstActiveNode's resolved
+  // id as a side effect of data that just became real, which is NOT the
+  // same thing as the backend's recommendation actually advancing. Without
+  // this, the follow-effect below treated any id change as "go there now,"
+  // so tapping an ordinary node (or unlocking a season, or paging chapters)
+  // could yank the viewport back to the recommended node mid-tap — reported
+  // 2026-09-03 as "every button on the map takes me to recommended_next."
+  // Consumed (reset to false) the first time the follow-effect actually
+  // sees an id change, same one-shot pattern chapterJumpRef already uses.
+  const suppressFollowRef = useRef(false);
 
   // Gated on the map having actually finished loading, not just on mount:
   // the offer used to appear while the first levels fetch was still in
@@ -2110,6 +2123,7 @@ export default function MapScreen({ navigation }: Props) {
         // specific node is actually the real next 'available' level) — in
         // that case skip the prompt and start it directly instead.
         try {
+          suppressFollowRef.current = true;
           const levels = await learningApi.levels(section.surahNum);
           const sorted = sortedLevels(levels);
           setFullLevels(prev => ({ ...prev, [section.surahNum]: sorted }));
@@ -2129,6 +2143,11 @@ export default function MapScreen({ navigation }: Props) {
             return;
           }
         } catch (e) {
+          // Fetch failed — setFullLevels above never ran, so there's no
+          // pending id-change for the follow-effect to suppress. Un-arm it
+          // now rather than leaving it to silently swallow some later,
+          // genuinely unrelated auto-scroll.
+          suppressFollowRef.current = false;
           console.warn('[MapScreen] completed-node status verify failed:', e);
           // Fall through and treat it as completed per the heuristic —
           // start_session() already allows (re)starting a "completed" group,
@@ -2156,8 +2175,9 @@ export default function MapScreen({ navigation }: Props) {
       return;
     }
     if (node.status === 'pending') {
+      suppressFollowRef.current = true;
       const lvl = await fetchFirstLevelNow(section.surahNum);
-      if (!lvl) return; // fetch failed — stay put rather than showing a prompt with a bad id
+      if (!lvl) { suppressFollowRef.current = false; return; } // fetch failed — nothing resolved, nothing to suppress
       setStartPrompt({ section, node, groupId: lvl.lesson_group_id, ayahFrom: lvl.start_ayah, ayahTo: lvl.end_ayah });
       return;
     }
@@ -2170,6 +2190,7 @@ export default function MapScreen({ navigation }: Props) {
     if (!node.resolved) {
       let real: SurahLevel | undefined;
       try {
+        suppressFollowRef.current = true;
         const levels = await fetchLevels(section.surahNum);
         const sorted = sortedLevels(levels);
         setFullLevels(prev => ({ ...prev, [section.surahNum]: sorted }));
@@ -2180,6 +2201,9 @@ export default function MapScreen({ navigation }: Props) {
         const nodeIdx = section.nodes.findIndex(n => n.id === node.id);
         real = nodeIdx >= 0 ? sorted[nodeIdx] : undefined;
       } catch (e) {
+        // Fetch failed — setFullLevels above never ran, nothing pending to
+        // suppress. Un-arm now rather than swallowing a later unrelated scroll.
+        suppressFollowRef.current = false;
         console.warn('[MapScreen] start-tap level resolve failed:', e);
       }
       // No real group (fetch failed, or the backend has fewer groups than
@@ -2237,6 +2261,12 @@ export default function MapScreen({ navigation }: Props) {
     await unlockSeason(seasonIdx);
     setUnlockedSeasons(prev => new Set(prev).add(seasonIdx));
     setGateTapped(null);
+    // fetchPhase is fire-and-forget here, so the resulting id-resolution
+    // lands at an unpredictable later render — armed now, consumed whenever
+    // the follow-effect actually observes it (see suppressFollowRef comment).
+    // Newly-unlocked nodes should just reveal in place, not yank the
+    // viewport to whatever the backend separately recommends.
+    suppressFollowRef.current = true;
     void fetchPhase(seasonIdx, currentSurahNumRef.current);
   }
   // isSeasonComplete only has data to check when the previous season's last
@@ -2253,9 +2283,12 @@ export default function MapScreen({ navigation }: Props) {
     if (lastSurah != null && !fullLevels[lastSurah]) {
       setCheckingGate(seasonIdx);
       try {
+        suppressFollowRef.current = true;
         const levels = await learningApi.levels(lastSurah);
         setFullLevels(prev => ({ ...prev, [lastSurah]: levels }));
       } catch (e) {
+        // Fetch failed — setFullLevels above never ran, nothing to suppress.
+        suppressFollowRef.current = false;
         console.warn('[MapScreen] gate eligibility check failed:', e);
       } finally {
         setCheckingGate(null);
@@ -2272,6 +2305,15 @@ export default function MapScreen({ navigation }: Props) {
     if (next < 0 || next >= CHAPTER_COUNT || next === chapterIdx) return;
     manualChapterRef.current = true;
     chapterJumpRef.current = land;
+    // chapterJumpRef only covers the follow-effect's very next run (it's
+    // cleared by the landing effect once the new chapter's top/bottom scroll
+    // fires, which happens before the fetchPhase calls below have actually
+    // resolved). Without this, a node's real id/status landing a moment
+    // later still counted as "the recommendation moved" and yanked the
+    // viewport straight back to it — the reported "Next Stage always takes
+    // me to Continue here" bug. This flag stays armed until that real
+    // resolution lands, whenever that turns out to be.
+    suppressFollowRef.current = true;
     setGateTapped(null);
     setRetryNodeId(null);
     setStartPrompt(null);
@@ -2501,6 +2543,14 @@ export default function MapScreen({ navigation }: Props) {
     // Recording the node as already-handled means a later genuine change
     // (finishing a level) still scrolls normally.
     if (chapterJumpRef.current) {
+      autoScrolledNodeIdRef.current = firstActiveNode.id;
+      return;
+    }
+    // Same idea, for id changes caused by a fetch resolving a node's real
+    // data rather than by the recommendation itself advancing — see
+    // suppressFollowRef's own comment for the full list of triggers.
+    if (suppressFollowRef.current) {
+      suppressFollowRef.current = false;
       autoScrolledNodeIdRef.current = firstActiveNode.id;
       return;
     }
