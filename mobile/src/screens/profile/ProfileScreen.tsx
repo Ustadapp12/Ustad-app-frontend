@@ -356,9 +356,6 @@ function ProfileContent({ navigation }: Props) {
           <View style={[styles.modalCard, { gap: 0 }]}>
             <View style={styles.fontModalHeader}>
               <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Arabic Font</Text>
-              <TouchableOpacity style={styles.fontModalCloseBtn} onPress={() => setFontModalVisible(false)}>
-                <Text style={styles.fontModalCloseBtnText}>✕</Text>
-              </TouchableOpacity>
             </View>
             <Text style={[styles.modalBody, { marginBottom: 16 }]}>
               Choose how Arabic text appears throughout the app.
@@ -607,11 +604,6 @@ function makeStyles(sc: (n: number) => number) {
     modalConfirmText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: 'white' },
     // Font picker
     fontModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    fontModalCloseBtn: {
-      width: sc(30), height: sc(30), borderRadius: sc(15), backgroundColor: colors.lightBg,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    fontModalCloseBtnText: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: colors.midText },
     fontOption: { backgroundColor: colors.lightBg, borderRadius: sc(16), borderWidth: 1.5, borderColor: colors.border, padding: sc(14), marginBottom: sc(10), flexDirection: 'row', alignItems: 'center', gap: sc(12) },
     fontOptionLabel: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.darkText, marginBottom: sc(6) },
     fontOptionPreview: { textAlign: 'right' },

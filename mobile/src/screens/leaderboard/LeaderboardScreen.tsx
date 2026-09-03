@@ -104,6 +104,7 @@ function LeaderboardContent() {
         <View>
           <Text style={styles.headerLabel}>🏆 TOP LEARNERS</Text>
           <Text style={styles.headerTitle}>Leaderboard</Text>
+          <Text style={styles.headerSubtitle}>Ranked by XP earned</Text>
         </View>
         <View style={{ alignItems: 'center' }}>
           <Animated.Image
@@ -217,6 +218,7 @@ function makeStyles(sc: (n: number) => number, insets: any) {
     },
     headerLabel: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: colors.mutedText, letterSpacing: 1.5 },
     headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: sc(22), color: colors.darkText },
+    headerSubtitle: { fontFamily: 'Nunito_400Regular', fontSize: sc(12), color: colors.mutedText, marginTop: sc(2) },
     lumaImg: { width: sc(100), height: sc(100) },
     podium: {
       flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end',
