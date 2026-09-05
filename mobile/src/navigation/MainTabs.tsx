@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
 import { Platform, Text, View, Image, StyleSheet } from 'react-native';
@@ -94,6 +95,62 @@ function ProfileTabIcon({ focused, glowKey }: { focused: boolean; glowKey: TourT
   );
 }
 
+// Fully custom tab bar — replaces react-navigation's own BottomTabBar entirely.
+// Three different attempts at clearing the iOS Home Indicator via
+// react-navigation's own style hooks each failed in a different way:
+// tabBarStyle's paddingBottom grew the bar's total height without actually
+// moving the icon+label content away from the true edge (labels stayed
+// overlapped by the Indicator regardless of the padding value); switching
+// that same padding to tabBarItemStyle did move the content, but each tab
+// item's box turned out to have less effective height than its own label
+// needed once padding was subtracted from it, and something in react-
+// navigation's internal item wrapper clips overflow — the bottom of every
+// label's letters got cut off (confirmed on-device, 2026-09-05, screenshot).
+// Three attempts, three different failure modes, all from fighting an
+// internal layout implementation with no visibility into its own box model.
+// Rendering the bar manually removes that uncertainty completely: every
+// pixel of height, padding, and content placement below is explicit.
+function CustomTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps & { insets: { bottom: number } }) {
+  const bottomClearance = Platform.OS === 'ios' ? insets.bottom : 0;
+  return (
+    <View
+      style={[
+        styles.tabBar,
+        {
+          flexDirection: 'row',
+          height: TAB_BAR_CONTENT_H + 8 + bottomClearance,
+          paddingBottom: bottomClearance,
+        },
+      ]}
+    >
+      {state.routes.map((route, index) => {
+        const { options } = descriptors[route.key];
+        const focused = state.index === index;
+        const label = typeof options.tabBarLabel === 'string' ? options.tabBarLabel : route.name;
+
+        function onPress() {
+          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+        }
+
+        return (
+          <PlatformPressable
+            key={route.key}
+            onPress={onPress}
+            android_ripple={{ borderless: true, radius: 30 }}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start' }}
+          >
+            {options.tabBarIcon?.({ focused, color: '', size: 0 })}
+            <Text style={[styles.label, { color: focused ? colors.primary : colors.mutedText }]}>
+              {label}
+            </Text>
+          </PlatformPressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function MainTabs() {
   // Defense-in-depth: nothing should be able to navigate an unauthenticated
   // user onto the map, but if a future navigation bug ever does, catch it
@@ -129,51 +186,11 @@ export default function MainTabs() {
       // 'history' behavior would instead walk back through visit order,
       // which reads as random from the user's perspective.
       backBehavior="initialRoute"
-      screenOptions={{
-        headerShown: false,
-        // Flat fixed content height on both platforms — no Android nav-bar
-        // clearance (see TAB_BAR_CONTENT_H's own comment for why: the app
-        // hides that bar itself). iOS is different: insets.bottom clears the
-        // Home Indicator, which really does always overlay the screen the
-        // way an Android nav bar doesn't. Spelled out here rather than left
-        // to react-navigation's own inset-aware default: getTabBarHeight()
-        // short circuits on any numeric `height` in tabBarStyle, and
-        // tabBarStyle is merged LAST over those defaults, so a flat `height`
-        // here always wins anyway.
-        //
-        // The bar's OWN total height grows by the full inset (so its white
-        // background genuinely reaches the true bottom edge, no gap), but
-        // the safe-area clearance itself is applied via tabBarItemStyle
-        // below, NOT as this style's own paddingBottom. That distinction
-        // matters: this file previously put paddingBottom here instead, on
-        // the theory that padding-at-the-bar-level pushes the icon/label
-        // content up and away from the edge — it does grow the bar's total
-        // height, but doesn't reliably reposition the content within it, so
-        // the labels stayed pinned near the true edge regardless of the
-        // padding value. Result, confirmed on device 2026-09-05: EVERY
-        // padding value tried (16px flat, then the full ~34pt inset, then
-        // half of it) still let the Home Indicator visually cut through
-        // "Quests"/"Board" (the two center tabs, right where the Indicator's
-        // pill sits) — the bar just looked taller each time without fixing
-        // the actual overlap, which is what made "too much padding" and
-        // "the words are being cut" both true reports about the very same
-        // build. tabBarItemStyle's padding applies directly inside each
-        // tab's own pressable box, which does reliably push its icon+label
-        // group up — a more direct lever than trusting the outer bar's
-        // height/padding math to cascade down to content position.
-        tabBarStyle: [styles.tabBar, { height: TAB_BAR_CONTENT_H + (Platform.OS === 'ios' ? insets.bottom : 0) }],
-        tabBarItemStyle: Platform.OS === 'ios' ? { paddingBottom: insets.bottom } : undefined,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedText,
-        tabBarLabelStyle: styles.label,
-        // Default android_ripple has no radius, so it grows to fill the
-        // whole tappable column (full tab-bar height, ~1/4 screen width —
-        // see TabIcon's own comment above) instead of just the small
-        // icon+label area a tap actually feels like it should light up.
-        tabBarButton: (props) => (
-          <PlatformPressable {...props} android_ripple={{ borderless: true, radius: 30 }} />
-        ),
-      }}
+      // See CustomTabBar's own comment above for why this is a fully custom
+      // renderer instead of react-navigation's default BottomTabBar plus
+      // tabBarStyle/tabBarItemStyle options.
+      tabBar={(props) => <CustomTabBar {...props} insets={insets} />}
+      screenOptions={{ headerShown: false }}
     >
       <Tab.Screen
         name="Map"
