@@ -290,11 +290,34 @@ async function cancelLocal(kind: LocalNotificationKind): Promise<void> {
  * or cancel each accordingly. Intended to run on app launch and right after a
  * session completes — not wired to either call site yet, see module header.
  */
+// TEMP: real (non-test) notifications disabled while UI is under active
+// testing — every fresh learning payload and every completed lesson calls
+// refreshLocalNotifications(), and with the daily 10am/5pm reminders now
+// hardcoded for everyone (no reminder-hour picker gate), that meant real
+// reminders kept firing in the background alongside anything scheduled from
+// the dev test button, reported 2026-09-05 as notifications "randomly"
+// showing up outside of pressing that button. Flip back to false once
+// that's no longer a concern — sendTestNotifications() (the dev button) is
+// a separate function and is NOT affected by this flag either way.
+const REAL_NOTIFICATIONS_DISABLED = true;
+
 export async function refreshLocalNotifications(
   streak: StreakState,
   prefs: ReminderPrefs,
   now: Date = new Date(),
 ): Promise<void> {
+  if (REAL_NOTIFICATIONS_DISABLED) {
+    // Actively cancel, not just skip scheduling — anything already scheduled
+    // by a previous build before this flag existed is still sitting in the
+    // OS's own trigger queue and would otherwise keep firing regardless of
+    // this flag. This call site runs on every login/hydrate/lesson-complete,
+    // so it clears stale ones out the first time either fires on this build.
+    for (const kind of ['daily_practice_reminder_10am', 'daily_practice_reminder_5pm', 'streak_about_to_break', 'freeze_days_running_out'] as const) {
+      try { await cancelLocal(kind); } catch { /* best-effort cleanup */ }
+    }
+    return;
+  }
+
   const computed: Array<[LocalNotificationKind, LocalNotification | null]> = [
     ['daily_practice_reminder_10am', computeDailyPracticeReminder(streak, now, 10)],
     ['daily_practice_reminder_5pm', computeDailyPracticeReminder(streak, now, 17)],

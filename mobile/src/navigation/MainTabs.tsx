@@ -111,7 +111,14 @@ function ProfileTabIcon({ focused, glowKey }: { focused: boolean; glowKey: TourT
 // Rendering the bar manually removes that uncertainty completely: every
 // pixel of height, padding, and content placement below is explicit.
 function CustomTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps & { insets: { bottom: number } }) {
-  const bottomClearance = Platform.OS === 'ios' ? insets.bottom : 0;
+  // 70% of the real inset, not the full ~34pt — each tab's own content
+  // (icon+label, ~44-46px) already sits comfortably inside the 64px content
+  // zone above this reserved strip (justifyContent: 'flex-start', not
+  // stretched to fill), so trimming this doesn't reopen the Home-Indicator-
+  // overlap bug the way it did back when the OLD tabBarStyle-based approach
+  // had no such natural buffer above the reserved zone (2026-09-05, user:
+  // "too much padding as well" after testing the full-inset version here).
+  const bottomClearance = Platform.OS === 'ios' ? Math.round(insets.bottom * 0.7) : 0;
   return (
     <View
       style={[
