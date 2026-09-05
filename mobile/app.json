@@ -12,7 +12,7 @@
     ],
     "ios": {
       "bundleIdentifier": "com.ustadapp",
-      "buildNumber": "351"
+      "buildNumber": "352"
     },
     "android": {
       "package": "com.ustadapp",
