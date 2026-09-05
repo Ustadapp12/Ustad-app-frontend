@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { authApi, learningApi, usersApi, syncDeviceTimezone } from '../api';
-import { getTokens, setTokens, setStoredUser, getStoredUser, resetTourOffered } from '../utils/storage';
+import {
+  getTokens, setTokens, setStoredUser, getStoredUser, resetTourOffered, getLastActiveLocalDate,
+} from '../utils/storage';
+import { refreshLocalNotifications } from '../services/localNotifications';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
 import { setCrashUser, addBreadcrumb, captureError } from '../services/crashReporter';
 import { setPendingEntryMethod } from '../services/usageSession';
@@ -74,6 +77,24 @@ export const useAuthStore = create<AuthState>((set, get) => {
   const applyFreshLearning = async (learning: LearningMe) => {
     const lost = await checkStreakLoss(learning.streak_state ?? 'active', learning.current_streak);
     set({ learning, ...(lost !== null ? { streakJustLost: lost } : {}) });
+    // Fire-and-forget: a launch/refresh has no "just completed a lesson" signal of its
+    // own, unlike lessonStore.completeSession(), so lastActiveLocalDate comes from
+    // storage instead of being stamped fresh here.
+    void (async () => {
+      try {
+        await refreshLocalNotifications(
+          {
+            currentStreak: learning.current_streak,
+            state: learning.streak_state ?? 'active',
+            freezeDaysRemaining: learning.freeze_days_remaining ?? 0,
+            lastActiveLocalDate: await getLastActiveLocalDate(),
+          },
+          { reminderHour: null }, // no onboarding picker yet — see services/localNotifications.ts
+        );
+      } catch {
+        // Never let this affect auth/learning hydration.
+      }
+    })();
   };
 
   // The real body of hydrate(). Split out so hydrate() itself is nothing but

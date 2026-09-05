@@ -2,6 +2,12 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Android 13+ (targetSdk 33+) requires this to show any notification, local or
+         pushed. Declaring it here only makes the runtime prompt requestable — the
+         prompt itself is not wired up yet. Plan is to ask from JS after the first
+         completed lesson (see src/services/notifications), not at launch, since an
+         uncontextualised prompt is usually denied and a denial is permanent. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <!-- play-services-measurement (pulled in by Firebase Analytics) merges these

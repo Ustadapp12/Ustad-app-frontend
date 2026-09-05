@@ -13,6 +13,8 @@ const KEYS = {
   seasonsUnlocked: '@ustadapp/map/seasonsUnlocked',
   lastEmailHint: '@ustadapp/auth/lastEmailHint',
   tourSeen: '@ustadapp/tour/seen',
+  lastActiveLocalDate: '@ustadapp/notifications/lastActiveLocalDate',
+  localNotifPermissionAsked: '@ustadapp/notifications/permissionAsked',
 } as const;
 
 /**
@@ -245,5 +247,29 @@ export async function getLastEmailHint(): Promise<string | null> {
 
 export async function setLastEmailHint(email: string): Promise<void> {
   await AsyncStorage.setItem(KEYS.lastEmailHint, email);
+}
+
+// Local calendar date (YYYY-MM-DD) of the last completed session — the device-side
+// source of truth for "did I already practise today" that services/localNotifications.ts
+// needs but the backend doesn't return. Stamped by lessonStore.completeSession(); read on
+// every app launch (authStore.applyFreshLearning) since a launch has no "just completed"
+// signal of its own.
+export async function getLastActiveLocalDate(): Promise<string | null> {
+  return AsyncStorage.getItem(KEYS.lastActiveLocalDate);
+}
+
+export async function setLastActiveLocalDate(date: string): Promise<void> {
+  await AsyncStorage.setItem(KEYS.lastActiveLocalDate, date);
+}
+
+// Whether the local-notification permission prompt has already been shown once.
+// Asked after the first completed lesson, never at launch, and never twice — a denial
+// is permanent, so re-asking only spends goodwill for no chance of a different answer.
+export async function wasLocalNotifPermissionAsked(): Promise<boolean> {
+  return (await AsyncStorage.getItem(KEYS.localNotifPermissionAsked)) === 'true';
+}
+
+export async function setLocalNotifPermissionAsked(): Promise<void> {
+  await AsyncStorage.setItem(KEYS.localNotifPermissionAsked, 'true');
 }
 

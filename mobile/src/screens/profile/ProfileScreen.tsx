@@ -16,6 +16,7 @@ import { characterSrcFor, avatarSrcsForGender, currentAvatarVariantIndex } from 
 import { usersApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { isStreakFrozen } from '../../utils/streak';
+import { sendTestNotifications } from '../../services/localNotifications';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
 import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
@@ -365,6 +366,23 @@ function ProfileContent({ navigation }: Props) {
           <Text style={styles.deleteText}>Delete Account</Text>
         </TouchableOpacity>
 
+        {/* TEMP DEBUG: fires all 6 notification types 5s apart so they can be
+            previewed on a real device without waiting for real trigger times.
+            Remove before publishing. */}
+        <TouchableOpacity
+          style={[styles.deleteBtn, { borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, marginTop: 4 }]}
+          onPress={async () => {
+            const result = await sendTestNotifications();
+            if (result.ok) {
+              Alert.alert('Test notifications scheduled', `${result.count} notifications will fire 5 seconds apart, starting now. Lock your phone or leave the app to see them.`);
+            } else {
+              Alert.alert('Could not schedule', result.reason ?? 'Unknown error.');
+            }
+          }}
+        >
+          <Text style={[styles.deleteText, { color: colors.primary }]}>🔔 Test Notifications (dev only)</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => setReleaseNotesVisible(true)}>
           <Text style={[styles.versionText, styles.versionTextLink]}>v{APP_VERSION}</Text>
         </TouchableOpacity>
@@ -645,7 +663,7 @@ function makeStyles(sc: (n: number) => number) {
     },
     modalBtns: { flexDirection: 'row', gap: sc(10) },
     modalCancel: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: sc(14), paddingVertical: sc(14), alignItems: 'center' },
-    modalCancelText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.midText },
+    modalCancelText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.darkText },
     modalConfirm: { flex: 1, backgroundColor: colors.red, borderRadius: sc(14), paddingVertical: sc(14), alignItems: 'center' },
     modalConfirmText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: 'white' },
     // Font picker

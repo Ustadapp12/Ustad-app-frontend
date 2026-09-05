@@ -15,8 +15,47 @@ import {
   clearPendingLessonSession,
   setPendingLessonSession,
 } from '../services/lessonSession';
+import {
+  refreshLocalNotifications,
+  requestLocalNotificationPermission,
+  toLocalDateString,
+} from '../services/localNotifications';
+import {
+  setLastActiveLocalDate,
+  setLocalNotifPermissionAsked,
+  wasLocalNotifPermissionAsked,
+} from '../utils/storage';
 import type { ExerciseStep } from '../lesson/types';
 import type { ExerciseDict, LessonGroupDetail, SessionCompleteOut } from '../types/api';
+
+// Stamps today as practised (the client-side fact services/localNotifications.ts needs
+// but the backend doesn't return — see utils/storage.ts's getLastActiveLocalDate comment),
+// reschedules the streak/freeze local notifications against the freshly-completed streak
+// state, and — once, ever, the first time a lesson is completed — asks for local
+// notification permission. Never awaited by a caller; never throws.
+async function refreshLocalNotificationsAfterComplete(completed: SessionCompleteOut): Promise<void> {
+  try {
+    const today = toLocalDateString(new Date());
+    await setLastActiveLocalDate(today);
+    await refreshLocalNotifications(
+      {
+        currentStreak: completed.current_streak,
+        state: completed.streak_state ?? 'active',
+        freezeDaysRemaining: completed.freeze_days_remaining ?? 0,
+        lastActiveLocalDate: today,
+      },
+      // No onboarding picker for this yet — see services/localNotifications.ts header.
+      { reminderHour: null },
+    );
+    if (!(await wasLocalNotifPermissionAsked())) {
+      await setLocalNotifPermissionAsked();
+      await requestLocalNotificationPermission();
+    }
+  } catch {
+    // Same discipline as analytics/crash reporting elsewhere in this store: never let
+    // this affect the lesson-completion flow the user is actually waiting on.
+  }
+}
 
 let startSessionInFlight: Promise<void> | null = null;
 // Incremented every time loadGroup() is called. Any async work that started
@@ -231,6 +270,9 @@ export const useLessonStore = create<LessonState>((set, get) => ({
       set({ lastCompletedSurah: group.surah_number, lastVisitedSurah: group.surah_number });
     }
     void logAnalyticsEvent(AnalyticsEvents.LESSON_COMPLETE, { passed: passed ? 1 : 0, score_pct, mistakes });
+    // Fire-and-forget, same as the analytics call above: local notifications must
+    // never slow down or fail the completion flow the user is actually waiting on.
+    void refreshLocalNotificationsAfterComplete(completed);
     return completed;
   },
 

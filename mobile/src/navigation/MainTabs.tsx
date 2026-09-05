@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
-import { Text, View, Image, StyleSheet } from 'react-native';
+import { Platform, Text, View, Image, StyleSheet } from 'react-native';
 import MapScreen from '../screens/home/MapScreen';
 import DailyQuestScreen from '../screens/quests/DailyQuestScreen';
 import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
@@ -130,7 +130,7 @@ export default function MainTabs() {
         // own inset-aware default: getTabBarHeight() short circuits on any
         // numeric `height` in tabBarStyle, and tabBarStyle is merged LAST
         // over those defaults, so a flat `height` here always wins anyway.
-        tabBarStyle: [styles.tabBar, { height: TAB_BAR_CONTENT_H, paddingBottom: 0 }],
+        tabBarStyle: [styles.tabBar, { height: TAB_BAR_CONTENT_H, paddingBottom: Platform.OS === 'ios' ? 16 : 0 }],
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedText,
         tabBarLabelStyle: styles.label,

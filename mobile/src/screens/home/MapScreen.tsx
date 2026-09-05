@@ -1018,7 +1018,7 @@ function makeStyles(M: MapModel) {
     // its too high") so it reads as sitting right above Profile's icon
     // rather than floating independently above the tab bar.
     feedbackFab: {
-      position: 'absolute', bottom: 64 + sc(6), zIndex: 25,
+      position: 'absolute', bottom: 64 + sc(20), zIndex: 25,
       width: FEEDBACK_FAB_SIZE, height: FEEDBACK_FAB_SIZE, borderRadius: FEEDBACK_FAB_SIZE / 2,
       alignItems: 'center', justifyContent: 'center',
       shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 6,
@@ -1608,6 +1608,44 @@ const pullRefreshStyles = StyleSheet.create({
   lumo: { position: 'absolute', width: 50, height: 50 },
 });
 
+// ── Indeterminate loading progress bar ────────────────────────────
+function LoadingBar({ nodesReady }: { nodesReady: boolean }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 1500, useNativeDriver: false }),
+        Animated.timing(anim, { toValue: 0, duration: 1500, useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+
+  const translateX = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['-100%', '100%'],
+  });
+
+  return (
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.2)', overflow: 'hidden' }}>
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          backgroundColor: '#fff',
+          transform: [{ translateX }],
+          width: '50%',
+        }}
+      />
+    </View>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────
 export default function MapScreen({ navigation }: Props) {
   // Per-mount-unique so SVG pattern ids below never collide with a previous
@@ -1780,6 +1818,9 @@ export default function MapScreen({ navigation }: Props) {
   const [mapLoadDurationMs, setMapLoadDurationMs] = useState<number | null>(null);
   const [fetchingSurah, setFetchingSurah] = useState<number | null>(null);
   const fetchedPhasesRef = useRef<Set<number>>(new Set());
+  // Gates the map visibility: true only when we know which chapter to show
+  // AND the initial node data has loaded (preventing SVG from appearing before nodes are ready).
+  const nodesReady = chapterResolved && !loadingPaths;
   // Seasons explicitly unlocked by the user (persisted — see
   // src/utils/storage.ts). Season 0 is always implicitly unlocked and never
   // stored. Populated from disk in the mount effect below.
@@ -2024,6 +2065,7 @@ export default function MapScreen({ navigation }: Props) {
       const measureDuration = Date.now() - startTime;
       if (cancelled) return;
       setMapLoadDurationMs(measureDuration);
+      console.log(`[Map] Initial nodes loaded in ${measureDuration}ms`);
       setLoading(false);
 
       // 3. Remaining phases — staggered in the background so they don't
@@ -2761,24 +2803,25 @@ export default function MapScreen({ navigation }: Props) {
         </View>
       </View>
 
-      {(!chapterResolved || refreshing) && (
-        // NOT gated on loadingPaths alone — the sky/mountains/grass/road and
-        // the node positions are all static, computed from SECTIONS_DEF for
-        // whichever chapter is selected, so they don't need network data to
-        // draw correctly; only each node's own status (locked/current/gold)
-        // is still resolving, and MapNode already renders that placeholder
-        // as a plain numbered node, no overlay required. The one thing that
-        // genuinely can't be shown early is which CHAPTER to draw in the
-        // first place: on a cold start (no cached recommendation yet) the
-        // map doesn't know that until the resolve effect runs, and a wrong
-        // guess means a different-length road/height once it corrects — so
-        // this stays solid until chapterResolved flips true (see its
-        // declaration above). Kept translucent for pull-to-refresh, where
-        // the already-correct map underneath is meant to stay visible while
-        // it re-fetches.
-        <View style={[S.loadingOverlay, !chapterResolved && S.loadingOverlaySolid]} pointerEvents="none">
+      {(!nodesReady || refreshing) && <LoadingBar nodesReady={nodesReady} />}
+      {(!nodesReady || refreshing) && (
+        // Gate on nodesReady (chapterResolved + firstLevel data for current chapter) to prevent
+        // the SVG background from appearing before nodes finish loading. Kept translucent for
+        // pull-to-refresh, where the already-correct map underneath is meant to stay visible
+        // while it re-fetches.
+        <View style={[S.loadingOverlay, !nodesReady && S.loadingOverlaySolid]} pointerEvents="none">
           <LoadingRing size={64} color="#fff" />
           <LoadingStatusText style={S.loadingOverlayText} />
+        </View>
+      )}
+
+      {/* TEMP DEBUG: on-screen timing readout since console.log is unreachable on a
+          TestFlight/EAS Debug build without a Mac. Stays visible after load completes
+          (unlike the overlay above) so it's actually readable. Remove once load time
+          is confirmed acceptable. */}
+      {mapLoadDurationMs != null && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 4, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, zIndex: 999 }}>
+          <Text style={{ color: '#fff', fontSize: 11 }}>Map loaded in {mapLoadDurationMs}ms</Text>
         </View>
       )}
 
