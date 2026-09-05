@@ -2843,6 +2843,17 @@ export default function MapScreen({ navigation }: Props) {
           the actual bounce distance (iOS doesn't expose that), sized well
           past any real pull-to-refresh travel. */}
       <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: sc(200), backgroundColor: '#4FB3E8' }} />
+      {/* Same seam, opposite edge: scrolling past the very end of the map (iOS
+          rubber-band bounce, no pull-to-refresh-style gesture needed here —
+          just normal overscroll) translates the content UP, briefly exposing
+          a sliver below the ScrollView's actual bottom edge. That's
+          S.container's own flat background showing through — colors.mapBg —
+          which already matches the map gradient's own bottom-most stop (see
+          the LinearGradient below), so this strip is just insurance for
+          whatever's rendered at MAP_H's exact edge (grass tiling, "coming
+          soon" text) not perfectly reaching it. Reported 2026-09-05: "the
+          gradient is showing as a leak" scrolling down past the end. */}
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: sc(200), backgroundColor: colors.mapBg }} />
       <PullRefreshIndicator scrollY={scrollY} refreshing={refreshing} />
       <Animated.ScrollView
         ref={scrollRef}

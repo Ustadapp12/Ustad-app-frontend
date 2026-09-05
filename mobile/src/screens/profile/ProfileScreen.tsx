@@ -430,7 +430,12 @@ function ProfileContent({ navigation }: Props) {
                 already persists the choice the instant an option is tapped
                 (setScript + setScriptPreference), so this button never had
                 anything left to cancel. It only closes the sheet. */}
-            <TouchableOpacity style={[styles.modalCancel, { marginTop: 8 }]} onPress={() => setFontModalVisible(false)}>
+            {/* flex:0 + alignSelf:'stretch' override styles.modalCancel's own
+                flex:1 — that's meant for sitting beside modalConfirm inside
+                modalBtns' row layout (Logout/Delete modals), which collapses
+                or misrenders its content here since this button stands alone
+                in a plain column container instead. */}
+            <TouchableOpacity style={[styles.modalCancel, { flex: 0, alignSelf: 'stretch', marginTop: 8 }]} onPress={() => setFontModalVisible(false)}>
               <Text style={styles.modalCancelText}>Save and Close</Text>
             </TouchableOpacity>
           </View>

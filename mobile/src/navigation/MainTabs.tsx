@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
 import { Platform, Text, View, Image, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapScreen from '../screens/home/MapScreen';
 import DailyQuestScreen from '../screens/quests/DailyQuestScreen';
 import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
@@ -105,6 +106,11 @@ export default function MainTabs() {
   const navigation = useNavigation<RootNavProp>();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const setOfferVisible = useTourStore(s => s.setOfferVisible);
+  // Real Home Indicator height (varies by device — ~34pt on notched iPhones,
+  // 0 on Home-button models) rather than a flat guess, so the tab bar's
+  // bottom clearance actually matches the device instead of looking
+  // cramped/floating on some phones and over-padded on others.
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!user) setShowAuthModal(true);
@@ -125,12 +131,17 @@ export default function MainTabs() {
       backBehavior="initialRoute"
       screenOptions={{
         headerShown: false,
-        // Flat fixed height, zero bottom padding — no system-inset
-        // clearance. Spelled out here rather than left to react-navigation's
-        // own inset-aware default: getTabBarHeight() short circuits on any
-        // numeric `height` in tabBarStyle, and tabBarStyle is merged LAST
-        // over those defaults, so a flat `height` here always wins anyway.
-        tabBarStyle: [styles.tabBar, { height: TAB_BAR_CONTENT_H, paddingBottom: Platform.OS === 'ios' ? 16 : 0 }],
+        // Flat fixed content height on both platforms — no Android nav-bar
+        // clearance (see TAB_BAR_CONTENT_H's own comment for why: the app
+        // hides that bar itself). iOS is different: insets.bottom clears the
+        // Home Indicator, which really does always overlay the screen the
+        // way an Android nav bar doesn't. Spelled out here rather than left
+        // to react-navigation's own inset-aware default: getTabBarHeight()
+        // short circuits on any numeric `height` in tabBarStyle, and
+        // tabBarStyle is merged LAST over those defaults, so a flat `height`
+        // here always wins anyway — the paddingBottom has to be added back
+        // explicitly alongside it for iOS.
+        tabBarStyle: [styles.tabBar, { height: TAB_BAR_CONTENT_H, paddingBottom: Platform.OS === 'ios' ? insets.bottom : 0 }],
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedText,
         tabBarLabelStyle: styles.label,
