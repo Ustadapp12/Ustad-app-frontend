@@ -106,7 +106,24 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
   }, [breakDone]);
 
   return (
-    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={[styles.container, { paddingBottom: insets.bottom }]}>
+    // Background split from content: a full-bleed LinearGradient sibling
+    // (StyleSheet.absoluteFill, no dependency on insets at all) guarantees
+    // the screen's own color always reaches every true edge, regardless of
+    // whether useSafeAreaInsets() has resolved its real value yet on this
+    // screen's first render — a known React Navigation timing gap (a
+    // freshly-pushed 'fade' screen can briefly read insets.bottom as 0
+    // before context catches up) that previously left a gap the size of the
+    // Home Indicator's reserved zone at the true bottom edge, exposing the
+    // Stack.Navigator's own fallback contentStyle color underneath instead
+    // of this screen's own gradient. Reported 2026-09-05 as a differently-
+    // colored "gradient leak," and explicitly NOT the tab bar's Home-
+    // Indicator-overlap bug (that one is about content sitting too close to
+    // the edge; this one is about the background itself falling short of
+    // the edge) — content below still uses insets.bottom for its own
+    // clearance, that part is unaffected by this split.
+    <View style={{ flex: 1 }}>
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={StyleSheet.absoluteFill} />
+    <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
 
       {!breakDone && (
@@ -175,7 +192,8 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </Animated.View>
       )}
-    </LinearGradient>
+    </View>
+    </View>
   );
 }
 

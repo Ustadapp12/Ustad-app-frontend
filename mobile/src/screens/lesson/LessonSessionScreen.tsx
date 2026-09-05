@@ -2690,6 +2690,20 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   // from starting late on the next exercise, but a clip already partway
   // through needs this to stop audibly rather than finish out on its own.
   useEffect(() => { stopAudio(); }, [exercise?.ex_id]);
+  // Clears the submitting spinner only once the NEW exercise has actually
+  // committed and rendered, rather than synchronously the instant advanceFn
+  // calls setExercise(next). That synchronous clear (the original fix for a
+  // 2-3s frozen-spinner bug) just swapped which thing sat blank on screen
+  // for the same real mount cost — a spinner disappearing early doesn't make
+  // the next exercise render any faster, it just uncovers whatever's behind
+  // it (nothing) until the mount finishes. Reported 2026-09-05 as "the
+  // screen stays white" recurring ~6 times in a single level — i.e. on most
+  // question transitions, not just the final one. iOS-only because its main
+  // thread blocks visibly on the mount instead of holding the previous
+  // frame the way Android's compositor does. This ties the spinner's
+  // lifetime to a real signal (the exercise that's now on screen) instead of
+  // guessing the mount is fast enough not to matter.
+  useEffect(() => { setSubmitting(false); }, [exercise?.ex_id]);
   const [noHeartsVisible, setNoHeartsVisible] = useState(false);
   const [exitConfirmVisible, setExitConfirmVisible] = useState(false);
   const [heartRefillInfoVisible, setHeartRefillInfoVisible] = useState(false);
@@ -2862,6 +2876,20 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       const advanceFn = async () => {
         setFeedback(null);
         if (result.done) {
+          // Re-arm the spinner specifically for this branch: completeSession()
+          // is a real network round-trip (unlike next_exercise, which just
+          // mounts an already-loaded component), and by the time advanceFn
+          // runs here `submitting` has already been cleared — either by the
+          // immediateAdvance call site below (fired right after void
+          // advanceFn()) or, on the feedback-banner Continue path, long
+          // before that when the original answer was first submitted. Without
+          // this, the screen shows nothing at all for the full duration of
+          // the request — reported 2026-09-05 as "the screen stays white and
+          // then goes on to next level," iOS only (Android's UI thread
+          // apparently keeps enough painted mid-navigation to hide the same
+          // gap). Never explicitly cleared afterward: navigation.replace
+          // below unmounts this screen either way.
+          setSubmitting(true);
           try {
             const summary = await completeSession();
             console.warn('[Lesson] completeSession OK. totalXpRef:', totalXpRef.current, 'summary:', JSON.stringify(summary));
@@ -2946,12 +2974,15 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
 
       if (immediateAdvance) {
         void advanceFn();
-        setSubmitting(false);
+        // Not cleared here at all anymore. For next_exercise, the ex_id
+        // effect above clears it once the new exercise actually renders; for
+        // result.done, advanceFn's own branch keeps it true through
+        // completeSession(). Clearing it synchronously here raced ahead of
+        // both.
       } else {
         // Show feedback banner; user presses Continue / GOT IT to advance
         pendingAdvanceFn.current = advanceFn;
         setFeedback(result);
-        setSubmitting(false);
       }
     } catch (e: any) {
       // Defensive reset, not an active retry path: every branch below ends by

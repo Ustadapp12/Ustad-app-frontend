@@ -54,6 +54,16 @@ function getNotifee(): NotifeeModule | null {
 const CHANNEL_ID = 'reminders';
 let channelReady = false;
 
+// Prefixed onto every notification title so it's clear which app sent it —
+// iOS/Android already show the app icon/name alongside a notification, but
+// that's easy to miss in a crowded notification shade, and the app name
+// otherwise never appears in the message content itself (2026-09-05 user
+// request: "actually say that they are from UstadApp").
+const APP_NAME = 'UstadApp';
+function withAppName(title: string): string {
+  return `${APP_NAME}: ${title}`;
+}
+
 /** Idempotent — safe to call before every schedule. Android only; notifee no-ops
  *  this on iOS. */
 async function ensureChannel(): Promise<void> {
@@ -238,7 +248,7 @@ export async function sendTestNotifications(): Promise<{ ok: boolean; reason?: s
       await notifee.default.createTriggerNotification(
         {
           id: t.kind,
-          title: t.title,
+          title: withAppName(t.title),
           body: t.body,
           android: { channelId: CHANNEL_ID, pressAction: { id: 'default' } },
         },
@@ -261,7 +271,7 @@ async function scheduleLocal(notification: LocalNotification): Promise<void> {
   await notifee.default.createTriggerNotification(
     {
       id: notification.kind,
-      title: notification.title,
+      title: withAppName(notification.title),
       body: notification.body,
       android: { channelId: CHANNEL_ID, pressAction: { id: 'default' } },
     },

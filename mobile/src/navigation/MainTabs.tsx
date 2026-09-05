@@ -139,9 +139,30 @@ export default function MainTabs() {
         // to react-navigation's own inset-aware default: getTabBarHeight()
         // short circuits on any numeric `height` in tabBarStyle, and
         // tabBarStyle is merged LAST over those defaults, so a flat `height`
-        // here always wins anyway — the paddingBottom has to be added back
-        // explicitly alongside it for iOS.
-        tabBarStyle: [styles.tabBar, { height: TAB_BAR_CONTENT_H, paddingBottom: Platform.OS === 'ios' ? insets.bottom : 0 }],
+        // here always wins anyway.
+        //
+        // The bar's OWN total height grows by the full inset (so its white
+        // background genuinely reaches the true bottom edge, no gap), but
+        // the safe-area clearance itself is applied via tabBarItemStyle
+        // below, NOT as this style's own paddingBottom. That distinction
+        // matters: this file previously put paddingBottom here instead, on
+        // the theory that padding-at-the-bar-level pushes the icon/label
+        // content up and away from the edge — it does grow the bar's total
+        // height, but doesn't reliably reposition the content within it, so
+        // the labels stayed pinned near the true edge regardless of the
+        // padding value. Result, confirmed on device 2026-09-05: EVERY
+        // padding value tried (16px flat, then the full ~34pt inset, then
+        // half of it) still let the Home Indicator visually cut through
+        // "Quests"/"Board" (the two center tabs, right where the Indicator's
+        // pill sits) — the bar just looked taller each time without fixing
+        // the actual overlap, which is what made "too much padding" and
+        // "the words are being cut" both true reports about the very same
+        // build. tabBarItemStyle's padding applies directly inside each
+        // tab's own pressable box, which does reliably push its icon+label
+        // group up — a more direct lever than trusting the outer bar's
+        // height/padding math to cascade down to content position.
+        tabBarStyle: [styles.tabBar, { height: TAB_BAR_CONTENT_H + (Platform.OS === 'ios' ? insets.bottom : 0) }],
+        tabBarItemStyle: Platform.OS === 'ios' ? { paddingBottom: insets.bottom } : undefined,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedText,
         tabBarLabelStyle: styles.label,

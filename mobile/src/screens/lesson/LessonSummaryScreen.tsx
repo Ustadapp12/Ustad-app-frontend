@@ -120,11 +120,16 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
   const grade = scorePct >= 90 ? 'Excellent!' : scorePct >= 70 ? 'Great job!' : scorePct >= 50 ? 'Good effort!' : 'Keep practicing!';
   const gradeColor = scorePct >= 90 ? colors.gold : scorePct >= 70 ? colors.primary : scorePct >= 50 ? colors.blue : colors.mutedText;
 
-  // paddingBottom, not a shorter gradient — see StreakCelebrationScreen's
-  // identical comment: padding is inside the border box, so the gradient
-  // still bleeds to the true edge and only the centered content lifts.
+  // Background split from content — see StreakCelebrationScreen's identical
+  // comment: a full-bleed LinearGradient sibling (no insets dependency)
+  // guarantees the screen's own color always reaches the true edge, instead
+  // of a possibly-stale insets.bottom (0 on this screen's very first render,
+  // a known React Navigation timing gap on a freshly-pushed 'fade' screen)
+  // leaving a gap that exposed the Stack.Navigator's own fallback color.
   return (
-    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <View style={{ flex: 1 }}>
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={StyleSheet.absoluteFill} />
+    <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
 
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
@@ -211,7 +216,8 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
           <Text style={styles.continueBtnText}>Continue  →</Text>
         </TouchableOpacity>
       </Animated.View>
-    </LinearGradient>
+    </View>
+    </View>
   );
 }
 
