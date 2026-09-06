@@ -2746,6 +2746,74 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const ayahDisplayCountRef = useRef(0);
   const totalXpRef = useRef(0); // accumulates xp_awarded across all formulaAttempt calls
   const confettiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards the resumed-with-nothing-left effect below against firing twice —
+  // sessionId eventually goes null once finishLevel succeeds (completeSession
+  // clears it), which would otherwise re-satisfy that effect's own condition.
+  const autoFinishTriggeredRef = useRef(false);
+
+  // Tell the backend this level is done and show the summary screen — shared
+  // by submitAnswer's advanceFn (right after the last real answer) and the
+  // resumed-with-nothing-left effect below (the app died, or the request
+  // failed, in the gap between the last answer and this call actually
+  // landing — the session is still active with these exact final counts
+  // sitting in Redis, see start_session's resume branch, so calling this
+  // again is always safe and never re-awards anything twice).
+  //
+  // Never fakes a celebration screen on failure. Before the session-resume
+  // fix existed, a failed /complete usually meant the session was lost
+  // outright, so showing SOME "done" screen with a guessed XP value was the
+  // least-bad option available. Now that resuming is real, that's no longer
+  // true — the session stays exactly this resumable until /complete actually
+  // succeeds, so lying about it here only cost the user a level that never
+  // actually got marked done on the map, for no benefit.
+  const finishLevel = useCallback(async (scorePct: number) => {
+    setSubmitting(true);
+    try {
+      const summary = await completeSession();
+      console.warn('[Lesson] completeSession OK. totalXpRef:', totalXpRef.current, 'summary:', JSON.stringify(summary));
+      // Merge the fresh streak/XP straight from this response into the
+      // shared learning store — refreshLearning() is throttled and nothing
+      // else calls it after a lesson, so without this the Map HUD's
+      // flame/XP silently stayed stale until the next cold launch.
+      if (typeof summary.current_streak === 'number') {
+        const currentLearning = useAuthStore.getState().learning;
+        if (currentLearning) {
+          useAuthStore.setState({
+            learning: {
+              ...currentLearning,
+              current_streak: summary.current_streak,
+              xp_total: currentLearning.xp_total + (totalXpRef.current || summary.xp_awarded),
+              streak_state: summary.streak_state ?? currentLearning.streak_state,
+              freeze_days_remaining: summary.freeze_days_remaining ?? currentLearning.freeze_days_remaining,
+              repair_levels_required: summary.repair_levels_required ?? currentLearning.repair_levels_required,
+              repair_levels_completed: summary.repair_levels_completed ?? currentLearning.repair_levels_completed,
+            },
+          });
+        }
+      }
+      navigation.replace('LessonComplete', {
+        xp: totalXpRef.current || summary.xp_awarded,
+        scorePct,
+        stars: starsFromAccuracy(scorePct),
+        durationSec: Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
+        streakIncremented: summary.streak_incremented ?? false,
+        currentStreak: summary.current_streak,
+        streakRepaired: summary.streak_repaired ?? false,
+        streakState: summary.streak_state,
+        repairLevelsCompleted: summary.repair_levels_completed,
+        repairLevelsRequired: summary.repair_levels_required,
+      });
+    } catch (e) {
+      console.warn('[Lesson] completeSession FAILED. totalXpRef:', totalXpRef.current, 'error:', e);
+      captureError(e, { where: 'finishLevel' });
+      setSubmitting(false);
+      Alert.alert(
+        'Could not save your completion',
+        'Your progress is safe. Please check your connection, then reopen this level to pick up right where you left off.',
+        [{ text: 'OK', onPress: () => navigation.navigate('MainTabs') }],
+      );
+    }
+  }, [completeSession, navigation]);
 
   // Mount: reset store, load group, start session
   useEffect(() => {
@@ -2816,6 +2884,23 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       }
     }
   }, [firstExercise, storeGroupId]);
+
+  // Resumed into a session that already answered every exercise before the
+  // app died (or the /complete call itself failed) — start_session's resume
+  // branch hands this back as resumed=True with first_exercise=None rather
+  // than restarting the whole level, so there's nothing to seed `exercise`
+  // with; just finish completing it with the real final counts.
+  useEffect(() => {
+    if (
+      storeResumed && sessionId && !firstExercise && !exercise && !loading
+      && !autoFinishTriggeredRef.current
+    ) {
+      autoFinishTriggeredRef.current = true;
+      const totalAnswerable = storeCorrectCount + storeMistakes;
+      const scorePct = totalAnswerable > 0 ? Math.round((storeCorrectCount / totalAnswerable) * 100) : 100;
+      void finishLevel(scorePct);
+    }
+  }, [storeResumed, sessionId, firstExercise, exercise, loading, storeCorrectCount, storeMistakes, finishLevel]);
 
   const submitAnswer = useCallback(async (
     userAnswer: string | string[] | number[] | null,
@@ -2916,60 +3001,9 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           // the request — reported 2026-09-05 as "the screen stays white and
           // then goes on to next level," iOS only (Android's UI thread
           // apparently keeps enough painted mid-navigation to hide the same
-          // gap). Never explicitly cleared afterward: navigation.replace
-          // below unmounts this screen either way.
-          setSubmitting(true);
-          try {
-            const summary = await completeSession();
-            console.warn('[Lesson] completeSession OK. totalXpRef:', totalXpRef.current, 'summary:', JSON.stringify(summary));
-            // Merge the fresh streak/XP straight from this response into the
-            // shared learning store — refreshLearning() is throttled and
-            // nothing else calls it after a lesson, so without this the Map
-            // HUD's flame/XP silently stayed stale until the next cold launch.
-            // Includes the freeze/repair fields (2026-08-05) for the same
-            // reason: a repair on this exact completion should flip the HUD
-            // pill back to its active color immediately, not after the next
-            // 60s poll or foreground event.
-            if (typeof summary.current_streak === 'number') {
-              const currentLearning = useAuthStore.getState().learning;
-              if (currentLearning) {
-                useAuthStore.setState({
-                  learning: {
-                    ...currentLearning,
-                    current_streak: summary.current_streak,
-                    xp_total: currentLearning.xp_total + (totalXpRef.current || summary.xp_awarded),
-                    // Backend fields not deployed yet fall back to the
-                    // previous value rather than clobbering it with undefined.
-                    streak_state: summary.streak_state ?? currentLearning.streak_state,
-                    freeze_days_remaining: summary.freeze_days_remaining ?? currentLearning.freeze_days_remaining,
-                    repair_levels_required: summary.repair_levels_required ?? currentLearning.repair_levels_required,
-                    repair_levels_completed: summary.repair_levels_completed ?? currentLearning.repair_levels_completed,
-                  },
-                });
-              }
-            }
-            navigation.replace('LessonComplete', {
-              xp: totalXpRef.current || summary.xp_awarded,
-              scorePct,
-              stars: starsFromAccuracy(scorePct),
-              durationSec: Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
-              // Backend fields not deployed yet fall back safely to "no
-              // celebration" rather than crashing on an undefined summary field.
-              streakIncremented: summary.streak_incremented ?? false,
-              currentStreak: summary.current_streak,
-              streakRepaired: summary.streak_repaired ?? false,
-              streakState: summary.streak_state,
-              repairLevelsCompleted: summary.repair_levels_completed,
-              repairLevelsRequired: summary.repair_levels_required,
-            });
-          } catch (e) {
-            console.warn('[Lesson] completeSession FAILED. totalXpRef:', totalXpRef.current, 'error:', e);
-            navigation.replace('LessonComplete', {
-              xp: totalXpRef.current || 20, scorePct,
-              stars: starsFromAccuracy(scorePct),
-              durationSec: Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
-            });
-          }
+          // gap). finishLevel re-sets it itself either way, so nothing extra
+          // needed here beyond calling it.
+          await finishLevel(scorePct);
         } else if (result.next_exercise) {
           const next = result.next_exercise;
           // Never go back to a card the user has already cleared. The backend
@@ -3073,7 +3107,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         );
       }
     }
-  }, [sessionId, exercise, submitting, correctCount, mistakes, isSpecial]);
+  }, [sessionId, exercise, submitting, correctCount, mistakes, isSpecial, finishLevel]);
 
   const handleBack = () => {
     abandonSession({ silent: true }).catch(() => {});
