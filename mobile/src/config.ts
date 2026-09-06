@@ -1,8 +1,8 @@
 /** Live backend — all API calls use this host. Mobile release builds always
  * hit production; unlike the Expo dev app, there is no local-API toggle. */
-// export const PRODUCTION_API_BASE = 'https://ustad-app-backend-six.vercel.app';
+export const PRODUCTION_API_BASE = 'https://ustad-app-backend-six.vercel.app';
 // // for testing:
-export const PRODUCTION_API_BASE = 'https://ustad-app-backend-testing.vercel.app';
+// export const PRODUCTION_API_BASE = 'https://ustad-app-backend-testing.vercel.app';
 
 export const API_BASE = PRODUCTION_API_BASE;
 

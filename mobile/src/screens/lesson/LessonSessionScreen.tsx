@@ -2667,7 +2667,15 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
 
-  const { sessionId, firstExercise, error, loading, group, reset, loadGroup, startSession, completeSession, abandonSession, groupId: storeGroupId, progressPct: storeProgressPct } = useLessonStore();
+  const {
+    sessionId, firstExercise, error, loading, group, reset, loadGroup, startSession, completeSession, abandonSession,
+    groupId: storeGroupId, progressPct: storeProgressPct,
+    // Resume support: non-zero only when startSession() reconnected to an
+    // already-in-progress session (app killed/backgrounded mid-level) — see
+    // that seeding effect below and lessonStore.startSession's own comment.
+    resumed: storeResumed, correctCount: storeCorrectCount, mistakes: storeMistakes,
+    sessionStartedAt: storeSessionStartedAt, xpEarnedSoFar: storeXpEarnedSoFar,
+  } = useLessonStore();
   const { user } = useAuthStore();
 
   const [exercise, setExercise] = useState<ExerciseDict | null>(null);
@@ -2782,9 +2790,30 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (firstExercise && !exercise && storeGroupId === groupId) {
       setExercise(firstExercise);
-      setShowBismillah(true);
       startedAt.current = Date.now();
       setProgressPct(storeProgressPct);
+      if (storeResumed) {
+        // Reconnecting to a session the app already made progress in (it was
+        // killed or backgrounded mid-level, see lessonStore.startSession) —
+        // pick up accuracy/XP/timer where the backend says they left off
+        // instead of restarting them at zero, and skip the "Begin Lesson"
+        // splash since this isn't actually the start of the level.
+        setCorrectCount(storeCorrectCount);
+        setMistakes(storeMistakes);
+        totalXpRef.current = storeXpEarnedSoFar;
+        sessionStartedAtRef.current = storeSessionStartedAt ?? Date.now();
+        // The app can die in the gap between hearts hitting 0 and the user
+        // tapping through the No Hearts modal (which is what normally calls
+        // abandonSession) — that leaves the session resumable instead of
+        // ended. Re-run the same MAX_MISTAKES check submitAnswer uses so a
+        // resume into an already-exhausted session shows the existing
+        // "Retry Level" modal instead of letting play continue unchecked.
+        if (storeMistakes >= MAX_MISTAKES) {
+          setNoHeartsVisible(true);
+        }
+      } else {
+        setShowBismillah(true);
+      }
     }
   }, [firstExercise, storeGroupId]);
 

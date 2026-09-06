@@ -11,7 +11,6 @@ import { invalidateLevels } from '../services/bootCache';
 import {
   abandonActiveLessonSession,
   abandonLessonSessionById,
-  abandonPendingLessonSessionFromStorage,
   clearPendingLessonSession,
   setPendingLessonSession,
 } from '../services/lessonSession';
@@ -78,6 +77,14 @@ interface LessonState {
   stepStartedAt: number;
   firstExercise: ExerciseDict | null;
   progressPct: number;
+  // Resume support (see startSession): when the backend reconnects to an
+  // already-in-progress session instead of starting a fresh one, these carry
+  // what LessonSessionScreen should seed its local XP/timer state with —
+  // otherwise a session interrupted by the app being killed or backgrounded
+  // silently restarted its accuracy/XP/timer counters from zero on reopen.
+  resumed: boolean;
+  sessionStartedAt: number | null;
+  xpEarnedSoFar: number;
   // Surah number of the level just completed, for MapScreen to pick up on its
   // next focus — MapScreen only remounts once for the app's lifetime (it sits
   // underneath the lesson screens in the same stack), so its own cached level
@@ -120,6 +127,9 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   stepStartedAt: Date.now(),
   firstExercise: null,
   progressPct: 0,
+  resumed: false,
+  sessionStartedAt: null,
+  xpEarnedSoFar: 0,
   lastCompletedSurah: null,
   lastVisitedSurah: null,
 
@@ -194,11 +204,13 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     startSessionInFlight = (async () => {
       set({ loading: true, error: null });
       try {
-        await abandonPendingLessonSessionFromStorage();
-        if (myGen !== storeGeneration) {
-          addBreadcrumb('startSession: superseded before request', { groupId: group.id });
-          return; // a newer loadGroup already took over
-        }
+        // No longer abandons any existing session before asking the backend
+        // to start one: start_session() now resumes an already-in-progress
+        // session for this exact group by itself (see its own comment) when
+        // one exists, so abandoning here first would destroy the very
+        // progress a resume is meant to preserve. Abandoning a DIFFERENT
+        // group's leftover session is still handled server-side too.
+        //
         // Use the groupId the caller passed to loadGroup(), not group.id from the
         // backend response, which may still carry the old "114_stg1_g1" format.
         const canonicalId = get().groupId ?? group.id;
@@ -219,19 +231,25 @@ export const useLessonStore = create<LessonState>((set, get) => ({
           addBreadcrumb('startSession: superseded after request', { groupId: canonicalId });
           return; // superseded while awaiting backend
         }
-        addBreadcrumb('startSession: session created', { groupId: canonicalId, sessionId: session.session_id, hasFirstExercise: !!session.first_exercise });
+        addBreadcrumb('startSession: session created', { groupId: canonicalId, sessionId: session.session_id, resumed: !!session.resumed, hasFirstExercise: !!session.first_exercise });
         await setPendingLessonSession({ sessionId: session.session_id, groupId: canonicalId, mistakes: 0, stepIndex: initialStepIndex });
         set({
           sessionId: session.session_id,
           heartsAtStart: session.hearts_at_start,
           loading: false,
           stepStartedAt: Date.now(),
-          mistakes: 0,
-          correctCount: 0,
+          // On a resumed session these come back non-zero from the server
+          // (see start_session's resume branch) instead of always 0 — a
+          // fresh session still sends 0s, so this is correct either way.
+          mistakes: session.hearts_lost_half ?? 0,
+          correctCount: session.correct_count ?? 0,
           result: null,
           stepIndex: initialStepIndex,
           firstExercise: session.first_exercise ?? null,
           progressPct: session.progress_pct ?? 0,
+          resumed: !!session.resumed,
+          sessionStartedAt: session.started_at ? new Date(session.started_at).getTime() : Date.now(),
+          xpEarnedSoFar: session.xp_earned_so_far ?? 0,
         });
         void logAnalyticsEvent(AnalyticsEvents.LESSON_START, { lesson_group_id: group.id, surah_number: group.surah_number });
       } catch (e) {
@@ -304,7 +322,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
 
   reset: () => {
     clearPreloadedAudio();
-    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0, lastCompletedSurah: null, lastVisitedSurah: null });
+    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0, resumed: false, sessionStartedAt: null, xpEarnedSoFar: 0, lastCompletedSurah: null, lastVisitedSurah: null });
   },
 }));
 

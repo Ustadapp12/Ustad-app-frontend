@@ -161,6 +161,13 @@ export interface LessonSessionStart {
   correct_count?: number;
   wrong_count?: number;
   progress_pct?: number;
+  /** True when this reconnects to an already-in-progress session (app was
+   * killed/backgrounded mid-level) instead of starting a fresh one — the
+   * fields below carry what to seed the local XP/hearts/timer state with. */
+  resumed?: boolean;
+  started_at?: string | null;
+  xp_earned_so_far?: number;
+  hearts_lost_half?: number;
 }
 
 /** GET /learning/sessions/active — null when no in-progress session. */
