@@ -114,8 +114,8 @@ export default function HelpScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: { paddingHorizontal: 22, paddingBottom: 12 },
-  topLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.gold, letterSpacing: 1.5, marginBottom: 2 },
-  topTitle: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: 'white' },
+  topLabel: { fontFamily: 'Nunito-Bold', fontSize: 10, color: colors.gold, letterSpacing: 1.5, marginBottom: 2 },
+  topTitle: { fontFamily: 'Nunito-Bold', fontSize: 26, color: 'white' },
   scroll: { paddingHorizontal: 18, paddingTop: 4 },
 
   lumaSection: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 28, paddingLeft: 4 },
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 5,
     position: 'relative',
   },
-  speechText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#374151', lineHeight: 20 },
+  speechText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: '#374151', lineHeight: 20 },
   speechTail: {
     position: 'absolute', right: -9, bottom: 20,
     width: 0, height: 0,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   lumaImg: { width: 105, height: 105 },
 
   sectionLabel: {
-    fontFamily: 'Nunito_700Bold', fontSize: 10, color: 'rgba(255,255,255,0.5)',
+    fontFamily: 'Nunito-Bold', fontSize: 10, color: 'rgba(255,255,255,0.5)',
     letterSpacing: 1.5, marginBottom: 12,
   },
 
@@ -144,11 +144,11 @@ const styles = StyleSheet.create({
     padding: 18, marginBottom: 12,
   },
   faqHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  faqQ: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white', flex: 1, lineHeight: 20 },
+  faqQ: { fontFamily: 'Nunito-Bold', fontSize: 14, color: 'white', flex: 1, lineHeight: 20 },
   chevron: { fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 },
   chevronOpen: { color: colors.gold },
   faqA: {
-    fontFamily: 'Nunito_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.75)',
+    fontFamily: 'Nunito-Regular', fontSize: 13, color: 'rgba(255,255,255,0.75)',
     lineHeight: 21, marginTop: 12,
   },
 
@@ -158,5 +158,5 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(224,188,78,0.25)',
     padding: 16, marginTop: 8,
   },
-  tipText: { flex: 1, fontFamily: 'Nunito_700Bold', fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 20 },
+  tipText: { flex: 1, fontFamily: 'Nunito-Bold', fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 20 },
 });

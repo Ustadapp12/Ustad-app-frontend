@@ -215,6 +215,47 @@ export function computeFreezeDaysRunningOut(streak: StreakState, now: Date): Loc
   };
 }
 
+// "Not opened the app in a whole day." No condition to check — every call to
+// refreshLocalNotifications() (hydrate/login AND right after a completed
+// lesson) IS an "app was just opened" event, so this always (re)schedules
+// itself for exactly 24h out. createTriggerNotification with this same fixed
+// `kind` as its id replaces whatever was previously scheduled (see
+// scheduleLocal), so the next real app open just pushes the fire time
+// forward another 24h — it only ever actually fires if that never happens.
+const INACTIVITY_NUDGE_HOURS = 24;
+
+export function computeInactivityNudge(now: Date): LocalNotification {
+  const fireAt = new Date(now.getTime() + INACTIVITY_NUDGE_HOURS * 60 * 60 * 1000);
+  const msg = pickRandom(INACTIVITY_MESSAGES);
+  return { kind: 'inactivity_nudge', fireAt, title: msg.title, body: msg.body };
+}
+
+// Streak loss itself has no backend event (see applyFreshLearning's own
+// comment in authStore.ts) — it's only ever discovered client-side, after
+// the fact, the next time the app happens to open. That's too late for a
+// push: by the time the client learns the streak is gone, the user is
+// already back in the app looking at StreakLostModal. So this doesn't react
+// to a loss already having happened — it predicts the exact day the CURRENT
+// freeze window will fully run out (today + freezeDaysRemaining, the same
+// count freeze_days_running_out already tracks) and schedules for that day
+// instead, arriving right as the streak actually breaks rather than after.
+// Recomputed on every refreshLocalNotifications() call same as the others,
+// so it tracks freezeDaysRemaining ticking down and — if the user repairs
+// the streak before then (state leaves 'frozen') — cancels itself the same
+// way freeze_days_running_out does.
+const STREAK_LOST_HOUR = 10;
+
+export function computeStreakLost(streak: StreakState, now: Date): LocalNotification | null {
+  if (streak.state !== 'frozen' || streak.freezeDaysRemaining <= 0) return null;
+
+  const fireAt = new Date(now);
+  fireAt.setDate(fireAt.getDate() + streak.freezeDaysRemaining);
+  fireAt.setHours(STREAK_LOST_HOUR, 0, 0, 0);
+
+  const msg = pickRandom(STREAK_LOST_MESSAGES);
+  return { kind: 'streak_lost', fireAt, title: msg.title, body: msg.body };
+}
+
 // ── TEMP DEBUG: manual test trigger ─────────────────────────────────────────
 // Fires every notification type a few seconds apart so it can be previewed on
 // a real device without waiting for real trigger conditions (10am/5pm/near-
@@ -286,20 +327,22 @@ async function cancelLocal(kind: LocalNotificationKind): Promise<void> {
 }
 
 /**
- * Recompute all three local notifications against current state and (re)schedule
- * or cancel each accordingly. Intended to run on app launch and right after a
- * session completes — not wired to either call site yet, see module header.
+ * Recompute every wired local notification against current state and (re)schedule
+ * or cancel each accordingly. Runs on app launch/login/refresh and right after a
+ * session completes (see call sites in authStore.ts / lessonStore.ts).
+ * `milestone_completed` is not wired here — it isn't a range/time schedule like
+ * the rest, it's event-triggered off surah completion, which needs the
+ * per-surah level-completion data MapScreen already computes for the map, not
+ * anything available in StreakState. See MapScreen.tsx if/when that's wired.
  */
-// TEMP: real (non-test) notifications disabled while UI is under active
-// testing — every fresh learning payload and every completed lesson calls
-// refreshLocalNotifications(), and with the daily 10am/5pm reminders now
-// hardcoded for everyone (no reminder-hour picker gate), that meant real
-// reminders kept firing in the background alongside anything scheduled from
-// the dev test button, reported 2026-09-05 as notifications "randomly"
-// showing up outside of pressing that button. Flip back to false once
-// that's no longer a concern — sendTestNotifications() (the dev button) is
-// a separate function and is NOT affected by this flag either way.
-const REAL_NOTIFICATIONS_DISABLED = true;
+// Was TEMP-disabled 2026-09-05 while daily 10am/5pm reminders (hardcoded for
+// everyone, no reminder-hour picker gate) kept firing alongside anything
+// scheduled from the dev test button, reported as notifications "randomly"
+// showing up outside of pressing that button. Re-enabled 2026-09-10 with
+// inactivity_nudge/streak_lost now wired up too — sendTestNotifications()
+// (the dev button) is a separate function and was never affected by this
+// flag either way.
+const REAL_NOTIFICATIONS_DISABLED = false;
 
 export async function refreshLocalNotifications(
   streak: StreakState,
@@ -312,7 +355,10 @@ export async function refreshLocalNotifications(
     // OS's own trigger queue and would otherwise keep firing regardless of
     // this flag. This call site runs on every login/hydrate/lesson-complete,
     // so it clears stale ones out the first time either fires on this build.
-    for (const kind of ['daily_practice_reminder_10am', 'daily_practice_reminder_5pm', 'streak_about_to_break', 'freeze_days_running_out'] as const) {
+    for (const kind of [
+      'daily_practice_reminder_10am', 'daily_practice_reminder_5pm', 'streak_about_to_break',
+      'freeze_days_running_out', 'inactivity_nudge', 'streak_lost',
+    ] as const) {
       try { await cancelLocal(kind); } catch { /* best-effort cleanup */ }
     }
     return;
@@ -323,6 +369,8 @@ export async function refreshLocalNotifications(
     ['daily_practice_reminder_5pm', computeDailyPracticeReminder(streak, now, 17)],
     ['streak_about_to_break', computeStreakAboutToBreak(streak, now)],
     ['freeze_days_running_out', computeFreezeDaysRunningOut(streak, now)],
+    ['inactivity_nudge', computeInactivityNudge(now)],
+    ['streak_lost', computeStreakLost(streak, now)],
   ];
 
   for (const [kind, notification] of computed) {

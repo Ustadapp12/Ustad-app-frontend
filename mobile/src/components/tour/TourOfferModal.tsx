@@ -68,9 +68,9 @@ const styles = StyleSheet.create({
     elevation: 14,
   },
   lumo: { width: 112, height: 112, marginBottom: 4 },
-  title: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, marginBottom: 8 },
+  title: { fontFamily: 'Nunito-Bold', fontSize: 20, color: colors.darkText, marginBottom: 8 },
   body: {
-    fontFamily: 'Nunito_400Regular',
+    fontFamily: 'Nunito-Regular',
     fontSize: 14,
     color: colors.mutedText,
     textAlign: 'center',
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
   },
-  primaryText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.white },
+  primaryText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
   secondaryBtn: { paddingVertical: 13, alignSelf: 'stretch', alignItems: 'center', marginTop: 2 },
-  secondaryText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText },
+  secondaryText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText },
 });

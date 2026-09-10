@@ -50,8 +50,8 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12,
   },
   luma: { width: 110, height: 110 },
-  title: { fontFamily: 'Nunito_700Bold', fontSize: 19, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
-  body: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 20, textAlign: 'center' },
+  title: { fontFamily: 'Nunito-Bold', fontSize: 19, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
+  body: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 20, textAlign: 'center' },
   button: { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  buttonText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.white },
+  buttonText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
 });

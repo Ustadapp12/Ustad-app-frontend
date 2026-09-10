@@ -215,11 +215,11 @@ const styles = StyleSheet.create({
   },
   decorLetter: {
     position: 'absolute',
-    fontFamily: 'NotoNaskhArabic_400Regular',
+    fontFamily: 'NotoNaskhArabic-Regular',
     color: 'white',
   },
   bismillah: {
-    fontFamily: 'NotoNaskhArabic_400Regular',
+    fontFamily: 'NotoNaskhArabic-Regular',
     fontSize: 27,
     color: '#C4A84C',
     letterSpacing: 1,
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
   },
   status: {
-    fontFamily: 'Nunito_400Regular',
+    fontFamily: 'Nunito-Regular',
     fontSize: 14,
     color: 'rgba(255,255,255,0.75)',
     letterSpacing: 0.3,

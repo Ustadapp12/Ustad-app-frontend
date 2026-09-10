@@ -64,7 +64,7 @@ function useTourGlow(key?: TourTargetKey) {
 // The label (styles.label below) isn't part of iconWrap at all — it's
 // rendered separately by react-navigation's own tab bar internals — so
 // there is nothing to directly measure for it. marginTop:2 + an 11px
-// Nunito_700Bold line's real rendered height (~14px) is about 16px; 20px
+// Nunito-Bold line's real rendered height (~14px) is about 16px; 20px
 // leaves a couple of px of genuine margin rather than clipping the label's
 // own descenders right at the cutout's edge.
 const TAB_ICON_LABEL_EXTRA_H = 20;
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     height: 28,
   },
   label: {
-    fontFamily: 'Nunito_700Bold',
+    fontFamily: 'Nunito-Bold',
     fontSize: 11,
     marginTop: 2,
   },

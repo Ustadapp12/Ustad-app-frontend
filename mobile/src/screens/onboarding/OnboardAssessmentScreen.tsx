@@ -310,12 +310,12 @@ const S = StyleSheet.create({
   backText: { fontSize: 14, color: colors.mutedText },
   exerciseArea: { flex: 1 },
 
-  errorTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
-  errorMsg: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
+  errorTitle: { fontFamily: 'Nunito-Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
+  errorMsg: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
   retryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 },
-  retryBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.white },
+  retryBtnText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
   skipBtn: { marginTop: 14, paddingVertical: 10, paddingHorizontal: 20 },
-  skipBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.mutedText },
+  skipBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.mutedText },
 
   // Intro screen
   introHeaderRow: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 6 },
@@ -324,8 +324,8 @@ const S = StyleSheet.create({
   introScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 22 },
   introContent: { alignItems: 'center' },
   lumoIntro: { width: 140, height: 140, marginBottom: 24 },
-  introText: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, textAlign: 'center', lineHeight: 28 },
+  introText: { fontFamily: 'Nunito-Bold', fontSize: 20, color: colors.darkText, textAlign: 'center', lineHeight: 28 },
   footer: { paddingHorizontal: 22, paddingTop: 12 },
   beginBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
-  beginBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
+  beginBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
 });

@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.7, shadowRadius: 10, elevation: 8,
   },
   comingSoonText: {
-    fontFamily: 'Nunito_700Bold', fontSize: 22, color: 'white',
+    fontFamily: 'Nunito-Bold', fontSize: 22, color: 'white',
     letterSpacing: 0.5,
   },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22, paddingVertical: 16,
   },
   bubbleText: {
-    fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white',
+    fontFamily: 'Nunito-Bold', fontSize: 15, color: 'white',
     textAlign: 'center', lineHeight: 22,
   },
 });

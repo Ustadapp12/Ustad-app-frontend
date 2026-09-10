@@ -115,9 +115,9 @@ const styles = StyleSheet.create({
   animation:      { width: '100%', height: 340, marginBottom: -10, alignItems: 'center', justifyContent: 'center' },
   snowflake:      { position: 'absolute' },
   iceImg:         { width: 128, height: 128 },
-  streakNumber:   { fontFamily: 'Nunito_700Bold', fontSize: 72, lineHeight: 78 },
-  streakLabel:    { fontFamily: 'Nunito_700Bold', fontSize: 22, color: 'white', marginBottom: 14 },
-  hint:           { fontFamily: 'Nunito_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 20, marginBottom: 28, paddingHorizontal: 12 },
+  streakNumber:   { fontFamily: 'Nunito-Bold', fontSize: 72, lineHeight: 78 },
+  streakLabel:    { fontFamily: 'Nunito-Bold', fontSize: 22, color: 'white', marginBottom: 14 },
+  hint:           { fontFamily: 'Nunito-Regular', fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 20, marginBottom: 28, paddingHorizontal: 12 },
   continueBtn:    { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: 'white' },
 });

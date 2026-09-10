@@ -1,8 +1,8 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Animated, Easing, ActivityIndicator, Platform, Modal, Alert, Image, Pressable,
-  useWindowDimensions, BackHandler, type ImageSourcePropType,
+  BackHandler, type ImageSourcePropType,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -231,7 +231,7 @@ const PP = StyleSheet.create({
   btn:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(42,125,79,0.12)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'center', marginBottom: 14 },
   btnDark: { backgroundColor: 'rgba(224,188,78,0.15)' },
   btnDisabled: { opacity: 0.4 },
-  text:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  text:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
   textDark:{ color: '#E0BC4E' },
 });
 
@@ -408,20 +408,20 @@ const HB = StyleSheet.create({
   container:    { alignItems: 'center', justifyContent: 'center', width: 52, height: 52 },
   glow:         { position: 'absolute', width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFF59D' },
   icon:         { fontSize: 22 },
-  label:        { fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#A07C00', marginTop: 1 },
+  label:        { fontSize: 10, fontFamily: 'Nunito-Bold', color: '#A07C00', marginTop: 1 },
   backdrop:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   modal:        { backgroundColor: 'white', borderRadius: 24, padding: 24, alignItems: 'center', width: '88%', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
   lumo:         { width: 100, height: 100, marginBottom: 8 },
-  modalTitle:   { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, marginBottom: 12 },
+  modalTitle:   { fontFamily: 'Nunito-Bold', fontSize: 20, color: colors.darkText, marginBottom: 12 },
   ayahBox:      { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 14, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 16, alignItems: 'center', marginBottom: 16 },
-  ayahAr:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 38 },
-  ayahTrans:    { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginTop: 8, fontStyle: 'italic', lineHeight: 18 },
+  ayahAr:       { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 38 },
+  ayahTrans:    { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginTop: 8, fontStyle: 'italic', lineHeight: 18 },
   playBtn:      { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
   playBtnActive:{ backgroundColor: '#1A5C3A' },
-  playText:     { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
+  playText:     { fontFamily: 'Nunito-Bold', fontSize: 14, color: 'white' },
   pauseRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cancelBtn:    { width: '100%', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
-  cancelText:   { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
+  cancelText:   { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.midText },
 });
 
 // ── Character rotation ────────────────────────────────────────────
@@ -469,7 +469,7 @@ function starsFromAccuracy(scorePct: number): number {
 const LL = StyleSheet.create({
   backBtn: { position: 'absolute', left: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
   backArrowIcon: { width: 14, height: 14, tintColor: colors.midText, marginRight: 6 },
-  backText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
+  backText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.midText },
 });
 
 // ── Between-exercise loading — a spinning green dial + "Loading" label,
@@ -600,13 +600,13 @@ const BI = StyleSheet.create({
     alignItems: 'center', width: '100%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.55, shadowRadius: 14, elevation: 10,
   },
-  surahLabel: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: 'rgba(224,188,78,0.8)', marginBottom: 12, letterSpacing: 0.5 },
-  bismillah: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 32, color: '#E0BC4E', textAlign: 'center', lineHeight: 52 },
-  translation: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 10, lineHeight: 18 },
+  surahLabel: { fontFamily: 'Nunito-Bold', fontSize: 12, color: 'rgba(224,188,78,0.8)', marginBottom: 12, letterSpacing: 0.5 },
+  bismillah: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 32, color: '#E0BC4E', textAlign: 'center', lineHeight: 52 },
+  translation: { fontFamily: 'Nunito-Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 10, lineHeight: 18 },
   listenBtn: { marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(224,188,78,0.15)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20 },
-  listenBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#E0BC4E' },
+  listenBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#E0BC4E' },
   beginBtn: { marginTop: 28, backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 18, paddingHorizontal: 60, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 6 },
-  beginBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
+  beginBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: 'white' },
 });
 
 // ── Segment progress dots ─────────────────────────────────────────
@@ -811,25 +811,25 @@ const AD = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40, alignItems: 'center' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF8E7', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 16, borderWidth: 1, borderColor: '#E0BC4E' },
   badgeIcon: { fontSize: 14 },
-  badgeText: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#9A7A20', letterSpacing: 0.8 },
-  verseTitle: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, marginBottom: 4, textAlign: 'center' },
-  subInstruction: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginBottom: 20 },
+  badgeText: { fontFamily: 'Nunito-Bold', fontSize: 11, color: '#9A7A20', letterSpacing: 0.8 },
+  verseTitle: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText, marginBottom: 4, textAlign: 'center' },
+  subInstruction: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginBottom: 20 },
   ayahCard: { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 18, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 24, alignItems: 'center', marginBottom: 24 },
-  ayahAr: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 30, color: colors.darkText, textAlign: 'center', lineHeight: 54, marginBottom: 12 },
-  transliteration: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#9A7A20', textAlign: 'center', marginBottom: 6 },
-  translation: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', fontStyle: 'italic' },
+  ayahAr: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 30, color: colors.darkText, textAlign: 'center', lineHeight: 54, marginBottom: 12 },
+  transliteration: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#9A7A20', textAlign: 'center', marginBottom: 6 },
+  translation: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', fontStyle: 'italic' },
   playBtn: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 24, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
   playBtnActive: { backgroundColor: '#1A5C3A' },
   lumoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10, width: '100%' },
   lumoImg: { width: 70, height: 70 },
   lumoBubble: { flex: 1, backgroundColor: '#E8F5EE', borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, position: 'relative' },
   lumoBubbleTail: { position: 'absolute', left: -9, top: 14, width: 0, height: 0, borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: colors.primary },
-  lumoBubbleText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  lumoBubbleText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
   tipCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFFBEC', borderRadius: 14, padding: 14, width: '100%', marginBottom: 24, borderWidth: 1, borderColor: '#FDE68A' },
   tipIcon: { fontSize: 16 },
-  tipText: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: '#92400E', flex: 1, lineHeight: 18 },
+  tipText: { fontFamily: 'Nunito-Regular', fontSize: 12, color: '#92400E', flex: 1, lineHeight: 18 },
   continueBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: 'white' },
 });
 
 // EX.blankBox has a fixed size tuned for the default Naskh font. Nastaliq
@@ -1371,7 +1371,7 @@ export function AudioFill({
 const AF = StyleSheet.create({
   hearBtn:           { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 22, marginBottom: 10, borderWidth: 1.5, borderColor: colors.primary },
   hearBtnIcon:       { width: 18, height: 18 },
-  hearBtnLabel:      { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
+  hearBtnLabel:      { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.primary },
   optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 12 },
   optionBtn:         { width: '45%', backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 12, alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   optionSelected:    { borderColor: colors.primary, backgroundColor: colors.primaryBg },
@@ -1381,7 +1381,7 @@ const AF = StyleSheet.create({
   playIcon:          { fontSize: 18, color: colors.primary },
   pauseRow:          { flexDirection: 'row', gap: 4 },
   pauseBar:          { width: 4, height: 14, backgroundColor: 'white', borderRadius: 2 },
-  optionNum:         { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.mutedText },
+  optionNum:         { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.mutedText },
 });
 
 // ── Ayat Then Order exercise ──────────────────────────────────────
@@ -1486,8 +1486,8 @@ export function AyatThenOrder({
 
 const ATO = StyleSheet.create({
   firstAyahCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 16, marginBottom: 8, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
-  firstAyahAr:   { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 26, color: colors.darkText, textAlign: 'center', lineHeight: 44, marginBottom: 8 },
-  divider:       { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 12, marginTop: 4 },
+  firstAyahAr:   { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 26, color: colors.darkText, textAlign: 'center', lineHeight: 44, marginBottom: 8 },
+  divider:       { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 12, marginTop: 4 },
 });
 
 // ── Shared result banner for speak exercises ───────────────────────
@@ -1643,14 +1643,14 @@ const SRB = StyleSheet.create({
   badgeFail:       { backgroundColor: '#F97316' },
   badgeText:       { fontSize: 20, color: 'white', fontWeight: '700' },
   topText:         { flex: 1 },
-  title:           { fontFamily: 'Nunito_700Bold', fontSize: 22, color: '#14532D' },
+  title:           { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#14532D' },
   titleFail:       { color: '#7C2D12' },
-  sub:             { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
+  sub:             { fontFamily: 'Nunito-Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
   subFail:         { color: '#9A3412' },
   // XP pill — full width, content centered, matching FeedbackBanner xpPill
   xpPill:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'white', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   xpLumo:          { width: 32, height: 32 },
-  xpText:          { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText },
+  xpText:          { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText },
   // The CORRECT AYAH / YOU SAID boxes. Sized to hug the text they hold:
   // lineHeight was 38 on a 22px font (1.73×), which reserved most of a
   // blank extra line per row and made a one-line ayah's box read as an
@@ -1658,12 +1658,12 @@ const SRB = StyleSheet.create({
   // ascenders and harakat — the reason it can't simply hug the glyph box
   // — without the padding being visibly larger than the type.
   transcriptBox:   { backgroundColor: 'white', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, alignItems: 'center' },
-  transcriptLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 6 },
-  ayahText:        { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 34 },
+  transcriptLabel: { fontFamily: 'Nunito-Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 6 },
+  ayahText:        { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 34 },
   wrongWord:       { color: '#DC2626', textDecorationLine: 'underline' },
   btn:             { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   btnFail:         { backgroundColor: '#F97316', shadowColor: '#F97316' },
-  btnText:         { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
+  btnText:         { fontFamily: 'Nunito-Bold', fontSize: 16, color: 'white' },
   // Clear gap from the scrollable content above (transcript boxes) — was
   // sitting right against it with nothing but the last box's own
   // marginBottom, which read as the buttons crowding/interfering with it.
@@ -1954,10 +1954,10 @@ const RAS = StyleSheet.create({
   outer:          { flex: 1 },
   container:      { padding: 20, paddingBottom: 8 },
   ayahCard:       { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 18, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 24, alignItems: 'center', marginBottom: 16 },
-  ayahText:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 28, color: colors.darkText, textAlign: 'center', lineHeight: 52 },
+  ayahText:       { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 28, color: colors.darkText, textAlign: 'center', lineHeight: 52 },
   // Fixed bottom area — always visible above the result sheet
   micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
-  micInstruction: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
+  micInstruction: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
   // White background with green border makes the mic.png icon clearly visible
   // against the button surface. Press → slight scale-down.
@@ -1968,10 +1968,10 @@ const RAS = StyleSheet.create({
   listenAnim:     { width: 88, height: 88 },
   checkBtn:       { width: '100%', marginTop: 20 },
   skipBtn:        { marginTop: 18, paddingVertical: 4, paddingHorizontal: 10 },
-  skipBtnText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
+  skipBtnText:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
-  errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
-  retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  errorText:      { fontFamily: 'Nunito-Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
+  retryLink:      { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
 });
 
 // ── Read and Speak exercise ────────────────────────────────────────
@@ -2275,14 +2275,14 @@ const RANS = StyleSheet.create({
   wordRow:        { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 16, width: '100%' },
   wordChip:       { backgroundColor: '#FFFBF0', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1.5, borderColor: '#E8D8A0' },
   wordChipDisabled: { opacity: 0.4 },
-  wordText:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText },
+  wordText:       { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText },
   // "Hear them all" button — plays the full phrase sequence
   hearAllBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 18, marginBottom: 8, borderWidth: 1, borderColor: colors.primary },
   hearAllBtnDisabled: { opacity: 0.4 },
   hearAllIcon:    { width: 14, height: 14 },
-  hearAllText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  hearAllText:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
   micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
-  micInstruction: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
+  micInstruction: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
   // White background with green border makes mic.png clearly visible
   micBtn:         { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
@@ -2292,10 +2292,10 @@ const RANS = StyleSheet.create({
   listenAnim:     { width: 88, height: 88 },
   checkBtn:       { width: '100%', marginTop: 20 },
   skipBtn:        { marginTop: 18, paddingVertical: 4, paddingHorizontal: 10 },
-  skipBtnText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
+  skipBtnText:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
-  errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
-  retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  errorText:      { fontFamily: 'Nunito-Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
+  retryLink:      { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
 });
 
 // ── Recitation Scoring Feedback ───────────────────────────────────
@@ -2335,7 +2335,7 @@ const RSF = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16, marginBottom: 16 },
   lumo: { width: 90, height: 90 },
   hourglass: { width: 70, height: 70 },
-  text: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText, marginTop: 4 },
+  text: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.mutedText, marginTop: 4 },
 });
 
 // ── Hear and Select exercise ──────────────────────────────────────
@@ -2471,7 +2471,7 @@ const HAS = StyleSheet.create({
   },
   speakerBtnActive: { backgroundColor: colors.primary },
   speakerIcon:  { width: 36, height: 36 },
-  speakerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.primary, marginTop: 6, textAlign: 'center' },
+  speakerLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.primary, marginTop: 6, textAlign: 'center' },
   pauseIcon:    { flexDirection: 'row', gap: 7, alignItems: 'center' },
   pauseBar:     { width: 7, height: 30, backgroundColor: 'white', borderRadius: 3 },
 });
@@ -2483,7 +2483,7 @@ const EX = StyleSheet.create({
   // exerciseArea in the main render), so this only needs a modest bottom
   // margin, not a scroll safety cushion.
   scrollContent: { padding: 16, paddingBottom: 20 },
-  instruction: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 12 },
+  instruction: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 12 },
   // Character + speech bubble — sized to fit every exercise on one screen
   // without scrolling on a typical phone, not to showcase the mascot.
   characterRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10, overflow: 'visible' },
@@ -2493,27 +2493,27 @@ const EX = StyleSheet.create({
   // text read as disproportionate ("a LOT of padding for such a small font").
   verseInfoCard: { flex: 1, backgroundColor: 'white', borderRadius: 16, padding: 8, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2, gap: 2 },
   bubbleTail: { position: 'absolute', left: -10, top: 18, width: 0, height: 0, borderTopWidth: 8, borderBottomWidth: 8, borderRightWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: 'white' },
-  characterName: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary, letterSpacing: 0.8 },
-  bubbleLabel: { fontFamily: 'Nunito_400Regular', fontSize: 10, color: colors.mutedText },
-  bubbleText:  { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText },
+  characterName: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.primary, letterSpacing: 0.8 },
+  bubbleLabel: { fontFamily: 'Nunito-Regular', fontSize: 10, color: colors.mutedText },
+  bubbleText:  { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.darkText },
   // Word-by-word speaker (above question card)
   wordAudioBtn:   { alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8, backgroundColor: colors.primaryBg, borderRadius: 14, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.primary },
   wordAudioIcon:  { width: 13, height: 13 },
-  wordAudioLabel: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary },
+  wordAudioLabel: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.primary },
   // Review (wrong-answer replay) banner
   reviewBanner: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 10, alignItems: 'center' as const, borderWidth: 1, borderColor: '#F59E0B' },
-  reviewBannerText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#92400E' },
+  reviewBannerText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#92400E' },
   // Question card
   questionCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
   ayahCard: { backgroundColor: 'white', borderRadius: 18, padding: 22, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  ayahAr: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 28, color: colors.darkText, textAlign: 'right', lineHeight: 52, marginBottom: 10 },
-  ayahTrans: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
-  contextText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
+  ayahAr: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 28, color: colors.darkText, textAlign: 'right', lineHeight: 52, marginBottom: 10 },
+  ayahTrans: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
+  contextText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
   tokensRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 },
-  tokenWord: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 24, color: colors.darkText },
+  tokenWord: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 24, color: colors.darkText },
   blankBox: { borderBottomWidth: 2.5, borderColor: colors.primary, minWidth: 70, height: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   blankFilled: { borderColor: colors.primary },
-  blankText:        { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 24, color: colors.primary },
+  blankText:        { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 24, color: colors.primary },
   blankSpeaker:     { alignItems: 'center', justifyContent: 'center', padding: 4 },
   blankSpeakerIcon: { fontSize: 20 },
   // Options
@@ -2526,21 +2526,21 @@ const EX = StyleSheet.create({
     shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
     elevation: 8,
   },
-  optionText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: colors.darkText },
-  optionTextArabic: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 18, color: colors.darkText, textAlign: 'center' },
+  optionText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: colors.darkText },
+  optionTextArabic: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 18, color: colors.darkText, textAlign: 'center' },
   optionTextSelected: { color: colors.primary },
   optionsColumn: { gap: 10, marginBottom: 24 },
   answerZone: { minHeight: 60, backgroundColor: 'white', borderRadius: 14, borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed', flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, padding: 10, marginBottom: 16, alignItems: 'center', justifyContent: 'center' },
-  answerPlaceholder: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText },
+  answerPlaceholder: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText },
   tileBank: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 24 },
   bankTile: { backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
   placedTile: { backgroundColor: colors.primaryBg, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
-  tileText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: colors.darkText },
+  tileText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: colors.darkText },
   listenBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 16 },
-  listenBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
+  listenBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.primary },
   continueBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 14, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   continueBtnDisabled: { opacity: 0.35 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: 'white' },
   // Sequence (ayah ordering) exercise styles
   seqAnswerZone: { flexDirection: 'column' as const, gap: 12, marginVertical: 20, paddingHorizontal: 16 },
   seqBank:       { flexDirection: 'column' as const, gap: 12, marginBottom: 24, paddingHorizontal: 16 },
@@ -2550,8 +2550,8 @@ const EX = StyleSheet.create({
                    backgroundColor: 'white', borderWidth: 2, borderColor: colors.primary },
   seqBoxFilled:  { backgroundColor: 'rgba(55,161,104,0.1)' },
   seqBoxEmpty:   { borderStyle: 'dashed' as const, borderColor: 'rgba(55,161,104,0.4)', backgroundColor: 'rgba(55,161,104,0.03)' },
-  seqSlotNum:    { fontFamily: 'Nunito_700Bold', fontSize: 18, color: 'rgba(55,161,104,0.25)' },
-  seqTileText:   { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: '#1A3A2A', textAlign: 'right' as const, lineHeight: 32 },
+  seqSlotNum:    { fontFamily: 'Nunito-Bold', fontSize: 18, color: 'rgba(55,161,104,0.25)' },
+  seqTileText:   { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: '#1A3A2A', textAlign: 'right' as const, lineHeight: 32 },
 });
 
 // ── Feedback overlay ───────────────────────────────────────────────
@@ -2623,33 +2623,57 @@ const FB = StyleSheet.create({
   correctRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   correctBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
   correctBadgeText: { fontSize: 20, color: 'white', fontWeight: '700' },
-  correctTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: '#14532D' },
-  correctSub: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
+  correctTitle: { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#14532D' },
+  correctSub: { fontFamily: 'Nunito-Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
   xpPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'white', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   xpLumo: { width: 32, height: 32 },
-  xpText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText },
+  xpText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText },
   continueBtn: { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: 'white' },
   wrongRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   wrongBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' },
   wrongBadgeText: { fontSize: 18, color: 'white', fontWeight: '700' },
-  wrongTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: '#7F1D1D' },
-  correctAnswerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: '#991B1B', letterSpacing: 1.2, marginBottom: 8 },
+  wrongTitle: { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#7F1D1D' },
+  correctAnswerLabel: { fontFamily: 'Nunito-Bold', fontSize: 10, color: '#991B1B', letterSpacing: 1.2, marginBottom: 8 },
   correctAnswerBox: { backgroundColor: 'white', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', marginBottom: 20 },
-  correctAnswerText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center' },
+  correctAnswerText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center' },
   gotItBtn: { backgroundColor: '#DC2626', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#DC2626', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  gotItBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white', letterSpacing: 0.5 },
+  gotItBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: 'white', letterSpacing: 0.5 },
 });
 
 // ── Exercise slide-in — mounts fresh (via the `key={exercise.ex_id}` on its
 // parent) every time the current exercise changes, so each new exercise
-// animates in from the right instead of just popping into place. ──
+// animates in from the right instead of just popping into place.
+//
+// This used to start translateX at the full screen `width` (i.e. the new
+// exercise's content was mounted completely off-screen) and only kick the
+// slide-in animation off from a `useEffect`, which React/RN only runs AFTER
+// the first frame has already been committed and painted. That guaranteed at
+// least one fully-off-screen frame on every single exercise transition —
+// LessonHeader (the X/progress bar/hearts/Hint row) sits outside this
+// component as a sibling, so it kept rendering normally while the entire
+// exercise body beneath it was blank/white. On iOS that gap was consistently
+// visible (reported "goes to a white screen... then it loads again," present
+// since the iOS build existed); Android's compositor apparently holds the
+// previous frame through the same gap, which is why this never showed up
+// there — same JS/animation code, no platform branch, so the discrepancy was
+// timing, not logic.
+//
+// Fixed two ways, together: `useLayoutEffect` instead of `useEffect` so the
+// native `.start()` command is queued in the same commit as the view's
+// mount (before that first frame is handed to the native side to paint)
+// instead of one JS-thread round-trip later; and a much smaller starting
+// offset (40px, not a full screen width) so that even if the animation start
+// is ever delayed by a frame or two regardless, the exercise content is
+// already sitting almost exactly where it belongs instead of fully
+// off-screen — worst case a barely-noticeable shift, never a blank screen.
 export function ExerciseSlide({ children }: { children: React.ReactNode }) {
-  const { width } = useWindowDimensions();
-  const translateX = useRef(new Animated.Value(width)).current;
-  useEffect(() => {
+  const SLIDE_OFFSET = 40;
+  const translateX = useRef(new Animated.Value(SLIDE_OFFSET)).current;
+  useLayoutEffect(() => {
+    translateX.setValue(SLIDE_OFFSET);
     Animated.timing(translateX, {
-      toValue: 0, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+      toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true,
     }).start();
   }, []);
   return <Animated.View style={{ flex: 1, transform: [{ translateX }] }}>{children}</Animated.View>;
@@ -3160,10 +3184,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           <Text style={S.retryBtnText}>Try again</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
-          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito_400Regular' }}>Go back</Text>
+          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito-Regular' }}>Go back</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setLoadErrorFeedbackVisible(true)} style={{ marginTop: 16 }}>
-          <Text style={{ color: colors.primary, fontFamily: 'Nunito_700Bold', fontSize: 13 }}>Give feedback</Text>
+          <Text style={{ color: colors.primary, fontFamily: 'Nunito-Bold', fontSize: 13 }}>Give feedback</Text>
         </TouchableOpacity>
         <LumoInfoModal
           visible={loadErrorFeedbackVisible}
@@ -3201,7 +3225,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           onPress={() => { abandonSession({ silent: true }).catch(() => {}); navigation.goBack(); }}
           style={{ marginTop: 12 }}
         >
-          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito_400Regular' }}>Back to Map</Text>
+          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito-Regular' }}>Back to Map</Text>
         </TouchableOpacity>
       </View>
     );
@@ -3554,20 +3578,20 @@ const S = StyleSheet.create({
   spinnerOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,244,248,0.6)' },
   confettiOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
   confettiAnim:    { width: '100%', height: 320 },
-  errorTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
-  errorMsg: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
+  errorTitle: { fontFamily: 'Nunito-Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
+  errorMsg: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
   retryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 },
-  retryBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white' },
+  retryBtnText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: 'white' },
   // No-hearts overlay
   noHeartsOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', zIndex: 100, paddingHorizontal: 28 },
   noHeartsCard: { backgroundColor: 'white', borderRadius: 28, padding: 28, alignItems: 'center', width: '100%', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 20 },
-  noHeartsTitle: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: colors.darkText, marginBottom: 10 },
-  noHeartsBody: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.midText, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  noHeartsTitle: { fontFamily: 'Nunito-Bold', fontSize: 26, color: colors.darkText, marginBottom: 10 },
+  noHeartsBody: { fontFamily: 'Nunito-Regular', fontSize: 14, color: colors.midText, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   buyHeartsBtn: { width: '100%', backgroundColor: '#F0F4FF', borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginBottom: 12, borderWidth: 1.5, borderColor: '#C7D2FE' },
-  buyHeartsBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#4338CA' },
-  buyHeartsSubText: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: '#818CF8', marginTop: 2 },
+  buyHeartsBtnText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#4338CA' },
+  buyHeartsSubText: { fontFamily: 'Nunito-Regular', fontSize: 11, color: '#818CF8', marginTop: 2 },
   noHeartsRetryBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  noHeartsRetryText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white' },
+  noHeartsRetryText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: 'white' },
   noHeartsLumo: { width: 120, height: 120, marginBottom: 8 },
   // Exit-level confirmation
   exitConfirmLumo: { width: 90, height: 90, marginBottom: 8 },
@@ -3577,9 +3601,9 @@ const S = StyleSheet.create({
   // cancel/destructive convention so an impulsive or accidental tap keeps
   // the user on the level instead of throwing progress away.
   exitConfirmCancelBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
-  exitConfirmCancelText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
+  exitConfirmCancelText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: 'white' },
   exitConfirmLeaveBtn: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
-  exitConfirmLeaveText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
+  exitConfirmLeaveText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.midText },
   waveBar: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   waveLottie: { width: 220, height: 60 },
 });

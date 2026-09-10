@@ -1007,7 +1007,7 @@ function makeStyles(M: MapModel) {
       paddingHorizontal: sc(10), paddingVertical: sc(5),
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 4, elevation: 3,
     },
-    hudVal: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: '#DC2626' },
+    hudVal: { fontFamily: 'Nunito-Bold', fontSize: sc(12), color: '#DC2626' },
     hudStreakIcon: { width: sc(16), height: sc(16) },
     // Above the Profile tab (the rightmost of the 4 tabs), close over the
     // 64px tab bar — `right` itself is computed at the JSX call site (needs
@@ -1047,7 +1047,7 @@ function makeStyles(M: MapModel) {
     },
     // Opaque variant for the initial load — see the comment at its use site.
     loadingOverlaySolid: { backgroundColor: colors.mapBg },
-    loadingOverlayText: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: '#fff', marginTop: sc(10) },
+    loadingOverlayText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: '#fff', marginTop: sc(10) },
     node: { width: NODE_SIZE, height: NODE_SIZE, alignItems: 'center', justifyContent: 'center' },
     nodeImg: { position: 'absolute', width: NODE_SIZE, height: NODE_SIZE },
     // No top/left set, so `node`'s own alignItems/justifyContent:'center'
@@ -1076,7 +1076,7 @@ function makeStyles(M: MapModel) {
       position: 'absolute', bottom: -sc(4), width: NODE_SIZE * 0.8, height: sc(10), borderRadius: sc(6),
       backgroundColor: 'rgba(0,0,0,0.25)', left: NODE_SIZE * 0.1,
     },
-    nodeNumber: { fontFamily: 'Nunito_700Bold', fontSize: sc(20), color: 'white', textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
+    nodeNumber: { fontFamily: 'Nunito-Bold', fontSize: sc(20), color: 'white', textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
     lockIcon: { fontSize: sc(18) },
     nodeWrapper: { alignItems: 'center' },
     // The tag is absolutely positioned BESIDE the node, never in normal flow.
@@ -1114,7 +1114,7 @@ function makeStyles(M: MapModel) {
       borderWidth: 1, borderColor: 'rgba(224,188,78,0.55)',
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3, elevation: 4,
     },
-    nodeTagText: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#1A1A1A', letterSpacing: 0.2 },
+    nodeTagText: { fontFamily: 'Nunito-Bold', fontSize: sc(10), color: '#1A1A1A', letterSpacing: 0.2 },
     // Downward-pointing callout arrow, aimed at the node below — two
     // stacked CSS-triangles (RN has no native triangle primitive): a
     // slightly larger gold one behind, a slightly smaller white one
@@ -1140,7 +1140,7 @@ function makeStyles(M: MapModel) {
     // 111–112") overflow the pill art instead of shrinking to fit.
     ayahPill: { alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: sc(4) },
     ayahPillText: {
-      fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#3B2A12', textAlign: 'center',
+      fontFamily: 'Nunito-Bold', fontSize: sc(10), color: '#3B2A12', textAlign: 'center',
       textShadowColor: 'rgba(255,255,255,0.85)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
     },
     // Bigger than before (72→96 glow, 66→84 image) while keeping the image
@@ -1153,13 +1153,13 @@ function makeStyles(M: MapModel) {
       shadowColor: '#fff', shadowOpacity: 0.6, shadowRadius: 8, elevation: 5,
     },
     lumaImg: { width: sc(84), height: sc(84) },
-    endText: { fontFamily: 'Nunito_700Bold', fontSize: sc(11), color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: sc(4) },
+    endText: { fontFamily: 'Nunito-Bold', fontSize: sc(11), color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: sc(4) },
     // The big "Coming soon!" banner filling a short final chapter's unused
     // reserved space (see comingSoonY) — deliberately much larger than
     // endText above, which is a small footer note, not a banner.
     comingSoonBanner: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
     comingSoonText: {
-      fontFamily: 'Nunito_700Bold', fontSize: sc(28), color: 'rgba(255,255,255,0.85)',
+      fontFamily: 'Nunito-Bold', fontSize: sc(28), color: 'rgba(255,255,255,0.85)',
       textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4,
     },
     // ── Chapter paging — both signs side by side at the bottom, wooden
@@ -1169,7 +1169,7 @@ function makeStyles(M: MapModel) {
     chapterSignRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: sc(16), marginTop: sc(6) },
     chapterSignCol: { alignItems: 'center' },
     chapterSignCaption: {
-      fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: colors.darkText,
+      fontFamily: 'Nunito-Bold', fontSize: sc(12), color: colors.darkText,
       marginTop: sc(2), textShadowColor: 'rgba(255,255,255,0.8)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 },
     },
     // Floats over the NEXT sign's top-right corner (not stacked above it) so
@@ -1179,18 +1179,18 @@ function makeStyles(M: MapModel) {
       backgroundColor: '#FFD34D', borderRadius: sc(8),
       paddingHorizontal: sc(8), paddingVertical: sc(2),
     },
-    chapterNewBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#3B2A12', letterSpacing: 0.6 },
+    chapterNewBadgeText: { fontFamily: 'Nunito-Bold', fontSize: sc(10), color: '#3B2A12', letterSpacing: 0.6 },
     unlockBtn: {
       marginTop: sc(6), backgroundColor: colors.primary, borderRadius: sc(14),
       paddingHorizontal: sc(16), paddingVertical: sc(8),
       shadowColor: colors.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 5,
     },
-    unlockBtnText: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: 'white' },
+    unlockBtnText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: 'white' },
     unlockDismiss: {
       marginTop: sc(6), backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: sc(14),
       paddingHorizontal: sc(16), paddingVertical: sc(8),
     },
-    unlockDismissText: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.midText },
+    unlockDismissText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: colors.midText },
     actionCard: {
       width: ACTION_CARD_W, height: ACTION_CARD_H,
       borderRadius: acw(0.087), borderWidth: 1.5,
@@ -1202,7 +1202,7 @@ function makeStyles(M: MapModel) {
       position: 'absolute', top: '5%', right: '5%', width: acw(0.09), height: acw(0.09),
       alignItems: 'center', justifyContent: 'center', zIndex: 1,
     },
-    actionCardCloseText: { fontSize: acw(0.05), fontFamily: 'Nunito_700Bold' },
+    actionCardCloseText: { fontSize: acw(0.05), fontFamily: 'Nunito-Bold' },
     // Title/subtitle/button all sit in absolutely-positioned percentage boxes
     // (percentages resolved against the fixed actionCard width/height above)
     // instead of normal flex flow, so their position stays locked to the
@@ -1211,9 +1211,9 @@ function makeStyles(M: MapModel) {
     // name shrinks-to-fit within its own lane instead of running under the
     // close button sitting in the top-right corner.
     actionCardTitleBox: { position: 'absolute', left: '4%', top: '14%', width: '78%' },
-    actionCardTitle: { fontFamily: 'Nunito_700Bold', fontSize: acw(0.07) },
+    actionCardTitle: { fontFamily: 'Nunito-Bold', fontSize: acw(0.07) },
     actionCardSubtitleBox: { position: 'absolute', left: '4%', top: '34%', width: '92%' },
-    actionCardSubtitle: { fontFamily: 'Nunito_700Bold', fontSize: acw(0.052), opacity: 0.7 },
+    actionCardSubtitle: { fontFamily: 'Nunito-Bold', fontSize: acw(0.052), opacity: 0.7 },
     actionCardBtn: {
       // top nudged down from 51% (height trimmed to match, 31%→28%, so the
       // bottom edge — and the card's own bottom margin — stays put) to open
@@ -1223,7 +1223,7 @@ function makeStyles(M: MapModel) {
       borderRadius: acw(0.052), alignItems: 'center', justifyContent: 'center',
       shadowColor: '#000', shadowOffset: { width: 0, height: acw(0.017) }, shadowOpacity: 0.2, shadowRadius: acw(0.026), elevation: 4,
     },
-    actionCardBtnText: { fontFamily: 'Nunito_700Bold', fontSize: acw(0.057), letterSpacing: 0.3 },
+    actionCardBtnText: { fontFamily: 'Nunito-Bold', fontSize: acw(0.057), letterSpacing: 0.3 },
   });
   const SL = StyleSheet.create({
     // width:'100%' + alignItems:'stretch' (not 'center') is required, not
@@ -1232,7 +1232,7 @@ function makeStyles(M: MapModel) {
     // Al-Kafirun) overflow the scroll art instead of shrinking to fit.
     labelBox: { width: '100%', alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: sc(10) },
     english: {
-      fontFamily: 'Nunito_700Bold', fontSize: sc(17), color: '#FFFFFF', letterSpacing: 0.4,
+      fontFamily: 'Nunito-Bold', fontSize: sc(17), color: '#FFFFFF', letterSpacing: 0.4,
       textAlign: 'center',
       textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
     },
@@ -1244,7 +1244,7 @@ function makeStyles(M: MapModel) {
       paddingHorizontal: sc(12), paddingVertical: sc(8), maxWidth: sc(160),
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 4,
     },
-    text: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: '#374151', textAlign: 'center', lineHeight: sc(14) },
+    text: { fontFamily: 'Nunito-Bold', fontSize: sc(10), color: '#374151', textAlign: 'center', lineHeight: sc(14) },
     tail: {
       width: 0, height: 0,
       borderLeftWidth: sc(7), borderRightWidth: sc(7), borderTopWidth: sc(8),

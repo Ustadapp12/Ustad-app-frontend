@@ -108,5 +108,5 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   content: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  text: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
+  text: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText },
 });

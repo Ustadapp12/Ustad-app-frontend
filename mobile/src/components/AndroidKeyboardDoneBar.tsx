@@ -60,5 +60,5 @@ const styles = StyleSheet.create({
     width: 30, height: 30, borderRadius: 15,
     backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
   },
-  tick: { color: '#fff', fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  tick: { color: '#fff', fontSize: 15, fontFamily: 'Nunito-Bold' },
 });

@@ -82,9 +82,9 @@ function ProfileContent({ navigation }: Props) {
     const fontSize = sc(BASE_FONT_SIZE);
     const lineHeight = sc(BASE_LINE_HEIGHT);
     return [
-      { key: 'uthmani' as ScriptPreference, label: 'Usmani', subtitle: 'عثماني', fontFamily: 'NotoNaskhArabic_400Regular', fontSize, lineHeight, accentColor: colors.primary },
+      { key: 'uthmani' as ScriptPreference, label: 'Usmani', subtitle: 'عثماني', fontFamily: 'NotoNaskhArabic-Regular', fontSize, lineHeight, accentColor: colors.primary },
       {
-        key: 'nastaliq' as ScriptPreference, label: 'Indo-Pak', subtitle: 'خط المصحف', fontFamily: 'NotoNastaliqUrdu',
+        key: 'nastaliq' as ScriptPreference, label: 'Indo-Pak', subtitle: 'خط المصحف', fontFamily: 'NotoNastaliqUrdu-Regular',
         fontSize: Math.round(fontSize * scriptFontScale('nastaliq')),
         lineHeight: Math.round(lineHeight * scriptFontScale('nastaliq') * scriptLineHeightScale('nastaliq')),
         accentColor: '#C4A84C',
@@ -567,7 +567,7 @@ function makeStyles(sc: (n: number) => number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.lightBg },
     statusBar: { paddingHorizontal: sc(24), paddingVertical: sc(6) },
-    time: { fontFamily: 'Nunito_700Bold', fontSize: sc(15), color: colors.darkText },
+    time: { fontFamily: 'Nunito-Bold', fontSize: sc(15), color: colors.darkText },
     avatarCard: {
       alignItems: 'center', paddingVertical: sc(14), paddingHorizontal: sc(22),
       backgroundColor: colors.white, marginHorizontal: sc(16), borderRadius: sc(20), marginBottom: sc(10),
@@ -579,13 +579,13 @@ function makeStyles(sc: (n: number) => number) {
       alignItems: 'center', justifyContent: 'center',
       shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
     },
-    initials: { fontFamily: 'Nunito_700Bold', fontSize: sc(28), color: 'white' },
+    initials: { fontFamily: 'Nunito-Bold', fontSize: sc(28), color: 'white' },
     editBadge: {
       position: 'absolute', right: -4, bottom: -4,
       width: sc(26), height: sc(26), alignItems: 'center', justifyContent: 'center',
     },
-    displayName: { fontFamily: 'Nunito_700Bold', fontSize: sc(20), color: colors.darkText, marginBottom: 4 },
-    levelTag: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: colors.mutedText },
+    displayName: { fontFamily: 'Nunito-Bold', fontSize: sc(20), color: colors.darkText, marginBottom: 4 },
+    levelTag: { fontFamily: 'Nunito-Bold', fontSize: sc(12), color: colors.mutedText },
     // Vertical hero layout — same size/shape Lumo gets everywhere else
     // (Auth/Onboarding/Feedback), not the old cramped horizontal row.
     guestCard: {
@@ -595,10 +595,10 @@ function makeStyles(sc: (n: number) => number) {
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
     },
     guestCardLuma: { width: sc(100), height: sc(100), marginBottom: sc(8) },
-    guestCardTitle: { fontFamily: 'Nunito_700Bold', fontSize: sc(17), color: colors.darkText, marginBottom: 4, textAlign: 'center' },
-    guestCardBody: { fontFamily: 'Nunito_400Regular', fontSize: sc(13), color: colors.mutedText, lineHeight: sc(19), textAlign: 'center', marginBottom: sc(14) },
+    guestCardTitle: { fontFamily: 'Nunito-Bold', fontSize: sc(17), color: colors.darkText, marginBottom: 4, textAlign: 'center' },
+    guestCardBody: { fontFamily: 'Nunito-Regular', fontSize: sc(13), color: colors.mutedText, lineHeight: sc(19), textAlign: 'center', marginBottom: sc(14) },
     guestCardBtn: { alignSelf: 'stretch', backgroundColor: colors.primary, borderRadius: sc(14), paddingVertical: sc(13), alignItems: 'center' },
-    guestCardBtnText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.white },
+    guestCardBtnText: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.white },
     statsGrid: {
       flexDirection: 'row', backgroundColor: colors.white,
       marginHorizontal: sc(16), borderRadius: sc(18), marginBottom: sc(10), overflow: 'hidden',
@@ -610,15 +610,15 @@ function makeStyles(sc: (n: number) => number) {
     // Bigger than the plain emoji it replaces (statEmoji, sc(18)) — an
     // animation this small barely reads as moving at all.
     statStreakAnim: { width: sc(28), height: sc(28) },
-    statValue: { fontFamily: 'Nunito_700Bold', fontSize: sc(18), color: colors.darkText },
-    statLabel: { fontFamily: 'Nunito_400Regular', fontSize: sc(9), color: colors.mutedText, letterSpacing: 0.3 },
+    statValue: { fontFamily: 'Nunito-Bold', fontSize: sc(18), color: colors.darkText },
+    statLabel: { fontFamily: 'Nunito-Regular', fontSize: sc(9), color: colors.mutedText, letterSpacing: 0.3 },
     section: {
       marginHorizontal: sc(16), marginBottom: sc(8),
       backgroundColor: colors.white, borderRadius: sc(18), overflow: 'hidden',
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
     },
     sectionTitle: {
-      fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: colors.mutedText,
+      fontFamily: 'Nunito-Bold', fontSize: sc(10), color: colors.mutedText,
       letterSpacing: 1.5, paddingHorizontal: sc(18), paddingTop: sc(10), paddingBottom: sc(4),
     },
     settingRow: {
@@ -640,27 +640,27 @@ function makeStyles(sc: (n: number) => number) {
     settingEmoji: { fontSize: sc(16) },
     settingIcon: { width: sc(16), height: sc(16) },
     settingContent: { flex: 1 },
-    settingLabel: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.darkText },
-    settingValue: { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: colors.mutedText, marginTop: 1 },
+    settingLabel: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.darkText },
+    settingValue: { fontFamily: 'Nunito-Regular', fontSize: sc(11), color: colors.mutedText, marginTop: 1 },
     settingArrow: { fontSize: sc(18), color: colors.border, fontWeight: '600' },
     logoutBtn: {
       marginHorizontal: sc(16), marginBottom: sc(6), borderRadius: sc(16), paddingVertical: sc(13),
       alignItems: 'center', backgroundColor: colors.redBg, borderWidth: 1.5, borderColor: '#FCA5A5',
     },
-    logoutText: { fontFamily: 'Nunito_700Bold', fontSize: sc(15), color: colors.red },
+    logoutText: { fontFamily: 'Nunito-Bold', fontSize: sc(15), color: colors.red },
     deleteBtn: {
       marginHorizontal: sc(16), marginBottom: sc(6), borderRadius: sc(16), paddingVertical: sc(11),
       alignItems: 'center',
     },
-    deleteText: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.mutedText },
-    versionText: { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: colors.mutedText, textAlign: 'center', marginTop: sc(20) },
+    deleteText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: colors.mutedText },
+    versionText: { fontFamily: 'Nunito-Regular', fontSize: sc(11), color: colors.mutedText, textAlign: 'center', marginTop: sc(20) },
     versionTextLink: { textDecorationLine: 'underline' },
     // Delete modal
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: sc(24) },
     modalCard: { backgroundColor: colors.white, borderRadius: sc(20), padding: sc(24), width: '100%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
     deleteLumo: { width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) },
-    modalTitle: { fontFamily: 'Nunito_700Bold', fontSize: sc(18), color: colors.darkText, marginBottom: sc(8), textAlign: 'center' },
-    modalBody: { fontFamily: 'Nunito_400Regular', fontSize: sc(13), color: colors.mutedText, lineHeight: 20, marginBottom: sc(16) },
+    modalTitle: { fontFamily: 'Nunito-Bold', fontSize: sc(18), color: colors.darkText, marginBottom: sc(8), textAlign: 'center' },
+    modalBody: { fontFamily: 'Nunito-Regular', fontSize: sc(13), color: colors.mutedText, lineHeight: 20, marginBottom: sc(16) },
     modalInputBox: {
       borderWidth: 1.5, borderColor: colors.border, borderRadius: sc(12),
       paddingHorizontal: sc(14), paddingVertical: sc(12),
@@ -668,13 +668,13 @@ function makeStyles(sc: (n: number) => number) {
     },
     modalBtns: { flexDirection: 'row', gap: sc(10) },
     modalCancel: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: sc(14), paddingVertical: sc(14), alignItems: 'center' },
-    modalCancelText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.darkText },
+    modalCancelText: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.darkText },
     modalConfirm: { flex: 1, backgroundColor: colors.red, borderRadius: sc(14), paddingVertical: sc(14), alignItems: 'center' },
-    modalConfirmText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: 'white' },
+    modalConfirmText: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: 'white' },
     // Font picker
     fontModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     fontOption: { backgroundColor: colors.lightBg, borderRadius: sc(16), borderWidth: 1.5, borderColor: colors.border, padding: sc(14), marginBottom: sc(10), flexDirection: 'row', alignItems: 'center', gap: sc(12) },
-    fontOptionLabel: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.darkText, marginBottom: sc(6) },
+    fontOptionLabel: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.darkText, marginBottom: sc(6) },
     fontOptionPreview: { textAlign: 'right' },
     radio: { width: sc(22), height: sc(22), borderRadius: sc(11), borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     radioDot: { width: sc(11), height: sc(11), borderRadius: sc(6) },

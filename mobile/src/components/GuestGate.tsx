@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   title: {
-    fontFamily: 'Nunito_700Bold',
+    fontFamily: 'Nunito-Bold',
     fontSize: 19,
     color: colors.darkText,
     textAlign: 'center',
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   body: {
-    fontFamily: 'Nunito_400Regular',
+    fontFamily: 'Nunito-Regular',
     fontSize: 14,
     color: colors.mutedText,
     textAlign: 'center',
@@ -115,5 +115,5 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
   },
-  buttonText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.white },
+  buttonText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
 });
