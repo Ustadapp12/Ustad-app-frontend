@@ -165,7 +165,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
           onPress={handleVerify}
           disabled={code.length !== 6 || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Verify</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Verify</Text>}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleResend} disabled={cooldown > 0} style={styles.resendWrap}>

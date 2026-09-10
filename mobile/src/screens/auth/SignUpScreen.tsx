@@ -300,7 +300,7 @@ export default function SignUpScreen({ navigation }: Props) {
             onPress={handleRegister}
             disabled={!canSubmit || loading}
           >
-            {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Create Account</Text>}
+            {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Create Account</Text>}
           </TouchableOpacity>
         </View>
 
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   },
   checkboxActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkboxError: { borderColor: colors.red },
-  checkmark: { color: 'white', fontSize: 12, fontWeight: '700' },
+  checkmark: { color: '#F5F7FA', fontSize: 12, fontWeight: '700' },
   termsText: { flex: 1, fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20 },
   termsLink: { fontFamily: 'Nunito-Bold', color: colors.primary },
   btn: {

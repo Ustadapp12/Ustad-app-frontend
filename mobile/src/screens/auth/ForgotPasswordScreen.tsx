@@ -120,7 +120,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
           onPress={handleSubmit}
           disabled={!canSubmit || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Send code</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Send code</Text>}
         </TouchableOpacity>
 
         {notFound && (

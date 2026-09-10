@@ -161,7 +161,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
           onPress={handleSubmit}
           disabled={!canSubmit || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Reset password</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Reset password</Text>}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

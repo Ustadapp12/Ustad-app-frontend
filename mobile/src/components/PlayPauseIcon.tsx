@@ -13,7 +13,7 @@ interface Props {
  * "actual" icons. Same icon-swap behavior as before (triangle <-> bars),
  * just drawn instead of relying on a font glyph.
  */
-export default function PlayPauseIcon({ playing, size = 18, color = 'white' }: Props) {
+export default function PlayPauseIcon({ playing, size = 18, color = '#F5F7FA' }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       {playing ? (

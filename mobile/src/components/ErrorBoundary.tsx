@@ -51,8 +51,8 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0D1B2A', paddingHorizontal: 32 },
-  title: { fontFamily: 'Nunito-Bold', fontSize: 20, color: 'white', marginBottom: 8, textAlign: 'center' },
+  title: { fontFamily: 'Nunito-Bold', fontSize: 20, color: '#F5F7FA', marginBottom: 8, textAlign: 'center' },
   body: { fontFamily: 'Nunito-Regular', fontSize: 14, color: 'rgba(255,255,255,0.7)', marginBottom: 24, textAlign: 'center' },
   button: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28 },
-  buttonText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: 'white' },
+  buttonText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#F5F7FA' },
 });

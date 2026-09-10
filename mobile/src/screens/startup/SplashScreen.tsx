@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   decorLetter: {
     position: 'absolute',
     fontFamily: 'NotoNaskhArabic-Regular',
-    color: 'white',
+    color: '#F5F7FA',
   },
   bismillah: {
     fontFamily: 'NotoNaskhArabic-Regular',

@@ -521,7 +521,7 @@ function ProfileContent({ navigation }: Props) {
                 disabled={(needsPasswordToDelete && !deletePassword.trim()) || deleting}
               >
                 {deleting
-                  ? <ActivityIndicator color="white" size="small" />
+                  ? <ActivityIndicator color="#F5F7FA" size="small" />
                   : <Text style={styles.modalConfirmText}>Delete</Text>}
               </TouchableOpacity>
             </View>
@@ -579,7 +579,7 @@ function makeStyles(sc: (n: number) => number) {
       alignItems: 'center', justifyContent: 'center',
       shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
     },
-    initials: { fontFamily: 'Nunito-Bold', fontSize: sc(28), color: 'white' },
+    initials: { fontFamily: 'Nunito-Bold', fontSize: sc(28), color: '#F5F7FA' },
     editBadge: {
       position: 'absolute', right: -4, bottom: -4,
       width: sc(26), height: sc(26), alignItems: 'center', justifyContent: 'center',
@@ -670,7 +670,7 @@ function makeStyles(sc: (n: number) => number) {
     modalCancel: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: sc(14), paddingVertical: sc(14), alignItems: 'center' },
     modalCancelText: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.darkText },
     modalConfirm: { flex: 1, backgroundColor: colors.red, borderRadius: sc(14), paddingVertical: sc(14), alignItems: 'center' },
-    modalConfirmText: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: 'white' },
+    modalConfirmText: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: '#F5F7FA' },
     // Font picker
     fontModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     fontOption: { backgroundColor: colors.lightBg, borderRadius: sc(16), borderWidth: 1.5, borderColor: colors.border, padding: sc(14), marginBottom: sc(10), flexDirection: 'row', alignItems: 'center', gap: sc(12) },

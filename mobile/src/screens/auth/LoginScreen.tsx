@@ -192,7 +192,7 @@ export default function LoginScreen({ navigation }: Props) {
           onPress={handleLogin}
           disabled={!canSubmit || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Log In</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Log In</Text>}
         </TouchableOpacity>
 
         <View style={styles.dividerRow}>

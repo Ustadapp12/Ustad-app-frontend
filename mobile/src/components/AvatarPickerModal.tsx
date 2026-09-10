@@ -76,7 +76,7 @@ export default function AvatarPickerModal({ visible, variantSrcs, initialVariant
             onPress={() => changed && !saving && onSave(variant)}
             disabled={!changed || saving}
           >
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save</Text>}
+            {saving ? <ActivityIndicator color="#F5F7FA" /> : <Text style={styles.saveBtnText}>Save</Text>}
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
             <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: 10,
   },
   saveBtnDisabled: { backgroundColor: colors.border },
-  saveBtnText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#fff' },
+  saveBtnText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#F5F7FA' },
   cancelBtn: { paddingVertical: 6 },
   cancelBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.mutedText },
 });

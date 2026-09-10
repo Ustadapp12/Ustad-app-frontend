@@ -145,7 +145,7 @@ export default function VerifyResetCodeScreen({ navigation, route }: Props) {
           onPress={handleConfirm}
           disabled={code.length !== 6 || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Confirm</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Confirm</Text>}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleResend} disabled={cooldown > 0 || resending} style={styles.resendWrap}>

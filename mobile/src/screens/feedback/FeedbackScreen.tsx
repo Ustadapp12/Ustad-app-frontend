@@ -193,7 +193,7 @@ export default function FeedbackScreen({ navigation }: Props) {
           onPress={handleSubmit}
           disabled={!canSubmit || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Send Feedback</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Send Feedback</Text>}
         </TouchableOpacity>
         {!canSubmit && !loading && !emailError && (
           <Text style={styles.disabledHint}>Write at least 3 words to send your feedback.</Text>

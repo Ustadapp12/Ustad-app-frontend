@@ -169,7 +169,7 @@ export default function EditProfileScreen({ navigation }: Props) {
           onPress={handleSave}
           disabled={!canSubmit || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Save changes</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Save changes</Text>}
         </TouchableOpacity>
         {!canSubmit && !loading && disabledReason && (
           <Text style={styles.disabledHint}>{disabledReason}</Text>

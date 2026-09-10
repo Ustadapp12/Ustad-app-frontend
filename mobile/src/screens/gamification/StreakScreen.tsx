@@ -235,7 +235,7 @@ export default function StreakScreen({ navigation, route }: Props) {
               <Text style={{ fontSize: 18 }}>{m.emoji}</Text>
               <Text style={[styles.milestoneLabel, m.done && { color: colors.primary }]}>{m.label}</Text>
               <Text style={styles.milestoneReward}>{m.reward}</Text>
-              {m.done && <View style={styles.milestoneDone}><Text style={{ fontSize: 10, color: 'white' }}>✓</Text></View>}
+              {m.done && <View style={styles.milestoneDone}><Text style={{ fontSize: 10, color: '#F5F7FA' }}>✓</Text></View>}
             </View>
           ))}
         </View>

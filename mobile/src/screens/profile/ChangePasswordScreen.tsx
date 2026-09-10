@@ -100,7 +100,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
               onPress={handleSendCode}
               disabled={!email || loading}
             >
-              {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Send code</Text>}
+              {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Send code</Text>}
             </TouchableOpacity>
           </>
         )}

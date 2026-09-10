@@ -1038,7 +1038,7 @@ function makeStyles(M: MapModel) {
     },
     feedbackRingInner: {
       width: FEEDBACK_FAB_SIZE - sc(20), height: FEEDBACK_FAB_SIZE - sc(20), borderRadius: (FEEDBACK_FAB_SIZE - sc(20)) / 2,
-      backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: '#F5F7FA', alignItems: 'center', justifyContent: 'center',
     },
     loadingOverlay: {
       position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -1047,7 +1047,7 @@ function makeStyles(M: MapModel) {
     },
     // Opaque variant for the initial load — see the comment at its use site.
     loadingOverlaySolid: { backgroundColor: colors.mapBg },
-    loadingOverlayText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: '#fff', marginTop: sc(10) },
+    loadingOverlayText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: '#F5F7FA', marginTop: sc(10) },
     node: { width: NODE_SIZE, height: NODE_SIZE, alignItems: 'center', justifyContent: 'center' },
     nodeImg: { position: 'absolute', width: NODE_SIZE, height: NODE_SIZE },
     // No top/left set, so `node`'s own alignItems/justifyContent:'center'
@@ -1076,7 +1076,7 @@ function makeStyles(M: MapModel) {
       position: 'absolute', bottom: -sc(4), width: NODE_SIZE * 0.8, height: sc(10), borderRadius: sc(6),
       backgroundColor: 'rgba(0,0,0,0.25)', left: NODE_SIZE * 0.1,
     },
-    nodeNumber: { fontFamily: 'Nunito-Bold', fontSize: sc(20), color: 'white', textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
+    nodeNumber: { fontFamily: 'Nunito-Bold', fontSize: sc(20), color: '#F5F7FA', textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
     lockIcon: { fontSize: sc(18) },
     nodeWrapper: { alignItems: 'center' },
     // The tag is absolutely positioned BESIDE the node, never in normal flow.
@@ -1109,7 +1109,7 @@ function makeStyles(M: MapModel) {
     // rather than a plain white chip — subtle enough not to compete with the
     // gold "completed" node glow elsewhere on the map.
     nodeTag: {
-      maxWidth: NODE_TAG_W, backgroundColor: 'white', borderRadius: sc(10),
+      maxWidth: NODE_TAG_W, backgroundColor: '#F5F7FA', borderRadius: sc(10),
       paddingHorizontal: sc(9), paddingVertical: sc(4),
       borderWidth: 1, borderColor: 'rgba(224,188,78,0.55)',
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3, elevation: 4,
@@ -1130,7 +1130,7 @@ function makeStyles(M: MapModel) {
       position: 'absolute', bottom: -sc(5.5), alignSelf: 'center',
       width: 0, height: 0,
       borderLeftWidth: sc(5.5), borderRightWidth: sc(5.5), borderTopWidth: sc(5.5),
-      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: 'white',
+      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#F5F7FA',
     },
     starsBadge: { position: 'absolute', bottom: -sc(6), backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: sc(8), paddingHorizontal: sc(4), paddingVertical: sc(1) },
     starsText: { fontSize: sc(8), color: '#FFD700' },
@@ -1150,7 +1150,7 @@ function makeStyles(M: MapModel) {
       width: sc(96), height: sc(96), borderRadius: sc(48),
       backgroundColor: 'rgba(255,255,255,0.18)',
       alignItems: 'center', justifyContent: 'center',
-      shadowColor: '#fff', shadowOpacity: 0.6, shadowRadius: 8, elevation: 5,
+      shadowColor: '#F5F7FA', shadowOpacity: 0.6, shadowRadius: 8, elevation: 5,
     },
     lumaImg: { width: sc(84), height: sc(84) },
     endText: { fontFamily: 'Nunito-Bold', fontSize: sc(11), color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: sc(4) },
@@ -1185,7 +1185,7 @@ function makeStyles(M: MapModel) {
       paddingHorizontal: sc(16), paddingVertical: sc(8),
       shadowColor: colors.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 5,
     },
-    unlockBtnText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: 'white' },
+    unlockBtnText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: '#F5F7FA' },
     unlockDismiss: {
       marginTop: sc(6), backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: sc(14),
       paddingHorizontal: sc(16), paddingVertical: sc(8),
@@ -1232,7 +1232,7 @@ function makeStyles(M: MapModel) {
     // Al-Kafirun) overflow the scroll art instead of shrinking to fit.
     labelBox: { width: '100%', alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: sc(10) },
     english: {
-      fontFamily: 'Nunito-Bold', fontSize: sc(17), color: '#FFFFFF', letterSpacing: 0.4,
+      fontFamily: 'Nunito-Bold', fontSize: sc(17), color: '#F5F7FA', letterSpacing: 0.4,
       textAlign: 'center',
       textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
     },
@@ -1240,7 +1240,7 @@ function makeStyles(M: MapModel) {
   const SB = StyleSheet.create({
     wrapper: { alignItems: 'center', marginBottom: sc(2) },
     bubble: {
-      backgroundColor: 'white', borderRadius: sc(12),
+      backgroundColor: '#F5F7FA', borderRadius: sc(12),
       paddingHorizontal: sc(12), paddingVertical: sc(8), maxWidth: sc(160),
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 4,
     },
@@ -1248,7 +1248,7 @@ function makeStyles(M: MapModel) {
     tail: {
       width: 0, height: 0,
       borderLeftWidth: sc(7), borderRightWidth: sc(7), borderTopWidth: sc(8),
-      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: 'white',
+      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#F5F7FA',
     },
   });
   return { S, SL, SB };
@@ -1637,7 +1637,7 @@ function LoadingBar({ nodesReady }: { nodesReady: boolean }) {
           left: 0,
           right: 0,
           height: 3,
-          backgroundColor: '#fff',
+          backgroundColor: '#F5F7FA',
           transform: [{ translateX }],
           width: '50%',
         }}
@@ -2810,7 +2810,7 @@ export default function MapScreen({ navigation }: Props) {
         // pull-to-refresh, where the already-correct map underneath is meant to stay visible
         // while it re-fetches.
         <View style={[S.loadingOverlay, !nodesReady && S.loadingOverlaySolid]} pointerEvents="none">
-          <LoadingRing size={64} color="#fff" />
+          <LoadingRing size={64} color="#F5F7FA" />
           <LoadingStatusText style={S.loadingOverlayText} />
         </View>
       )}
@@ -2821,7 +2821,7 @@ export default function MapScreen({ navigation }: Props) {
           is confirmed acceptable. */}
       {mapLoadDurationMs != null && (
         <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 4, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, zIndex: 999 }}>
-          <Text style={{ color: '#fff', fontSize: 11 }}>Map loaded in {mapLoadDurationMs}ms</Text>
+          <Text style={{ color: '#F5F7FA', fontSize: 11 }}>Map loaded in {mapLoadDurationMs}ms</Text>
         </View>
       )}
 

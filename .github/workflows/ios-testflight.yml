@@ -133,19 +133,14 @@ jobs:
           "
           node -e "JSON.parse(require('fs').readFileSync('credentials.json', 'utf8')); console.log('credentials.json is valid JSON')"
 
-      # TEMP DEBUG (2026-09-10): build step skipped — resubmitting the build
-      # from run 34507154022 (id 7d239af8-7117-4299-82dd-32be2dbfdc59), which
-      # built fine but whose submission failed with only a generic EAS error
-      # after an hour. Revert this whole step once the real Apple rejection
-      # reason is known.
-      # - name: Build iOS (production profile — store distribution, required for TestFlight)
-      #   run: eas build --platform ios --profile production --non-interactive
+      - name: Build iOS (production profile — store distribution, required for TestFlight)
+        run: eas build --platform ios --profile production --non-interactive
 
-      - name: Submit build to TestFlight (verbose, debugging 2026-09-10 failure)
+      - name: Submit latest build to TestFlight
         env:
           # Relative to this job's working-directory (mobile/), where the
           # previous step wrote the key — not the repo root.
           EXPO_ASC_API_KEY_PATH: asc-api-key.p8
           EXPO_ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
-        run: eas submit --platform ios --profile production --non-interactive --id 7d239af8-7117-4299-82dd-32be2dbfdc59 --verbose --verbose-fastlane
+        run: eas submit --platform ios --profile production --non-interactive --latest
