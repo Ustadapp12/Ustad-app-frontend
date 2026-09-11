@@ -29,6 +29,17 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    version: '1.0.29',
+    date: '2026-09-11',
+    changes: [
+      { category: 'Fixed', text: 'Arabic script (Usmani/Indo-Pak) now actually changes the font on iPhone — it could silently stay on the default font before.' },
+      { category: 'Fixed', text: 'Reopening the app in the middle of a lesson no longer closes the level after your next answer.' },
+      { category: 'Fixed', text: 'Removed a brief white flash between exercise questions on iPhone.' },
+      { category: 'New', text: 'Added reminders: a nudge if you haven’t opened the app in a day, and a heads-up right before a streak is about to run out.' },
+      { category: 'Improved', text: 'Refreshed the app’s color palette with a softer off-white in place of pure white.' },
+    ],
+  },
+  {
     version: '1.0.28',
     date: '2026-09-01',
     changes: [
