@@ -12,6 +12,8 @@
 		2507B0DCA558C0D952E2E79A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		45AB66FCC0D4FBAF5395D62E /* NotoNaskhArabic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C7C434C831E75ED24940B1C6 /* NotoNaskhArabic.ttf */; };
 		61B82A41C588B00A108729C6 /* Amiri-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3A851339A247B4468917FC78 /* Amiri-Regular.ttf */; };
+		B677B5452C74860AB3823717 /* correct.wav in Resources */ = {isa = PBXBuildFile; fileRef = 11392973627665A749569411 /* correct.wav */; };
+		3CA13BE18B61A54E7AE29239 /* wrong.wav in Resources */ = {isa = PBXBuildFile; fileRef = AB147718BBF694B5D7C9D387 /* wrong.wav */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		8A7C1528BF2C56346E655299 /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5700E93174867D050DF841B7 /* Nunito-Bold.ttf */; };
@@ -27,6 +29,8 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = UstadApp/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = UstadApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		3A851339A247B4468917FC78 /* Amiri-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Amiri-Regular.ttf"; path = "Amiri-Regular.ttf"; sourceTree = "<group>"; };
+		11392973627665A749569411 /* correct.wav */ = {isa = PBXFileReference; lastKnownFileType = file; name = correct.wav; path = correct.wav; sourceTree = "<group>"; };
+		AB147718BBF694B5D7C9D387 /* wrong.wav */ = {isa = PBXFileReference; lastKnownFileType = file; name = wrong.wav; path = wrong.wav; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-UstadApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-UstadApp.debug.xcconfig"; path = "Target Support Files/Pods-UstadApp/Pods-UstadApp.debug.xcconfig"; sourceTree = "<group>"; };
 		419411F824406AA2C10B7AF8 /* AmiriQuran.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = AmiriQuran.ttf; path = AmiriQuran.ttf; sourceTree = "<group>"; };
 		41B8EBC898567EF627619487 /* Pods_UstadApp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_UstadApp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -55,6 +59,7 @@
 			isa = PBXGroup;
 			children = (
 				51EAA09B791DF8EE6718883C /* Fonts */,
+				08A82F98EE395D207019BCFE /* Sounds */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -85,6 +90,16 @@
 			);
 			name = Fonts;
 			path = UstadApp/Fonts;
+			sourceTree = "<group>";
+		};
+		08A82F98EE395D207019BCFE /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				11392973627665A749569411 /* correct.wav */,
+				AB147718BBF694B5D7C9D387 /* wrong.wav */,
+			);
+			name = Sounds;
+			path = UstadApp/Sounds;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -195,6 +210,8 @@
 				A9268A410B221F7B9383684A /* AmiriQuran.ttf in Resources */,
 				45AB66FCC0D4FBAF5395D62E /* NotoNaskhArabic.ttf in Resources */,
 				F6D2DE8882DD672A7DF17C14 /* NotoNastaliqUrdu.ttf in Resources */,
+				B677B5452C74860AB3823717 /* correct.wav in Resources */,
+				3CA13BE18B61A54E7AE29239 /* wrong.wav in Resources */,
 				2507B0DCA558C0D952E2E79A /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -1,3 +1,8 @@
+// WORK IN PROGRESS — exact clone of MapScreen.tsx, the seed for the new
+// map theme (Figma redesign, layout TBD). Still points at the same
+// ../../../assets/map/* files as the original; swap those requires once the
+// new art lands. Reached for now via the __DEV__-only button in MainTabs.tsx
+// (not wired into any real tab/route yet — that placement is still undecided).
 import React, { useRef, useEffect, useState, useMemo, useCallback, useReducer } from 'react';
 import {
   View, Text, StyleSheet, Animated, Easing, useWindowDimensions, Image, ActivityIndicator, TouchableOpacity,
@@ -33,7 +38,7 @@ import { TOUR_GLOW } from '../lesson/LessonSessionScreen';
 import TourOfferModal from '../../components/tour/TourOfferModal';
 import { useTourTarget } from '../../components/tour/useTourTarget';
 import type { SurahLevel } from '../../types/api';
-import type { MapNavProp } from '../../navigation/types';
+import type { RootNavProp } from '../../navigation/types';
 
 // Height of one background-Svg tile, in the same dp space as MAP_H. Splitting
 // the map into fixed-height tiles (each its own <Svg>) exists because a
@@ -124,7 +129,12 @@ const NODE_SRCS = {
 const MAP_LOAD_ESTIMATE_MS = 1400;
 
 // ── Types ─────────────────────────────────────────────────────────
-interface Props { navigation: MapNavProp }
+// navigation is RootNavProp (not MapNavProp) because this clone is mounted
+// as a plain root-stack screen for preview, not nested under the bottom-tab
+// navigator — see the file-header note above. That also means the
+// navigation.addListener('tabPress', ...) call further down is a no-op here
+// (tabPress only fires from a tab navigator); harmless for a preview clone.
+interface Props { navigation: RootNavProp }
 // 'pending' = a surah's first level, not yet fetched from the backend. It's
 // never actually locked server-side (no cross-surah gate exists), so it
 // stays tappable — tapping fetches it on demand instead of blocking. Real
@@ -1212,16 +1222,8 @@ function makeStyles(M: MapModel) {
     // close button sitting in the top-right corner.
     actionCardTitleBox: { position: 'absolute', left: '4%', top: '14%', width: '78%' },
     actionCardTitle: { fontFamily: 'Nunito-Bold', fontSize: acw(0.07) },
-    actionCardSubtitleBox: {
-      position: 'absolute', left: '4%', top: '34%', width: '92%',
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    },
+    actionCardSubtitleBox: { position: 'absolute', left: '4%', top: '34%', width: '92%' },
     actionCardSubtitle: { fontFamily: 'Nunito-Bold', fontSize: acw(0.052), opacity: 0.7 },
-    // Estimated time to clear the level — parallel to the ayah range on the
-    // opposite side of the same row (4-5 min normal / 6-8 min special,
-    // review levels covering more ground). marginLeft is a safety gap on
-    // top of space-between, in case both strings run long on a narrow card.
-    actionCardTimeEstimate: { marginLeft: acw(0.02) },
     actionCardBtn: {
       // top nudged down from 51% (height trimmed to match, 31%→28%, so the
       // bottom edge — and the card's own bottom margin — stays put) to open
@@ -1448,22 +1450,17 @@ function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpecial, tag
 // state that unmounts this (retryNodeId/startPrompt) once the shrink
 // animation's callback fires, so it never just pops out of existence. ──
 function LevelActionCard({
-  variant, surahName, ayahFrom, ayahTo, isSpecial, onConfirm, onDismiss, S,
+  variant, surahName, ayahFrom, ayahTo, onConfirm, onDismiss, S,
 }: {
   variant: 'start' | 'repeat';
   surahName: string;
   ayahFrom: number;
   ayahTo: number;
-  /** Special (review/merged) levels cover more ground than a normal level —
-   *  the time estimate reflects that, not a guess at this specific level's
-   *  actual exercise count. */
-  isSpecial?: boolean;
   onConfirm: () => void;
   onDismiss: () => void;
   S: Styles['S'];
 }) {
   const isStart = variant === 'start';
-  const timeEstimate = isSpecial ? '6-8 min' : '4-5 min';
   const accent = isStart ? colors.levelCardOffWhite : colors.levelRepeatAccent;
 
   const anim = useRef(new Animated.Value(0)).current;
@@ -1500,11 +1497,8 @@ function LevelActionCard({
         </Text>
       </View>
       <View style={S.actionCardSubtitleBox}>
-        <Text style={[S.actionCardSubtitle, { color: accent, flexShrink: 1 }]} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={[S.actionCardSubtitle, { color: accent }]} numberOfLines={1} adjustsFontSizeToFit>
           {formatAyahRange(ayahFrom, ayahTo)}
-        </Text>
-        <Text style={[S.actionCardSubtitle, S.actionCardTimeEstimate, { color: accent }]} numberOfLines={1}>
-          {timeEstimate}
         </Text>
       </View>
       <TouchableOpacity
@@ -1831,6 +1825,7 @@ export default function MapScreen({ navigation }: Props) {
   const [fullLevels, setFullLevels]   = useState<Record<number, SurahLevel[]>>({});
   const [firstLevel, setFirstLevel]   = useState<Record<number, SurahLevel>>({});
   const [loadingPaths, setLoading]    = useState(true);
+  const [mapLoadDurationMs, setMapLoadDurationMs] = useState<number | null>(null);
   const [fetchingSurah, setFetchingSurah] = useState<number | null>(null);
   const fetchedPhasesRef = useRef<Set<number>>(new Set());
   // Gates the map visibility: true only when we know which chapter to show
@@ -2079,6 +2074,7 @@ export default function MapScreen({ navigation }: Props) {
       ]);
       const measureDuration = Date.now() - startTime;
       if (cancelled) return;
+      setMapLoadDurationMs(measureDuration);
       console.log(`[Map] Initial nodes loaded in ${measureDuration}ms`);
       setLoading(false);
 
@@ -2195,23 +2191,7 @@ export default function MapScreen({ navigation }: Props) {
             }
             useLessonStore.getState().clearLastCompletedSurah();
             useLessonStore.getState().clearLastVisitedSurah();
-          } catch (e) {
-            console.warn('[MapScreen] visited-surah refresh failed:', e);
-            // Clear even on failure. Leaving lastVisitedSurah set here meant a
-            // single failed refetch (one network blip right after a lesson)
-            // left this flag stuck indefinitely -- every later focus regain
-            // (switching tabs and back, opening/closing Streak/XP/Feedback,
-            // backgrounding and returning) re-entered this whole block and
-            // ended in the unconditional setReturnedFromLevelTick below, which
-            // jumps the viewport straight to the recommended node with no
-            // suppression check (unlike the other follow-effect). Reported as
-            // "pressing any other level or button snaps the map back to
-            // recommended, and I have to scroll back" -- this is what made it
-            // keep happening on unrelated taps well after the lesson had
-            // ended, instead of just once.
-            useLessonStore.getState().clearLastCompletedSurah();
-            useLessonStore.getState().clearLastVisitedSurah();
-          }
+          } catch (e) { console.warn('[MapScreen] visited-surah refresh failed:', e); }
         } else if (visitedSurah != null) {
           useLessonStore.getState().clearLastCompletedSurah();
           useLessonStore.getState().clearLastVisitedSurah();
@@ -2624,9 +2604,12 @@ export default function MapScreen({ navigation }: Props) {
   // That's the behavior asked for: tapping Home always jumps to the
   // recommended level, whether you're switching tabs in or already here.
   useEffect(() => {
-    const unsubscribe = navigation.addListener('tabPress', () => {
-      jumpToRecommended();
-    });
+    // Cast: 'tabPress' isn't in the root-stack event map (see this file's
+    // Props type note) — inert here, real once nested under a tab navigator.
+    const unsubscribe = (navigation as unknown as { addListener: (e: 'tabPress', cb: () => void) => () => void })
+      .addListener('tabPress', () => {
+        jumpToRecommended();
+      });
     return unsubscribe;
   }, [navigation, jumpToRecommended]);
 
@@ -2842,6 +2825,16 @@ export default function MapScreen({ navigation }: Props) {
         <View style={[S.loadingOverlay, !nodesReady && S.loadingOverlaySolid]} pointerEvents="none">
           <LoadingRing size={64} color="#F5F7FA" />
           <LoadingStatusText style={S.loadingOverlayText} />
+        </View>
+      )}
+
+      {/* TEMP DEBUG: on-screen timing readout since console.log is unreachable on a
+          TestFlight/EAS Debug build without a Mac. Stays visible after load completes
+          (unlike the overlay above) so it's actually readable. Remove once load time
+          is confirmed acceptable. */}
+      {mapLoadDurationMs != null && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 4, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, zIndex: 999 }}>
+          <Text style={{ color: '#F5F7FA', fontSize: 11 }}>Map loaded in {mapLoadDurationMs}ms</Text>
         </View>
       )}
 
@@ -3295,7 +3288,6 @@ export default function MapScreen({ navigation }: Props) {
                   surahName={section.name}
                   ayahFrom={ayahFrom}
                   ayahTo={ayahTo}
-                  isSpecial={node.isSpecial}
                   onConfirm={() => handleRetryConfirm(section, node)}
                   onDismiss={() => setRetryNodeId(null)}
                   S={S}
@@ -3317,7 +3309,6 @@ export default function MapScreen({ navigation }: Props) {
                   surahName={section.name}
                   ayahFrom={ayahFrom}
                   ayahTo={ayahTo}
-                  isSpecial={node.isSpecial}
                   onConfirm={handleStartConfirm}
                   onDismiss={() => setStartPrompt(null)}
                   S={S}

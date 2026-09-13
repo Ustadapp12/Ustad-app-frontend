@@ -20,6 +20,9 @@ export type RootStackParamList = {
   OnboardPath: undefined;
   OnboardAssessment: undefined;
   MainTabs: undefined;
+  // WIP clone of the map for the new Figma-driven theme — see
+  // MapScreenV2.tsx's own header comment. Not in any real nav flow yet.
+  MapV2: undefined;
   EditProfile: undefined;
   ChangePassword: undefined;
   Feedback: undefined;

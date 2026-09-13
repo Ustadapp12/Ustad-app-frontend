@@ -18,6 +18,13 @@
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
 
+    <!-- Distribution-eligibility filter, not a behavior change: without these,
+         Play Console's device catalog was offering this touch/mic-only app to
+         TV, Car, Chromebook, and Android XR devices, none of which can run it
+         (confirmed via Play Console's own device-catalog breakdown, 2026-08-24). -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
+    <uses-feature android:name="android.hardware.microphone" android:required="true" />
+
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"

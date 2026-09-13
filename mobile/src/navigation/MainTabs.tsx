@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
-import { Platform, Text, View, Image, StyleSheet } from 'react-native';
+import { Platform, Text, View, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapScreen from '../screens/home/MapScreen';
 import DailyQuestScreen from '../screens/quests/DailyQuestScreen';
@@ -111,14 +111,15 @@ function ProfileTabIcon({ focused, glowKey }: { focused: boolean; glowKey: TourT
 // Rendering the bar manually removes that uncertainty completely: every
 // pixel of height, padding, and content placement below is explicit.
 function CustomTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps & { insets: { bottom: number } }) {
-  // 70% of the real inset, not the full ~34pt — each tab's own content
+  // 55% of the real inset, not the full ~34pt — each tab's own content
   // (icon+label, ~44-46px) already sits comfortably inside the 64px content
   // zone above this reserved strip (justifyContent: 'flex-start', not
   // stretched to fill), so trimming this doesn't reopen the Home-Indicator-
   // overlap bug the way it did back when the OLD tabBarStyle-based approach
   // had no such natural buffer above the reserved zone (2026-09-05, user:
   // "too much padding as well" after testing the full-inset version here).
-  const bottomClearance = Platform.OS === 'ios' ? Math.round(insets.bottom * 0.7) : 0;
+  // Trimmed again 70% -> 55% (2026-09-13, user: still "a bit too much").
+  const bottomClearance = Platform.OS === 'ios' ? Math.round(insets.bottom * 0.55) : 0;
   return (
     <View
       style={[
@@ -233,6 +234,17 @@ export default function MainTabs() {
       />
     </Tab.Navigator>
     <AuthRequiredModal visible={showAuthModal} onContinue={handleContinue} />
+    {/* Dev-only door into the WIP MapV2 clone (see MapScreenV2.tsx's header
+        comment) — __DEV__ so it never renders in a release build, same
+        pattern already used for notifications elsewhere in this codebase. */}
+    {__DEV__ && (
+      <TouchableOpacity
+        style={styles.devMapV2Button}
+        onPress={() => navigation.navigate('MapV2')}
+      >
+        <Text style={styles.devMapV2Text}>V2</Text>
+      </TouchableOpacity>
+    )}
     {/* The map half of the tour is hosted here, not in MapScreen, for one
         structural reason: it has to be able to dim and cut a hole in the tab
         bar, and the tab bar is the navigator's, rendered as MapScreen's
@@ -285,6 +297,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-Bold',
     fontSize: 11,
     marginTop: 2,
+  },
+  devMapV2Button: {
+    position: 'absolute',
+    right: 12,
+    bottom: TAB_BAR_CONTENT_H + 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#000000cc',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+  },
+  devMapV2Text: {
+    color: '#fff',
+    fontFamily: 'Nunito-Bold',
+    fontSize: 12,
   },
 });
 

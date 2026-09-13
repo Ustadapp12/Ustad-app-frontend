@@ -8,7 +8,7 @@ import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   playAudioUrl, pauseAudio, resumeAudio, stopAudio,
-  preloadAudioUrls, evictPreloadedUrls, onPlayingChange, playFeedbackSound,
+  preloadAudioUrls, evictPreloadedUrls, onPlayingChange, playFeedbackSound, isAudioPlaying,
 } from '../../services/audioPlayer';
 import {
   requestMicPermission, startRecording as startRecordingSvc, stopRecording as stopRecordingSvc,
@@ -941,7 +941,7 @@ export function FillBlankOrNextWord({
           // directly is stable from the very first render.
           const isPreviewPick = previewSelected != null && o.ar === previewSelected;
           return (
-            <TouchableOpacity
+            <Pressable
               key={i}
               ref={isPreviewPick ? selectedOptionRef : undefined}
               style={[
@@ -952,22 +952,24 @@ export function FillBlankOrNextWord({
                 isPreviewPick && EX.optionGlow,
                 locked && { opacity: 0.7 },
               ]}
-              // onLongPress used to double as "hear this option's audio,"
-              // but pairing it with onPress on the same element makes RN's
-              // responder wait to see whether a touch becomes a long-press
-              // before firing onPress AT ALL -- on a real device that
-              // disambiguation delay is exactly what read as "I press them
-              // and one of the 4 sometimes doesn't move." A misclassified
-              // tap fired the audio instead of selecting, colliding with
-              // whatever else was tracking play state. Nothing in this
-              // screen ever told the user "hold to hear," so it cost
-              // reliability on the one gesture that matters (selecting) for
-              // a hidden feature nobody could discover. Removed outright,
-              // not reduced -- onPress alone fires immediately, no wait.
+              // Re-enabled 2026-09-13 (was removed 2026-08-28 — see git
+              // history for the original comment). The original removal was
+              // real: pairing onLongPress with onPress on the legacy
+              // TouchableOpacity (Touchable.Mixin) made a real device
+              // occasionally drop/delay the select tap while the responder
+              // waited to disambiguate. Pressable is a different, purpose-
+              // built responder implementation — onPress fires on release
+              // exactly like before, and onLongPress only preempts it once
+              // the press has genuinely been held past delayLongPress — but
+              // since that earlier bug was only ever confirmed on-device,
+              // not reproduced in code, this still needs a real-device check
+              // before shipping, same as before.
+              onLongPress={() => { if (!locked && o.audio_url) void playUrl(o.audio_url); }}
+              delayLongPress={350}
               onPress={() => { if (!locked) setSelected(o.ar); }}
             >
               <Text style={[arabicTextStyle(EX.optionText as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
@@ -1541,6 +1543,19 @@ function SpeakResultBanner({ result, onAdvance, onRetry }: { result: SpeakResult
   // Show the correction whenever any word was marked wrong — not only on
   // fail. A 75% pass still has mistakes worth pointing out.
   const hasMistakes = !!expectedWords?.some(w => !w.correct);
+
+  // The reference-recitation audio (SegmentPlayBtn below) has no cleanup of
+  // its own when this banner is replaced by a new attempt — Try Again keeps
+  // the same exercise (same ex_id), so the main screen's own
+  // `stopAudio()` on ex_id-change (which handles every other exercise type's
+  // advance) never fires here, and the old attempt's audio played straight
+  // into the new one. Stopping it explicitly on both buttons closes that;
+  // disabling them while it's playing is a separate, deliberately-requested
+  // safeguard against the same race (2026-09-13).
+  const [audioPlaying, setAudioPlaying] = useState(isAudioPlaying());
+  useEffect(() => onPlayingChange(setAudioPlaying), []);
+  const handleRetry = () => { stopAudio(); onRetry?.(); };
+  const handleAdvance = () => { stopAudio(); onAdvance(); };
   return (
     // The sheet itself stays pinned to bottom: 0 — its colour is meant to
     // bleed all the way to the true screen edge, same as the feedback
@@ -1611,15 +1626,27 @@ function SpeakResultBanner({ result, onAdvance, onRetry }: { result: SpeakResult
 
       {onRetry ? (
         <View style={SRB.btnRow}>
-          <TouchableOpacity style={[SRB.btn, SRB.btnSecondary, SRB.btnFlex]} onPress={onRetry}>
+          <TouchableOpacity
+            style={[SRB.btn, SRB.btnSecondary, SRB.btnFlex, audioPlaying && SRB.btnDisabled]}
+            onPress={handleRetry}
+            disabled={audioPlaying}
+          >
             <Text style={[SRB.btnText, SRB.btnTextSecondary]} allowFontScaling={false}>Try Again</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[SRB.btn, SRB.btnFail, SRB.btnFlex]} onPress={onAdvance}>
+          <TouchableOpacity
+            style={[SRB.btn, SRB.btnFail, SRB.btnFlex, audioPlaying && SRB.btnDisabled]}
+            onPress={handleAdvance}
+            disabled={audioPlaying}
+          >
             <Text style={SRB.btnText} allowFontScaling={false}>Next  →</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <TouchableOpacity style={[SRB.btn, { marginTop: 18 }, !passed && SRB.btnFail]} onPress={onAdvance}>
+        <TouchableOpacity
+          style={[SRB.btn, { marginTop: 18 }, !passed && SRB.btnFail, audioPlaying && SRB.btnDisabled]}
+          onPress={handleAdvance}
+          disabled={audioPlaying}
+        >
           <Text style={SRB.btnText} allowFontScaling={false}>Continue  →</Text>
         </TouchableOpacity>
       )}
@@ -1663,6 +1690,9 @@ const SRB = StyleSheet.create({
   wrongWord:       { color: '#DC2626', textDecorationLine: 'underline' },
   btn:             { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   btnFail:         { backgroundColor: '#F97316', shadowColor: '#F97316' },
+  // While the reference-recitation audio is playing — dimmed so it's clear
+  // why the tap does nothing, back to normal the instant playback ends.
+  btnDisabled:     { opacity: 0.4, shadowOpacity: 0 },
   btnText:         { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#F5F7FA' },
   // Clear gap from the scrollable content above (transcript boxes) — was
   // sitting right against it with nothing but the last box's own
@@ -2435,17 +2465,20 @@ export function HearAndSelect({
       {/* Option cards */}
       <View style={EX.optionsColumn}>
         {(ex.options ?? []).map((o, i) => (
-          <TouchableOpacity
+          <Pressable
             key={i}
             style={[EX.optionBtnFull, selected === o.ar && EX.optionSelected, locked && { opacity: 0.7 }]}
-            // See the identical fix (and its full comment) in
-            // FillBlankOrNextWord's option TouchableOpacity above -- same
-            // onPress/onLongPress ambiguity, same fix: drop onLongPress so
-            // onPress fires immediately instead of waiting to disambiguate.
+            // Re-enabled 2026-09-13 alongside the identical change in
+            // FillBlankOrNextWord's options above — see that one's full
+            // comment. Switched to Pressable (rather than restoring
+            // onLongPress on TouchableOpacity) since that's the specific
+            // pairing that was reported unreliable on-device.
+            onLongPress={() => { if (!locked && o.audio_url) void playUrl(o.audio_url); }}
+            delayLongPress={350}
             onPress={() => { if (!locked) setSelected(o.ar); }}
           >
             <Text style={[arabicTextStyle(EX.optionTextArabic as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
 
@@ -2508,12 +2541,19 @@ const EX = StyleSheet.create({
   ayahCard: { backgroundColor: '#F5F7FA', borderRadius: 18, padding: 22, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   ayahAr: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 28, color: colors.darkText, textAlign: 'right', lineHeight: 52, marginBottom: 10 },
   ayahTrans: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
-  contextText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
-  tokensRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 },
-  tokenWord: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 24, color: colors.darkText },
+  // lineHeight was previously unset on these three (unlike every other
+  // Arabic style in this file, e.g. ayahAr's 28/52) — Naskh harakat sit
+  // outside the font's own ascent/descent box, so with no reserved
+  // clearance the diacritics got clipped by whichever neighbor happened to
+  // sit closest: the row above, the row below, or blankBox's own bottom
+  // border bar, depending on how tightly each OS/device rasterizes the
+  // font. Ratio matches ayahAr/ayahText's existing ~1.55-1.6x convention.
+  contextText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 4, lineHeight: 36 },
+  tokensRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginTop: 8 },
+  tokenWord: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 24, color: colors.darkText, lineHeight: 38 },
   blankBox: { borderBottomWidth: 2.5, borderColor: colors.primary, minWidth: 70, height: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   blankFilled: { borderColor: colors.primary },
-  blankText:        { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 24, color: colors.primary },
+  blankText:        { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 24, color: colors.primary, lineHeight: 38 },
   blankSpeaker:     { alignItems: 'center', justifyContent: 'center', padding: 4 },
   blankSpeakerIcon: { fontSize: 20 },
   // Options
