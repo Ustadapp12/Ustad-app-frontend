@@ -162,4 +162,26 @@ new logic that should be exercised on a real phone (ideally via the
 closed-testing track, same as the Dua stale-build incident) before being
 treated as confirmed working, not just "builds clean."
 
+**10036** / 1.0.29 — IPA (TestFlight) — 2026-09-14 — first iOS TestFlight
+build logged here (earlier ones, 10034/10035, were never backfilled — this
+file had only tracked Android APK/AAB builds until now). Same source as
+commit `d9e2bfd` on top of `e26e181`'s fixes (already submitted as build
+10035 on 2026-09-13): map recommended-node hijack fix, iOS feedback sound,
+audio bleed across attempts, fill-in-blank text clipping, level time
+estimates, Android device-eligibility filter, trimmed iOS tab bar padding.
+This build's only actual diff from 10035 is the release-notes text itself
+(user-reviewed and approved before this build): the in-app v1.0.29 popup
+now lists every fix above instead of just the first three.
+
+Verified via `eas-cli build:list`: build ID `8dd99574-d90b-4234-a95e-dd14603d25f8`,
+status `finished`, commit `d9e2bfd7e22ebb41000c94feb5252f087318cab9` (exact
+match to the pushed commit), real `.ipa` artifact URL. GitHub Actions run
+`34845965116` also completed all-green in 16m3s (build + submit + Apple
+TestFlight processing).
+
+Not independently verified: on-device behavior of any of the fixes listed
+above — this was a resubmit of already-built code (per the previous
+session's build 10035) triggered specifically to ship the reviewed release
+notes; no new native code changed since 10035.
+
 Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`
