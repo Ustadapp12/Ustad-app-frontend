@@ -30,13 +30,21 @@ export interface ReleaseNoteEntry {
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
     version: '1.0.29',
-    date: '2026-09-11',
+    date: '2026-09-13',
     changes: [
-      { category: 'Fixed', text: 'Arabic script (Usmani/Indo-Pak) now actually changes the font on iPhone — it could silently stay on the default font before.' },
+      { category: 'Fixed', text: 'Arabic script (Usmani/Indo-Pak) now actually changes the font on iPhone. It could silently stay on the default font before.' },
       { category: 'Fixed', text: 'Reopening the app in the middle of a lesson no longer closes the level after your next answer.' },
       { category: 'Fixed', text: 'Removed a brief white flash between exercise questions on iPhone.' },
+      { category: 'Fixed', text: 'The correct and incorrect answer sound now actually plays on iPhone.' },
+      { category: 'Fixed', text: 'The map no longer jumps to the recommended level when you tap something else on it.' },
+      { category: 'Fixed', text: 'Text in fill in the blank exercises no longer gets cut off near the edges on some phones.' },
+      { category: 'Fixed', text: 'The correct recitation audio no longer keeps playing into your next attempt after Try Again or Next.' },
       { category: 'New', text: 'Added reminders: a nudge if you haven’t opened the app in a day, and a heads-up right before a streak is about to run out.' },
+      { category: 'New', text: 'Hold down an answer option to hear it again.' },
+      { category: 'New', text: 'Level cards now show an estimated time to finish.' },
       { category: 'Improved', text: 'Refreshed the app’s color palette with a softer off-white in place of pure white.' },
+      { category: 'Improved', text: 'Try Again and Next are disabled while recitation audio is playing, and come back automatically once it finishes.' },
+      { category: 'Improved', text: 'Slightly less empty space below the tab bar on iPhone.' },
     ],
   },
   {
