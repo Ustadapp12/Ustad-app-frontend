@@ -223,3 +223,40 @@ notification.
 Output:
 - `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\apk\release\app-release.apk`
 - `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`
+
+**10037** / 1.0.30 — IPA (TestFlight) — 2026-09-18 — first iOS build carrying
+the whole-Quran expansion. Commit `e04095d`, GitHub Actions run
+`35354311250`. Ships the 2026-09-16/17/18 work to iOS for the first time: the
+map lays out all 114 surahs (4,744 nodes, 159 chapters) generated from the new
+`src/data/allSurahs.ts` catalogue instead of hand-typed entries; new
+`SearchSurahsScreen` (search by English name, Arabic name or surah number,
+then jump); seasons no longer gate anything; recommended-next resolves the
+chapter holding that specific level rather than the surah's opening chapter;
+streak page practice calendar backed by `GET /learning/streak/calendar` plus
+the redesigned gradient hero. In-app v1.0.30 release notes drafted and
+user-approved before this build, per the standing rule.
+
+**This build points at the TESTING backend** (`ustad-app-backend-testing.vercel.app`),
+explicitly requested — production stays commented out directly above it in
+`src/config.ts`.
+
+Verified via `eas-cli build:list`: build ID `1a2c8803`, status `FINISHED`,
+build number 10037, production profile, commit `e04095d` (exact match to the
+pushed commit), real `.ipa` artifact. The Actions run completed all-green
+(build + submit + Apple TestFlight processing); its only annotations were
+benign (Node 20 deprecation notice, a GitHub npm-cache service outage, the
+ubuntu-latest migration notice).
+
+Backend state at build time, verified against the live testing deployment
+rather than assumed: all 114 surahs serve levels with correct ayah coverage
+and review interleave, sessions start and complete on newly-added surahs, and
+564 sampled audio files resolve. **113 of 114 surahs match the app's expected
+level counts.** Al-Baqarah does not, and it is a backend read cap
+(`list_lesson_groups`'s `to_list(length=200)` against 215 docs), not anything
+in this build — it will dead-end past level 1 until that cap is lifted and the
+cached 200-row entry cleared. See changes-2026-09-18.md.
+
+Not verified on a device this session: nothing in the whole-Quran expansion
+has been seen rendering on real hardware. The chapter-switch-then-scroll
+timing on a recommendation jump, and the streak calendar's layout, are the
+two most worth watching.
