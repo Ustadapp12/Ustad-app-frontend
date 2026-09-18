@@ -61,6 +61,7 @@ import MainTabs from './MainTabs';
 import LessonSessionScreen from '../screens/lesson/LessonSessionScreen';
 import TourLessonScreen from '../screens/tour/TourLessonScreen';
 import MapScreenV2 from '../screens/home/MapScreenV2';
+import SearchSurahsScreen from '../screens/home/SearchSurahsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -189,6 +190,7 @@ export default function RootNavigator() {
         <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
         {/* WIP preview only — see MapScreenV2.tsx's header comment. */}
         <Stack.Screen name="MapV2" component={MapScreenV2} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="SearchSurahs" component={SearchSurahsScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ animation: 'slide_from_right' }} />

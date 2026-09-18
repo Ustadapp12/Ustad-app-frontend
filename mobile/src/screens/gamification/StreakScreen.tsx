@@ -1,23 +1,30 @@
 ﻿import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Image, Modal } from 'react-native';
 import LottieView from 'lottie-react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
 import MascotShadow from '../../components/MascotShadow';
+import StreakCalendar from '../../components/StreakCalendar';
+import { learningApi } from '../../api';
+import type { StreakCalendar as StreakCalendarData } from '../../types/api';
 import {
   clearPendingGuestProgress, isGuest, setUpgradePrompted, wasUpgradePrompted,
 } from '../../utils/guest';
 import { colors } from '../../theme/colors';
 import {
-  isStreakFrozen, streakColor, freezeDaysLabel, repairProgressLabel,
+  isStreakFrozen, streakColor, streakGradientColors, freezeDaysLabel, repairProgressLabel,
   STREAK_FROZEN_COLOR,
-  STREAK_ACTIVE_ICON_LARGE, STREAK_FROZEN_ICON_LARGE, STREAK_BLANK_ICON,
   STREAK_ACTIVE_ICON_SMALL, STREAK_FROZEN_ICON_SMALL,
 } from '../../utils/streak';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
+
+// Streak Milestones card is wired but hidden for now (2026-09-16 redesign) —
+// flip back on when product wants the reward badges shown again.
+const SHOW_STREAK_MILESTONES = false;
 
 interface Props {
   navigation: RootNavProp;
@@ -50,6 +57,24 @@ export default function StreakScreen({ navigation, route }: Props) {
   const [helpVisible, setHelpVisible] = useState(false);
   const guest = isGuest(user);
   const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Real per-day history for the calendar below — only what the backend can
+  // actually verify (see StreakCalendar.tsx). Silently absent on failure
+  // rather than showing a fabricated grid.
+  const [calendar, setCalendar] = useState<StreakCalendarData | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await learningApi.streakCalendar();
+        if (!cancelled) setCalendar(data);
+      } catch {
+        // Leave calendar null — the section just doesn't render.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!guest || !justIncremented) return;
@@ -109,14 +134,6 @@ export default function StreakScreen({ navigation, route }: Props) {
     return () => { loop.stop(); };
   }, []);
 
-  // Single active-week card: 7 slots numbered by day-in-streak, not by
-  // weekday letter — a 10-day streak reads as "Week 2, days 8-14 (4 filled)"
-  // instead of looking identical to a 7-day streak (both fully filled at the
-  // old fixed M-S/max-7 cap). Week N covers days (N-1)*7+1 .. N*7.
-  const weekNum = displayedStreak > 0 ? Math.floor((displayedStreak - 1) / 7) + 1 : 1;
-  const weekStartDay = (weekNum - 1) * 7 + 1;
-  const weekDayNumbers = Array.from({ length: 7 }, (_, i) => weekStartDay + i);
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -142,35 +159,67 @@ export default function StreakScreen({ navigation, route }: Props) {
           </View>
         )}
 
-        {/* Streak fire animation — frozen swaps in the blue recolor of the
-            same Lottie (2026-08-28), replacing the ice-cube placeholder this
-            comment used to describe as temporary (product decision
-            2026-08-05: "no blue-fire art exists yet"). streak_frozen.json is
-            a direct derivative of streak.json — same shapes/timing, only the
-            4 named fill layers (base/dark/outer/light Outlines) recolored
-            from the warm palette to blue, anchored on STREAK_FROZEN_COLOR
-            (#2E90E5, the blue already used for "frozen" everywhere else in
-            the app) for the flame body and a paler ice-blue for the glow.
-            Regenerate by re-running the same layer-name -> RGB mapping over
-            a future streak.json if the base animation is ever redesigned;
-            don't hand-edit the derived file directly. */}
-        <Animated.View style={{ transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
-          <LottieView
-            renderMode="SOFTWARE"
-            source={frozen
-              ? require('../../../assets/animations/streak_frozen.json')
-              : require('../../../assets/animations/streak.json')}
-            autoPlay loop
-            style={styles.streakAnim}
-          />
-        </Animated.View>
-
-        <Animated.Text
-          style={[styles.streakNum, { color: streakColor(learning?.streak_state), transform: [{ scale: numberScaleAnim }] }]}
+        {/* Hero row — streak number on the left, fire animation on the
+            right (2026-09-16 redesign; previously stacked/centered). Frozen
+            swaps in the blue recolor of the same Lottie (2026-08-28),
+            replacing the ice-cube placeholder this comment used to describe
+            as temporary (product decision 2026-08-05: "no blue-fire art
+            exists yet"). streak_frozen.json is a direct derivative of
+            streak.json — same shapes/timing, only the 4 named fill layers
+            (base/dark/outer/light Outlines) recolored from the warm palette
+            to blue, anchored on STREAK_FROZEN_COLOR (#2E90E5, the blue
+            already used for "frozen" everywhere else in the app) for the
+            flame body and a paler ice-blue for the glow. Regenerate by
+            re-running the same layer-name -> RGB mapping over a future
+            streak.json if the base animation is ever redesigned; don't
+            hand-edit the derived file directly. */}
+        {/* Hero card — a gradient panel behind the number + animation
+            (Duolingo reference: the card visibly "glows" warmer while a
+            streak is active than while it's frozen/broken, not a flat
+            tint). streakGradientColors() lives next to streakColor() in
+            utils/streak.ts so every place a streak renders stays in sync. */}
+        <LinearGradient
+          colors={streakGradientColors(learning?.streak_state)}
+          style={styles.heroCard}
         >
-          {displayedStreak}
-        </Animated.Text>
-        <Text style={styles.streakLabel}>day streak!</Text>
+          <View style={styles.heroRow}>
+            <View style={styles.heroLeft}>
+              {/* Soft glow disc behind the number — a plain RN Text can't be
+                  gradient-filled without pulling in @react-native-masked-view
+                  (not installed), so the "glamour" comes from a warm blurred
+                  aura behind the digits plus a matching text-shadow glow on
+                  the digits themselves, both keyed off streakColor(). */}
+              <View
+                pointerEvents="none"
+                style={[styles.streakGlow, { backgroundColor: streakColor(learning?.streak_state) + '33' }]}
+              />
+              <Animated.Text
+                style={[
+                  styles.streakNum,
+                  {
+                    color: streakColor(learning?.streak_state),
+                    textShadowColor: streakColor(learning?.streak_state) + '80',
+                    transform: [{ scale: numberScaleAnim }],
+                  },
+                ]}
+              >
+                {displayedStreak}
+              </Animated.Text>
+              <Text style={styles.streakLabel}>day streak!</Text>
+            </View>
+            <Animated.View style={{ transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
+              <LottieView
+                renderMode="SOFTWARE"
+                source={frozen
+                  ? require('../../../assets/animations/streak_frozen.json')
+                  : require('../../../assets/animations/streak.json')}
+                autoPlay loop
+                style={styles.streakAnim}
+              />
+            </Animated.View>
+          </View>
+        </LinearGradient>
+
         <Text style={styles.streakSub}>
           {frozen
             ? 'Your streak is on ice. Complete levels today to save it.'
@@ -178,9 +227,7 @@ export default function StreakScreen({ navigation, route }: Props) {
             ? "MashaAllah! You've kept your streak alive."
             : displayedStreak === 0
             ? 'Start your streak today, practice for just 5 minutes!'
-            : displayedStreak < 7
-            ? 'MashaAllah! Keep going, you are building a great habit.'
-            : 'SubhanAllah! A full week streak, incredible dedication!'}
+            : 'MashaAllah! Keep going, you are building a great habit.'}
         </Text>
 
         {/* Freeze/repair banner — only while frozen. Gem-cost repair and push
@@ -194,51 +241,38 @@ export default function StreakScreen({ navigation, route }: Props) {
           </View>
         )}
 
-        {/* XP earned badge */}
-        <View style={styles.xpBadge}>
-          <Text style={{ fontSize: 14 }}>⚡</Text>
-          <Text style={styles.xpBadgeText}>+{displayedStreak * 5} XP earned from streaks</Text>
-        </View>
+        {/* Practice calendar — real per-day history from the backend
+            (learningApi.streakCalendar), replacing the old single-week
+            straight-line flame row. Absent until it loads/if it fails, no
+            placeholder grid. */}
+        {calendar && (
+          <StreakCalendar
+            startDate={calendar.start_date}
+            practicedDates={calendar.practiced_dates}
+            frozenDates={calendar.frozen_dates}
+          />
+        )}
 
-        {/* Active week */}
-        <View style={styles.weekCard}>
-          <Text style={styles.weekTitle}>Week {weekNum}</Text>
-          <View style={styles.daysRow}>
-            {weekDayNumbers.map((dayNum, i) => {
-              const filled = dayNum <= displayedStreak;
-              // Frozen reads via the blue-fire icon itself, not a recolored
-              // dot — a completed day while frozen shows blue fire, a
-              // completed day otherwise shows orange fire, and a day not
-              // yet reached shows the blank/unlit fire.
-              const icon = !filled ? STREAK_BLANK_ICON : frozen ? STREAK_FROZEN_ICON_LARGE : STREAK_ACTIVE_ICON_LARGE;
-              return (
-                <View key={i} style={styles.dayCol}>
-                  <View style={styles.dayFireWrap}>
-                    <Image source={icon} style={styles.dayFireIcon} resizeMode="contain" />
-                  </View>
-                </View>
-              );
-            })}
+        {/* Streak milestones — wired but hidden for now, see
+            SHOW_STREAK_MILESTONES above. */}
+        {SHOW_STREAK_MILESTONES && (
+          <View style={styles.milestonesCard}>
+            <Text style={styles.milestonesTitle}>Streak Milestones</Text>
+            {[
+              { days: 3, emoji: '🌱', label: '3-day streak', reward: '+20 XP', done: streak >= 3 },
+              { days: 7, emoji: '⭐', label: '7-day streak', reward: '+50 XP', done: streak >= 7 },
+              { days: 14, emoji: '🏅', label: '14-day streak', reward: '+100 XP', done: streak >= 14 },
+              { days: 30, emoji: '🏆', label: '30-day streak', reward: '+250 XP', done: streak >= 30 },
+            ].map(m => (
+              <View key={m.days} style={[styles.milestoneRow, m.done && styles.milestoneRowDone]}>
+                <Text style={{ fontSize: 18 }}>{m.emoji}</Text>
+                <Text style={[styles.milestoneLabel, m.done && { color: colors.primary }]}>{m.label}</Text>
+                <Text style={styles.milestoneReward}>{m.reward}</Text>
+                {m.done && <View style={styles.milestoneDone}><Text style={{ fontSize: 10, color: '#F5F7FA' }}>✓</Text></View>}
+              </View>
+            ))}
           </View>
-        </View>
-
-        {/* Streak milestones */}
-        <View style={styles.milestonesCard}>
-          <Text style={styles.milestonesTitle}>Streak Milestones</Text>
-          {[
-            { days: 3, emoji: '🌱', label: '3-day streak', reward: '+20 XP', done: streak >= 3 },
-            { days: 7, emoji: '⭐', label: '7-day streak', reward: '+50 XP', done: streak >= 7 },
-            { days: 14, emoji: '🏅', label: '14-day streak', reward: '+100 XP', done: streak >= 14 },
-            { days: 30, emoji: '🏆', label: '30-day streak', reward: '+250 XP', done: streak >= 30 },
-          ].map(m => (
-            <View key={m.days} style={[styles.milestoneRow, m.done && styles.milestoneRowDone]}>
-              <Text style={{ fontSize: 18 }}>{m.emoji}</Text>
-              <Text style={[styles.milestoneLabel, m.done && { color: colors.primary }]}>{m.label}</Text>
-              <Text style={styles.milestoneReward}>{m.reward}</Text>
-              {m.done && <View style={styles.milestoneDone}><Text style={{ fontSize: 10, color: '#F5F7FA' }}>✓</Text></View>}
-            </View>
-          ))}
-        </View>
+        )}
 
         {/* Persistent reminder, not just the one-time post-increment modal
             below — a guest coming back to this screen later (e.g. tapping
@@ -379,15 +413,21 @@ const styles = StyleSheet.create({
   helpGotItBtnText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
   scroll: { alignItems: 'center', paddingHorizontal: 22, paddingBottom: 16 },
   celebrationLuma: { width: 105, height: 105, marginBottom: 4 },
-  streakAnim: { width: 140, height: 140 },
-  streakNum: { fontFamily: 'Nunito-Bold', fontSize: 64, color: '#EA580C', lineHeight: 68 },
-  streakLabel: { fontFamily: 'Nunito-Bold', fontSize: 24, color: colors.darkText, marginBottom: 6 },
-  streakSub: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 19, marginBottom: 14, paddingHorizontal: 16 },
-  xpBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: colors.primaryBg, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 20,
+  // Hero card — gradient panel (Duolingo reference) behind the streak number
+  // and fire animation; heroRow is the row layout inside it.
+  heroCard: { width: '100%', borderRadius: 22, padding: 18, marginBottom: 12 },
+  heroRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroLeft: { alignItems: 'flex-start', position: 'relative' },
+  // A soft halo behind just the number — see the inline comment above the
+  // JSX for why this (not a gradient fill) is the number's "glamour."
+  streakGlow: { position: 'absolute', top: -14, left: -18, width: 104, height: 88, borderRadius: 52 },
+  streakAnim: { width: 132, height: 132 },
+  streakNum: {
+    fontFamily: 'Nunito-Bold', fontSize: 62, color: '#EA580C', lineHeight: 66,
+    letterSpacing: -1, textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 10,
   },
-  xpBadgeText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
+  streakLabel: { fontFamily: 'Nunito-Bold', fontSize: 20, color: colors.darkText, letterSpacing: 0.2 },
+  streakSub: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 19, marginBottom: 14, paddingHorizontal: 16 },
   freezeCard: {
     width: '100%', backgroundColor: colors.blueBg, borderRadius: 16,
     paddingHorizontal: 16, paddingVertical: 12, marginBottom: 16,
@@ -395,19 +435,6 @@ const styles = StyleSheet.create({
   },
   freezeCardTitle: { fontFamily: 'Nunito-Bold', fontSize: 14, color: STREAK_FROZEN_COLOR, marginBottom: 2, textAlign: 'center' },
   freezeCardBody: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.midText, textAlign: 'center' },
-  weekCard: {
-    width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16, marginBottom: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
-  },
-  weekTitle: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.darkText, marginBottom: 12 },
-  daysRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  dayCol: { alignItems: 'center' },
-  dayFireWrap: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  dayFireIcon: { width: 36, height: 36, position: 'absolute' },
-  dayFireNum: {
-    fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.mutedText, marginTop: 10,
-    textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
-  },
   milestonesCard: {
     width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,

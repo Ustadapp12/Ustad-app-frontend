@@ -1,6 +1,6 @@
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { CompositeNavigationProp, NavigatorScreenParams } from '@react-navigation/native';
 import type { StreakState } from '../types/api';
 
 export type RootStackParamList = {
@@ -19,10 +19,14 @@ export type RootStackParamList = {
   OnboardScript: undefined;
   OnboardPath: undefined;
   OnboardAssessment: undefined;
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<TabParamList> | undefined;
   // WIP clone of the map for the new Figma-driven theme — see
   // MapScreenV2.tsx's own header comment. Not in any real nav flow yet.
   MapV2: undefined;
+  // Full 114-surah browse/search list, opened from the map's search button.
+  // Confirming "Start" there navigates back to MainTabs/Map with
+  // params.jumpToSurah set (see TabParamList.Map below).
+  SearchSurahs: undefined;
   EditProfile: undefined;
   ChangePassword: undefined;
   Feedback: undefined;
@@ -69,7 +73,10 @@ export type RootStackParamList = {
 };
 
 export type TabParamList = {
-  Map: undefined;
+  // jumpToSurah: set once by SearchSurahsScreen's "Start" confirm. MapScreen
+  // reads and clears it to scroll to (and unlock, if needed) that surah's
+  // first level — see MapScreen.tsx's search-jump effect.
+  Map: { jumpToSurah?: number } | undefined;
   DailyQuest: undefined;
   Leaderboard: undefined;
   Profile: undefined;

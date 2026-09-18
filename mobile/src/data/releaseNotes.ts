@@ -29,6 +29,18 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    version: '1.0.30',
+    date: '2026-09-18',
+    changes: [
+      { category: 'New', text: 'The whole Quran is now on the map. All 114 surahs, not just the 21 you had before.' },
+      { category: 'New', text: 'Search for any surah by name or number from the map, then jump straight to it.' },
+      { category: 'New', text: 'Your streak page now has a practice calendar. An orange flame marks every day you practiced, and a blue flame marks a day your streak was frozen.' },
+      { category: 'Improved', text: 'Every surah is open from the start. Seasons no longer need to be unlocked.' },
+      { category: 'Improved', text: 'Refreshed the streak page with a bigger, warmer streak number and a new look.' },
+      { category: 'Improved', text: 'Scrolling the map now closes an open level card instead of leaving it behind.' },
+    ],
+  },
+  {
     version: '1.0.29',
     date: '2026-09-13',
     changes: [

@@ -8,7 +8,7 @@ import Svg, {
 } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute, type RouteProp } from '@react-navigation/native';
 import PredictedProgressBar from '../../components/PredictedProgressBar';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
@@ -19,6 +19,7 @@ import { learningApi } from '../../api';
 import { setCrashContext, addBreadcrumb, captureError } from '../../services/crashReporter';
 import { colors } from '../../theme/colors';
 import { groupIntoPhases } from '../../utils/mapPhases';
+import { ALL_SURAHS } from '../../data/allSurahs';
 import { STREAK_ACTIVE_ICON_SMALL, STREAK_FROZEN_ICON_SMALL, isStreakFrozen, streakColor, checkStreakFrozenPopup } from '../../utils/streak';
 import StreakFrozenModal from '../../components/StreakFrozenModal';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
@@ -26,14 +27,14 @@ import { isGuest } from '../../utils/guest';
 import { getCachedRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel, subscribeRecommended, fetchLevels } from '../../services/bootCache';
 import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
 import { loadLessonGroup } from '../../services/cachedContent';
-import { getUnlockedSeasons, setTourOffered, unlockSeason, wasTourOffered } from '../../utils/storage';
+import { setTourOffered, wasTourOffered } from '../../utils/storage';
 import { useTourStore } from '../../store/tourStore';
 import { TOUR_STEPS } from '../../components/tour/tourSteps';
 import { TOUR_GLOW } from '../lesson/LessonSessionScreen';
 import TourOfferModal from '../../components/tour/TourOfferModal';
 import { useTourTarget } from '../../components/tour/useTourTarget';
 import type { SurahLevel } from '../../types/api';
-import type { MapNavProp } from '../../navigation/types';
+import type { MapNavProp, TabParamList } from '../../navigation/types';
 
 // Height of one background-Svg tile, in the same dp space as MAP_H. Splitting
 // the map into fixed-height tiles (each its own <Svg>) exists because a
@@ -135,6 +136,17 @@ type NodeStatus = 'completed' | 'current' | 'available' | 'locked' | 'pending';
 interface SectionNode {
   id: string; x: number; y: number;
   status: NodeStatus; stars: number; levelNum: number;
+  // This node's 0-based position within its OWN SURAH's full level sequence
+  // (buildLevelsWithReviews' output order) — NOT its position within
+  // section.nodes, which is only the slice of the surah that landed in the
+  // CURRENT chapter (see CHAPTER_SLOTS: a surah can now split across a
+  // chapter boundary). full/sorted backend level arrays are always the
+  // surah's complete sequence in this same order, so this is the index that
+  // actually lines a node up with its real backend group — a chapter-local
+  // array position silently shifts once a surah spills into a second
+  // chapter (confirmed live: Al-Ma'un 107 splits after g1 at the 30-node
+  // chapter cut, which is what mislabeled its 2nd-chapter nodes).
+  surahLevelIdx: number;
   startAyah?: number; endAyah?: number;
   resolved?: boolean;
   // Review level — interleaved one after every 2 normal levels (a trailing
@@ -233,85 +245,36 @@ function buildLevelsWithReviews(
   return { levels, xFractions };
 }
 
-const SECTIONS_DEF: SectionDef[] = [
-  {
-    // 6 ayahs ÷ 2 = 3 groups: 1-2, 3-4, 5-6. Reviews interleave after every
-    // 2 groups plus a trailing solo — 3 groups means one paired review
-    // (after g2) and one solo review (after g3), 5 nodes total. Hand-tuned
-    // xFractions cover only the 3 normal groups; review positions are
-    // always hashed (see buildLevelsWithReviews).
-    surahNum: 114, name: 'An-Nas', arabicName: 'الناس', ayahCount: 6,
-    ...buildLevelsWithReviews(114, 6, [0.55, 0.20, 0.62]),
-  },
-  {
-    // 5 ayahs ÷ 2 = 3 groups: 1-2, 3-4, 5
-    surahNum: 113, name: 'Al-Falaq', arabicName: 'الفلق', ayahCount: 5,
-    ...buildLevelsWithReviews(113, 5, [0.35, 0.68, 0.28]),
-  },
-  {
-    // 4 ayahs ÷ 2 = 2 groups: 1-2, 3-4 — exactly one pair, one review, no
-    // trailing solo.
-    surahNum: 112, name: 'Al-Ikhlas', arabicName: 'الإخلاص', ayahCount: 4,
-    ...buildLevelsWithReviews(112, 4, [0.60, 0.22]),
-  },
-  {
-    // 5 ayahs ÷ 2 = 3 groups: 1-2, 3-4, 5
-    surahNum: 111, name: 'Al-Masad', arabicName: 'المسد', ayahCount: 5,
-    ...buildLevelsWithReviews(111, 5, [0.65, 0.28, 0.62]),
-  },
-  {
-    // 3 ayahs ÷ 2 = 2 groups: 1-2, 3 — one pair, one review.
-    surahNum: 110, name: 'An-Nasr', arabicName: 'النصر', ayahCount: 3,
-    ...buildLevelsWithReviews(110, 3, [0.38, 0.72]),
-  },
-  {
-    // 6 ayahs ÷ 2 = 3 groups: 1-2, 3-4, 5-6
-    surahNum: 109, name: 'Al-Kafirun', arabicName: 'الكافرون', ayahCount: 6,
-    ...buildLevelsWithReviews(109, 6, [0.22, 0.65, 0.25]),
-  },
-  {
-    // 3 ayahs ÷ 2 = 2 groups: 1-2, 3 — one pair, one review.
-    surahNum: 108, name: 'Al-Kawthar', arabicName: 'الكوثر', ayahCount: 3,
-    ...buildLevelsWithReviews(108, 3, [0.45, 0.72]),
-  },
-  // ── Below this point: surahs added when the backend expanded the MVP
-  // curriculum from 10 to 21 surahs. No hand-tuned xFractions yet — these
-  // use the deterministic defaultXFractions() fallback instead (see note
-  // above), sized to the normal-group count only (Math.ceil(ayahCount/2)) —
-  // buildLevelsWithReviews adds the interleaved reviews' own hashed
-  // positions on top. Season grouping is 3 surahs/season (see PHASE_SIZES
-  // in mapPhases.ts), continuing the same top-to-bottom, highest-to-lowest
-  // surah-number order as the original 7. ──
-  { surahNum: 107, name: "Al-Ma'un", arabicName: 'الماعون', ayahCount: 7,
-    ...buildLevelsWithReviews(107, 7, defaultXFractions(107, 4)) },
-  { surahNum: 106, name: 'Quraysh', arabicName: 'قريش', ayahCount: 4,
-    ...buildLevelsWithReviews(106, 4, defaultXFractions(106, 2)) },
-  { surahNum: 105, name: 'Al-Fil', arabicName: 'الفيل', ayahCount: 5,
-    ...buildLevelsWithReviews(105, 5, defaultXFractions(105, 3)) },
-  { surahNum: 104, name: 'Al-Humazah', arabicName: 'الهمزة', ayahCount: 9,
-    ...buildLevelsWithReviews(104, 9, defaultXFractions(104, 5)) },
-  { surahNum: 103, name: "Al-'Asr", arabicName: 'العصر', ayahCount: 3,
-    ...buildLevelsWithReviews(103, 3, defaultXFractions(103, 2)) },
-  { surahNum: 102, name: 'At-Takathur', arabicName: 'التكاثر', ayahCount: 8,
-    ...buildLevelsWithReviews(102, 8, defaultXFractions(102, 4)) },
-  { surahNum: 101, name: "Al-Qari'ah", arabicName: 'القارعة', ayahCount: 11,
-    ...buildLevelsWithReviews(101, 11, defaultXFractions(101, 6)) },
-  { surahNum: 100, name: "Al-'Adiyat", arabicName: 'العاديات', ayahCount: 11,
-    ...buildLevelsWithReviews(100, 11, defaultXFractions(100, 6)) },
-  { surahNum: 99, name: 'Az-Zalzalah', arabicName: 'الزلزلة', ayahCount: 8,
-    ...buildLevelsWithReviews(99, 8, defaultXFractions(99, 4)) },
-  { surahNum: 98, name: 'Al-Bayyinah', arabicName: 'البينة', ayahCount: 8,
-    ...buildLevelsWithReviews(98, 8, defaultXFractions(98, 4)) },
-  { surahNum: 97, name: 'Al-Qadr', arabicName: 'القدر', ayahCount: 5,
-    ...buildLevelsWithReviews(97, 5, defaultXFractions(97, 3)) },
-  // 96 (Al-'Alaq) intentionally excluded from the MVP curriculum.
-  { surahNum: 95, name: 'At-Tin', arabicName: 'التين', ayahCount: 8,
-    ...buildLevelsWithReviews(95, 8, defaultXFractions(95, 4)) },
-  { surahNum: 94, name: 'Ash-Sharh', arabicName: 'الشرح', ayahCount: 8,
-    ...buildLevelsWithReviews(94, 8, defaultXFractions(94, 4)) },
-  { surahNum: 93, name: 'Ad-Duha', arabicName: 'الضحى', ayahCount: 11,
-    ...buildLevelsWithReviews(93, 11, defaultXFractions(93, 6)) },
-];
+// The whole Quran, top-to-bottom in descending surah order (114 → 1) — the
+// same "shortest/most-memorised first" order the map has always used, simply
+// carried past Juz Amma now that the backend serves every surah's content.
+//
+// Generated, not hand-written, and it has to be: a hand-typed entry per surah
+// was viable at 21 but not at 114 (Al-Baqarah alone is ~143 groups). Nothing
+// is lost by generating it — node x-positions come from chapterXFraction(),
+// keyed purely on a node's slot within its chapter, so the road is identical
+// in every chapter and a surah needs no layout data of its own. All a surah
+// contributes is its name and ayah count, both of which the catalogue has.
+// (SectionDef.xFractions is still filled in by buildLevelsWithReviews to
+// satisfy the type, but nothing reads it for position — see chapterXFraction.)
+//
+// Deliberately ALL 114, with no notion here of what's playable: the map draws
+// the whole Quran, and whether a given surah opens is answered by the backend
+// at the moment it's tapped (see handleNodePress). Nothing in the app carries
+// a list of what's ready, so none of this needs touching as content lands.
+const SECTIONS_DEF: SectionDef[] = [...ALL_SURAHS]
+  .sort((a, b) => b.surah_number - a.surah_number)
+  .map(s => ({
+    surahNum: s.surah_number,
+    name: s.name_en,
+    arabicName: s.name_ar,
+    ayahCount: s.ayah_count,
+    ...buildLevelsWithReviews(
+      s.surah_number,
+      s.ayah_count,
+      defaultXFractions(s.surah_number, Math.ceil(s.ayah_count / 2)),
+    ),
+  }));
 
 // Seasons (phases) — pure loading/pacing grouping, not an access gate. Pure
 // data derived from SECTIONS_DEF, so it doesn't depend on screen width.
@@ -337,10 +300,15 @@ const NODES_PER_CHAPTER = 30;
 interface FlatLevel {
   surahNum: number; name: string; arabicName: string; ayahCount: number;
   level: { id: string; levelNum: number; isSpecial?: boolean };
+  // 0-based position within def.levels — the surah's OWN full sequence,
+  // computed here before any chapter-cutting happens, so it stays correct
+  // (unlike a chapter-local array index) even when a surah later splits
+  // across a chapter boundary. See SectionNode.surahLevelIdx.
+  surahLevelIdx: number;
 }
 const ALL_FLAT_LEVELS: FlatLevel[] = SECTIONS_DEF.flatMap(def =>
-  def.levels.map(lvl => ({
-    surahNum: def.surahNum, name: def.name, arabicName: def.arabicName, ayahCount: def.ayahCount, level: lvl,
+  def.levels.map((lvl, surahLevelIdx) => ({
+    surahNum: def.surahNum, name: def.name, arabicName: def.arabicName, ayahCount: def.ayahCount, level: lvl, surahLevelIdx,
   })),
 );
 
@@ -382,12 +350,13 @@ const CHAPTER_COUNT = CHAPTER_SLOTS.length;
 // one, if any, happened to need the extra slot.
 const MAX_CHAPTER_SLOTS = Math.max(NODES_PER_CHAPTER, ...CHAPTER_SLOTS.map(c => c.length));
 
-// Surah -> the chapter its FIRST level lands in. A surah can now be split
-// across a chapter boundary, so this is necessarily an approximation for a
-// split surah — but it matches the precision the rest of this screen already
-// works at (the recommendation itself is only ever a surah number, not a
-// specific level; see recommended?.surah_number below), so it's not losing
-// anything a split surah wouldn't already have been ambiguous about.
+// Surah -> the chapter its FIRST level lands in. Correct for "show me this
+// surah" (search, and the start of a fresh surah), but NOT for "show me this
+// particular level": across the whole Quran most surahs are longer than a
+// 30-node chapter, so a level partway through one lands chapters later than
+// its surah's first. Use chapterForLevel below whenever a specific level is
+// the target — landing on a surah's opening chapter when the user is 100
+// levels into Al-Baqarah would drop them nowhere near where they left off.
 const SURAH_TO_CHAPTER: Record<number, number> = {};
 CHAPTER_SLOTS.forEach((slots, chapterIdx) => {
   slots.forEach(slot => {
@@ -396,6 +365,111 @@ CHAPTER_SLOTS.forEach((slots, chapterIdx) => {
     }
   });
 });
+
+// Flat index of each surah's first level in ALL_FLAT_LEVELS.
+const SURAH_FLAT_START: Record<number, number> = {};
+ALL_FLAT_LEVELS.forEach((flat, i) => {
+  if (!(flat.surahNum in SURAH_FLAT_START)) SURAH_FLAT_START[flat.surahNum] = i;
+});
+/**
+ * The chapter holding one specific level of a surah, by that level's position
+ * within its own surah (the same surahLevelIdx nodes are indexed by).
+ *
+ * Plain division works because chapters are cut on a LEVEL count: every
+ * chapter holds exactly NODES_PER_CHAPTER levels (the last one holds the
+ * remainder), and a season sign takes an extra slot without counting toward
+ * that total — see CHAPTER_SLOTS.
+ */
+function chapterForLevel(surahNum: number, surahLevelIdx: number): number {
+  const start = SURAH_FLAT_START[surahNum];
+  if (start == null) return 0;
+  return Math.floor((start + Math.max(0, surahLevelIdx)) / NODES_PER_CHAPTER);
+}
+
+// Verification #1 — catch a surah split across a chapter boundary the
+// moment the curriculum changes, instead of only discovering it the way
+// Al-Ma'un's was discovered: a user noticing a mislabeled node in
+// production. Pure/static (no backend dependency), computed once at module
+// load, so it runs on every app start including in CI/tests that import
+// this screen. A split itself is NOT an error — enrichedSections/
+// handleNodePress now index nodes by surahLevelIdx (see SectionNode),
+// which is correct regardless of which chapter a node lands in — this is
+// just a loud tripwire so a NEW split is always noticed and its chapter-1
+// nodes get eyeballed on-device before shipping, per
+// [[project_map_chapter_split_bug]] in project memory.
+const SURAHS_SPLIT_ACROSS_CHAPTERS: number[] = (() => {
+  const chaptersBySurah = new Map<number, Set<number>>();
+  CHAPTER_SLOTS.forEach((slots, chapterIdx) => {
+    slots.forEach(slot => {
+      if (slot.kind !== 'level') return;
+      const set = chaptersBySurah.get(slot.flat.surahNum) ?? new Set<number>();
+      set.add(chapterIdx);
+      chaptersBySurah.set(slot.flat.surahNum, set);
+    });
+  });
+  return Array.from(chaptersBySurah.entries())
+    .filter(([, chapters]) => chapters.size > 1)
+    .map(([surahNum]) => surahNum);
+})();
+if (__DEV__ && SURAHS_SPLIT_ACROSS_CHAPTERS.length > 0) {
+  // Logged as a count, not a list: at 21 surahs a split was a rare event worth
+  // naming individually, but every surah longer than ~60 ayahs spans a
+  // 30-node chapter, so across the whole Quran splits are the norm (most of
+  // the 114). The indexing they used to break is handled by surahLevelIdx —
+  // this stays only as a visible reminder that post-split nodes are worth
+  // eyeballing on-device.
+  // eslint-disable-next-line no-console
+  console.log(
+    `[MapScreen] ${SURAHS_SPLIT_ACROSS_CHAPTERS.length} of ${SECTIONS_DEF.length} surahs span a chapter boundary (expected — indexed by surahLevelIdx).`,
+  );
+}
+
+// Verification #2 — the actual invariant enrichedSections' surahLevelIdx
+// lookup depends on: a surah's real backend level count (full.length) must
+// match its frontend-defined count (SECTIONS_DEF's levels.length) exactly,
+// same order. This is what silently broke before the surahLevelIdx fix
+// whenever a surah split across a chapter boundary; it's also what would
+// silently break AGAIN, a different way, if this screen's chunking rule
+// (buildLevelsWithReviews, CHUNK_SIZE=2 plus interleaved reviews — see
+// [[project_map_levels]]) ever drifts from what the backend actually seeds.
+// SECTIONS_DEF is generated from the surah catalogue now rather than
+// hand-maintained, so the likelier source of drift is that shared rule or an
+// ayah count, not a mistyped entry. Checked once per surah per app session
+// (not every render) so a live mismatch surfaces immediately via Crashlytics
+// instead of just quietly mis-indexing nodes again.
+const SURAH_LEVEL_COUNT: Record<number, number> = {};
+SECTIONS_DEF.forEach(def => { SURAH_LEVEL_COUNT[def.surahNum] = def.levels.length; });
+const reportedLevelCountMismatches = new Set<number>();
+function verifySurahLevelCount(surahNum: number, backendCount: number): void {
+  const expected = SURAH_LEVEL_COUNT[surahNum];
+  if (expected == null || backendCount === expected || reportedLevelCountMismatches.has(surahNum)) return;
+  reportedLevelCountMismatches.add(surahNum);
+  const message = `Surah ${surahNum}: backend returned ${backendCount} level(s), frontend SECTIONS_DEF expects ${expected} — node-to-group indexing (surahLevelIdx) is unsafe for this surah until these agree.`;
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.error(`[MapScreen] ${message}`);
+  }
+  captureError(new Error(`MapScreen surah level count mismatch: ${message}`), { surahNum, backendCount, expectedCount: expected });
+}
+// Gate every surahLevelIdx lookup through this rather than indexing
+// fullLevels/sorted directly — if the count doesn't match (reported once via
+// verifySurahLevelCount above), positional indexing can point at the wrong
+// group entirely, which is exactly how the original chapter-split bug
+// mislabeled a node AND misrouted its tap. Returning undefined here makes
+// every call site fall back to its existing safe path (the 'pending'/
+// 'available' heuristic in enrichedSections, or the "stay put" no-op in
+// handleNodePress) instead of trusting a lookup that isn't guaranteed
+// correct — so the very first render/tap is right even when the check
+// fails, not just flagged after the fact.
+function trustedLevels(surahNum: number, levels: SurahLevel[] | undefined): SurahLevel[] | undefined {
+  if (!levels) return undefined;
+  const expected = SURAH_LEVEL_COUNT[surahNum];
+  if (expected != null && levels.length !== expected) {
+    verifySurahLevelCount(surahNum, levels.length);
+    return undefined;
+  }
+  return levels;
+}
 
 // Which season indices a chapter's content actually touches — replaces the
 // old CHAPTER_SEASONS (a chapter used to BE a fixed set of whole seasons;
@@ -606,18 +680,20 @@ function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): Map
       status: 'locked' as NodeStatus,
       stars: 0,
       levelNum: flat.level.levelNum,
+      surahLevelIdx: flat.surahLevelIdx,
       isSpecial: flat.level.isSpecial,
     });
   });
   if (currentSection) BASE_SECTIONS.push(currentSection);
   const ALL_NODES = BASE_SECTIONS.flatMap(s => s.nodes);
 
-  // The curriculum isn't full yet — the final chapter can come up short of
-  // MAX_CHAPTER_SLOTS (116 real levels ÷ 30 = 3 full chapters + a 26-level
-  // remainder, as of the 21-surah MVP). MAP_H is already sized for the max
-  // regardless (see above), so a short chapter's real content just stops
-  // early within that same fixed canvas — show a banner centered in the
-  // untouched remainder instead of leaving it looking simply empty.
+  // The final chapter can come up short of MAX_CHAPTER_SLOTS (the whole
+  // Quran's ~4,700 nodes don't divide evenly into 30). MAP_H is already sized
+  // for the max regardless (see above), so a short chapter's real content just
+  // stops early within that same fixed canvas. Fill the untouched remainder
+  // with a closing banner rather than leaving it looking simply empty — the
+  // map now runs to Al-Fatihah, so this is the end of the road, not a
+  // placeholder for curriculum still to come.
   let comingSoonY: number | null = null;
   if (chapterIdx === CHAPTER_COUNT - 1 && slots.length < MAX_CHAPTER_SLOTS) {
     const midIdx = (slots.length - 1 + (MAX_CHAPTER_SLOTS - 1)) / 2;
@@ -1727,6 +1803,11 @@ export default function MapScreen({ navigation }: Props) {
   // recommendation (finishing the last level of a chapter) follows the user
   // forward exactly once per change, rather than on every re-render.
   const appliedRecSurahRef = useRef<number | null>(null);
+  // Alongside it: the chapter that recommendation resolved to when it was
+  // applied. A mid-surah recommendation's chapter is only knowable once that
+  // surah's levels land, so the same surah can legitimately resolve to a
+  // different chapter a moment later and need re-applying.
+  const appliedRecChapterRef = useRef<number | null>(null);
   // Set once the user pages by hand. From then on the map stays where they
   // put it for the rest of the session instead of being yanked back to the
   // recommendation — a fresh launch re-seeds from the cache above, which is
@@ -1836,12 +1917,14 @@ export default function MapScreen({ navigation }: Props) {
   // Gates the map visibility: true only when we know which chapter to show
   // AND the initial node data has loaded (preventing SVG from appearing before nodes are ready).
   const nodesReady = chapterResolved && !loadingPaths;
-  // Seasons explicitly unlocked by the user (persisted — see
-  // src/utils/storage.ts). Season 0 is always implicitly unlocked and never
-  // stored. Populated from disk in the mount effect below.
-  const [unlockedSeasons, setUnlockedSeasons] = useState<Set<number>>(new Set());
-  // Which season-gate's tap message is currently showing (null = none).
-  const [gateTapped, setGateTapped] = useState<number | null>(null);
+  // The node whose "couldn't open that" message is currently showing (null =
+  // none) — set when a tap fails to resolve a real lesson to open.
+  const [notReadyTap, setNotReadyTap] = useState<{ section: Section; node: SectionNode } | null>(null);
+  // A jump waiting on a chapter switch to finish. groupId targets one specific
+  // level (the recommendation); null means the surah's opening level (search).
+  // Consumed by the pending-jump effect further down, which does the scroll
+  // once the target node exists.
+  const [pendingJump, setPendingJump] = useState<{ surah: number; groupId?: string | null } | null>(null);
   // Which completed node's "retry?" prompt is currently showing on the map
   // (null = none). Tapping a completed node no longer navigates straight
   // into LessonSession — that's what triggers the expensive exercise-build
@@ -1855,11 +1938,19 @@ export default function MapScreen({ navigation }: Props) {
   const [startPrompt, setStartPrompt] = useState<{
     section: Section; node: SectionNode; groupId: string; ayahFrom: number; ayahTo: number;
   } | null>(null);
-  // Which season index is currently having its previous-season eligibility
-  // re-checked on demand (see handleGatePress) — null when no check in flight.
-  const [checkingGate, setCheckingGate] = useState<number | null>(null);
-  // Latest resolved "current surah" — read (not reactive) by
-  // handleUnlockConfirm, set by both the mount effect and the focus effect.
+  // Scrolling the map means you're done with an open level card — it's
+  // anchored to a node you're now scrolling away from, and the ✕ was its
+  // only way out. Tapping a different node already swaps cards (see
+  // handleNodePress), so this only covers the drag case. Both setters are
+  // no-ops when nothing is open: useState bails out on an unchanged value,
+  // so this costs nothing on an ordinary scroll.
+  const dismissActionCards = useCallback(() => {
+    setRetryNodeId(null);
+    setStartPrompt(null);
+    setNotReadyTap(null);
+  }, []);
+  // Latest resolved "current surah" — read (not reactive) by the chapter and
+  // search-jump prefetches, set by both the mount effect and the focus effect.
   const currentSurahNumRef = useRef<number | null>(null);
   // Pull-to-refresh state, and the scroll handle + last-auto-scrolled node id
   // used to keep the viewport following wherever Lumo currently stands.
@@ -1942,6 +2033,11 @@ export default function MapScreen({ navigation }: Props) {
 
   // Batched fetch for one phase's surahs (skips the current surah, which
   // gets full detail instead, and anything already cached from boot).
+  // Runs for every surah, with no readiness filter: the first-levels endpoint
+  // reads lesson groups directly and has no content gate of its own, and
+  // groups exist for the whole Quran — so this returns real status for any
+  // surah, including ones that can't be started yet. Filtering by a readiness
+  // list here would only replace real data with placeholders.
   const fetchPhase = async (phaseIdx: number, currentSurah: number | null) => {
     if (fetchedPhasesRef.current.has(phaseIdx)) return;
     fetchedPhasesRef.current.add(phaseIdx);
@@ -2031,10 +2127,6 @@ export default function MapScreen({ navigation }: Props) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const persistedUnlocked = await getUnlockedSeasons();
-      const unlockedSet = new Set(persistedUnlocked);
-      if (!cancelled) setUnlockedSeasons(unlockedSet);
-
       const recommended = getCachedRecommended();
       const currentSurah = recommended?.surah_number
         ?? (learning?.mvp_surah_numbers?.[0] ?? SECTIONS_DEF[0]?.surahNum ?? null);
@@ -2069,8 +2161,7 @@ export default function MapScreen({ navigation }: Props) {
       // overwhelmingly common case.
       const startSurah = currentSurah ?? SECTIONS_DEF[0]?.surahNum;
       const startChapterIdx = startSurah != null ? (SURAH_TO_CHAPTER[startSurah] ?? 0) : 0;
-      const prioritySeasons = (CHAPTER_SEASON_INDICES[startChapterIdx] ?? [0])
-        .filter((i: number) => i === 0 || unlockedSet.has(i));
+      const prioritySeasons = CHAPTER_SEASON_INDICES[startChapterIdx] ?? [0];
 
       const startTime = Date.now();
       await Promise.all([
@@ -2082,25 +2173,27 @@ export default function MapScreen({ navigation }: Props) {
       console.log(`[Map] Initial nodes loaded in ${measureDuration}ms`);
       setLoading(false);
 
-      // 3. Remaining phases — staggered in the background so they don't
-      // compete with the initial paint, but arrive within a couple seconds
-      // without requiring any tap. Signs fade in as each phase lands; nodes
-      // are tappable the whole time regardless (on-demand fetch fallback).
-      // Phases double as seasons now — a season the user hasn't unlocked
-      // yet is skipped entirely (not even the lightweight fetch), per the
-      // "seasons shouldn't all load at once" requirement; its data loads
-      // for the first time only when the user explicitly unlocks it (see
-      // handleUnlockConfirm below). Seasons already covered by
-      // prioritySeasons above are skipped here (fetchPhase would no-op on
-      // them anyway via fetchedPhasesRef, but skipping avoids wasting one of
-      // the 700ms stagger steps on a fetch that isn't going to happen).
-      for (let i = 0; i < PHASE_GROUPS.length; i++) {
+      // 3. The chapters immediately either side — staggered in the background
+      // so they don't compete with the initial paint, but already warm by the
+      // time someone pages one chapter over with the arrows.
+      //
+      // This deliberately does NOT walk every season any more. It used to, and
+      // that was affordable when the whole curriculum was 21 surahs / 7
+      // seasons; across the full Quran it's ~38x that, which would mean tens
+      // of seconds of trickling background fetches for chapters the user isn't
+      // looking at and may never open. Anything further away is fetched when
+      // it's actually reached — goToChapter fetches the chapter it pages into,
+      // the search jump fetches what it lands on, and any single node can
+      // always resolve itself on tap regardless.
+      const neighbourSeasons = [
+        ...(CHAPTER_SEASON_INDICES[startChapterIdx + 1] ?? []),
+        ...(CHAPTER_SEASON_INDICES[startChapterIdx - 1] ?? []),
+      ].filter(i => !prioritySeasons.includes(i));
+      for (const seasonIdx of new Set(neighbourSeasons)) {
         if (cancelled) return;
-        if (prioritySeasons.includes(i)) continue;
-        if (!unlockedSet.has(i)) continue;
         await new Promise(res => setTimeout(res, 700));
         if (cancelled) return;
-        await fetchPhase(i, currentSurah);
+        await fetchPhase(seasonIdx, currentSurah);
       }
     })();
     return () => { cancelled = true; };
@@ -2246,19 +2339,23 @@ export default function MapScreen({ navigation }: Props) {
 
   // Enrich base layout with live backend statuses and real ayah ranges
   const enrichedSections = BASE_SECTIONS.map(section => {
-    const full = fullLevels[section.surahNum];
+    const full = trustedLevels(section.surahNum, fullLevels[section.surahNum]);
     const first = firstLevel[section.surahNum];
     return {
       ...section,
-      nodes: section.nodes.map((node, nodeIdx) => {
-        const group = full?.[nodeIdx];
+      nodes: section.nodes.map((node) => {
+        // Index by the node's stable per-surah position, NOT its position in
+        // this chapter-local nodes array — a surah split across a chapter
+        // boundary (see SectionNode.surahLevelIdx) means that array position
+        // no longer lines up with full's real backend order past the split.
+        const group = full?.[node.surahLevelIdx];
         if (group) {
           return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: group.stars ?? 0, startAyah: group.start_ayah, endAyah: group.end_ayah, isSpecial: group.is_special, resolved: true };
         }
-        if (nodeIdx === 0 && first) {
+        if (node.surahLevelIdx === 0 && first) {
           return { ...node, id: first.lesson_group_id, status: stageToNodeStatus(first.status), stars: first.stars ?? 0, startAyah: first.start_ayah, endAyah: first.end_ayah, isSpecial: first.is_special, resolved: true };
         }
-        if (nodeIdx === 0) {
+        if (node.surahLevelIdx === 0) {
           // First level of a surah is never actually locked server-side —
           // just not confirmed yet. Tappable; see handleNodePress.
           return { ...node, status: 'pending' as NodeStatus, resolved: false };
@@ -2310,16 +2407,20 @@ export default function MapScreen({ navigation }: Props) {
           const sorted = sortedLevels(levels);
           setFullLevels(prev => ({ ...prev, [section.surahNum]: sorted }));
           // node.levelNum is a group index, not an array position — review
-          // levels now interleave (one after every 2 normal levels), so a
-          // later normal level's own levelNum no longer matches its
-          // position in the full sequence. node.id is still the static
-          // placeholder here (this branch only runs when !node.resolved,
-          // i.e. no real group has overwritten it yet), and both this
-          // section's own node list and `sorted` share the same array order
-          // buildLevelsWithReviews/the backend's sort_order both produce —
-          // so look the position up by id instead of trusting levelNum.
-          const nodeIdx = section.nodes.findIndex(n => n.id === node.id);
-          const real = nodeIdx >= 0 ? sorted[nodeIdx] : undefined;
+          // levels interleave (one after every 2 normal levels), so a later
+          // normal level's own levelNum no longer matches its position in
+          // the full sequence. Use surahLevelIdx instead of re-deriving a
+          // position via section.nodes.findIndex: that array is only this
+          // CHAPTER's slice of the surah (a surah can split across a chapter
+          // boundary), so its index stopped lining up with sorted/full past
+          // the split — surahLevelIdx is computed once from the surah's own
+          // complete sequence and survives that split correctly. Routed
+          // through trustedLevels first — if sorted's length doesn't match
+          // what SECTIONS_DEF expects, surahLevelIdx isn't safe to trust
+          // either, so this falls through to "stay put" below instead of
+          // navigating to a guessed-wrong group.
+          const trustedSorted = trustedLevels(section.surahNum, sorted);
+          const real = trustedSorted?.[node.surahLevelIdx];
           if (real && real.status !== 'completed') {
             navigation.navigate('LessonSession', { groupId: real.lesson_group_id, surahName: section.name, surahNumber: section.surahNum, isSpecial: node.isSpecial });
             return;
@@ -2340,13 +2441,13 @@ export default function MapScreen({ navigation }: Props) {
       // lesson. Surface the retry prompt on the map instead of immediately
       // navigating (tap again to dismiss). The node stays 'completed' the
       // whole time; only handleRetryConfirm below actually navigates.
-      setGateTapped(null);
+      setNotReadyTap(null);
       setStartPrompt(null);
       setRetryNodeId(prev => (prev === node.id ? null : node.id));
       return;
     }
     setRetryNodeId(null);
-    setGateTapped(null);
+    setNotReadyTap(null);
     // Tapping the node whose "start" card is already open closes it. Keyed
     // by surah+levelNum rather than node.id — a 'pending' node's id is a
     // placeholder that gets swapped for the real lesson_group_id the moment
@@ -2359,7 +2460,17 @@ export default function MapScreen({ navigation }: Props) {
     if (node.status === 'pending') {
       suppressFollowRef.current = true;
       const lvl = await fetchFirstLevelNow(section.surahNum);
-      if (!lvl) { suppressFollowRef.current = false; return; } // fetch failed — nothing resolved, nothing to suppress
+      if (!lvl) {
+        // Nothing resolved, so nothing to suppress. Two things land here: an
+        // ordinary network failure, and a surah whose content the backend
+        // can't serve yet. They're indistinguishable from the tap's point of
+        // view and the honest message is the same either way, so say that
+        // instead of leaving the tap looking dead. Needs no list of what's
+        // ready: a surah that opens, opens.
+        suppressFollowRef.current = false;
+        setNotReadyTap({ section, node });
+        return;
+      }
       setStartPrompt({ section, node, groupId: lvl.lesson_group_id, ayahFrom: lvl.start_ayah, ayahTo: lvl.end_ayah });
       return;
     }
@@ -2376,22 +2487,27 @@ export default function MapScreen({ navigation }: Props) {
         const levels = await fetchLevels(section.surahNum);
         const sorted = sortedLevels(levels);
         setFullLevels(prev => ({ ...prev, [section.surahNum]: sorted }));
-        // Position, not levelNum: review levels interleave, so a normal
-        // level's levelNum stops matching its index in the full sequence.
-        // Both lists share the order buildLevelsWithReviews and the
-        // backend's sort_order agree on.
-        const nodeIdx = section.nodes.findIndex(n => n.id === node.id);
-        real = nodeIdx >= 0 ? sorted[nodeIdx] : undefined;
+        // surahLevelIdx, not levelNum or a section.nodes array position:
+        // review levels interleave (levelNum stops matching the full
+        // sequence's index), and section.nodes is only this chapter's slice
+        // of the surah once it's split across a chapter boundary — see
+        // SectionNode.surahLevelIdx, which is computed from the surah's own
+        // complete sequence and stays correct in both cases. Routed through
+        // trustedLevels first — an untrusted (wrong-length) array makes
+        // surahLevelIdx unsafe too, so `real` stays undefined and the
+        // no-real-group branch below ("stay put") takes over instead of
+        // starting a possibly-wrong lesson.
+        real = trustedLevels(section.surahNum, sorted)?.[node.surahLevelIdx];
       } catch (e) {
         // Fetch failed — setFullLevels above never ran, nothing pending to
         // suppress. Un-arm now rather than swallowing a later unrelated scroll.
         suppressFollowRef.current = false;
         console.warn('[MapScreen] start-tap level resolve failed:', e);
       }
-      // No real group (fetch failed, or the backend has fewer groups than
-      // the static layout drew) — stay put. Better an unresponsive tap than
-      // navigating into a session for a groupId that doesn't exist.
-      if (!real) return;
+      // No real group (fetch failed, or the backend has fewer groups than the
+      // static layout drew). Never navigate on a groupId that doesn't exist —
+      // say so instead, same as the pending branch above.
+      if (!real) { setNotReadyTap({ section, node }); return; }
       if (real.status === 'locked') { shakeLockedNode(node.id); return; }
       if (real.status === 'completed') { setRetryNodeId(real.lesson_group_id); return; }
       setStartPrompt({
@@ -2422,66 +2538,16 @@ export default function MapScreen({ navigation }: Props) {
     navigation.navigate('LessonSession', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum, isSpecial: node.isSpecial });
   }
 
-  // Season 0 is always unlocked. Seasons 1+ need an explicit user unlock
-  // (persisted — see the mount effect above and handleUnlockConfirm below).
-  function isSeasonUnlocked(seasonIdx: number): boolean {
-    return seasonIdx <= 0 || unlockedSeasons.has(seasonIdx);
-  }
-  // "Complete" only checks the LAST surah's LAST level — progression is
-  // sequential, so by the time that's done, everything earlier in the
-  // season is provably done too. Only needs the current-surah data that's
-  // already fetched (see Context in the season-gate plan) — no extra fetch.
-  function isSeasonComplete(seasonIdx: number): boolean {
-    const surahs = PHASE_GROUPS[seasonIdx] ?? [];
-    if (surahs.length === 0) return false;
-    const lastSurah = surahs[surahs.length - 1];
-    const levels = fullLevels[lastSurah];
-    return !!levels?.length && levels[levels.length - 1].status === 'completed';
-  }
-
-  async function handleUnlockConfirm(seasonIdx: number) {
-    await unlockSeason(seasonIdx);
-    setUnlockedSeasons(prev => new Set(prev).add(seasonIdx));
-    setGateTapped(null);
-    // fetchPhase is fire-and-forget here, so the resulting id-resolution
-    // lands at an unpredictable later render — armed now, consumed whenever
-    // the follow-effect actually observes it (see suppressFollowRef comment).
-    // Newly-unlocked nodes should just reveal in place, not yank the
-    // viewport to whatever the backend separately recommends.
-    suppressFollowRef.current = true;
-    void fetchPhase(seasonIdx, currentSurahNumRef.current);
-  }
-  // isSeasonComplete only has data to check when the previous season's last
-  // surah has been full-fetched — which stops happening once the "current
-  // surah" pointer (recommended-next) moves on to the new season, leaving
-  // the gate permanently unable to confirm eligibility. Fetch that one
-  // surah on demand, right when the gate is tapped, instead.
-  async function handleGatePress(seasonIdx: number) {
-    if (isSeasonUnlocked(seasonIdx)) return; // already unlocked — pure scenery now
-    setRetryNodeId(null);
-    setGateTapped(seasonIdx);
-    const prevSeasonSurahs = PHASE_GROUPS[seasonIdx - 1] ?? [];
-    const lastSurah = prevSeasonSurahs[prevSeasonSurahs.length - 1];
-    if (lastSurah != null && !fullLevels[lastSurah]) {
-      setCheckingGate(seasonIdx);
-      try {
-        suppressFollowRef.current = true;
-        const levels = await learningApi.levels(lastSurah);
-        setFullLevels(prev => ({ ...prev, [lastSurah]: levels }));
-      } catch (e) {
-        // Fetch failed — setFullLevels above never ran, nothing to suppress.
-        suppressFollowRef.current = false;
-        console.warn('[MapScreen] gate eligibility check failed:', e);
-      } finally {
-        setCheckingGate(null);
-      }
-    }
-  }
-
+  // NOTE: seasons no longer gate anything. Every surah on the map is open from
+  // the start; the sequential unlock seasons used to enforce stopped being a
+  // real barrier once search could jump to any surah on demand, so keeping it
+  // only meant friction for people who hadn't found search. The one genuine
+  // lock left is per-level progress WITHIN a surah (the backend's own 'locked'
+  // status). Season signs, slots and chapter rhythm are untouched — the signs
+  // are just scenery now.
   // Page to another chapter. Purely a change of which slice of the journey is
   // laid out — it unlocks nothing and gates nothing, so it's allowed in both
-  // directions at any time (seasons keep their own unlock rules, see
-  // isSeasonUnlocked above). Any open on-map prompt is dismissed first, since
+  // directions at any time. Any open on-map prompt is dismissed first, since
   // it belongs to a node that's about to stop existing.
   function goToChapter(next: number, land: 'top' | 'bottom') {
     if (next < 0 || next >= CHAPTER_COUNT || next === chapterIdx) return;
@@ -2496,7 +2562,7 @@ export default function MapScreen({ navigation }: Props) {
     // me to Continue here" bug. This flag stays armed until that real
     // resolution lands, whenever that turns out to be.
     suppressFollowRef.current = true;
-    setGateTapped(null);
+    setNotReadyTap(null);
     setRetryNodeId(null);
     setStartPrompt(null);
     setChapterIdx(next);
@@ -2508,15 +2574,16 @@ export default function MapScreen({ navigation }: Props) {
     }
   }
 
-  // Nodes in a still-locked season render as 'locked' regardless of backend
-  // status (including the first-of-surah 'pending' exception above) and are
-  // non-tappable — handleNodePress's existing `status === 'locked'`
-  // early-return already covers that, no change needed there.
-  const gatedSections = enrichedSections.map(section => {
-    const seasonIdx = SURAH_TO_SEASON[section.surahNum] ?? 0;
-    if (isSeasonUnlocked(seasonIdx)) return section;
-    return { ...section, nodes: section.nodes.map(n => ({ ...n, status: 'locked' as NodeStatus })) };
-  });
+  // Nothing overrides a node's own status any more. Season gating used to live
+  // here, then a content-readiness gate replaced it; both are gone. Every
+  // surah of the Quran is reachable and openable, and the only thing that
+  // locks a node is the backend's own per-level progression within its surah.
+  //
+  // Readiness is handled where it can be answered truthfully — at the tap, off
+  // what the backend actually returns (see handleNodePress) — rather than
+  // predicted here from a list. That way the map needs no change as content
+  // lands: a surah that opens, opens.
+  const gatedSections = enrichedSections;
 
   const allEnrichedNodes = gatedSections.flatMap(s => s.nodes.map(n => ({ ...n, surahNum: s.surahNum })));
   // Multiple surahs' first levels can be simultaneously unlocked (no
@@ -2595,18 +2662,35 @@ export default function MapScreen({ navigation }: Props) {
   // screen — clearing manualChapterRef is what lets it override a chapter
   // the user paged to by hand, which the passive cold-start effects
   // deliberately never do on their own.
+  // Which chapter the recommendation actually sits in. The recommendation is a
+  // lesson_group_id, and where that group falls inside its surah is only
+  // knowable once that surah's levels have been fetched — until then all we
+  // can say is "somewhere in this surah", so fall back to the surah's opening
+  // chapter. Getting this right matters now that a surah routinely spans
+  // several chapters: someone 100 levels into Al-Baqarah must land on the
+  // chapter holding level 100, not the one holding level 1.
+  const chapterForRecommended = useCallback((surah: number, groupId?: string | null): number => {
+    const levels = trustedLevels(surah, fullLevels[surah]);
+    const idx = groupId ? (levels?.findIndex(l => l.lesson_group_id === groupId) ?? -1) : -1;
+    return idx >= 0 ? chapterForLevel(surah, idx) : (SURAH_TO_CHAPTER[surah] ?? 0);
+  }, [fullLevels]);
+
   const jumpToRecommended = useCallback(() => {
     const surah = recommended?.surah_number;
     if (surah == null) return;
     manualChapterRef.current = false;
+    const target = chapterForRecommended(surah, recommended?.lesson_group_id);
     appliedRecSurahRef.current = surah;
-    const target = SURAH_TO_CHAPTER[surah] ?? 0;
+    appliedRecChapterRef.current = target;
     if (target !== chapterIdx) {
-      // Cross-chapter: land at the new chapter's top, same as paging
-      // "next" — the existing chapterJump landing effect below takes it
-      // from there once the new chapter's model has built.
-      chapterJumpRef.current = 'top';
+      // Cross-chapter: hand off to the pending-jump effect below, which
+      // finishes the scroll onto the node itself once the new chapter has
+      // laid out. This used to land at the new chapter's top and stop there,
+      // which was near enough when the whole curriculum was four chapters —
+      // across 159 it usually leaves the recommended node off-screen.
+      suppressFollowRef.current = true;
       autoScrolledNodeIdRef.current = null;
+      setPendingJump({ surah, groupId: recommended?.lesson_group_id });
       setChapterIdx(target);
       return;
     }
@@ -2616,7 +2700,7 @@ export default function MapScreen({ navigation }: Props) {
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: targetY, animated: true });
     });
-  }, [recommended?.surah_number, chapterIdx, firstActiveNode, height]);
+  }, [recommended?.surah_number, recommended?.lesson_group_id, chapterForRecommended, chapterIdx, firstActiveNode, height]);
 
   // react-navigation fires 'tabPress' every time this tab's own button is
   // pressed, including a re-press while it's already focused — unlike
@@ -2642,6 +2726,52 @@ export default function MapScreen({ navigation }: Props) {
     if (returnedFromLevelTick === 0) return;
     jumpToRecommended();
   }, [returnedFromLevelTick, jumpToRecommended]);
+
+  // Search-jump: land on a surah picked from SearchSurahsScreen.
+  // route.params.jumpToSurah is set once by that screen's confirm (see
+  // navigation/types.ts, TabParamList.Map) and cleared here immediately so it
+  // never re-fires on a later focus. Nothing to unlock any more — every surah
+  // is open — so this is purely "put that surah's opening level on screen",
+  // plus a prefetch of its season so the node resolves a real status rather
+  // than sitting on the pending placeholder.
+  const mapRoute = useRoute<RouteProp<TabParamList, 'Map'>>();
+  useEffect(() => {
+    const surah = mapRoute.params?.jumpToSurah;
+    if (surah == null) return;
+    navigation.setParams({ jumpToSurah: undefined });
+    void fetchPhase(SURAH_TO_SEASON[surah] ?? 0, currentSurahNumRef.current);
+    manualChapterRef.current = true;
+    suppressFollowRef.current = true;
+    autoScrolledNodeIdRef.current = null;
+    const target = chapterForLevel(surah, 0);
+    if (target !== chapterIdx) setChapterIdx(target);
+    // No groupId: the target is whichever node is this surah's first level.
+    setPendingJump({ surah, groupId: null });
+  }, [mapRoute.params?.jumpToSurah]);
+
+  // Finishes whichever jump is pending (search, or a cross-chapter
+  // recommendation) once its target node actually exists. Both the chapter
+  // switch and the fetch that resolves a node's real id are async, so rather
+  // than guessing when they've landed this simply re-checks until the node is
+  // there — the node's own presence is the readiness test, since it can only
+  // exist once the right chapter has laid out. Cheap: allEnrichedNodes is
+  // already recomputed every render.
+  useEffect(() => {
+    if (!pendingJump) return;
+    const { surah, groupId } = pendingJump;
+    // A recommendation targets one specific group; a search targets the
+    // surah's opening level. The fallback also covers a recommendation whose
+    // real group id hasn't resolved yet.
+    const node = (groupId ? allEnrichedNodes.find(n => n.id === groupId) : undefined)
+      ?? allEnrichedNodes.find(n => n.surahNum === surah && n.surahLevelIdx === 0);
+    if (!node) return;
+    setPendingJump(null);
+    autoScrolledNodeIdRef.current = node.id;
+    const targetY = Math.max(0, node.y - height / 2);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: targetY, animated: true });
+    });
+  }, [pendingJump, allEnrichedNodes, height]);
 
   const goldAnim  = useRef(new Animated.Value(0)).current;
   // One shared value (mirrors goldAnim above) driving a shake on
@@ -2760,20 +2890,35 @@ export default function MapScreen({ navigation }: Props) {
   // Follow the backend's recommended-next into its chapter. Covers the cold
   // start (the useState seed above had no cached recommendation to read) and
   // the moment finishing a chapter's last level advances the recommendation
-  // into the next one. Applied once per distinct surah, and never once the
-  // user has paged by hand — at that point where they are is their choice.
+  // into the next one. Never overrides a chapter the user paged to by hand —
+  // at that point where they are is their choice.
+  //
+  // Keyed on the resolved CHAPTER as well as the surah, not the surah alone.
+  // On a cold start that surah's levels usually haven't arrived yet, so the
+  // first answer available is only "somewhere in this surah" (its opening
+  // chapter); once they land, a recommendation partway through a long surah
+  // resolves to its real chapter and has to be corrected. Keyed on the surah
+  // alone, that correction never happened — which across 159 chapters could
+  // leave someone dozens of chapters from where they actually left off.
+  const recommendedChapter = recommended?.surah_number != null
+    ? chapterForRecommended(recommended.surah_number, recommended.lesson_group_id)
+    : null;
   useEffect(() => {
     const surah = recommended?.surah_number;
     if (loadingPaths) return;
     if (surah == null) { setChapterResolved(true); return; }
-    if (appliedRecSurahRef.current === surah) { setChapterResolved(true); return; }
+    const target = recommendedChapter ?? 0;
+    if (appliedRecSurahRef.current === surah && appliedRecChapterRef.current === target) {
+      setChapterResolved(true);
+      return;
+    }
     appliedRecSurahRef.current = surah;
+    appliedRecChapterRef.current = target;
     if (!manualChapterRef.current) {
-      const target = SURAH_TO_CHAPTER[surah] ?? 0;
       setChapterIdx(prev => (prev === target ? prev : target));
     }
     setChapterResolved(true);
-  }, [recommended?.surah_number, loadingPaths]);
+  }, [recommended?.surah_number, recommendedChapter, loadingPaths]);
 
   // Crash context, not app behavior — this screen had none of the
   // breadcrumb/context wiring the rest of the app relies on (see
@@ -2819,17 +2964,27 @@ export default function MapScreen({ navigation }: Props) {
               {learning ? (isGuestUser ? '—' : learning.current_streak) : '…'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            {...xpTarget}
-            style={[S.hudPill, glowXp && TOUR_GLOW]}
-            activeOpacity={0.7}
-            onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('XP'))}
-          >
-            <Text>⚡</Text>
-            <Text style={[S.hudVal, { color: '#2A7D4F' }]}>
-              {learning ? (isGuestUser ? '— XP' : `${learning.xp_total} XP`) : '… XP'}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: sc(8) }}>
+            <TouchableOpacity
+              style={S.hudPill}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('SearchSurahs')}
+              accessibilityLabel="Search surahs"
+            >
+              <Text style={{ fontSize: sc(13) }}>🔍</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              {...xpTarget}
+              style={[S.hudPill, glowXp && TOUR_GLOW]}
+              activeOpacity={0.7}
+              onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('XP'))}
+            >
+              <Text>⚡</Text>
+              <Text style={[S.hudVal, { color: '#2A7D4F' }]}>
+                {learning ? (isGuestUser ? '— XP' : `${learning.xp_total} XP`) : '… XP'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -2880,6 +3035,7 @@ export default function MapScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
         onScroll={onScroll}
+        onScrollBeginDrag={dismissActionCards}
         scrollEventThrottle={16}
         refreshControl={
           // Spinner suppressed as far as each platform allows —
@@ -3146,31 +3302,21 @@ export default function MapScreen({ navigation }: Props) {
             />
           ))}
 
-          {/* Season-gate signs — rendered like a node: centered on the path
-              (see the on-path x/y computed in buildMapModel), sitting right
-              before the new season's first level. Tappable while locked to
-              surface a Lumo message; once unlocked it's pure scenery (see
-              handleGatePress). Pre-engraved art only exists for the
-              season-1 sign so far (s2/s3 predate the 7-season expansion and
-              don't match the new season boundaries) — every gate uses that
-              same sign as a placeholder until unique per-season art is
-              ready. */}
-          {DECORATIONS.seasonGates.map((g, i) => {
-            return (
-              <TouchableOpacity
-                key={`gate${i}`}
-                style={{ position: 'absolute', left: g.x, top: g.y, width: g.w, height: g.h }}
-                activeOpacity={0.85}
-                onPress={() => void handleGatePress(g.unlocksSeasonIdx)}
-              >
-                <Image
-                  source={SEASON_SIGN_SRCS[g.unlocksSeasonIdx + 1] ?? SEASON_SIGN_SRCS[1]}
-                  resizeMode="contain"
-                  style={{ width: g.w, height: g.h }}
-                />
-              </TouchableOpacity>
-            );
-          })}
+          {/* Season signs — rendered like a node: centered on the path (see
+              the on-path x/y computed in buildMapModel), sitting right before
+              the new season's first level. Purely a milestone marker now, not
+              a gate: they unlock nothing and aren't tappable, since every
+              surah is open from the start. Pre-engraved art only exists for
+              the season-1 sign, so every sign reuses it as a placeholder
+              until per-season art is ready. */}
+          {DECORATIONS.seasonGates.map((g, i) => (
+            <Image
+              key={`gate${i}`}
+              source={SEASON_SIGN_SRCS[g.unlocksSeasonIdx + 1] ?? SEASON_SIGN_SRCS[1]}
+              resizeMode="contain"
+              style={{ position: 'absolute', left: g.x, top: g.y, width: g.w, height: g.h }}
+            />
+          ))}
 
           {/* Surah labels — scroll art, positioned a real derived distance
               from each section's first node (mirrors lumaLeft's formula) */}
@@ -3236,37 +3382,25 @@ export default function MapScreen({ navigation }: Props) {
             );
           })()}
 
-          {/* Season-gate tap message — "finish the season" if not yet
-              eligible, or an Unlock confirm button once it is. Confirming
-              is the only thing that persists the unlock and loads that
-              season's data for the first time (see handleUnlockConfirm). */}
-          {gateTapped != null && (() => {
-            const g = DECORATIONS.seasonGates.find(sg => sg.unlocksSeasonIdx === gateTapped);
-            if (!g) return null;
-            // gateTapped is the 0-indexed PHASE_GROUPS entry being unlocked
-            // (see storage.ts's getUnlockedSeasons comment: "Season 0 is
-            // never stored — only explicit user-confirmed unlocks (Season 2,
-            // Season 3)..." lives there) — the human-facing number is +1.
-            const seasonLabel = `Season ${gateTapped + 1}`;
-            const checking = checkingGate === gateTapped;
-            const eligible = !checking && isSeasonComplete(gateTapped - 1);
+          {/* Shown when a tap couldn't resolve a real lesson to open — either
+              the network failed or the backend has nothing for that surah yet.
+              Worded to be true of both, since the tap can't tell them apart,
+              and never claims the surah is unavailable (it may simply be a
+              dropped request). Beats a dead tap, and beats navigating into a
+              session for a group that doesn't exist. */}
+          {notReadyTap != null && (() => {
+            const { left, top } = actionCardPosition(notReadyTap.node);
             return (
-              <View style={{ position: 'absolute', left: g.x + g.w / 2 - sc(70), top: g.y - sc(90), alignItems: 'center' }}>
+              <View style={{ position: 'absolute', left, top, zIndex: 5, alignItems: 'center' }}>
                 <LumaFloat
-                  speech={checking ? 'Checking…' : eligible ? `🎉 ${seasonLabel} complete!` : `Finish ${seasonLabel} to unlock this season!`}
+                  speech={`Couldn't open ${notReadyTap.section.name} just now. Please try again!`}
                   S={S}
                   SB={SB}
                   sc={sc}
                 />
-                {checking ? null : eligible ? (
-                  <TouchableOpacity style={S.unlockBtn} onPress={() => void handleUnlockConfirm(gateTapped)}>
-                    <Text style={S.unlockBtnText}>Unlock →</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity style={S.unlockDismiss} onPress={() => setGateTapped(null)}>
-                    <Text style={S.unlockDismissText}>OK</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity style={S.unlockDismiss} onPress={() => setNotReadyTap(null)}>
+                  <Text style={S.unlockDismissText}>OK</Text>
+                </TouchableOpacity>
               </View>
             );
           })()}
@@ -3326,13 +3460,12 @@ export default function MapScreen({ navigation }: Props) {
             );
           })()}
 
-          {/* Reserved space for a short final chapter (curriculum doesn't
-              fill NODES_PER_CHAPTER yet) — see comingSoonY in buildMapModel.
-              Centered on the y it computed, same grass/road tiles behind it
-              as everywhere else, just no nodes here yet. */}
+          {/* Reserved space at the end of the final chapter — see comingSoonY
+              in buildMapModel. Centered on the y it computed, same grass/road
+              tiles behind it as everywhere else, just no nodes past here. */}
           {comingSoonY != null && (
             <View style={[S.comingSoonBanner, { top: comingSoonY - sc(20) }]}>
-              <Text style={S.comingSoonText}>Coming soon!</Text>
+              <Text style={S.comingSoonText}>The whole Quran!</Text>
             </View>
           )}
 

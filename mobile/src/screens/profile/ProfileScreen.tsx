@@ -16,7 +16,6 @@ import { characterSrcFor, avatarSrcsForGender, currentAvatarVariantIndex } from 
 import { usersApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { isStreakFrozen } from '../../utils/streak';
-import { sendTestNotifications } from '../../services/localNotifications';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
 import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
@@ -304,11 +303,15 @@ function ProfileContent({ navigation }: Props) {
             </View>
             <Text style={styles.settingArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.settingRow} onPress={() => guarded(comingSoon)}>
+          {/* Hidden 2026-09-16: this was only ever a "coming soon" stub with no
+              real notification settings behind it — not worth shipping to
+              production. Re-add once there's an actual reminder-hour picker /
+              notification preferences screen to link to. */}
+          {/* <TouchableOpacity style={styles.settingRow} onPress={() => guarded(comingSoon)}>
             <Text style={styles.settingEmoji}>🔔</Text>
             <Text style={styles.settingLabel}>Notifications</Text>
             <Text style={styles.settingArrow}>›</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           <TouchableOpacity style={styles.settingRow} onPress={() => guarded(() => navigation.navigate('ChangePassword'))}>
             <Text style={styles.settingEmoji}>🔒</Text>
             <Text style={styles.settingLabel}>Change Password</Text>
@@ -366,22 +369,10 @@ function ProfileContent({ navigation }: Props) {
           <Text style={styles.deleteText}>Delete Account</Text>
         </TouchableOpacity>
 
-        {/* TEMP DEBUG: fires all 6 notification types 5s apart so they can be
-            previewed on a real device without waiting for real trigger times.
-            Remove before publishing. */}
-        <TouchableOpacity
-          style={[styles.deleteBtn, { borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, marginTop: 4 }]}
-          onPress={async () => {
-            const result = await sendTestNotifications();
-            if (result.ok) {
-              Alert.alert('Test notifications scheduled', `${result.count} notifications will fire 5 seconds apart, starting now. Lock your phone or leave the app to see them.`);
-            } else {
-              Alert.alert('Could not schedule', result.reason ?? 'Unknown error.');
-            }
-          }}
-        >
-          <Text style={[styles.deleteText, { color: colors.primary }]}>🔔 Test Notifications (dev only)</Text>
-        </TouchableOpacity>
+        {/* Dev-only test button removed 2026-09-16 for the first production
+            build, per its own "remove before publishing" note. Real
+            notification scheduling (refreshLocalNotifications) is untouched —
+            this was only a manual preview trigger, not part of the real flow. */}
 
         <TouchableOpacity onPress={() => setReleaseNotesVisible(true)}>
           <Text style={[styles.versionText, styles.versionTextLink]}>v{APP_VERSION}</Text>

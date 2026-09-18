@@ -14,6 +14,7 @@ import type {
   JuzOut,
   LearningMe,
   LearningStats,
+  StreakCalendar,
   LeaderboardOut,
   LessonGroupDetail,
   LessonGroupExercises,
@@ -261,6 +262,8 @@ export const learningApi = {
     ),
 
   stats: () => api<LearningStats>('/learning/stats'),
+
+  streakCalendar: () => api<StreakCalendar>('/learning/streak/calendar'),
 
   recommendedNext: () =>
     api<RecommendedNext | null>('/learning/recommended-next'),

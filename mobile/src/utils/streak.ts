@@ -37,6 +37,15 @@ export function streakColor(state: StreakState | undefined): string {
   return STREAK_ACTIVE_COLOR;
 }
 
+// The Streak page hero card's background (2026-09-16, Duolingo reference) —
+// a light-to-rich gradient, top to bottom, so an active streak visibly
+// "glows" warmer than a frozen or broken one instead of a flat tint.
+export function streakGradientColors(state: StreakState | undefined): [string, string, string] {
+  if (state === 'frozen') return ['#EAF4FE', '#BFDDFB', '#60A9E8'];
+  if (state === 'none') return ['#F8F9FB', '#F0F2F5', '#E5E7EB'];
+  return ['#FFF3E8', '#FDBA74', '#F97316'];
+}
+
 // "1 day left to save your streak" / "2 days left to save your streak".
 export function freezeDaysLabel(daysRemaining: number): string {
   return `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left to save your streak`;

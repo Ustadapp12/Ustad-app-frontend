@@ -1,21 +1,23 @@
 /**
- * Groups the MVP surah list into "seasons" for the Map screen so we only
- * proactively fetch/render the first phase up front and lazy-load the rest.
- * Sizes are content pacing, not an access gate — every surah stays reachable
- * even before its phase has been proactively fetched (see MapScreen).
+ * Groups the surah list into "seasons" for the Map screen — a fetch-batching
+ * and sign-placement rhythm, NOT an access gate. Every surah is open from the
+ * start (see isSeasonUnlocked in MapScreen); a season's only remaining jobs
+ * are batching first-level fetches 3 surahs at a time and deciding where the
+ * decorative season signs land.
+ *
+ * This used to be a fixed-length list of sizes, which silently dumped every
+ * surah past the 21st into one giant trailing season once the curriculum grew
+ * past Juz Amma. It now chunks the whole list at a constant size, so 21 surahs
+ * still produce the same 7 seasons they always did and 114 produce 38.
  */
 
-export const PHASE_SIZES = [3, 3, 3, 3, 3, 3, 3];
+export const PHASE_SIZE = 3;
 
 export function groupIntoPhases<T>(items: T[]): T[][] {
   const phases: T[][] = [];
-  let i = 0;
-  for (const size of PHASE_SIZES) {
-    if (i >= items.length) break;
-    phases.push(items.slice(i, i + size));
-    i += size;
+  for (let i = 0; i < items.length; i += PHASE_SIZE) {
+    phases.push(items.slice(i, i + PHASE_SIZE));
   }
-  if (i < items.length) phases.push(items.slice(i));
   return phases;
 }
 
@@ -30,6 +32,6 @@ export function groupIntoPhases<T>(items: T[]): T[][] {
 // the seasons inside each happened to be). Chapter slicing now lives
 // entirely in MapScreen.tsx (it needs per-level data — SECTIONS_DEF/
 // buildLevelsWithReviews — that isn't available here). Seasons themselves
-// are unaffected and still exported above: they're still the real unlock
-// unit (isSeasonUnlocked in MapScreen), just no longer tied to chapter
-// rendering boundaries.
+// are unaffected and still exported above — though they no longer gate
+// anything either: every surah is open from the start, and a season is now
+// purely a fetch batch plus where the decorative signs sit.

@@ -185,3 +185,41 @@ session's build 10035) triggered specifically to ship the reviewed release
 notes; no new native code changed since 10035.
 
 Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`
+
+**26091602** / 1.0.29 — APK + AAB — 2026-09-16 — first Android production
+candidate. R8/code-shrinking enabled for the first time
+(`enableProguardInReleaseBuilds = true` + `shrinkResources`, was hardcoded
+off since the project's first release) — combined DEX dropped from a 24.4 MB
+uncompressed baseline to 7.9 MB. NDK bumped 27.1.12297006 -> 28.0.13004108
+(fixes Play Console's 16 KB page-size crash warning). Fixed `android/`
+source drift discovered mid-session: `POST_NOTIFICATIONS` permission and
+touchscreen/mic `<uses-feature>` filters existed in source but had never
+once reached a real build; synced now. Profile screen: hid the
+"Notifications" settings stub (was a no-op `comingSoon` placeholder),
+removed the dev-only "Test Notifications" button per its own
+remove-before-publishing note. Backend confirmed on production
+(unchanged). Picks up everything already shipped to iOS 1.0.29/10036 that
+Android hadn't gotten since its own last build, 1.0.28. See
+changes-2026-09-16.md for full detail, including exactly which R8-stripped
+classes were checked and why they're believed safe.
+
+Verified via `aapt dump badging`: `versionCode='26091602'
+versionName='1.0.29'` landed correctly. R8 mapping output
+(`outputs/mapping/release/usage.txt`) checked directly: zero Google
+Sign-In/Firebase classes stripped (the two areas explicit keep rules were
+added for); this app's own native modules untouched beyond auto-generated
+`BuildConfig`/`R` classes.
+
+Not independently verified this session — needs a real device pass before
+Play Store submission: Google Sign-In (R8 printed several "Invalid stack
+map table" warnings against Google's own play-services-auth jar during the
+build — did not fail the build, but Google Sign-In is the single highest-
+risk area), login/token persistence (react-native-keychain lost more
+classes to shrinking than expected, plausibly legitimate dead-code removal
+of cipher-storage backends this app's minSdk 24 doesn't need, not
+confirmed live), recitation audio playback, and an actual fired
+notification.
+
+Output:
+- `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\apk\release\app-release.apk`
+- `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`

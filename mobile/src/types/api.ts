@@ -273,6 +273,19 @@ export interface LearningStats {
   repair_levels_completed?: number;
 }
 
+export interface StreakCalendar {
+  // Local calendar date (YYYY-MM-DD) the account was created — the streak
+  // calendar starts its grid here.
+  start_date: string;
+  // Local dates (YYYY-MM-DD) where a session that day actually advanced the
+  // streak, per the real freeze/repair policy replayed against history.
+  practiced_dates: string[];
+  // Local dates (YYYY-MM-DD) the freeze policy would have shown as frozen
+  // that day (missed but still in the grace window, or a partial repair
+  // attempt that didn't finish).
+  frozen_dates: string[];
+}
+
 export interface RecommendedNext {
   surah_number: number;
   lesson_group_id: string;
