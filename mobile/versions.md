@@ -290,3 +290,63 @@ session** — same caveat as 10037, now compounded: none of 10037's own
 unverified risks (chapter-switch-then-scroll timing, streak calendar
 layout) were resolved before 10038 layered more map-effect changes on top.
 First real verification will be whoever opens this build.
+
+**10039** / 1.0.0 — IPA (App Store production submission) — 2026-09-21 —
+commit `f00bdb1`, built and submitted directly from this laptop via
+`eas-cli` (not the GitHub Actions workflow) at the user's explicit request,
+for actual Apple App Store review rather than internal TestFlight testing.
+Ships everything in 10038 plus the chapter-cut restructure, locked-node
+prompt scoping, and other fixes/UI changes logged in the "Session 2"
+section of changes-2026-09-20.md.
+
+Two build-pipeline gaps surfaced and fixed, both because building outside
+the GH Actions workflow skips steps that workflow normally handles silently:
+
+1. First attempt errored in Xcode (`Could not get GOOGLE_APP_ID`) —
+   `ios/UstadApp/GoogleService-Info.plist` is gitignored and normally only
+   materializes in CI from a repo secret. Found a local copy in
+   `Desktop/UA-secrets/`, placed it, ran `scripts/link-firebase-ios.mjs`
+   (the same step the workflow runs) to wire it into the Xcode project.
+2. Second attempt built fine but stamped build number **100** — the
+   workflow's "Stamp a collision-proof build number" step
+   (`CURRENT_PROJECT_VERSION = 10000 + github.run_number`, see
+   `.github/workflows/ios-testflight.yml`) only ever patches the checkout
+   in CI and is never committed back, so the repo's committed baseline is
+   just `100`. Building directly skipped that step entirely. Would have
+   been rejected by App Store Connect (100 after already-live 10038).
+   Replicated the same stamp locally with `10039` (one above 10038) before
+   rebuilding — same `ios/UstadApp.xcodeproj/project.pbxproj` mechanism,
+   deliberately not committed, matching how the workflow itself never
+   commits it either.
+
+`eas submit` also failed twice before succeeding, same "logless instant
+failure" both times (`error: null`, zero log files, ~19s) — traced via
+direct EAS GraphQL queries (`submissions.byId`) since neither the CLI's
+own output nor `--verbose`/`--verbose-fastlane` surfaced anything. Cause:
+`asc-api-key.p8` (also gitignored, also only in CI via secret; a copy was
+provided by the user into `UA-secrets/`) had `Issuer Id:`/`Key Id:` label
+lines prepended above the actual `-----BEGIN PRIVATE KEY-----` PEM block —
+invalid format, failed before any real upload attempt or logging. Stripped
+to just the valid PEM content; third submit attempt succeeded immediately.
+
+Verified via the same EAS GraphQL introspection used to debug the submit
+failures, plus `eas-cli build:view`: build ID
+`49461273-1c1a-4880-bacf-303a0bd29eb5`, status `FINISHED`, build number
+10039, commit hash matches. Submission `af186eea-a53d-46e5-add8-382f669a41e3`:
+"Submitted your app to Apple App Store Connect!" — binary uploaded,
+Apple-side processing pending at time of writing (usually 5-10 min).
+
+**This does NOT mean the app is submitted for App Store review.** Uploading
+the binary and submitting it for review are two separate steps in Apple's
+own flow — once processing finishes, a human needs to go into App Store
+Connect, attach build 10039 to an App Store version with release notes/
+metadata, and click "Submit for Review" there. That step was explicitly
+left to the user, not automated.
+
+**Nothing in this build has been run on a device or simulator by this
+session either** — same standing caveat as every build this session. This
+one carries the largest unverified diff of the three (10037/10038/10039),
+including the chapter-cut restructure that reassigned 2,211 of 4,744
+individual level→chapter mappings. If this is genuinely headed for public
+release, on-device verification before hitting "Submit for Review" matters
+more here than it has for any TestFlight-only build so far.
