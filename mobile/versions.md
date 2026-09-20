@@ -260,3 +260,33 @@ Not verified on a device this session: nothing in the whole-Quran expansion
 has been seen rendering on real hardware. The chapter-switch-then-scroll
 timing on a recommendation jump, and the streak calendar's layout, are the
 two most worth watching.
+
+**10038** / 1.0.30 — IPA (TestFlight) — 2026-09-20 — commit `97a1142`,
+GitHub Actions run `35507066149`. Fixes found testing 10037 on-device: the
+map's jump-to-recommended landing inconsistently (two stacked bugs — a
+spurious-refire and a data-race guessed-chapter fallback, see
+changes-2026-09-20.md) and the "Hear and fill" exercise's first option
+always feeling slow (preload ordering). Also adds: locked map nodes now
+offer "Start {surah}?" (same jump as search); search results show open/done
+status with a legend; Lumo added to the map's loading screen; season gate
+images and the streak page's status-dependent gradient removed per request;
+diagnostics added around the still-unresolved "Couldn't open {surah}" error.
+
+Verified via `eas-cli build:list`: build ID `f4879ab2-cd02-48a1-ad7b-f66799725fca`,
+status `FINISHED`, build number 10038, production profile, commit hash
+matches the pushed commit exactly, real `.ipa` artifact. Actions run
+completed all-green (build + submit); submit log confirms "Submitted your
+app to Apple App Store Connect."
+
+**In-app release notes were NOT drafted/reviewed for this build** — it
+shipped straight from a "fix these things and build" instruction mid
+live-testing session, skipping the standing pre-build release-notes-review
+step. `src/data/releaseNotes.ts` still tops out at 1.0.30/10037's entry, so
+the in-app popup (if it fires on this build at all — same version number,
+1.0.30) won't reflect anything shipped here. Flagged, not fixed.
+
+**Nothing in this build has been run on a device or simulator by this
+session** — same caveat as 10037, now compounded: none of 10037's own
+unverified risks (chapter-switch-then-scroll timing, streak calendar
+layout) were resolved before 10038 layered more map-effect changes on top.
+First real verification will be whoever opens this build.
