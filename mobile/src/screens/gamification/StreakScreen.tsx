@@ -184,15 +184,6 @@ export default function StreakScreen({ navigation, route }: Props) {
         >
           <View style={styles.heroRow}>
             <View style={styles.heroLeft}>
-              {/* Soft glow disc behind the number — a plain RN Text can't be
-                  gradient-filled without pulling in @react-native-masked-view
-                  (not installed), so the "glamour" comes from a warm blurred
-                  aura behind the digits plus a matching text-shadow glow on
-                  the digits themselves, both keyed off streakColor(). */}
-              <View
-                pointerEvents="none"
-                style={[styles.streakGlow, { backgroundColor: streakColor(learning?.streak_state) + '33' }]}
-              />
               <Animated.Text
                 style={[
                   styles.streakNum,
@@ -207,7 +198,10 @@ export default function StreakScreen({ navigation, route }: Props) {
               </Animated.Text>
               <Text style={styles.streakLabel}>day streak!</Text>
             </View>
-            <Animated.View style={{ transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
+            {/* marginTop shifts the whole animation up within heroRow's
+                centered alignment — was sitting low against the number/label
+                stack. floatAnim's own bob (0 to -8) rides on top of this. */}
+            <Animated.View style={{ marginTop: -20, transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
               <LottieView
                 renderMode="SOFTWARE"
                 source={frozen
@@ -420,8 +414,7 @@ const styles = StyleSheet.create({
   heroLeft: { alignItems: 'flex-start', position: 'relative' },
   // A soft halo behind just the number — see the inline comment above the
   // JSX for why this (not a gradient fill) is the number's "glamour."
-  streakGlow: { position: 'absolute', top: -14, left: -18, width: 104, height: 88, borderRadius: 52 },
-  streakAnim: { width: 132, height: 132 },
+  streakAnim: { width: 160, height: 160 },
   streakNum: {
     fontFamily: 'Nunito-Bold', fontSize: 62, color: '#EA580C', lineHeight: 66,
     letterSpacing: -1, textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 10,

@@ -293,6 +293,15 @@ PHASE_GROUPS.forEach((group, idx) => group.forEach(n => { SURAH_TO_SEASON[n] = i
 // which is also what keeps the grass/road tiles' decode risk uniform instead
 // of concentrated in whichever chapter happened to be heaviest under the old
 // season-aligned grouping.
+//
+// One deliberate exception (2026-09-20): the cut never lands such that a
+// surah CONTINUING from the previous chapter opens the new one on a review
+// node — see cutWouldOpenOnReview below. That would show the user a bare
+// "review this" with none of its surah's preceding normal levels in view
+// (e.g. surah 39's chapter 55 used to open on 39_review10 with nothing above
+// it). A fresh surah's own opening chapter is never affected — surahLevelIdx
+// 0 is always a normal level by construction (buildLevelsWithReviews always
+// starts g1).
 const NODES_PER_CHAPTER = 30;
 
 // Every level across every surah, in the same top-to-bottom order
@@ -328,14 +337,42 @@ const CHAPTER_SLOTS: ChapterSlot[][] = (() => {
   const chapters: ChapterSlot[][] = [[]];
   let levelCountInChapter = 0;
   let prevSeason: number | null = null;
+  // Set for exactly one iteration right after a review has been deliberately
+  // kept on the CLOSING chapter instead of letting it open the next one (see
+  // cutWouldOpenOnReview below) — forces the very next level to start the new
+  // chapter regardless of levelCountInChapter, since the closing chapter
+  // already grew to 31 instead of 30.
+  let forcedCutPending = false;
   for (const flat of ALL_FLAT_LEVELS) {
     const season = SURAH_TO_SEASON[flat.surahNum] ?? 0;
     if (prevSeason != null && season !== prevSeason) {
       chapters[chapters.length - 1].push({ kind: 'gate', unlocksSeasonIdx: season });
     }
-    if (levelCountInChapter >= NODES_PER_CHAPTER) {
+    const naturalCut = levelCountInChapter >= NODES_PER_CHAPTER;
+    // Would the natural 30-node cut make THIS level the new chapter's first
+    // node, and is it a review continuing its surah from the chapter that's
+    // closing? A surah's own opening level (surahLevelIdx 0) is always
+    // normal by construction, so this only ever fires for a genuine
+    // continuation, never a fresh surah start — see the NODES_PER_CHAPTER
+    // comment above.
+    const cutWouldOpenOnReview =
+      naturalCut && !forcedCutPending && flat.surahLevelIdx > 0 && !!flat.level.isSpecial;
+    if (cutWouldOpenOnReview) {
+      // Keep this review on the closing chapter as an extra (31st) slot
+      // instead, and defer the real cut to right after it. The level
+      // immediately following a review is always normal — buildLevelsWithReviews
+      // never emits two reviews back to back — so the forced cut below is
+      // guaranteed to land on a normal node.
+      chapters[chapters.length - 1].push({ kind: 'level', flat });
+      levelCountInChapter++;
+      prevSeason = season;
+      forcedCutPending = true;
+      continue;
+    }
+    if (naturalCut || forcedCutPending) {
       chapters.push([]);
       levelCountInChapter = 0;
+      forcedCutPending = false;
     }
     chapters[chapters.length - 1].push({ kind: 'level', flat });
     levelCountInChapter++;
@@ -359,15 +396,31 @@ const MAX_CHAPTER_SLOTS = Math.max(NODES_PER_CHAPTER, ...CHAPTER_SLOTS.map(c => 
 // the target — landing on a surah's opening chapter when the user is 100
 // levels into Al-Baqarah would drop them nowhere near where they left off.
 const SURAH_TO_CHAPTER: Record<number, number> = {};
+// Exact reverse lookup for chapterForLevel below: surah:surahLevelIdx -> the
+// chapter that ACTUALLY holds it. Built directly off CHAPTER_SLOTS itself
+// (not a formula) so it can never drift from where a level really landed —
+// this is what keeps chapterForLevel correct even though a chapter is no
+// longer always exactly NODES_PER_CHAPTER levels long (cutWouldOpenOnReview
+// above occasionally grows one to 31 to keep a review off a new chapter's
+// opening slot, which shifts every later chapter's boundary by one level; a
+// plain Math.floor(flatIndex / NODES_PER_CHAPTER) formula would silently go
+// stale the moment that happens, which is exactly the class of forward/
+// reverse-mapping mismatch this screen has already broken from once today).
+const LEVEL_TO_CHAPTER: Record<string, number> = {};
 CHAPTER_SLOTS.forEach((slots, chapterIdx) => {
   slots.forEach(slot => {
-    if (slot.kind === 'level' && !(slot.flat.surahNum in SURAH_TO_CHAPTER)) {
+    if (slot.kind !== 'level') return;
+    if (!(slot.flat.surahNum in SURAH_TO_CHAPTER)) {
       SURAH_TO_CHAPTER[slot.flat.surahNum] = chapterIdx;
     }
+    LEVEL_TO_CHAPTER[`${slot.flat.surahNum}:${slot.flat.surahLevelIdx}`] = chapterIdx;
   });
 });
 
-// Flat index of each surah's first level in ALL_FLAT_LEVELS.
+// Flat index of each surah's first level in ALL_FLAT_LEVELS. Only still used
+// as chapterForLevel's defensive fallback below (an out-of-range surahLevelIdx
+// no real caller should ever pass, since every caller derives it from an
+// actual fetched/defined level).
 const SURAH_FLAT_START: Record<number, number> = {};
 ALL_FLAT_LEVELS.forEach((flat, i) => {
   if (!(flat.surahNum in SURAH_FLAT_START)) SURAH_FLAT_START[flat.surahNum] = i;
@@ -376,15 +429,23 @@ ALL_FLAT_LEVELS.forEach((flat, i) => {
  * The chapter holding one specific level of a surah, by that level's position
  * within its own surah (the same surahLevelIdx nodes are indexed by).
  *
- * Plain division works because chapters are cut on a LEVEL count: every
- * chapter holds exactly NODES_PER_CHAPTER levels (the last one holds the
- * remainder), and a season sign takes an extra slot without counting toward
- * that total — see CHAPTER_SLOTS.
+ * A direct table lookup (LEVEL_TO_CHAPTER), not a formula — chapters are no
+ * longer always exactly NODES_PER_CHAPTER levels long (see
+ * cutWouldOpenOnReview in CHAPTER_SLOTS above), so plain division can land on
+ * the wrong chapter past the first such adjustment. The table is built from
+ * CHAPTER_SLOTS itself, so this can never disagree with where a level
+ * actually rendered.
  */
 function chapterForLevel(surahNum: number, surahLevelIdx: number): number {
+  const idx = Math.max(0, surahLevelIdx);
+  const direct = LEVEL_TO_CHAPTER[`${surahNum}:${idx}`];
+  if (direct != null) return direct;
+  // Defensive fallback only, for an idx no real SECTIONS_DEF level actually
+  // has — every genuine caller passes an idx found by searching a fetched
+  // levels array, so LEVEL_TO_CHAPTER above always has it in practice.
   const start = SURAH_FLAT_START[surahNum];
   if (start == null) return 0;
-  return Math.floor((start + Math.max(0, surahLevelIdx)) / NODES_PER_CHAPTER);
+  return Math.floor((start + idx) / NODES_PER_CHAPTER);
 }
 
 // Verification #1 — catch a surah split across a chapter boundary the
@@ -872,6 +933,14 @@ function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): Map
   const SURAH_LABELS: Record<number, LabelBox> = {};
   BASE_SECTIONS.forEach(section => {
     const firstNode = section.nodes[0];
+    // A surah spanning several chapters (the norm post-expansion) gets a
+    // `section` entry in EVERY chapter it touches, each just that chapter's
+    // slice of nodes — so `section.nodes[0]` here is only the surah's real
+    // opening level on the ONE chapter that actually contains it; on every
+    // later chapter it's some mid-surah node instead. Labeling every one of
+    // those put the surah's name sign on every page it spans, not just its
+    // first. Only the chapter holding the true opening level should get one.
+    if (!firstNode || firstNode.surahLevelIdx !== 0) return;
     // Scroll width follows the name's length instead of one fixed size for
     // every surah — "An-Nasr" and "Al-Kafirun" don't need (and don't look
     // right in) the same box. Bounds and scale bumped 20% along with LABEL_H
@@ -1541,7 +1610,13 @@ function LevelActionCard({
   S: Styles['S'];
 }) {
   const isStart = variant === 'start';
-  const timeEstimate = isSpecial ? '6-8 min' : '4-5 min';
+  // Was a raw time estimate ("4-5 min"/"6-8 min") — replaced per request
+  // with plain confirmation of what's about to happen instead of a number.
+  // The card's own title already names the surah ("Surah {surahName}"
+  // above), so this doesn't repeat it.
+  const timeEstimate = isStart
+    ? (isSpecial ? 'Starting review now' : 'Starting now')
+    : 'Starting again';
   const accent = isStart ? colors.levelCardOffWhite : colors.levelRepeatAccent;
 
   const anim = useRef(new Animated.Value(0)).current;
@@ -2417,13 +2492,17 @@ export default function MapScreen({ navigation }: Props) {
 
   async function handleNodePress(section: Section, node: SectionNode) {
     if (node.status === 'locked') {
-      // Not a dead end: offer to jump to this surah's actual opening level
-      // instead, same as picking it from search. Still shake the locked
-      // node itself first — a beat of "no, not this one" before the offer,
-      // rather than the confirm popping up at the same instant as the shake
-      // starts. 275ms matches shakeLockedNode's own animation duration
-      // (5 * 55ms) — not exposed as a callback there since that function is
-      // shared with other callers that don't want this delay.
+      // The "Start {surah}?" offer only makes sense on the surah's own
+      // opening node (surahLevelIdx 0, the one the surah's name label sits
+      // beside) — that's the one place "you haven't started this surah yet"
+      // is actually true. Every OTHER locked node further into a surah is a
+      // real sequential gate (finish the previous level first), where the
+      // offer would be misleading noise on every single tap. Only the
+      // former gets the prompt; plain sequential locks just shake.
+      if (node.surahLevelIdx !== 0) { shakeLockedNode(node.id); return; }
+      // 275ms matches shakeLockedNode's own animation duration (5 * 55ms) —
+      // not exposed as a callback there since that function is shared with
+      // other callers that don't want this delay.
       shakeLockedNode(node.id);
       setTimeout(() => setLockedSurahPrompt(section), 275);
       return;
@@ -2464,6 +2543,15 @@ export default function MapScreen({ navigation }: Props) {
           if (real && real.status !== 'completed') {
             navigation.navigate('LessonSession', { groupId: real.lesson_group_id, surahName: section.name, surahNumber: section.surahNum, isSpecial: node.isSpecial });
             return;
+          }
+          if (!real) {
+            // trustedLevels rejected this fetch (length mismatch) or this
+            // surahLevelIdx simply isn't in it — no real per-node data
+            // resolved, so there's no pending id-change for the follow-effect
+            // to consume. Un-arm now, same as the catch block below, or this
+            // stays armed and silently eats some later, unrelated auto-scroll
+            // instead of the one it was actually meant for.
+            suppressFollowRef.current = false;
           }
         } catch (e) {
           // Fetch failed — setFullLevels above never ran, so there's no
@@ -2548,6 +2636,14 @@ export default function MapScreen({ navigation }: Props) {
       // static layout drew). Never navigate on a groupId that doesn't exist —
       // say so instead, same as the pending branch above.
       if (!real) {
+        // The try block may have succeeded (no exception, so the catch above
+        // never ran) while still leaving `real` undefined — e.g. trustedLevels
+        // rejecting a length mismatch. suppressFollowRef is still armed from
+        // above in that case, with no pending id-change for the follow-effect
+        // to consume it against — left set, it silently eats some later,
+        // unrelated auto-scroll instead of this (non-)navigation. Un-arm
+        // unconditionally here rather than only in the catch block.
+        suppressFollowRef.current = false;
         captureError(`handleNodePress: no real group for surah ${section.surahNum} idx ${node.surahLevelIdx}`, {
           surahNumber: section.surahNum, surahLevelIdx: node.surahLevelIdx, path: 'trustedLevels_rejected',
         });
@@ -3097,7 +3193,7 @@ export default function MapScreen({ navigation }: Props) {
             >
               <Image
                 source={require('../../../assets/map/search box (1).png')}
-                style={{ width: sc(32), height: sc(32) }}
+                style={{ width: sc(96), height: sc(96) }}
                 resizeMode="contain"
               />
             </TouchableOpacity>

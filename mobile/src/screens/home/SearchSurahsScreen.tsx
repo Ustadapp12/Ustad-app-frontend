@@ -14,7 +14,15 @@ import StartSurahModal from '../../components/StartSurahModal';
 
 interface Props { navigation: RootNavProp }
 
-type SortMode = 'order' | 'size';
+type SortMode = 'order' | 'size' | 'status';
+
+// Status sort order: open (available/in progress) highest, then locked
+// (not reached yet), completed last — per explicit request.
+function statusRank(status: LevelStatus | undefined): number {
+  if (status === 'available' || status === 'in_progress') return 0;
+  if (status === 'completed') return 2;
+  return 1; // 'locked' or not yet loaded
+}
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/['-]/g, '').replace(/\s+/g, '');
@@ -63,12 +71,17 @@ export default function SearchSurahsScreen({ navigation }: Props) {
       list = ALL_SURAHS.filter(s => normalize(s.name_en).includes(nq) || s.name_ar.includes(q));
     }
     // ALL_SURAHS is already surah-number order, so 'order' needs no re-sort —
-    // only 'size' (ayah count, shortest first) changes anything.
+    // 'size' (ayah count, shortest first) and 'status' (open, then locked,
+    // then done — see statusRank) are the ones that change anything.
     if (sortMode === 'size') {
       list = [...list].sort((a, b) => a.ayah_count - b.ayah_count || a.surah_number - b.surah_number);
+    } else if (sortMode === 'status') {
+      list = [...list].sort((a, b) =>
+        statusRank(statusBySurah[a.surah_number]) - statusRank(statusBySurah[b.surah_number])
+        || a.surah_number - b.surah_number);
     }
     return list;
-  }, [query, sortMode]);
+  }, [query, sortMode, statusBySurah]);
 
   // Every one of the 114 is reachable and startable. No readiness list is
   // consulted here: if the backend can't serve a surah yet, the map says so at
@@ -216,6 +229,15 @@ export default function SearchSurahsScreen({ navigation }: Props) {
             >
               <Text style={styles.popoverOptionText}>Size</Text>
               {sortMode === 'size' && <Text style={styles.popoverCheck}>✓</Text>}
+            </TouchableOpacity>
+            <View style={styles.popoverDivider} />
+            <TouchableOpacity
+              style={styles.popoverOption}
+              activeOpacity={0.6}
+              onPress={() => { setSortMode('status'); setSortMenuVisible(false); }}
+            >
+              <Text style={styles.popoverOptionText}>Status</Text>
+              {sortMode === 'status' && <Text style={styles.popoverCheck}>✓</Text>}
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
