@@ -23,6 +23,7 @@ import { ALL_SURAHS } from '../../data/allSurahs';
 import { STREAK_ACTIVE_ICON_SMALL, STREAK_FROZEN_ICON_SMALL, isStreakFrozen, streakColor, checkStreakFrozenPopup } from '../../utils/streak';
 import StreakFrozenModal from '../../components/StreakFrozenModal';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
+import StartSurahModal from '../../components/StartSurahModal';
 import { isGuest } from '../../utils/guest';
 import { getCachedRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel, subscribeRecommended, fetchLevels } from '../../services/bootCache';
 import { AnalyticsEvents, logAnalyticsEvent } from '../../services/analytics';
@@ -1123,6 +1124,7 @@ function makeStyles(M: MapModel) {
     },
     // Opaque variant for the initial load — see the comment at its use site.
     loadingOverlaySolid: { backgroundColor: colors.mapBg },
+    loadingOverlayLumo: { width: sc(120), height: sc(120), marginBottom: sc(4) },
     loadingOverlayText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: '#F5F7FA', marginTop: sc(10) },
     node: { width: NODE_SIZE, height: NODE_SIZE, alignItems: 'center', justifyContent: 'center' },
     nodeImg: { position: 'absolute', width: NODE_SIZE, height: NODE_SIZE },
@@ -1813,6 +1815,14 @@ export default function MapScreen({ navigation }: Props) {
   // recommendation — a fresh launch re-seeds from the cache above, which is
   // what makes "open the app, land where I am" still true.
   const manualChapterRef = useRef(false);
+  // Set by jumpToRecommended when it's asked to jump before the recommended
+  // surah's real per-level positions are known (fullLevels[surah] not yet
+  // trusted) — see jumpToRecommended's own comment for why it now refuses to
+  // guess in that case. The effect right after jumpToRecommendedRef watches
+  // for that data landing and replays the jump for real once it does, so a
+  // tab-press during the loading window still ends up somewhere, just not
+  // somewhere wrong.
+  const pendingRecommendedJumpRef = useRef(false);
   // Where a chapter switch should land the viewport, consumed by the
   // chapter-jump effect. Forward reads as continuing the journey, so it opens
   // at the top; back returns you to the end of the chapter you came from.
@@ -1920,6 +1930,15 @@ export default function MapScreen({ navigation }: Props) {
   // The node whose "couldn't open that" message is currently showing (null =
   // none) — set when a tap fails to resolve a real lesson to open.
   const [notReadyTap, setNotReadyTap] = useState<{ section: Section; node: SectionNode } | null>(null);
+  // "Start {surah}?" confirm after tapping a LOCKED node on the map itself —
+  // same offer and same jumpToSurahStart() destination as picking that surah
+  // from search, just reached from the map directly instead of requiring a
+  // detour through the search screen. A locked node only ever means "not
+  // this level yet, but the surah itself is open" (every surah is open from
+  // the start — see jumpToSurahStart's own comment), so redirecting to that
+  // surah's real opening level is always a valid, honest offer rather than a
+  // dead-end shake.
+  const [lockedSurahPrompt, setLockedSurahPrompt] = useState<Section | null>(null);
   // A jump waiting on a chapter switch to finish. groupId targets one specific
   // level (the recommendation); null means the surah's opening level (search).
   // Consumed by the pending-jump effect further down, which does the scroll
@@ -2328,9 +2347,19 @@ export default function MapScreen({ navigation }: Props) {
     try {
       const [lvl] = await learningApi.firstLevels([surahNumber]);
       if (lvl) mergeFirstLevels([lvl]);
+      else {
+        // Reported repeatedly as "couldn't open X" specifically via search —
+        // this is the only place that error can come from for a
+        // surahLevelIdx-0 tap, and until now it swallowed the actual reason
+        // (exception vs a genuinely empty array back from the backend).
+        // Logged as non-fatal so the next repro shows which one it actually
+        // is instead of guessing further.
+        captureError(`fetchFirstLevelNow: empty response for surah ${surahNumber}`, { surahNumber, path: 'empty_response' });
+      }
       return lvl ?? null;
     } catch (e) {
       console.warn('[MapScreen] on-demand first-level fetch failed:', e);
+      captureError(e instanceof Error ? e : new Error(String(e)), { surahNumber, path: 'exception' });
       return null;
     } finally {
       setFetchingSurah(null);
@@ -2387,7 +2416,18 @@ export default function MapScreen({ navigation }: Props) {
   });
 
   async function handleNodePress(section: Section, node: SectionNode) {
-    if (node.status === 'locked') { shakeLockedNode(node.id); return; } // real gate — previous level not completed
+    if (node.status === 'locked') {
+      // Not a dead end: offer to jump to this surah's actual opening level
+      // instead, same as picking it from search. Still shake the locked
+      // node itself first — a beat of "no, not this one" before the offer,
+      // rather than the confirm popping up at the same instant as the shake
+      // starts. 275ms matches shakeLockedNode's own animation duration
+      // (5 * 55ms) — not exposed as a callback there since that function is
+      // shared with other callers that don't want this delay.
+      shakeLockedNode(node.id);
+      setTimeout(() => setLockedSurahPrompt(section), 275);
+      return;
+    }
     if (node.status === 'completed') {
       // Always warm the lesson-content cache the instant a completed node is
       // tapped (loadLessonGroup is cache-first over disk — see
@@ -2507,7 +2547,13 @@ export default function MapScreen({ navigation }: Props) {
       // No real group (fetch failed, or the backend has fewer groups than the
       // static layout drew). Never navigate on a groupId that doesn't exist —
       // say so instead, same as the pending branch above.
-      if (!real) { setNotReadyTap({ section, node }); return; }
+      if (!real) {
+        captureError(`handleNodePress: no real group for surah ${section.surahNum} idx ${node.surahLevelIdx}`, {
+          surahNumber: section.surahNum, surahLevelIdx: node.surahLevelIdx, path: 'trustedLevels_rejected',
+        });
+        setNotReadyTap({ section, node });
+        return;
+      }
       if (real.status === 'locked') { shakeLockedNode(node.id); return; }
       if (real.status === 'completed') { setRetryNodeId(real.lesson_group_id); return; }
       setStartPrompt({
@@ -2538,6 +2584,14 @@ export default function MapScreen({ navigation }: Props) {
     navigation.navigate('LessonSession', { groupId: node.id, surahName: section.name, surahNumber: section.surahNum, isSpecial: node.isSpecial });
   }
 
+  // Only reached by lockedSurahPrompt's "Start Surah" button.
+  function handleLockedSurahConfirm() {
+    if (!lockedSurahPrompt) return;
+    const surah = lockedSurahPrompt.surahNum;
+    setLockedSurahPrompt(null);
+    jumpToSurahStart(surah);
+  }
+
   // NOTE: seasons no longer gate anything. Every surah on the map is open from
   // the start; the sequential unlock seasons used to enforce stopped being a
   // real barrier once search could jump to any surah on demand, so keeping it
@@ -2552,6 +2606,12 @@ export default function MapScreen({ navigation }: Props) {
   function goToChapter(next: number, land: 'top' | 'bottom') {
     if (next < 0 || next >= CHAPTER_COUNT || next === chapterIdx) return;
     manualChapterRef.current = true;
+    // A deferred "jump to recommended" (see jumpToRecommended/
+    // pendingRecommendedJumpRef) auto-replays itself the moment the
+    // recommended surah's data lands, with no further tap needed — right
+    // when the tab was pressed, but wrong once the user has since paged away
+    // by hand, which would otherwise get silently overridden a moment later.
+    pendingRecommendedJumpRef.current = false;
     chapterJumpRef.current = land;
     // chapterJumpRef only covers the follow-effect's very next run (it's
     // cleared by the landing effect once the new chapter's top/bottom scroll
@@ -2677,9 +2737,34 @@ export default function MapScreen({ navigation }: Props) {
 
   const jumpToRecommended = useCallback(() => {
     const surah = recommended?.surah_number;
+    const groupId = recommended?.lesson_group_id;
     if (surah == null) return;
+    // Whether this surah's real per-level positions are actually known yet.
+    // chapterForRecommended silently falls back to the surah's OPENING
+    // chapter when they aren't (trustedLevels(surah, fullLevels[surah]) is
+    // undefined, or the recommended groupId isn't in it), which is exactly
+    // right for "show me this surah" but frequently wrong for "show me this
+    // specific level" once a surah spans several chapters. Landing there
+    // anyway — as this used to — is what made a deliberate tab-press jump
+    // land somewhere different almost every time: whether fullLevels[surah]
+    // happened to already be warm in memory at the moment of the tap is
+    // unpredictable, so some taps got the real answer and others got the
+    // fallback's wrong one, with nothing to reconcile the two once shown.
+    const levels = trustedLevels(surah, fullLevels[surah]);
+    const idx = groupId ? (levels?.findIndex(l => l.lesson_group_id === groupId) ?? -1) : -1;
+    if (!levels || idx < 0) {
+      // Don't guess. surahsNeedingFullLevels (above) already guarantees a
+      // fetch for this exact surah is in flight whenever it's the
+      // recommendation, so just queue the jump to fire for real the moment
+      // that data lands (see the effect right after jumpToRecommendedRef)
+      // instead of moving the viewport now and hoping something later
+      // corrects it.
+      pendingRecommendedJumpRef.current = true;
+      return;
+    }
+    pendingRecommendedJumpRef.current = false;
     manualChapterRef.current = false;
-    const target = chapterForRecommended(surah, recommended?.lesson_group_id);
+    const target = chapterForLevel(surah, idx);
     appliedRecSurahRef.current = surah;
     appliedRecChapterRef.current = target;
     if (target !== chapterIdx) {
@@ -2690,7 +2775,7 @@ export default function MapScreen({ navigation }: Props) {
       // across 159 it usually leaves the recommended node off-screen.
       suppressFollowRef.current = true;
       autoScrolledNodeIdRef.current = null;
-      setPendingJump({ surah, groupId: recommended?.lesson_group_id });
+      setPendingJump({ surah, groupId });
       setChapterIdx(target);
       return;
     }
@@ -2700,7 +2785,36 @@ export default function MapScreen({ navigation }: Props) {
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: targetY, animated: true });
     });
-  }, [recommended?.surah_number, recommended?.lesson_group_id, chapterForRecommended, chapterIdx, firstActiveNode, height]);
+  }, [recommended?.surah_number, recommended?.lesson_group_id, fullLevels, chapterIdx, firstActiveNode, height]);
+
+  // Stable handle on the latest jumpToRecommended, for effects below that
+  // must fire ONLY on their own real trigger (a tab press, a level actually
+  // ending) — not on every render. jumpToRecommended's own identity churns
+  // on nearly every render (firstActiveNode/chapterIdx are both in its
+  // deps, and firstActiveNode is a brand-new object every render since
+  // enrichedSections/allEnrichedNodes are never memoized), so an effect
+  // that lists jumpToRecommended itself as a dependency re-runs constantly
+  // rather than on the tick/tabPress it's actually meant to react to. Each
+  // such re-run calls jumpToRecommended(), whose first line unconditionally
+  // clears manualChapterRef — this was the root cause of chapter arrows (and
+  // any other node tap) getting silently snapped back to the recommended
+  // node's chapter. Routing through a ref keeps the effects' dependency
+  // arrays to just their real trigger while still always calling the
+  // latest closure.
+  const jumpToRecommendedRef = useRef(jumpToRecommended);
+  useEffect(() => { jumpToRecommendedRef.current = jumpToRecommended; }, [jumpToRecommended]);
+
+  // Replays a jump that jumpToRecommended deferred because the recommended
+  // surah's real levels hadn't loaded yet (see pendingRecommendedJumpRef's
+  // own comment above). Fires once that surah's fullLevels entry actually
+  // becomes trusted — jumpToRecommendedRef.current() re-checks everything
+  // itself and is a no-op if the flag is already clear, so this is safe to
+  // run on every fullLevels change rather than trying to predict the exact
+  // one that resolves it.
+  useEffect(() => {
+    if (!pendingRecommendedJumpRef.current) return;
+    jumpToRecommendedRef.current();
+  }, [fullLevels]);
 
   // react-navigation fires 'tabPress' every time this tab's own button is
   // pressed, including a re-press while it's already focused — unlike
@@ -2709,10 +2823,10 @@ export default function MapScreen({ navigation }: Props) {
   // recommended level, whether you're switching tabs in or already here.
   useEffect(() => {
     const unsubscribe = navigation.addListener('tabPress', () => {
-      jumpToRecommended();
+      jumpToRecommendedRef.current();
     });
     return unsubscribe;
-  }, [navigation, jumpToRecommended]);
+  }, [navigation]);
 
   // Re-scroll to the recommended node every time a level session ends, full
   // stop — see returnedFromLevelTick's own comment above for why the
@@ -2721,32 +2835,43 @@ export default function MapScreen({ navigation }: Props) {
   // jumpToRecommended is safe to call unconditionally here: it already no-ops
   // when there's no recommended surah, and already handles the cross-chapter
   // case (finishing a chapter's last level) the same way a manual Home-tab
-  // tap does.
+  // tap does. Depends ONLY on the tick — see jumpToRecommendedRef's own
+  // comment above for why jumpToRecommended itself can't sit in this array.
   useEffect(() => {
     if (returnedFromLevelTick === 0) return;
-    jumpToRecommended();
-  }, [returnedFromLevelTick, jumpToRecommended]);
+    jumpToRecommendedRef.current();
+  }, [returnedFromLevelTick]);
+
+  // Jump to a surah's opening level and put it on screen — shared by the
+  // search-confirm flow (below) AND by confirming "Start {surah}?" after
+  // tapping a locked node on the map itself (see lockedSurahPrompt/
+  // handleLockedSurahConfirm). One function, one behavior, regardless of
+  // where the surah was picked from. Nothing to unlock any more — every
+  // surah is open — so this is purely "put that surah's opening level on
+  // screen," plus a prefetch of its season so the node resolves a real
+  // status rather than sitting on the pending placeholder.
+  function jumpToSurahStart(surah: number) {
+    void fetchPhase(SURAH_TO_SEASON[surah] ?? 0, currentSurahNumRef.current);
+    manualChapterRef.current = true;
+    pendingRecommendedJumpRef.current = false;
+    suppressFollowRef.current = true;
+    autoScrolledNodeIdRef.current = null;
+    const target = chapterForLevel(surah, 0);
+    setChapterIdx(prev => (prev === target ? prev : target));
+    // No groupId: the target is whichever node is this surah's first level.
+    setPendingJump({ surah, groupId: null });
+  }
 
   // Search-jump: land on a surah picked from SearchSurahsScreen.
   // route.params.jumpToSurah is set once by that screen's confirm (see
   // navigation/types.ts, TabParamList.Map) and cleared here immediately so it
-  // never re-fires on a later focus. Nothing to unlock any more — every surah
-  // is open — so this is purely "put that surah's opening level on screen",
-  // plus a prefetch of its season so the node resolves a real status rather
-  // than sitting on the pending placeholder.
+  // never re-fires on a later focus.
   const mapRoute = useRoute<RouteProp<TabParamList, 'Map'>>();
   useEffect(() => {
     const surah = mapRoute.params?.jumpToSurah;
     if (surah == null) return;
     navigation.setParams({ jumpToSurah: undefined });
-    void fetchPhase(SURAH_TO_SEASON[surah] ?? 0, currentSurahNumRef.current);
-    manualChapterRef.current = true;
-    suppressFollowRef.current = true;
-    autoScrolledNodeIdRef.current = null;
-    const target = chapterForLevel(surah, 0);
-    if (target !== chapterIdx) setChapterIdx(target);
-    // No groupId: the target is whichever node is this surah's first level.
-    setPendingJump({ surah, groupId: null });
+    jumpToSurahStart(surah);
   }, [mapRoute.params?.jumpToSurah]);
 
   // Finishes whichever jump is pending (search, or a cross-chapter
@@ -2966,12 +3091,15 @@ export default function MapScreen({ navigation }: Props) {
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: sc(8) }}>
             <TouchableOpacity
-              style={S.hudPill}
               activeOpacity={0.7}
               onPress={() => navigation.navigate('SearchSurahs')}
               accessibilityLabel="Search surahs"
             >
-              <Text style={{ fontSize: sc(13) }}>🔍</Text>
+              <Image
+                source={require('../../../assets/map/search box (1).png')}
+                style={{ width: sc(32), height: sc(32) }}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
             <TouchableOpacity
               {...xpTarget}
@@ -2995,8 +3123,16 @@ export default function MapScreen({ navigation }: Props) {
         // pull-to-refresh, where the already-correct map underneath is meant to stay visible
         // while it re-fetches.
         <View style={[S.loadingOverlay, !nodesReady && S.loadingOverlaySolid]} pointerEvents="none">
+          <Image
+            source={require('../../../assets/images/lumo_transparent.png')}
+            style={S.loadingOverlayLumo}
+            resizeMode="contain"
+          />
           <LoadingRing size={64} color="#F5F7FA" />
-          <LoadingStatusText style={S.loadingOverlayText} />
+          <LoadingStatusText
+            messages={['Loading your map…', 'Almost there…']}
+            style={S.loadingOverlayText}
+          />
         </View>
       )}
 
@@ -3309,6 +3445,9 @@ export default function MapScreen({ navigation }: Props) {
               surah is open from the start. Pre-engraved art only exists for
               the season-1 sign, so every sign reuses it as a placeholder
               until per-season art is ready. */}
+          {/* Disabled per request (2026-09-20) — commented out, not removed,
+              so the underlying DECORATIONS.seasonGates data/layout stays
+              intact if this comes back.
           {DECORATIONS.seasonGates.map((g, i) => (
             <Image
               key={`gate${i}`}
@@ -3317,6 +3456,7 @@ export default function MapScreen({ navigation }: Props) {
               style={{ position: 'absolute', left: g.x, top: g.y, width: g.w, height: g.h }}
             />
           ))}
+          */}
 
           {/* Surah labels — scroll art, positioned a real derived distance
               from each section's first node (mirrors lumaLeft's formula) */}
@@ -3580,6 +3720,15 @@ export default function MapScreen({ navigation }: Props) {
         dismissLabel="Not now"
         onContinue={() => { setGuestPromptVisible(false); navigation.navigate('SignUp'); }}
         onDismiss={() => setGuestPromptVisible(false)}
+      />
+
+      <StartSurahModal
+        visible={!!lockedSurahPrompt}
+        nameEn={lockedSurahPrompt?.name}
+        nameAr={lockedSurahPrompt?.arabicName}
+        ayahCount={lockedSurahPrompt?.ayahCount}
+        onConfirm={handleLockedSurahConfirm}
+        onCancel={() => setLockedSurahPrompt(null)}
       />
     </View>
   );

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Image, StyleSheet,
   FlatList, Modal, Platform,
@@ -8,6 +8,9 @@ import { colors } from '../../theme/colors';
 import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
 import { ALL_SURAHS, type SurahListing } from '../../data/allSurahs';
 import type { RootNavProp } from '../../navigation/types';
+import { learningApi } from '../../api';
+import type { LevelStatus } from '../../types/api';
+import StartSurahModal from '../../components/StartSurahModal';
 
 interface Props { navigation: RootNavProp }
 
@@ -28,6 +31,25 @@ export default function SearchSurahsScreen({ navigation }: Props) {
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [sortAnchorY, setSortAnchorY] = useState(0);
   const [confirmSurah, setConfirmSurah] = useState<SurahListing | null>(null);
+
+  // Per-surah status (first level's status, same proxy MapScreen already
+  // uses elsewhere for "is this surah started/done") — one batched,
+  // lightweight call for all 114 rather than one request per row. Purely
+  // decorative: a failure here just leaves rows uncolored, never blocks
+  // search/start.
+  const [statusBySurah, setStatusBySurah] = useState<Record<number, LevelStatus>>({});
+  useEffect(() => {
+    let cancelled = false;
+    learningApi.firstLevels(ALL_SURAHS.map(s => s.surah_number))
+      .then(levels => {
+        if (cancelled) return;
+        const map: Record<number, LevelStatus> = {};
+        for (const lvl of levels) map[lvl.surah_number] = lvl.status;
+        setStatusBySurah(map);
+      })
+      .catch(e => console.warn('[SearchSurahsScreen] first-levels fetch failed:', e));
+    return () => { cancelled = true; };
+  }, []);
 
   const results = useMemo(() => {
     const q = query.trim();
@@ -107,6 +129,17 @@ export default function SearchSurahsScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.legendRow}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colors.gold, borderColor: colors.goldDark }]} />
+          <Text style={styles.legendLabel}>Open</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colors.success, borderColor: colors.primaryDark }]} />
+          <Text style={styles.legendLabel}>Done</Text>
+        </View>
+      </View>
+
       <FlatList
         data={results}
         keyExtractor={item => String(item.surah_number)}
@@ -118,38 +151,49 @@ export default function SearchSurahsScreen({ navigation }: Props) {
             <Text style={styles.emptyText}>No surah matches "{query}".</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => handlePress(item)}>
-            <View style={styles.numBadge}>
-              <Text style={styles.numBadgeText}>{item.surah_number}</Text>
-            </View>
-            <View style={styles.rowMid}>
-              <Text style={styles.rowNameEn} numberOfLines={1}>{item.name_en}</Text>
-              <Text style={styles.rowMeta}>{item.ayah_count} ayahs</Text>
-            </View>
-            <Text style={styles.rowNameAr} numberOfLines={1}>{item.name_ar}</Text>
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) => {
+          const status = statusBySurah[item.surah_number];
+          const isDone = status === 'completed';
+          const isOpen = status === 'available' || status === 'in_progress';
+          const rowColor = isDone
+            ? { borderColor: colors.success, backgroundColor: colors.successBg }
+            : isOpen
+              ? { borderColor: colors.goldBorder, backgroundColor: colors.goldBg }
+              : null;
+          const badgeColor = isDone
+            ? { backgroundColor: colors.successBg }
+            : isOpen
+              ? { backgroundColor: colors.goldBg }
+              : null;
+          const badgeTextColor = isDone
+            ? { color: colors.success }
+            : isOpen
+              ? { color: colors.goldDark }
+              : null;
+          return (
+            <TouchableOpacity style={[styles.row, rowColor]} activeOpacity={0.7} onPress={() => handlePress(item)}>
+              <View style={[styles.numBadge, badgeColor]}>
+                <Text style={[styles.numBadgeText, badgeTextColor]}>{item.surah_number}</Text>
+              </View>
+              <View style={styles.rowMid}>
+                <Text style={styles.rowNameEn} numberOfLines={1}>{item.name_en}</Text>
+                <Text style={styles.rowMeta}>{item.ayah_count} ayahs</Text>
+              </View>
+              <Text style={styles.rowNameAr} numberOfLines={1}>{item.name_ar}</Text>
+            </TouchableOpacity>
+          );
+        }}
       />
 
       {/* Confirmation. Same destination either way; only the promise differs. */}
-      <Modal visible={!!confirmSurah} transparent animationType="fade" onRequestClose={() => setConfirmSurah(null)}>
-        <View style={styles.backdrop}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Start {confirmSurah?.name_en}?</Text>
-            <Text style={styles.cardBody}>
-              {confirmSurah?.name_ar} · {confirmSurah?.ayah_count} ayahs{'\n'}
-              You'll begin at the first level of this surah on the map.
-            </Text>
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleGo}>
-              <Text style={styles.primaryBtnText}>Start Surah</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.dismissBtn} onPress={() => setConfirmSurah(null)}>
-              <Text style={styles.dismissBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <StartSurahModal
+        visible={!!confirmSurah}
+        nameEn={confirmSurah?.name_en}
+        nameAr={confirmSurah?.name_ar}
+        ayahCount={confirmSurah?.ayah_count}
+        onConfirm={handleGo}
+        onCancel={() => setConfirmSurah(null)}
+      />
 
       {/* Sort menu — a small anchored popover (iOS-style), not a full dialog:
           tapping an option applies it and closes immediately, no Cancel. */}
@@ -197,6 +241,13 @@ function makeStyles(sc: (n: number) => number, insets: any) {
       flexDirection: 'row', alignItems: 'center', gap: sc(8),
       marginHorizontal: sc(16), marginBottom: sc(10),
     },
+    legendRow: {
+      flexDirection: 'row', alignItems: 'center', gap: sc(16),
+      marginHorizontal: sc(16), marginBottom: sc(10),
+    },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: sc(6) },
+    legendDot: { width: sc(10), height: sc(10), borderRadius: sc(5), borderWidth: 1.5 },
+    legendLabel: { fontFamily: 'Nunito-Regular', fontSize: sc(12), color: colors.mutedText },
     searchWrap: {
       flex: 1, flexDirection: 'row', alignItems: 'center', gap: sc(8),
       backgroundColor: colors.white, borderRadius: sc(14),
@@ -230,17 +281,6 @@ function makeStyles(sc: (n: number) => number, insets: any) {
     rowNameEn: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.darkText },
     rowMeta: { fontFamily: 'Nunito-Regular', fontSize: sc(11), color: colors.mutedText, marginTop: 2 },
     rowNameAr: { fontFamily: 'Nunito-Bold', fontSize: sc(15), color: colors.darkText },
-    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-    card: {
-      backgroundColor: colors.white, borderRadius: 20, padding: 24, width: '100%',
-      shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12,
-    },
-    cardTitle: { fontFamily: 'Nunito-Bold', fontSize: 18, color: colors.darkText, marginBottom: 8 },
-    cardBody: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 20 },
-    primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-    primaryBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
-    dismissBtn: { paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-    dismissBtnText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText },
     popoverBackdrop: { flex: 1 },
     popover: {
       position: 'absolute', minWidth: sc(160),

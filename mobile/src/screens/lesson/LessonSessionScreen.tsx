@@ -1274,9 +1274,16 @@ export function AudioFill({
     setPlayingIdx(null);
 
     // Preload all audio for this exercise in the background so taps play instantly.
+    // Options first, segment audio after: preloadAudioUrls loads BATCH=4 at a
+    // time in array order, and the options are what the user actually taps —
+    // putting segment_audio_urls ahead of them meant whichever option someone
+    // reached for first (almost always option 1) routinely lost the preload
+    // race and fell through to a cold on-demand load, while later options
+    // (tapped after the race had more time to finish) felt instant by
+    // comparison. Reported as "the first option is always really slow."
     const allUrls = [
-      ...(ex.segment_audio_urls ?? []),
       ...(ex.options?.map(o => o.audio_url).filter(Boolean) ?? []),
+      ...(ex.segment_audio_urls ?? []),
     ] as string[];
     void preloadAudioUrls(allUrls);
 

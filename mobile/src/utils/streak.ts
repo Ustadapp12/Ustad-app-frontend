@@ -37,12 +37,13 @@ export function streakColor(state: StreakState | undefined): string {
   return STREAK_ACTIVE_COLOR;
 }
 
-// The Streak page hero card's background (2026-09-16, Duolingo reference) —
-// a light-to-rich gradient, top to bottom, so an active streak visibly
-// "glows" warmer than a frozen or broken one instead of a flat tint.
-export function streakGradientColors(state: StreakState | undefined): [string, string, string] {
-  if (state === 'frozen') return ['#EAF4FE', '#BFDDFB', '#60A9E8'];
-  if (state === 'none') return ['#F8F9FB', '#F0F2F5', '#E5E7EB'];
+// The Streak page hero card's background (2026-09-16, Duolingo reference).
+// Was state-dependent (blue for frozen, gray for none, orange for active) —
+// changed 2026-09-20 per explicit request to always show the orange/yellow
+// gradient regardless of streak_state. `state` is kept as a parameter (even
+// though unused) so the call site and its signature don't need to change if
+// this becomes state-dependent again.
+export function streakGradientColors(_state: StreakState | undefined): [string, string, string] {
   return ['#FFF3E8', '#FDBA74', '#F97316'];
 }
 
