@@ -200,8 +200,12 @@ export default function StreakScreen({ navigation, route }: Props) {
             </View>
             {/* marginTop shifts the whole animation up within heroRow's
                 centered alignment — was sitting low against the number/label
-                stack. floatAnim's own bob (0 to -8) rides on top of this. */}
-            <Animated.View style={{ marginTop: -20, transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
+                stack (still looked like it was "sinking" at -20, pushed
+                further to -36). marginBottom adds breathing room below it
+                so it doesn't crowd the card's bottom edge now that it's
+                sitting higher. floatAnim's own bob (0 to -8) rides on top
+                of this. */}
+            <Animated.View style={{ marginTop: -36, marginBottom: 16, transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
               <LottieView
                 renderMode="SOFTWARE"
                 source={frozen

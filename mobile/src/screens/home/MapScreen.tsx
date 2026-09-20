@@ -1160,11 +1160,10 @@ function makeStyles(M: MapModel) {
     // live screen width, not available inside this style factory), this
     // just carries size/color/shadow. zIndex above the loading overlay (20)
     // so it's tappable immediately, even before the map itself has resolved.
-    // Vertical gap shrunk from sc(16) to sc(6) (2026-09-03, "bring it down,
-    // its too high") so it reads as sitting right above Profile's icon
-    // rather than floating independently above the tab bar.
+    // Vertical gap: sc(10) above the tab bar (was sc(20), lowered per
+    // request — still clears the 64px tab bar, just sits closer to it).
     feedbackFab: {
-      position: 'absolute', bottom: 64 + sc(20), zIndex: 25,
+      position: 'absolute', bottom: 64 + sc(10), zIndex: 25,
       width: FEEDBACK_FAB_SIZE, height: FEEDBACK_FAB_SIZE, borderRadius: FEEDBACK_FAB_SIZE / 2,
       alignItems: 'center', justifyContent: 'center',
       shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 6,
@@ -3170,45 +3169,50 @@ export default function MapScreen({ navigation }: Props) {
         onLayout={e => setHudHeight(e.nativeEvent.layout.height)}
       >
         <View style={S.hudRow}>
-          <TouchableOpacity
-            {...streakTarget}
-            style={[S.hudPill, glowStreak && TOUR_GLOW]}
-            activeOpacity={0.7}
-            onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('Streak'))}
-          >
-            <Image
-              source={isStreakFrozen(learning?.streak_state) ? STREAK_FROZEN_ICON_SMALL : STREAK_ACTIVE_ICON_SMALL}
-              style={S.hudStreakIcon}
-              resizeMode="contain"
-            />
-            <Text style={[S.hudVal, { color: streakColor(learning?.streak_state) }]}>
-              {learning ? (isGuestUser ? '—' : learning.current_streak) : '…'}
-            </Text>
-          </TouchableOpacity>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: sc(8) }}>
+          <View>
+            <TouchableOpacity
+              {...streakTarget}
+              style={[S.hudPill, glowStreak && TOUR_GLOW]}
+              activeOpacity={0.7}
+              onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('Streak'))}
+            >
+              <Image
+                source={isStreakFrozen(learning?.streak_state) ? STREAK_FROZEN_ICON_SMALL : STREAK_ACTIVE_ICON_SMALL}
+                style={S.hudStreakIcon}
+                resizeMode="contain"
+              />
+              <Text style={[S.hudVal, { color: streakColor(learning?.streak_state) }]}>
+                {learning ? (isGuestUser ? '—' : learning.current_streak) : '…'}
+              </Text>
+            </TouchableOpacity>
+            {/* Search button — own row below streak, not a flex sibling of the
+                pills (it used to sit inline with XP, but its much larger art
+                asset was dragging the whole pill row's centered alignment off
+                with it). 2x its original size (was 1x, briefly 3x). */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => navigation.navigate('SearchSurahs')}
               accessibilityLabel="Search surahs"
+              style={{ marginTop: sc(6) }}
             >
               <Image
                 source={require('../../../assets/map/search box (1).png')}
-                style={{ width: sc(96), height: sc(96) }}
+                style={{ width: sc(64), height: sc(64) }}
                 resizeMode="contain"
               />
             </TouchableOpacity>
-            <TouchableOpacity
-              {...xpTarget}
-              style={[S.hudPill, glowXp && TOUR_GLOW]}
-              activeOpacity={0.7}
-              onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('XP'))}
-            >
-              <Text>⚡</Text>
-              <Text style={[S.hudVal, { color: colors.primary }]}>
-                {learning ? (isGuestUser ? '— XP' : `${learning.xp_total} XP`) : '… XP'}
-              </Text>
-            </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            {...xpTarget}
+            style={[S.hudPill, { alignSelf: 'flex-start' }, glowXp && TOUR_GLOW]}
+            activeOpacity={0.7}
+            onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('XP'))}
+          >
+            <Text>⚡</Text>
+            <Text style={[S.hudVal, { color: colors.primary }]}>
+              {learning ? (isGuestUser ? '— XP' : `${learning.xp_total} XP`) : '… XP'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
