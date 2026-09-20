@@ -671,7 +671,12 @@ export function LessonHeader({
 
   return (
     <View style={LH.header}>
-      <TouchableOpacity style={LH.backBtn} onPress={onExit}>
+      <TouchableOpacity
+        style={LH.backBtn}
+        onPress={onExit}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityLabel="Exit lesson"
+      >
         <Text style={LH.backText}>✕</Text>
       </TouchableOpacity>
 
@@ -789,7 +794,11 @@ export function AyahDisplay({
       ) : null}
 
       {/* Big play button */}
-      <TouchableOpacity style={[AD.playBtn, playing && AD.playBtnActive]} onPress={handlePlayPause}>
+      <TouchableOpacity
+        style={[AD.playBtn, playing && AD.playBtnActive]}
+        onPress={handlePlayPause}
+        accessibilityLabel={playing ? 'Pause audio' : 'Play audio'}
+      >
         <PlayPauseIcon playing={playing} size={26} color="#F5F7FA" />
       </TouchableOpacity>
 

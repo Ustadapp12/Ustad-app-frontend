@@ -3204,7 +3204,7 @@ export default function MapScreen({ navigation }: Props) {
               onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('XP'))}
             >
               <Text>⚡</Text>
-              <Text style={[S.hudVal, { color: '#2A7D4F' }]}>
+              <Text style={[S.hudVal, { color: colors.primary }]}>
                 {learning ? (isGuestUser ? '— XP' : `${learning.xp_total} XP`) : '… XP'}
               </Text>
             </TouchableOpacity>

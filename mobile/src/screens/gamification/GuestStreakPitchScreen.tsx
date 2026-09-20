@@ -12,7 +12,7 @@ export default function GuestStreakPitchScreen() {
     <GuestGate
       feature="Your streak"
       title="Create your streak"
-      body="Guest progress isn't saved — that streak resets every time. Create a free account, it's free, and today becomes day one for real."
+      body="Guest progress isn't saved, so that streak resets every time. Create a free account, it's free, and today becomes day one for real."
     />
   );
 }
