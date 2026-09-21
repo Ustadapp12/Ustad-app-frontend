@@ -350,3 +350,56 @@ including the chapter-cut restructure that reassigned 2,211 of 4,744
 individual level→chapter mappings. If this is genuinely headed for public
 release, on-device verification before hitting "Submit for Review" matters
 more here than it has for any TestFlight-only build so far.
+
+**10040, 10041** — IPA build attempts, both ERRORED, not submitted, no
+build number registered with Apple (only a successful `eas submit` does
+that). Both failed identically: `Could not get GOOGLE_APP_ID in Google
+Services file from build environment` (Firebase Crashlytics's "Upload
+dSYMs" Xcode phase). Two wrong theories tried and ruled out in sequence
+(both real, both insufficient) before finding the actual cause — full
+trail kept here since the wrong turns are as useful as the fix if this
+ever recurs:
+- 10040: assumed the same "file missing locally" cause as 10038's first
+  attempt. It wasn't — `GoogleService-Info.plist` was present on disk.
+- 10041: assumed EAS Build's upload archive was silently excluding the
+  file via its `.gitignore` fallback (a real, separate, genuinely worth-
+  having fix — added `.easignore`, see that commit). Also insufficient —
+  the file WAS in the uploaded archive both times, confirmed via the raw
+  Xcode build log's `CpResource` entries (present for every other bundle
+  resource, absent for this one specifically).
+
+**Actual cause, found by reading the real (gzip-compressed, needs `curl
+--compressed`) Xcode build log rather than trusting EAS's auto-categorized
+error summary**: `scripts/link-firebase-ios.mjs`'s idempotency check only
+verified a `/* GoogleService-Info.plist */` comment string existed
+somewhere in `project.pbxproj` — not that the file was actually wired into
+the Xcode Resources build phase or the project group. Some earlier run had
+silently no-op'd on those two regex-based insertions (anchored to
+hardcoded Xcode object IDs) while the simpler section-marker insertions
+for the bare declarations succeeded, leaving an orphaned
+PBXFileReference/PBXBuildFile pair that Xcode never actually copies into
+the `.app` bundle — confirmed directly: the file's `PBXBuildFile` ID never
+appeared in the Resources phase's `files = (...)` list, and grepping the
+real build log for `CpResource.*GoogleService` returned nothing, while the
+same search for other bundle resources (privacy manifests, fonts) found
+plenty. Every subsequent run of the script (including the two "fixes"
+above) saw the stale comment string and skipped entirely, permanently
+masking the real gap.
+
+Hand-repaired `project.pbxproj`'s Resources phase and group membership,
+then rewrote the script (commit `13936a4`) to check all four pieces (build
+file, file reference, Resources phase membership, group membership)
+independently and insert whichever are actually missing, hard-failing
+loudly instead of silently no-op'ing if a structural anchor genuinely
+can't be found.
+
+**10042** / 1.0.0 — IPA — 2026-09-21 — commit `13936a4`. Same content as
+the 10039→10042 build attempts (nothing else changed across 10039-10042
+except build-pipeline plumbing), now with a build archive that actually
+contains what Xcode needs. Verified via `eas-cli build:view`: build ID
+`2e2ece6a-ab60-4c9b-9fe0-b1e6ec82b650`, status `FINISHED`, build number
+10042. **Not yet submitted to App Store Connect** — build succeeding is
+necessary but not sufficient; submission is a separate step, held for
+explicit go-ahead given three straight build failures already happened
+this session and Apple review submission is a harder-to-reverse action
+than a TestFlight-only upload.
