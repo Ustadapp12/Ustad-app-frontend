@@ -398,8 +398,14 @@ the 10039→10042 build attempts (nothing else changed across 10039-10042
 except build-pipeline plumbing), now with a build archive that actually
 contains what Xcode needs. Verified via `eas-cli build:view`: build ID
 `2e2ece6a-ab60-4c9b-9fe0-b1e6ec82b650`, status `FINISHED`, build number
-10042. **Not yet submitted to App Store Connect** — build succeeding is
-necessary but not sufficient; submission is a separate step, held for
-explicit go-ahead given three straight build failures already happened
-this session and Apple review submission is a harder-to-reverse action
-than a TestFlight-only upload.
+10042. Submitted to App Store Connect on explicit go-ahead: submission
+`6ae04925-b3cd-4512-923c-5fa7b0ab48d1`, "Submitted your app to Apple App
+Store Connect!" — binary uploaded, Apple-side processing pending at time
+of writing. As with 10039, uploading the binary is not the same as
+submitting it for App Store review — that still needs a human to attach
+this build to a version in App Store Connect and click "Submit for
+Review" once processing finishes.
+
+Release notes for this content (10038 through 10042) are drafted in
+`src/data/releaseNotes.ts` under version `1.0.0` — **pending user review**,
+not yet approved, per the standing rule on that file.
