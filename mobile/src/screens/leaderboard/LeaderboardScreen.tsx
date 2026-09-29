@@ -17,16 +17,42 @@ const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 const MEDAL_COLOR: Record<number, string> = {
   1: '#F0C040', 2: '#B0B8C8', 3: '#C87840',
 };
-// Same emoji convention as OnboardGenderScreen's male/female picker, so a
-// learner's leaderboard avatar matches the gender they picked during
-// onboarding. Gender is only known for verified accounts (see backend
-// leaderboard/service.py) and may still be unset even then — falls back to
-// a neutral avatar in that case.
-const AVATAR_NEUTRAL = '🧑';
-function avatarForGender(gender: string | null | undefined): string {
-  if (gender === 'female') return '👧';
-  if (gender === 'male') return '👦';
-  return AVATAR_NEUTRAL;
+// Leaderboard-only character art — distinct from utils/avatar.ts's
+// male1/male2/female1/female2 (the user's own Welcome/Profile avatar, keyed
+// by user id + their explicit variant pick). LeaderboardEntry carries no
+// user id, only display_name/gender, so there's no way to reconcile a row
+// here with the same person's actual profile avatar — this is a separate,
+// name-hashed identity that's merely stable across reloads, not a match to
+// what they see on their own profile.
+const MALE_LEADERBOARD_AVATARS = [
+  require('../../../assets/characters/leaderboard/lb_male_1.png'),
+  require('../../../assets/characters/leaderboard/lb_male_2.png'),
+];
+const FEMALE_LEADERBOARD_AVATARS = [
+  require('../../../assets/characters/leaderboard/lb_female_1.png'),
+  require('../../../assets/characters/leaderboard/lb_female_2.png'),
+  require('../../../assets/characters/leaderboard/lb_female_3.png'),
+];
+// Gender unset/unknown (still common — see backend leaderboard/service.py)
+// draws from the full 5-character pool rather than a dedicated neutral
+// asset, per request — same stable-per-name mechanism as everyone else.
+const ALL_LEADERBOARD_AVATARS = [...MALE_LEADERBOARD_AVATARS, ...FEMALE_LEADERBOARD_AVATARS];
+
+/** Same hashing approach as utils/avatar.ts's stablePickIndex, keyed on
+ * display_name (the only per-row identity the leaderboard API exposes)
+ * instead of user id. Same input always lands on the same character. */
+function stableIndexForName(name: string, length: number): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return h % length;
+}
+
+function avatarForEntry(p: { display_name: string; gender?: string | null }) {
+  const pool =
+    p.gender === 'male' ? MALE_LEADERBOARD_AVATARS
+    : p.gender === 'female' ? FEMALE_LEADERBOARD_AVATARS
+    : ALL_LEADERBOARD_AVATARS;
+  return pool[stableIndexForName(p.display_name, pool.length)];
 }
 // Above this, center a phone-proportioned column instead of stretching the
 // podium/rows edge-to-edge (or leaving bare whitespace on the sides) on
@@ -138,7 +164,9 @@ function LeaderboardContent() {
             <View style={styles.podium}>
               {podium[1] && (
                 <View style={[styles.podiumItem, { marginTop: sc(18) }]}>
-                  <Text style={styles.podiumAvatar}>{avatarForGender(podium[1].gender)}</Text>
+                  <View style={styles.podiumAvatarWrap}>
+                    <Image source={avatarForEntry(podium[1])} style={styles.podiumAvatarImg} resizeMode="cover" />
+                  </View>
                   <View style={[styles.podiumBadge, { backgroundColor: MEDAL_COLOR[2] }]}>
                     <Text style={styles.podiumRankText}>2</Text>
                   </View>
@@ -149,7 +177,9 @@ function LeaderboardContent() {
               {podium[0] && (
                 <View style={[styles.podiumItem, { marginBottom: sc(10) }]}>
                   <Text style={styles.podiumCrown}>👑</Text>
-                  <Text style={styles.podiumAvatarLarge}>{avatarForGender(podium[0].gender)}</Text>
+                  <View style={[styles.podiumAvatarWrap, styles.podiumAvatarWrapLarge]}>
+                    <Image source={avatarForEntry(podium[0])} style={styles.podiumAvatarImg} resizeMode="cover" />
+                  </View>
                   <View style={[styles.podiumBadge, styles.podiumBadgeLarge, { backgroundColor: MEDAL_COLOR[1] }]}>
                     <Text style={styles.podiumRankTextLarge}>1</Text>
                   </View>
@@ -159,7 +189,9 @@ function LeaderboardContent() {
               )}
               {podium[2] && (
                 <View style={[styles.podiumItem, { marginTop: sc(26) }]}>
-                  <Text style={styles.podiumAvatar}>{avatarForGender(podium[2].gender)}</Text>
+                  <View style={styles.podiumAvatarWrap}>
+                    <Image source={avatarForEntry(podium[2])} style={styles.podiumAvatarImg} resizeMode="cover" />
+                  </View>
                   <View style={[styles.podiumBadge, { backgroundColor: MEDAL_COLOR[3] }]}>
                     <Text style={styles.podiumRankText}>3</Text>
                   </View>
@@ -181,7 +213,7 @@ function LeaderboardContent() {
               return (
                 <View key={p.rank} style={[styles.row, isMe && styles.rowMe]}>
                   <Text style={[styles.rowRank, isMe && { color: colors.primary }]}>#{p.rank}</Text>
-                  <View style={styles.rowAvatar}><Text style={{ fontSize: 18 }}>{avatarForGender(p.gender)}</Text></View>
+                  <Image source={avatarForEntry(p)} style={styles.rowAvatar} resizeMode="cover" />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.rowName, isMe && { color: colors.primary }]} numberOfLines={1} ellipsizeMode="tail">{isMe ? `${p.display_name} (You)` : p.display_name}</Text>
                   </View>
@@ -227,8 +259,12 @@ function makeStyles(sc: (n: number) => number, insets: any) {
       shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
     },
     podiumItem: { flex: 1, alignItems: 'center', gap: 3 },
-    podiumAvatar: { fontSize: sc(28) },
-    podiumAvatarLarge: { fontSize: sc(36) },
+    podiumAvatarWrap: {
+      width: sc(46), height: sc(46), borderRadius: sc(23),
+      backgroundColor: colors.lightBg, overflow: 'hidden',
+    },
+    podiumAvatarWrapLarge: { width: sc(58), height: sc(58), borderRadius: sc(29) },
+    podiumAvatarImg: { width: '100%', height: '100%' },
     podiumCrown: {
       fontSize: sc(26),
       textShadowColor: '#FFD700',
@@ -253,7 +289,6 @@ function makeStyles(sc: (n: number) => number, insets: any) {
     rowRank: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.mutedText, width: sc(28), textAlign: 'center' },
     rowAvatar: {
       width: sc(38), height: sc(38), borderRadius: sc(19), backgroundColor: colors.lightBg,
-      alignItems: 'center', justifyContent: 'center',
     },
     rowName: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: colors.darkText },
     rowXP: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: colors.mutedText },

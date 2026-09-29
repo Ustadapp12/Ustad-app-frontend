@@ -1963,12 +1963,11 @@ export default function MapScreen({ navigation }: Props) {
   // there's no drawn ring to fall out of sync with the pill's real shape.
   const glowStreak = useTourStore(s => s.active && TOUR_STEPS[s.stepIndex]?.target === 'hudStreak');
   const glowXp = useTourStore(s => s.active && TOUR_STEPS[s.stepIndex]?.target === 'hudXp');
-  // Real height of the streak/XP bar, measured after layout — needed so the
-  // mountain image (see MOUNTAINS_SRC below) can start right below it
-  // instead of tucking underneath and getting blurred along with the sky.
-  // Estimate before the first layout pass is close enough that there's no
-  // visible jump once the real measurement lands.
-  const [hudHeight, setHudHeight] = useState(insets.top + sc(64));
+  // Streak pill's own measured width, so the search button below it (which
+  // has no natural size tied to the pill's variable digit count) can be
+  // sized to exactly match it instead of a guessed constant — keeps both
+  // edges flush with the pill across every screen width.
+  const [streakPillWidth, setStreakPillWidth] = useState<number | null>(null);
   const startTour = useTourStore(s => s.start);
 
   function handleAcceptTour() {
@@ -3156,6 +3155,12 @@ export default function MapScreen({ navigation }: Props) {
 
   const skyPct = Math.min(95, (SKY_BOUNDARY_Y / MAP_H) * 100);
 
+  // Mountain: bottom anchored at SKY_BOUNDARY_Y + sc(28) so the grass still
+  // overlaps its base; height from mountains_crop.png's own 1400x385 aspect
+  // so the full silhouette shows with no crop or stretch.
+  const MOUNTAIN_BOTTOM_Y = SKY_BOUNDARY_Y + sc(28);
+  const MOUNTAIN_H = Math.round(MAP_W * (385 / 1400));
+
   const svgBgTileCount = Math.max(1, Math.ceil(MAP_H / SVG_BG_TILE_H));
 
   return (
@@ -3164,17 +3169,20 @@ export default function MapScreen({ navigation }: Props) {
           map for now (still shown in-lesson). No backdrop of its own: the
           pills carry their own opaque background and shadow, so they read
           fine straight over the live sky. */}
-      <View
-        style={[S.hud, { paddingTop: insets.top + sc(4) }]}
-        onLayout={e => setHudHeight(e.nativeEvent.layout.height)}
-      >
+      <View style={[S.hud, { paddingTop: insets.top + sc(4) }]}>
         <View style={S.hudRow}>
-          <View>
+          <View style={{ alignItems: 'flex-start' }}>
+            {/* alignItems: 'flex-start' above keeps this column hugging its
+                own children's widths — without it, RN's default `stretch`
+                widens the streak pill (intrinsically narrow) out to match
+                whatever the search button below measures, warping its
+                rounded-pill shape into an elongated bar. */}
             <TouchableOpacity
               {...streakTarget}
               style={[S.hudPill, glowStreak && TOUR_GLOW]}
               activeOpacity={0.7}
               onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('Streak'))}
+              onLayout={e => setStreakPillWidth(e.nativeEvent.layout.width)}
             >
               <Image
                 source={isStreakFrozen(learning?.streak_state) ? STREAK_FROZEN_ICON_SMALL : STREAK_ACTIVE_ICON_SMALL}
@@ -3185,22 +3193,34 @@ export default function MapScreen({ navigation }: Props) {
                 {learning ? (isGuestUser ? '—' : learning.current_streak) : '…'}
               </Text>
             </TouchableOpacity>
-            {/* Search button — own row below streak, not a flex sibling of the
-                pills (it used to sit inline with XP, but its much larger art
-                asset was dragging the whole pill row's centered alignment off
-                with it). 2x its original size (was 1x, briefly 3x). */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('SearchSurahs')}
-              accessibilityLabel="Search surahs"
-              style={{ marginTop: sc(6) }}
-            >
-              <Image
-                source={require('../../../assets/map/search box (1).png')}
-                style={{ width: sc(64), height: sc(64) }}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
+            {/* Search button — own row directly below the streak pill, sized
+                off the pill's own measured width (streakPillWidth) then
+                doubled per explicit request (was flush 1x-with-the-pill, now
+                2x that). Wrapped in a box exactly streakPillWidth wide with
+                alignItems: 'center' so the now-wider button image centers
+                *under the pill's own footprint* — the outer column above
+                stays alignItems: 'flex-start', so the pill's own position is
+                completely untouched; only the button (now wider than the
+                pill) is recentered relative to it, overflowing evenly left
+                and right of the pill's edges instead of starting flush with
+                its left edge. Falls back to sc(40) before the first layout
+                pass measures the pill. */}
+            <View style={{ width: streakPillWidth ?? sc(40), alignItems: 'center', marginTop: sc(6) }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('SearchSurahs')}
+                accessibilityLabel="Search surahs"
+              >
+                <Image
+                  source={require('../../../assets/map/search box (1).png')}
+                  style={{
+                    width: (streakPillWidth ?? sc(40)) * 2,
+                    height: (streakPillWidth ?? sc(40)) * 2,
+                  }}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
           <TouchableOpacity
             {...xpTarget}
@@ -3324,25 +3344,26 @@ export default function MapScreen({ navigation }: Props) {
             style={{ position: 'absolute', left: 0, top: 0, width: MAP_W, height: SKY_BOUNDARY_Y + sc(24) }}
           />
 
-          {/* Distant mountain range on the horizon. Starts below the HUD
-              (hudHeight, measured from the real streak/XP bar) instead of
-              the canvas's very top, so the status bar and the streak/XP
-              pills sit over plain sky rather than over busy peaks — the
-              pills stay legible without needing a backdrop of their own.
-              Bottom edge stays
-              anchored at the same SKY_BOUNDARY_Y + sc(28) it always was
-              (height shrinks by however much got pushed off the top) so the
-              grass texture drawn after this still overlaps its base with no
-              gap. mountains_crop.png (see its own require() comment) is
-              pre-cropped so every column is opaque right to that bottom
-              edge, so sc(28) is a comfortable, uniform overlap margin rather
-              than a margin racing a specific worst-case dip. */}
+          {/* Sky clouds sit ON the sky, so they render before the mountain
+              and the mountain's peaks cover them, never the other way round. */}
+          {SKY_CLOUDS.map((c, i) => (
+            <Image key={`skycloud${i}`} source={CLOUD_SRC} resizeMode="contain" style={{ position: 'absolute', left: c.x, top: c.y, width: c.w, height: c.h, opacity: 0.9 }} />
+          ))}
+
+          {/* The mountain is deliberately NOT tied to hudHeight. It used to
+              start below the HUD and get clipped there, so every time the
+              HUD grew (search button 64 -> 96px on 09-22, 2x again on 09-29)
+              a flat line sliced more of the range off, which read as the sky
+              sitting in front of the mountain. Now it renders at the image's
+              own aspect ratio (MOUNTAIN_H), bottom-anchored to the grass,
+              whole silhouette always visible. The HUD pills are opaque, so
+              peaks behind them are fine. */}
           <Image
             source={MOUNTAINS_SRC}
-            resizeMode="cover"
+            resizeMode="stretch"
             style={{
-              position: 'absolute', left: 0, top: hudHeight, width: MAP_W,
-              height: Math.max(0, SKY_BOUNDARY_Y + sc(28) - hudHeight), opacity: 0.9,
+              position: 'absolute', left: 0, top: MOUNTAIN_BOTTOM_Y - MOUNTAIN_H,
+              width: MAP_W, height: MOUNTAIN_H,
             }}
           />
 
@@ -3510,11 +3531,6 @@ export default function MapScreen({ navigation }: Props) {
                 );
               });
           })()}
-          {/* Static sky clouds — marking the sky before the road begins */}
-          {SKY_CLOUDS.map((c, i) => (
-            <Image key={`skycloud${i}`} source={CLOUD_SRC} resizeMode="contain" style={{ position: 'absolute', left: c.x, top: c.y, width: c.w, height: c.h, opacity: 0.9 }} />
-          ))}
-
           {/* Birds flying across the sky photo itself */}
           {SKY_BIRDS.map((b, i) => (
             <Image
