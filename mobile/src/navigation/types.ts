@@ -27,6 +27,9 @@ export type RootStackParamList = {
   // Confirming "Start" there navigates back to MainTabs/Map with
   // params.jumpToSurah set (see TabParamList.Map below).
   SearchSurahs: undefined;
+  // Per-surah progress list, opened from the map's shield button. Tapping a
+  // surah jumps the map to it (to its next unfinished level when started).
+  SurahProgress: undefined;
   EditProfile: undefined;
   ChangePassword: undefined;
   Feedback: undefined;
@@ -76,7 +79,9 @@ export type TabParamList = {
   // jumpToSurah: set once by SearchSurahsScreen's "Start" confirm. MapScreen
   // reads and clears it to scroll to (and unlock, if needed) that surah's
   // first level — see MapScreen.tsx's search-jump effect.
-  Map: { jumpToSurah?: number } | undefined;
+  // jumpToGroupId/jumpToLevelIdx (optional, set together by
+  // SurahProgressScreen) target a specific level instead of the opener.
+  Map: { jumpToSurah?: number; jumpToGroupId?: string; jumpToLevelIdx?: number } | undefined;
   DailyQuest: undefined;
   Leaderboard: undefined;
   Profile: undefined;

@@ -19,6 +19,7 @@ import { learningApi, progressApi } from '../../api';
 import { captureError } from '../../services/crashReporter';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
 import { safeBottomInset } from '../../utils/responsive';
+import { starsFromAccuracy } from '../../utils/stars';
 import { colors } from '../../theme/colors';
 import PredictedProgressBar from '../../components/PredictedProgressBar';
 import PlayPauseIcon from '../../components/PlayPauseIcon';
@@ -455,14 +456,9 @@ export function characterForIndex(shuffled: number[], idx: number): Character {
 const MAX_HEARTS = 5;
 const MAX_MISTAKES = MAX_HEARTS * 2;
 
-// Stars shown on the completion screen, derived from real accuracy (not the
-// hardcoded 3 this used to be) — kept in sync with the backend's own
-// _stars_from_score() thresholds (app/learning/service.py) so the number
-// shown here never disagrees with the stars persisted for the level on the map.
-function starsFromAccuracy(scorePct: number): number {
-  if (scorePct >= 90) return 3;
-  if (scorePct >= 60) return 2;
-  return 1; // floor of 1 star for any completed attempt, including <30%
+function accuracyPct(a: { correct: number; wrong: number }): number {
+  const total = a.correct + a.wrong;
+  return total > 0 ? Math.round((a.correct / total) * 100) : 100;
 }
 
 // Back button used as a safety net on the blank loading state below.
@@ -2753,7 +2749,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     // Resume support: non-zero only when startSession() reconnected to an
     // already-in-progress session (app killed/backgrounded mid-level) — see
     // that seeding effect below and lessonStore.startSession's own comment.
-    resumed: storeResumed, correctCount: storeCorrectCount, mistakes: storeMistakes,
+    resumed: storeResumed, correctCount: storeCorrectCount, mistakes: storeMistakes, wrongCount: storeWrongCount,
     sessionStartedAt: storeSessionStartedAt, xpEarnedSoFar: storeXpEarnedSoFar,
   } = useLessonStore();
   const { user } = useAuthStore();
@@ -2768,6 +2764,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const [feedback, setFeedback] = useState<FormulaAttemptOut | null>(null);
   const [mistakes, setMistakes] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
+  // Accuracy tally, deliberately separate from `mistakes` (hearts): every
+  // wrong graded attempt counts here, including "Try again" rounds,
+  // remediation and review levels, which cost no hearts. Mirrors the
+  // backend's correct_count/wrong_count, the same numbers stored for the map.
+  const accuracyRef = useRef({ correct: 0, wrong: 0 });
   const [submitting, setSubmitting] = useState(false);
   // Tracks real system-audio play/pause/stop state (audioPlayer.ts pub-sub)
   // so the wave animation shows exactly while audio is audibly playing.
@@ -2948,6 +2949,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         // splash since this isn't actually the start of the level.
         setCorrectCount(storeCorrectCount);
         setMistakes(storeMistakes);
+        accuracyRef.current = { correct: storeCorrectCount, wrong: storeWrongCount };
         totalXpRef.current = storeXpEarnedSoFar;
         sessionStartedAtRef.current = storeSessionStartedAt ?? Date.now();
         // The app can die in the gap between hearts hitting 0 and the user
@@ -2976,11 +2978,9 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       && !autoFinishTriggeredRef.current
     ) {
       autoFinishTriggeredRef.current = true;
-      const totalAnswerable = storeCorrectCount + storeMistakes;
-      const scorePct = totalAnswerable > 0 ? Math.round((storeCorrectCount / totalAnswerable) * 100) : 100;
-      void finishLevel(scorePct);
+      void finishLevel(accuracyPct({ correct: storeCorrectCount, wrong: storeWrongCount }));
     }
-  }, [storeResumed, sessionId, firstExercise, exercise, loading, storeCorrectCount, storeMistakes, finishLevel]);
+  }, [storeResumed, sessionId, firstExercise, exercise, loading, storeCorrectCount, storeWrongCount, finishLevel]);
 
   const submitAnswer = useCallback(async (
     userAnswer: string | string[] | number[] | null,
@@ -3063,9 +3063,16 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         return;
       }
 
-      // Capture score snapshot at submit time (state updates are async)
-      const totalAnswerable = snapCorrect + snapMistakes;
-      const scorePct = totalAnswerable > 0 ? Math.round((snapCorrect / totalAnswerable) * 100) : 100;
+      // Accuracy: the backend's running counts when it sends them (it grades
+      // every attempt, so this matches the score stored for the map); a local
+      // tally of graded, non-skipped attempts as a fallback.
+      if (typeof result.correct_count === 'number' && typeof result.wrong_count === 'number') {
+        accuracyRef.current = { correct: result.correct_count, wrong: result.wrong_count };
+      } else if (exercise.type !== 'ayah_display' && speakOutcome !== 'skipped') {
+        if (effectiveCorrect) accuracyRef.current.correct += 1;
+        else accuracyRef.current.wrong += 1;
+      }
+      const scorePct = accuracyPct(accuracyRef.current);
 
       const advanceFn = async () => {
         setFeedback(null);

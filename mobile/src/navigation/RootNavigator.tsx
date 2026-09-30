@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import SplashScreen from '../screens/startup/SplashScreen';
 import StreakLostModal from '../components/StreakLostModal';
 import ExitAppModal from '../components/ExitAppModal';
+import OfflineBanner from '../components/OfflineBanner';
 import { navigationRef } from './navigationRef';
 import { logScreenView } from '../services/analytics';
 import { recordScreenView } from '../services/screenHistory';
@@ -62,6 +63,7 @@ import LessonSessionScreen from '../screens/lesson/LessonSessionScreen';
 import TourLessonScreen from '../screens/tour/TourLessonScreen';
 import MapScreenV2 from '../screens/home/MapScreenV2';
 import SearchSurahsScreen from '../screens/home/SearchSurahsScreen';
+import SurahProgressScreen from '../screens/home/SurahProgressScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -153,6 +155,7 @@ export default function RootNavigator() {
         routeNameRef.current = currentRouteName;
       }}
     >
+      <OfflineBanner />
       {streakJustLost !== null && (
         <StreakLostModal priorStreak={streakJustLost} onDismiss={clearStreakJustLost} />
       )}
@@ -191,6 +194,7 @@ export default function RootNavigator() {
         {/* WIP preview only — see MapScreenV2.tsx's header comment. */}
         <Stack.Screen name="MapV2" component={MapScreenV2} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="SearchSurahs" component={SearchSurahsScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="SurahProgress" component={SurahProgressScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ animation: 'slide_from_right' }} />

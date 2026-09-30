@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { authApi, learningApi, usersApi, syncDeviceTimezone } from '../api';
+import { ApiError } from '../api/client';
 import {
   getTokens, setTokens, setStoredUser, getStoredUser, resetTourOffered, getLastActiveLocalDate,
+  getStoredStreakSnapshot, setStoredStreakSnapshot,
 } from '../utils/storage';
 import { refreshLocalNotifications } from '../services/localNotifications';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
@@ -27,6 +29,20 @@ interface AuthState {
   // extra round-trip.
   profile: UserProfile | null;
   isHydrated: boolean;
+  // True whenever the last attempt to reach the backend (hydrate on launch,
+  // or refreshLearning's periodic poll) failed with no HTTP response at all
+  // (api/client.ts's ApiError status 0 — no connectivity, DNS/TLS failure, or
+  // our own 30s timeout), not because the server rejected the request. Purely
+  // informational — nothing in the app gates on it besides the offline
+  // banner — see hydrateInner's comment for why a network failure must never
+  // by itself log anyone out.
+  isOffline: boolean;
+  // Called by SplashScreen's own healthCheck() (fires on every launch,
+  // logged-in or not — unlike hydrate() it doesn't require a stored session)
+  // so a fully signed-out or never-onboarded device can still surface the
+  // offline banner, not just an already-authenticated one hitting
+  // hydrateInner's own detection.
+  setOffline: (offline: boolean) => void;
   // One-shot: set the instant refreshLearning() observes a frozen/active
   // streak silently expire to "none" (see utils/streak.ts's checkStreakLoss).
   // A listener mounted once in RootNavigator shows StreakLostModal off this,
@@ -82,6 +98,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // storage instead of being stamped fresh here.
     void (async () => {
       try {
+        // Cached for hydrateInner's offline fallback below — see
+        // getStoredStreakSnapshot's own comment in utils/storage.ts.
+        void setStoredStreakSnapshot({
+          currentStreak: learning.current_streak,
+          state: learning.streak_state ?? 'active',
+          freezeDaysRemaining: learning.freeze_days_remaining ?? 0,
+        });
         await refreshLocalNotifications(
           {
             currentStreak: learning.current_streak,
@@ -135,15 +158,62 @@ export const useAuthStore = create<AuthState>((set, get) => {
       return null;
     };
 
+    let meError: unknown = null;
     const [me, learning, previouslyStored] = await Promise.all([
-      authApi.me().catch(() => null),
+      authApi.me().catch(e => { meError = e; return null; }),
       fetchLearningWithRetry(),
       getStoredUser(),
     ]);
     if (!me) {
-      await setTokens(null);
-      await setStoredUser(null);
-      set({ isHydrated: true, user: null, learning: null });
+      // Only a genuine "this session is no longer valid" response (a real
+      // 401 — authApi.me() already tried refreshing the access token once
+      // internally, see api/client.ts, so this means the refresh token
+      // itself was rejected) should wipe tokens and sign the user out. A
+      // network failure — no connectivity, a DNS/TLS blip, our own 30s
+      // timeout, all surfaced as ApiError status 0 — means we simply
+      // couldn't ASK the server, which is not the same as the server saying
+      // no. Treating them the same used to log a still-valid session out the
+      // instant the app was opened offline, and it stayed logged out even
+      // once the network came back, because by then there was nothing left
+      // to hydrate from. Fall back to the locally cached user instead, so a
+      // purely offline failure leaves the session intact; the very next
+      // successful hydrate (or refreshLearning poll) re-verifies it for real.
+      const isRealAuthRejection = meError instanceof ApiError && meError.status === 401;
+      if (isRealAuthRejection) {
+        await setTokens(null);
+        await setStoredUser(null);
+        set({ isHydrated: true, user: null, learning: null, isOffline: false });
+        return;
+      }
+      addBreadcrumb('hydrate: authApi.me() unreachable, keeping cached session', {
+        error: meError instanceof Error ? meError.message : String(meError),
+      });
+      set({ isHydrated: true, user: previouslyStored ?? null, learning: null, isOffline: true });
+      // Local notifications are documented as needing no network at all (see
+      // services/localNotifications.ts's own header) — they shouldn't go
+      // stale just because THIS launch couldn't reach the server. Reschedule
+      // from the last snapshot applyFreshLearning cached, so an offline open
+      // still keeps streak/freeze reminders on track instead of silently
+      // skipping the refresh every fresh-fetch path relies on.
+      if (previouslyStored) {
+        void (async () => {
+          try {
+            const snapshot = await getStoredStreakSnapshot();
+            if (!snapshot) return;
+            await refreshLocalNotifications(
+              {
+                currentStreak: snapshot.currentStreak,
+                state: snapshot.state,
+                freezeDaysRemaining: snapshot.freezeDaysRemaining,
+                lastActiveLocalDate: await getLastActiveLocalDate(),
+              },
+              { reminderHour: null },
+            );
+          } catch {
+            // Best-effort — same discipline as applyFreshLearning above.
+          }
+        })();
+      }
       return;
     }
     // Prefer profile.display_name, but fall back to whatever name this same
@@ -164,7 +234,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // cold start, so the overwhelming majority of real crash reports arrived
     // with no user attached and no way to tell how many people one issue hit.
     setCrashUser(user.id, user.email);
-    set({ isHydrated: true, user, learning: null, profile: me.profile ?? null });
+    set({ isHydrated: true, user, learning: null, profile: me.profile ?? null, isOffline: false });
     void syncDeviceTimezone();
     if (user.email_verified && learning) {
       await finishAuthSetup(user, learning);
@@ -176,9 +246,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
   learning: null,
   profile: null,
   isHydrated: false,
+  isOffline: false,
   streakJustLost: null,
 
   clearStreakJustLost: () => set({ streakJustLost: null }),
+
+  setOffline: (offline: boolean) => set({ isOffline: offline }),
 
   hydrate: async () => {
     // Nothing in here may be allowed to reject. RootNavigator calls this as a
@@ -457,8 +530,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
     try {
       const learning = await learningApi.me();
       lastLearningMeFetchAt = now;
+      if (get().isOffline) set({ isOffline: false });
       await applyFreshLearning(learning);
     } catch (e) {
+      // Same network-vs-rejection distinction as hydrateInner — a 401 here
+      // means api/client.ts's own refresh-token retry already failed, a real
+      // reason to leave isOffline alone (something else, not connectivity,
+      // is wrong). Anything else reaching this catch is either a network
+      // failure (status 0) or another transient error, either way worth
+      // flagging as "couldn't reach the server" so the offline banner picks
+      // it back up during a session, not just at launch.
+      if (!(e instanceof ApiError && e.status === 401)) set({ isOffline: true });
       addBreadcrumb('refreshLearning: learningApi.me() failed', {
         error: e instanceof Error ? e.message : String(e),
       });

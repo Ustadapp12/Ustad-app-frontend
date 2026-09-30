@@ -29,6 +29,21 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Approved by the user 2026-09-30.
+    version: '1.0.33',
+    date: '2026-09-30',
+    changes: [
+      { category: 'New', text: 'A Progress button on the map shows how far you are in every surah, with a bar for each one. Tap a surah to jump straight to your next level.' },
+      { category: 'Improved', text: 'Stars now match your accuracy: 3 stars for a perfect lesson, 2 stars for 66% or more.' },
+      { category: 'Fixed', text: 'Mistakes now always count toward your accuracy, including on review levels.' },
+      { category: 'Improved', text: 'The Search button on the map is bigger and sits neatly under your streak.' },
+      { category: 'Fixed', text: 'The mountains on the map show in full and sit cleanly on the grass.' },
+      { category: 'Fixed', text: 'The streak counter on the map no longer stretches out of shape.' },
+      { category: 'Improved', text: 'The leaderboard now shows illustrated characters instead of emoji.' },
+      { category: 'Improved', text: 'If you lose connection, the app shows a clear offline message and keeps you signed in.' },
+    ],
+  },
+  {
     version: '1.0.30',
     date: '2026-09-18',
     changes: [

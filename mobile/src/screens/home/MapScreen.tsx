@@ -12,6 +12,7 @@ import { useFocusEffect, useRoute, type RouteProp } from '@react-navigation/nati
 import PredictedProgressBar from '../../components/PredictedProgressBar';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import ShieldIcon from '../../components/ShieldIcon';
 import LoadingStatusText from '../../components/LoadingStatusText';
 import { useAuthStore } from '../../store/authStore';
 import { useLessonStore } from '../../store/lessonStore';
@@ -19,6 +20,7 @@ import { learningApi } from '../../api';
 import { setCrashContext, addBreadcrumb, captureError } from '../../services/crashReporter';
 import { colors } from '../../theme/colors';
 import { groupIntoPhases } from '../../utils/mapPhases';
+import { levelStars } from '../../utils/stars';
 import { ALL_SURAHS } from '../../data/allSurahs';
 import { STREAK_ACTIVE_ICON_SMALL, STREAK_FROZEN_ICON_SMALL, isStreakFrozen, streakColor, checkStreakFrozenPopup } from '../../utils/streak';
 import StreakFrozenModal from '../../components/StreakFrozenModal';
@@ -92,18 +94,16 @@ const SEASON_SIGN_SRCS: Record<number, ImageSourcePropType> = {
 // Real aspect ratio of the sign art (186x326). All three files share it.
 const SEASON_GATE_ASPECT = 186 / 326;
 const SKY_SRC      = require('../../../assets/map/sky.jpg');
-// Cropped from the original mountains.png (1400x443 → 1400x385): the source
-// art's foreground isn't a flat line — a lake dips as low as y≈442 on the
-// left while the right side's tree line ends by y≈387, a 55px wobble in the
-// baseline. Left uncropped, "cover"-scaling that into a wide/short band and
-// overlapping it with the grass's flat boundary meant the required overlap
-// margin had to cover the worst-case dip everywhere, capping how big the
-// band could get before risking a gap ("leakage") on the shallow side.
-// Cropping at 385 — just under the true minimum content-bottom (387,
-// verified across the full width) — keeps every column opaque right to the
-// bottom edge, so the mountain reads as one consistent skyline instead of
-// forcing an oversized safety margin.
+// Cropped so the art's bottom row is solid edge to edge, then that row is
+// repeated MOUNTAINS_BASE_PAD_PX more rows down: a solid skirt that sits
+// under the grass, so the mountain and grass always meet with no sky leak,
+// whatever rounding a screen does. The silhouette above the grass is unchanged.
 const MOUNTAINS_SRC = require('../../../assets/map/mountains_crop.png');
+const MOUNTAINS_BASE_PAD_PX = 40;
+const { MOUNTAINS_ASPECT, MOUNTAINS_PAD_FRACTION } = (() => {
+  const s = Image.resolveAssetSource(MOUNTAINS_SRC);
+  return { MOUNTAINS_ASPECT: s.height / s.width, MOUNTAINS_PAD_FRACTION: MOUNTAINS_BASE_PAD_PX / s.height };
+})();
 const NODE_SRCS = {
   locked: require('../../../assets/map/node_locked.png'),
   current: require('../../../assets/map/node_current.png'),
@@ -1047,27 +1047,13 @@ function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): Map
   // risking a gap at the bottom edge. ──
   const SKY_BOUNDARY_Y = Math.round(Math.min(TOP_MARGIN + NODE_SIZE * 0.35, viewportH * 0.26));
 
-  // Jagged grass edge — a torn/uneven line instead of a dead-flat cut, as if
-  // the grass texture were cut into the sky rather than pasted under it.
-  // Deterministic (hash-seeded), so it doesn't reshuffle on re-render.
-  const edgeStep = sc(16), edgeAmp = sc(9);
-  let GRASS_EDGE_D = `M 0 ${Math.round(SKY_BOUNDARY_Y + (hash(0) - 0.5) * edgeAmp * 2)}`;
-  {
-    let seed = 1;
-    // <= mapW, not <, so the jagged line's last vertex lands exactly on the
-    // right edge instead of stopping one step short — a short-stop left the
-    // closing `L mapW SKY_BOUNDARY_Y` segment cutting straight across at the
-    // flat boundary y, past the last jagged point, which on some widths (the
-    // step doesn't divide mapW evenly) opened a sliver gap between the
-    // jagged edge and the tile's true right edge for the sky to leak
-    // through.
-    for (let x = edgeStep; x <= mapW; x += edgeStep) {
-      const ey = SKY_BOUNDARY_Y + (hash(seed) - 0.5) * edgeAmp * 2;
-      GRASS_EDGE_D += ` L ${Math.round(x)} ${Math.round(ey)}`;
-      seed++;
-    }
-  }
-  GRASS_EDGE_D += ` L ${mapW} ${SKY_BOUNDARY_Y} L ${mapW} ${MAP_H} L 0 ${MAP_H} Z`;
+  // Straight grass edge (was a jagged "torn" line, removed per request). The
+  // mountain image's base extends sc(28) below this line, so the grass drawn
+  // over it hides the base across the full width: no sky between the two.
+  // Overshoots both sides by 10: mapW can land a fraction of a dp short of
+  // the canvas width, which left a 2px sky strip at the right edge. The Svg
+  // clips the overshoot.
+  const GRASS_EDGE_D = `M -10 ${SKY_BOUNDARY_Y} L ${mapW + 10} ${SKY_BOUNDARY_Y} L ${mapW + 10} ${MAP_H} L -10 ${MAP_H} Z`;
 
   // More clouds scattered across the sky band itself, varied size/position
   // so the sky doesn't look empty.
@@ -1155,6 +1141,12 @@ function makeStyles(M: MapModel) {
     },
     hudVal: { fontFamily: 'Nunito-Bold', fontSize: sc(12), color: '#DC2626' },
     hudStreakIcon: { width: sc(16), height: sc(16) },
+    progressBtn: {
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: colors.goldBg, borderWidth: 2, borderColor: colors.goldDark,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 3,
+    },
+    progressBtnText: { fontFamily: 'Nunito-Bold', color: colors.darkText, marginTop: 1 },
     // Above the Profile tab (the rightmost of the 4 tabs), close over the
     // 64px tab bar — `right` itself is computed at the JSX call site (needs
     // live screen width, not available inside this style factory), this
@@ -1968,6 +1960,10 @@ export default function MapScreen({ navigation }: Props) {
   // sized to exactly match it instead of a guessed constant — keeps both
   // edges flush with the pill across every screen width.
   const [streakPillWidth, setStreakPillWidth] = useState<number | null>(null);
+  const [xpPillWidth, setXpPillWidth] = useState<number | null>(null);
+  // Search button image box, and the visible art square inside it (45 of 91px).
+  const searchBox = (streakPillWidth ?? sc(40)) * 2;
+  const searchArtSize = searchBox * (45 / 91);
   const startTour = useTourStore(s => s.start);
 
   function handleAcceptTour() {
@@ -2016,7 +2012,7 @@ export default function MapScreen({ navigation }: Props) {
   // level (the recommendation); null means the surah's opening level (search).
   // Consumed by the pending-jump effect further down, which does the scroll
   // once the target node exists.
-  const [pendingJump, setPendingJump] = useState<{ surah: number; groupId?: string | null } | null>(null);
+  const [pendingJump, setPendingJump] = useState<{ surah: number; groupId?: string | null; levelIdx?: number } | null>(null);
   // Which completed node's "retry?" prompt is currently showing on the map
   // (null = none). Tapping a completed node no longer navigates straight
   // into LessonSession — that's what triggers the expensive exercise-build
@@ -2452,10 +2448,10 @@ export default function MapScreen({ navigation }: Props) {
         // no longer lines up with full's real backend order past the split.
         const group = full?.[node.surahLevelIdx];
         if (group) {
-          return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: group.stars ?? 0, startAyah: group.start_ayah, endAyah: group.end_ayah, isSpecial: group.is_special, resolved: true };
+          return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: levelStars(group), startAyah: group.start_ayah, endAyah: group.end_ayah, isSpecial: group.is_special, resolved: true };
         }
         if (node.surahLevelIdx === 0 && first) {
-          return { ...node, id: first.lesson_group_id, status: stageToNodeStatus(first.status), stars: first.stars ?? 0, startAyah: first.start_ayah, endAyah: first.end_ayah, isSpecial: first.is_special, resolved: true };
+          return { ...node, id: first.lesson_group_id, status: stageToNodeStatus(first.status), stars: levelStars(first), startAyah: first.start_ayah, endAyah: first.end_ayah, isSpecial: first.is_special, resolved: true };
         }
         if (node.surahLevelIdx === 0) {
           // First level of a surah is never actually locked server-side —
@@ -2944,16 +2940,16 @@ export default function MapScreen({ navigation }: Props) {
   // surah is open — so this is purely "put that surah's opening level on
   // screen," plus a prefetch of its season so the node resolves a real
   // status rather than sitting on the pending placeholder.
-  function jumpToSurahStart(surah: number) {
+  function jumpToSurahStart(surah: number, level?: { groupId: string; levelIdx: number }) {
     void fetchPhase(SURAH_TO_SEASON[surah] ?? 0, currentSurahNumRef.current);
     manualChapterRef.current = true;
     pendingRecommendedJumpRef.current = false;
     suppressFollowRef.current = true;
     autoScrolledNodeIdRef.current = null;
-    const target = chapterForLevel(surah, 0);
+    const target = chapterForLevel(surah, level?.levelIdx ?? 0);
     setChapterIdx(prev => (prev === target ? prev : target));
     // No groupId: the target is whichever node is this surah's first level.
-    setPendingJump({ surah, groupId: null });
+    setPendingJump({ surah, groupId: level?.groupId ?? null, levelIdx: level?.levelIdx });
   }
 
   // Search-jump: land on a surah picked from SearchSurahsScreen.
@@ -2964,8 +2960,10 @@ export default function MapScreen({ navigation }: Props) {
   useEffect(() => {
     const surah = mapRoute.params?.jumpToSurah;
     if (surah == null) return;
-    navigation.setParams({ jumpToSurah: undefined });
-    jumpToSurahStart(surah);
+    const groupId = mapRoute.params?.jumpToGroupId;
+    const levelIdx = mapRoute.params?.jumpToLevelIdx;
+    navigation.setParams({ jumpToSurah: undefined, jumpToGroupId: undefined, jumpToLevelIdx: undefined });
+    jumpToSurahStart(surah, groupId != null && levelIdx != null ? { groupId, levelIdx } : undefined);
   }, [mapRoute.params?.jumpToSurah]);
 
   // Finishes whichever jump is pending (search, or a cross-chapter
@@ -2977,12 +2975,13 @@ export default function MapScreen({ navigation }: Props) {
   // already recomputed every render.
   useEffect(() => {
     if (!pendingJump) return;
-    const { surah, groupId } = pendingJump;
+    const { surah, groupId, levelIdx } = pendingJump;
     // A recommendation targets one specific group; a search targets the
-    // surah's opening level. The fallback also covers a recommendation whose
-    // real group id hasn't resolved yet.
+    // surah's opening level. The fallback also covers a group whose real id
+    // hasn't resolved yet: by position when known, so a jump to a later
+    // level doesn't fall back to (and settle on) the surah's first node.
     const node = (groupId ? allEnrichedNodes.find(n => n.id === groupId) : undefined)
-      ?? allEnrichedNodes.find(n => n.surahNum === surah && n.surahLevelIdx === 0);
+      ?? allEnrichedNodes.find(n => n.surahNum === surah && n.surahLevelIdx === (levelIdx ?? 0));
     if (!node) return;
     setPendingJump(null);
     autoScrolledNodeIdRef.current = node.id;
@@ -3155,11 +3154,12 @@ export default function MapScreen({ navigation }: Props) {
 
   const skyPct = Math.min(95, (SKY_BOUNDARY_Y / MAP_H) * 100);
 
-  // Mountain: bottom anchored at SKY_BOUNDARY_Y + sc(28) so the grass still
-  // overlaps its base; height from mountains_crop.png's own 1400x385 aspect
-  // so the full silhouette shows with no crop or stretch.
-  const MOUNTAIN_BOTTOM_Y = SKY_BOUNDARY_Y + sc(28);
-  const MOUNTAIN_H = Math.round(MAP_W * (385 / 1400));
+  // Mountain: the art's straight base sits exactly on the grass line and the
+  // solid skirt below it (see MOUNTAINS_BASE_PAD_PX) goes under the grass,
+  // ~11dp of overlap, so the two always meet. Natural aspect, so it's the
+  // same proportion of the screen width on every phone.
+  const MOUNTAIN_H = Math.round(MAP_W * MOUNTAINS_ASPECT);
+  const MOUNTAIN_BOTTOM_Y = SKY_BOUNDARY_Y + Math.round(MOUNTAIN_H * MOUNTAINS_PAD_FRACTION);
 
   const svgBgTileCount = Math.max(1, Math.ceil(MAP_H / SVG_BG_TILE_H));
 
@@ -3169,9 +3169,11 @@ export default function MapScreen({ navigation }: Props) {
           map for now (still shown in-lesson). No backdrop of its own: the
           pills carry their own opaque background and shadow, so they read
           fine straight over the live sky. */}
-      <View style={[S.hud, { paddingTop: insets.top + sc(4) }]}>
-        <View style={S.hudRow}>
-          <View style={{ alignItems: 'flex-start' }}>
+      {/* box-none throughout: only the pills/buttons take touches, so a drag
+          starting on empty sky between them still scrolls the map. */}
+      <View style={[S.hud, { paddingTop: insets.top + sc(4) }]} pointerEvents="box-none">
+        <View style={S.hudRow} pointerEvents="box-none">
+          <View style={{ alignItems: 'flex-start' }} pointerEvents="box-none">
             {/* alignItems: 'flex-start' above keeps this column hugging its
                 own children's widths — without it, RN's default `stretch`
                 widens the streak pill (intrinsically narrow) out to match
@@ -3205,7 +3207,7 @@ export default function MapScreen({ navigation }: Props) {
                 and right of the pill's edges instead of starting flush with
                 its left edge. Falls back to sc(40) before the first layout
                 pass measures the pill. */}
-            <View style={{ width: streakPillWidth ?? sc(40), alignItems: 'center', marginTop: sc(6) }}>
+            <View style={{ width: streakPillWidth ?? sc(40), alignItems: 'center', marginTop: sc(6) }} pointerEvents="box-none">
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('SearchSurahs')}
@@ -3222,17 +3224,47 @@ export default function MapScreen({ navigation }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-          <TouchableOpacity
-            {...xpTarget}
-            style={[S.hudPill, { alignSelf: 'flex-start' }, glowXp && TOUR_GLOW]}
-            activeOpacity={0.7}
-            onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('XP'))}
-          >
-            <Text>⚡</Text>
-            <Text style={[S.hudVal, { color: colors.primary }]}>
-              {learning ? (isGuestUser ? '— XP' : `${learning.xp_total} XP`) : '… XP'}
-            </Text>
-          </TouchableOpacity>
+          {/* Right column mirrors the left: XP pill, then the Progress button
+              centered under it. alignItems: 'flex-end' keeps the XP pill at
+              its original right edge. The button matches the search art's
+              VISIBLE square (search box (1).png is 91x90 with a 45x45 art
+              area 22/20px in), not its padded image box, and starts at the
+              same height, so the two read as one row. */}
+          <View style={{ alignItems: 'flex-end', alignSelf: 'flex-start' }} pointerEvents="box-none">
+            <TouchableOpacity
+              {...xpTarget}
+              style={[S.hudPill, glowXp && TOUR_GLOW]}
+              activeOpacity={0.7}
+              onPress={() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('XP'))}
+              onLayout={e => setXpPillWidth(e.nativeEvent.layout.width)}
+            >
+              <Text>⚡</Text>
+              <Text style={[S.hudVal, { color: colors.primary }]}>
+                {learning ? (isGuestUser ? '— XP' : `${learning.xp_total} XP`) : '… XP'}
+              </Text>
+            </TouchableOpacity>
+            <View
+              style={{
+                width: Math.max(xpPillWidth ?? 0, searchArtSize),
+                alignItems: 'center',
+                // contain letterboxes the 91x90 canvas by box/182 vertically.
+                marginTop: sc(6) + searchBox * (20 / 91) + searchBox / 182,
+              }}
+              pointerEvents="box-none"
+            >
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('SurahProgress')}
+                accessibilityLabel="Progress"
+                style={[S.progressBtn, { width: searchArtSize, height: searchArtSize, borderRadius: searchArtSize * 0.22 }]}
+              >
+                <ShieldIcon size={searchArtSize * 0.5} />
+                <Text style={[S.progressBtnText, { fontSize: searchArtSize * 0.17 }]} numberOfLines={1} adjustsFontSizeToFit>
+                  Progress
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -3416,7 +3448,7 @@ export default function MapScreen({ navigation }: Props) {
               .map(tileIdx => {
                 const tileTop = tileIdx * SVG_BG_TILE_H;
                 const tileH = Math.min(SVG_BG_TILE_H, MAP_H - tileTop);
-                // The torn/jagged sky-grass seam (GRASS_EDGE_D) only ever
+                // The sky-grass seam (GRASS_EDGE_D) only ever
                 // falls inside tile 0 — it's pinned to SKY_BOUNDARY_Y, near
                 // the top of the whole map, not to any per-tile offset.
                 // Below grassPlainTop the shape GRASS_EDGE_D traces is
@@ -3430,10 +3462,18 @@ export default function MapScreen({ navigation }: Props) {
                   <React.Fragment key={`bgtile-${tileIdx}`}>
                     {tileIdx === 0 && (
                       <Svg
-                        width={MAP_W}
+                        width={MAP_W + 2}
                         height={tileH}
-                        viewBox={`0 ${tileTop} ${MAP_W} ${tileH}`}
-                        style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH, overflow: 'hidden' }]}
+                        viewBox={`0 ${tileTop} ${MAP_W + 2} ${tileH}`}
+                        // "none": with the default "meet", a sub-pixel width
+                        // mismatch shrinks this very tall tile and centers it,
+                        // pushing the grass edge ~2dp below SKY_BOUNDARY_Y and
+                        // opening a sky line under the mountain. 2dp wider than
+                        // the canvas (which clips it) because the Svg bitmap
+                        // rounds its width down, leaving a 2px strip at the
+                        // right edge.
+                        preserveAspectRatio="none"
+                        style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH, width: MAP_W + 2, overflow: 'hidden' }]}
                       >
                         <Defs>
                           <Pattern id={`grassPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>

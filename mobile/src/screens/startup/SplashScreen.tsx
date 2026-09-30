@@ -40,7 +40,9 @@ interface Props {
 
 export default function SplashScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { user, isHydrated, startGuestSession, profile } = useAuthStore();
+  const {
+    user, isHydrated, startGuestSession, profile, setOffline,
+  } = useAuthStore();
 
   const lumaY = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -66,8 +68,12 @@ export default function SplashScreen({ navigation }: Props) {
 
     // Warm the (serverless, cold-start-prone) backend the instant Splash
     // mounts, well before the user reaches Login/Lesson and actually needs
-    // a real response. Fire-and-forget — result doesn't matter here.
-    void healthCheck();
+    // a real response. Also doubles as the offline signal for a signed-out
+    // or never-onboarded device: hydrate() only ever runs (and only ever
+    // detects connectivity) when a session token exists, so this is the one
+    // check that always fires and can tell a guest-less/logged-out launch
+    // "you're offline" too.
+    void healthCheck().then(ok => setOffline(!ok));
 
     const timer = setTimeout(() => setMinDelayDone(true), 1000);
     return () => { clearTimeout(timer); loop.stop(); };

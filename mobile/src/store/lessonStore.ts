@@ -71,6 +71,9 @@ interface LessonState {
   heartsAtStart: number;
   mistakes: number;
   correctCount: number;
+  // Wrong graded attempts so far (backend wrong_count), for accuracy on a
+  // resumed session. `mistakes` above is heart units, a different thing.
+  wrongCount: number;
   loading: boolean;
   error: string | null;
   result: SessionCompleteOut | null;
@@ -121,6 +124,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   heartsAtStart: 10,
   mistakes: 0,
   correctCount: 0,
+  wrongCount: 0,
   loading: false,
   error: null,
   result: null,
@@ -243,6 +247,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
           // fresh session still sends 0s, so this is correct either way.
           mistakes: session.hearts_lost_half ?? 0,
           correctCount: session.correct_count ?? 0,
+          wrongCount: session.wrong_count ?? 0,
           result: null,
           stepIndex: initialStepIndex,
           firstExercise: session.first_exercise ?? null,
@@ -322,7 +327,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
 
   reset: () => {
     clearPreloadedAudio();
-    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0, resumed: false, sessionStartedAt: null, xpEarnedSoFar: 0, lastCompletedSurah: null, lastVisitedSurah: null });
+    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, wrongCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0, resumed: false, sessionStartedAt: null, xpEarnedSoFar: 0, lastCompletedSurah: null, lastVisitedSurah: null });
   },
 }));
 

@@ -43,11 +43,29 @@ async function refreshAccess(): Promise<string> {
   if (!tokens?.refresh_token) {
     throw new ApiError('Session expired', 401, null);
   }
-  const res = await fetchWithTimeout(`${API_BASE}${API_PREFIX}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: tokens.refresh_token }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${API_BASE}${API_PREFIX}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: tokens.refresh_token }),
+    });
+  } catch (err) {
+    // Couldn't even reach /auth/refresh (no connectivity, DNS/TLS blip, our
+    // own timeout) — NOT the same as the server rejecting the refresh token.
+    // Must surface as status 0, distinct from the real-rejection 401 thrown
+    // below, so callers (authStore.hydrateInner's isRealAuthRejection check,
+    // and this function's own caller just below) don't mistake a network
+    // hiccup during refresh for an actual invalid session and log the user
+    // out over it.
+    throw new ApiError(
+      err instanceof Error && err.name === 'AbortError'
+        ? 'Request timed out: check your connection.'
+        : 'Cannot reach server: check your internet connection.',
+      0,
+      null,
+    );
+  }
   if (!res.ok) {
     await setTokens(null);
     throw new ApiError('Session expired', 401, null);
@@ -141,8 +159,18 @@ export async function api<T>(
         ...options,
         headers,
       });
-    } catch {
-      throw new ApiError('Unauthorized', 401, null);
+    } catch (err) {
+      // Rethrow refreshAccess's own ApiError as-is — it already carries the
+      // right status (0 for "couldn't reach /auth/refresh", 401 for "server
+      // rejected the refresh token"). Collapsing both into a blanket 401
+      // here was exactly what made a network hiccup during refresh
+      // indistinguishable from a real invalid session to every caller
+      // (authStore.hydrateInner's isRealAuthRejection check in particular),
+      // logging people out over connectivity, not an actual rejection. Any
+      // other error reaching here (e.g. the retried fetchWithTimeout above
+      // failing outright) is a network-shaped failure too, not a rejection.
+      if (err instanceof ApiError) throw err;
+      throw new ApiError('Cannot reach server: check your internet connection.', 0, null);
     }
   }
 

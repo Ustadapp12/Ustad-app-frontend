@@ -15,6 +15,7 @@ const KEYS = {
   tourSeen: '@ustadapp/tour/seen',
   lastActiveLocalDate: '@ustadapp/notifications/lastActiveLocalDate',
   localNotifPermissionAsked: '@ustadapp/notifications/permissionAsked',
+  streakSnapshot: '@ustadapp/notifications/streakSnapshot',
 } as const;
 
 /**
@@ -271,5 +272,31 @@ export async function wasLocalNotifPermissionAsked(): Promise<boolean> {
 
 export async function setLocalNotifPermissionAsked(): Promise<void> {
   await AsyncStorage.setItem(KEYS.localNotifPermissionAsked, 'true');
+}
+
+// Smallest possible snapshot of the last-known streak fields (current_streak,
+// streak_state, freeze_days_remaining from LearningMe) — NOT a general
+// learning/XP cache, just what services/localNotifications.ts's StreakState
+// needs. Written every time authStore.applyFreshLearning() gets a real
+// server response; read back by hydrateInner's offline fallback so
+// refreshLocalNotifications() can still (re)schedule reminders on a launch
+// that couldn't reach the server at all — local notifications are
+// documented (see that file's own header) as "no backend, no network", but
+// were silently depending on a successful fetch anyway since StreakState
+// only ever came from a fresh one. A day or two stale is an acceptable
+// trade-off here: a reminder computed from slightly-old streak/freeze state
+// is far better than no reminder at all while offline.
+interface StoredStreakSnapshot {
+  currentStreak: number;
+  state: 'active' | 'frozen' | 'none';
+  freezeDaysRemaining: number;
+}
+
+export async function getStoredStreakSnapshot(): Promise<StoredStreakSnapshot | null> {
+  return safeJsonParse<StoredStreakSnapshot>(await AsyncStorage.getItem(KEYS.streakSnapshot));
+}
+
+export async function setStoredStreakSnapshot(snapshot: StoredStreakSnapshot): Promise<void> {
+  await AsyncStorage.setItem(KEYS.streakSnapshot, JSON.stringify(snapshot));
 }
 

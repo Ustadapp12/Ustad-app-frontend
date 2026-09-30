@@ -409,3 +409,125 @@ Review" once processing finishes.
 Release notes for this content (10038 through 10042) are drafted in
 `src/data/releaseNotes.ts` under version `1.0.0` — **pending user review**,
 not yet approved, per the standing rule on that file.
+
+**26092223** / 1.0.30 — AAB — 2026-09-22 — Backend on **testing**
+(`ustad-app-backend-testing.vercel.app`), explicitly requested — was already
+the active line in `src/config.ts` before this build, no toggle needed.
+First Android build carrying the whole-Quran-expansion content already
+shipped to iOS as 1.0.30 (10037/10038 — 114-surah map, `SearchSurahsScreen`,
+chapter-cut fix, streak calendar), which Android hadn't gotten since its own
+last build, 1.0.29/26091602 — same "picks up iOS content" convention as that
+build's own note. Plus this session's own fixes: `hydrateInner`'s
+network-vs-401 distinction (offline launch no longer wipes the stored
+session), `api/client.ts`'s `refreshAccess()` no longer mislabels a network
+failure during token refresh as a real 401, new `isOffline`
+flag + `OfflineBanner` shown regardless of login state, local notifications
+now reschedule from a cached streak snapshot on an offline launch instead of
+silently skipping, map search button resized to 3x with exact streak-pill
+alignment, and the mountain-skyline crop-on-shrink bug fix. Full detail in
+`changes-2026-09-22.md`.
+
+**Dependency gap found and fixed during this build:** `@notifee/react-native`
+has been a real `package.json` dependency since 2026-09-04 but was never
+installed into `C:\BuildProjects\ustadapp-mobile\node_modules` — confirmed
+missing outright before this build (the standing local-notifications memory
+already flagged "android/ hasn't reached BuildProjects yet" back on
+2026-09-04 and this was apparently never closed since). Since
+`services/localNotifications.ts` does an unconditional
+`require('@notifee/react-native')` in its non-`__DEV__` path, Metro would
+have failed to resolve the module and broken `bundleRelease` outright had
+this gone unnoticed. Fixed by copying `node_modules/@notifee` from OneDrive
+into BuildProjects and syncing `package.json`/`package-lock.json` (same
+"install in both, robocopy doesn't cover it" precedent as 1.0.28's
+`babel-plugin-transform-inline-environment-variables` gap). No
+notifee-specific `patches/` entry exists, so nothing to reapply.
+
+Verified directly from the produced artifact (not inferred): extracted
+`base/manifest/AndroidManifest.xml` from inside the `.aab` zip (a stale,
+unrelated `intermediates/bundle_manifest/.../AndroidManifest.xml` from
+2026-09-07 was NOT regenerated this build and would have been misleading —
+checked the real manifest packed into the artifact instead) —
+`versionCode="26092223"`, `versionName="1.0.30"`,
+`com.ustadapp.notifee-init-provider` present (confirms notifee actually
+linked, not just present in node_modules). Extracted
+`base/assets/index.android.bundle` (Hermes bytecode) and grepped its string
+table directly: `https://ustad-app-backend-testing.vercel.app` present,
+`https://ustad-app-backend-six.vercel.app` (production) absent; "You're
+offline. Changes will sync once you're back online." and `isOfflineBanner`
+present (today's offline-banner fix compiled in, not a stale cached
+bundle); "Search for any surah by name or number..." present (confirms
+current whole-Quran-expansion source, not an old bundle).
+
+**Not independently verified this session:** nothing in this build has been
+installed or run on a device or emulator. This is a closed-testing
+candidate, not a production upload — do not attach this `versionCode` to
+the production track (`26091602` is still the production candidate
+currently under Play review, see project memory).
+
+Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`
+
+**26092307** / 1.0.31 — AAB — 2026-09-23 — re-stamp of 26092223/1.0.30, same
+content, no source changes since (confirmed via `git status --short` on
+`ustadapp/` — only already-built files were dirty, nothing new). Backend
+still on **testing**, unchanged. Requested purely for a new versionCode/
+versionName pair, not a content update.
+
+Verified directly from the produced artifact: extracted
+`base/manifest/AndroidManifest.xml` — `versionCode="26092307"`,
+`versionName="1.0.31"`, `com.ustadapp.notifee-init-provider` present.
+Grepped `base/assets/index.android.bundle`:
+`https://ustad-app-backend-testing.vercel.app` present, production URL
+absent.
+
+Not independently verified this session: same standing caveat, nothing
+installed/run on a device. Not a production upload — `26091602` remains
+the production candidate under Play review.
+
+Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab` (overwrites the previous `.aab` in place — grab 26092223's copy first if you still need both artifacts side by side).
+
+**26092516** / 1.0.32 — AAB — 2026-09-25 — fixes the 16 KB page-size crash
+risk Play Console flagged against 1.0.29 (`base/lib/arm64-v8a/libsqliteJni.so`).
+Traced the actual cause first rather than re-bumping `ndkVersion` again (it
+was already 28.0.13004108, unrelated): `libsqliteJni.so` ships prebuilt
+inside Google's own `androidx.sqlite:sqlite-bundled-android:2.6.0`, pulled
+in transitively by `@react-native-async-storage/async-storage`'s native
+`storage-android` backend (`org.asyncstorage.shared_storage:storage-android`
+→ `androidx.sqlite:sqlite-bundled:2.6.0`) — confirmed via
+`gradlew :app:dependencies --configuration releaseRuntimeClasspath`, not
+inferred. Bumping this project's own NDK does nothing for a binary Google
+already compiled and published. Fix: added a `resolutionStrategy.force` in
+`app/build.gradle` pinning `androidx.sqlite:sqlite-bundled` /
+`sqlite-bundled-android` to `2.7.1` (latest stable as of 2026-09,
+confirmed via developer.android.com's own release notes). Backend unchanged,
+still **testing**.
+
+Verified beyond "it resolved": re-ran the dependency resolution first
+(`androidx.sqlite:sqlite-bundled:2.6.0 -> 2.7.1`, no conflicts) before
+attempting a real build. After building, extracted the actual
+`libsqliteJni.so` from the produced `.aab` and ran `readelf -lW` on it
+directly — all four `LOAD` segments show `0x4000` (16 KB) alignment, the
+literal property Play Console's warning is about, not just "a newer version
+number resolved." File size also dropped from ~2.5 MB to ~1.07 MB
+(arm64-v8a), consistent with a genuinely different compiled binary, not the
+same file relabeled. `versionCode="26092516"`, `versionName="1.0.32"`,
+`com.ustadapp.notifee-init-provider` present — same manifest checks as prior
+builds.
+
+**Not fixed this build** (per user discussion, these are Play Console
+"recommended" quality items, not review blockers, and weren't in scope for
+this specific ask): edge-to-edge deprecated-API warning (root cause not yet
+isolated — app's own `MainActivity.kt`/`UstadNavigationBarModule.kt` already
+use modern `WindowInsetsControllerCompat` APIs; `styles.xml`'s
+`Theme.AppCompat.DayNight.NoActionBar` base theme is the only lead so far,
+unconfirmed), the portrait-orientation-lock/large-screen-support suggestion
+(`android:screenOrientation="portrait"` in `AndroidManifest.xml`, likely
+intentional — app isn't built for landscape/tablet), and bitmap image
+optimization (found several oversized PNGs — `mascot.png` 1.6 MB,
+`clouds.png` 1.3 MB, `lumo_kufi.png`/`kufi_lumo.png` 780 KB each — not yet
+compressed).
+
+Not independently verified this session: nothing installed/run on a device.
+Not a production upload — `26091602` remains the production candidate
+under Play review.
+
+Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab` (overwrites 26092307's artifact in place).

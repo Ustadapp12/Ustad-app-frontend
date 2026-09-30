@@ -117,8 +117,10 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
     void addPendingGuestProgress(xp);
   }, [isGuestUser, xp, currentStreak]);
 
-  const grade = scorePct >= 90 ? 'Excellent!' : scorePct >= 70 ? 'Great job!' : scorePct >= 50 ? 'Good effort!' : 'Keep practicing!';
-  const gradeColor = scorePct >= 90 ? colors.gold : scorePct >= 70 ? colors.primary : scorePct >= 50 ? colors.blue : colors.mutedText;
+  // Same tiers as the stars (utils/stars.ts), so the heading never praises
+  // a run the stars don't.
+  const grade = stars >= 3 ? 'Excellent!' : stars === 2 ? 'Great job!' : scorePct >= 33 ? 'Good effort!' : 'Keep practicing!';
+  const gradeColor = stars >= 3 ? colors.gold : stars === 2 ? colors.primary : scorePct >= 33 ? colors.blue : colors.mutedText;
 
   // Background split from content — see StreakCelebrationScreen's identical
   // comment: a full-bleed LinearGradient sibling (no insets dependency)

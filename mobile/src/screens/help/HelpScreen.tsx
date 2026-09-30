@@ -27,7 +27,7 @@ const FAQS = [
   },
   {
     q: 'How does roadmap progression work?',
-    a: 'The map shows all surahs from Juz 30. Each surah has one or more levels. Complete Level 1 to unlock Level 2. Stars show how well you did: aim for 3 stars by getting at least 90% correct.',
+    a: 'The map shows all surahs from Juz 30. Each surah has one or more levels. Complete Level 1 to unlock Level 2. Stars show how well you did: 1 star for finishing, 2 stars at 66% or more, and 3 stars for a perfect 100%.',
   },
 ];
 
