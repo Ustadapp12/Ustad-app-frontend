@@ -531,3 +531,27 @@ Not a production upload — `26091602` remains the production candidate
 under Play review.
 
 Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab` (overwrites 26092307's artifact in place).
+
+**26093022** / 1.0.33 — AAB — 2026-09-30 — production-ready AAB, backend
+still **testing** (per request). Commit `0910dd5`. Contents since 1.0.32:
+surah Progress screen (shield button under XP) with real per-surah
+progress; stars follow accuracy (100% = 3, 66%+ = 2, else 1) on the
+completion screen and the map; wrong answers now always lower accuracy
+(app side; the backend counter change is written but not yet deployed);
+map mountain fully visible and flush on a straight grass edge with no sky
+leak (asset cropped + solid base skirt); search button 2x and centered
+under the streak pill; leaderboard illustrated avatars; offline banner.
+Approved 1.0.33 in-app release notes.
+
+Verified from the artifact: versionCode 26093022 and versionName 1.0.33 in
+`base/manifest`, `notifee-init-provider` present, arm64-v8a +
+armeabi-v7a libs, `base/assets/index.android.bundle` contains the testing
+URL and not the production one, plus new strings ("surahs complete",
+"Mistakes now always count"); mountain drawable is the new 1382x425.
+Stale-resource caches cleared before building.
+
+Not independently verified on a real phone. Emulator (x86_64 release
+builds of the same source) covered the map, Progress screen, stars and a
+full lesson.
+
+Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`
