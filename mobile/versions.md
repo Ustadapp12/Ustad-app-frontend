@@ -555,3 +555,18 @@ builds of the same source) covered the map, Progress screen, stars and a
 full lesson.
 
 Output: `C:\BuildProjects\ustadapp-mobile\android\app\build\outputs\bundle\release\app-release.aab`
+
+**20040** / 1.0.0 — IPA (TestFlight) — 2026-10-01 — commit `3ce28c1`, GitHub
+Actions run `36842303847`, EAS build `31586baa-c72a-4283-9b66-220ec24e1a07`.
+Same app content as Android 26093022 / 1.0.33 (Progress screen,
+accuracy-based stars, accuracy counting fix, mountain/grass seam, search
+button, leaderboard avatars, offline banner, approved 1.0.33 notes).
+Backend still **testing**.
+
+First attempt (run `36751646895`, commit `0910dd5`) built fine but was
+stamped 10039, a number Apple already held from the hand-numbered 09-21
+build, so the submit hung ~64 min and failed with a generic error. Fixed by
+raising the workflow baseline to `20000 + run_number`.
+
+Not verified on a device yet; needs a TestFlight install. Still does not
+fix the App Review rejection (Guideline 4.8, Sign in with Apple).
