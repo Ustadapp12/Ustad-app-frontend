@@ -73,6 +73,13 @@ const PREVIOUS_STAGE_SRC = require('../../../assets/map/PREVIOUS_STAGE.png');
 const NEXT_STAGE_ASPECT     = 678 / 767;
 const PREVIOUS_STAGE_ASPECT = 692 / 756;
 const GRASS_SRC    = require('../../../assets/map/grass.jpg');
+// grass.jpg's own dominant colour, sampled from the file (mean is
+// rgb(146,195,1), dominant rgb(136,200,8) — close enough that either works).
+// Used wherever a flat fill has to sit flush against the tiled grass, i.e.
+// the bottom overscroll strip. Deliberately NOT colors.mapBg: that is the
+// gradient's bottom stop, which the grass completely covers, so matching it
+// matches an invisible layer. One constant so the two can't drift apart.
+const GRASS_FALLBACK = '#88C808';
 const BRICK_SRC    = require('../../../assets/map/bricks.jpg');
 // Pre-engraved signs — the season number is baked into the art itself, one
 // file per season, keyed by season number (1-indexed, matching the label on
@@ -3334,14 +3341,23 @@ export default function MapScreen({ navigation }: Props) {
       {/* Same seam, opposite edge: scrolling past the very end of the map (iOS
           rubber-band bounce, no pull-to-refresh-style gesture needed here —
           just normal overscroll) translates the content UP, briefly exposing
-          a sliver below the ScrollView's actual bottom edge. That's
-          S.container's own flat background showing through — colors.mapBg —
-          which already matches the map gradient's own bottom-most stop (see
-          the LinearGradient below), so this strip is just insurance for
-          whatever's rendered at MAP_H's exact edge (grass tiling, "coming
-          soon" text) not perfectly reaching it. Reported 2026-09-05: "the
-          gradient is showing as a leak" scrolling down past the end. */}
-      <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: sc(200), backgroundColor: colors.mapBg }} />
+          a sliver below the ScrollView's actual bottom edge.
+          Reported 2026-09-05 as "the gradient is showing as a leak", and
+          again 2026-10-03 as "the green gradient is leaking" at the bottom.
+          The 09-05 fix set this strip to colors.mapBg on the reasoning that
+          it matches the map gradient's bottom-most stop. That reasoning is
+          true but matches the wrong layer: the gradient's bottom is entirely
+          covered by the grass, so the visible thing at MAP_H's edge is
+          grass.jpg, not the gradient. mapBg is #2A8C5A (a blue-green) while
+          grass.jpg's dominant colour is #88C808 (a bright yellow-green) —
+          about 148 apart in RGB, a hue shift rather than a shade difference,
+          which is exactly why it reads as a dark band leaking in under the
+          grass rather than as a subtle seam.
+          Matched to the grass instead. Still a flat colour against a texture,
+          so a faint seam can remain on a long overscroll; if that matters,
+          the next step is tiling GRASS_SRC here, which needs the same
+          iOS-repeat platform branch the map's own grass already uses. */}
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: sc(200), backgroundColor: GRASS_FALLBACK }} />
       <PullRefreshIndicator scrollY={scrollY} refreshing={refreshing} />
       <Animated.ScrollView
         ref={scrollRef}
