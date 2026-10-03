@@ -26,7 +26,8 @@ export interface User {
   has_password?: boolean;
 }
 
-/** What the server did with a Google sign-in. Only `/auth/google` sets it.
+/** What the server did with a Google or Apple sign-in. Only `/auth/google`
+ *  and `/auth/apple` set it.
  *  - `created`  brand new account
  *  - `claimed`  the caller's guest row was filled in, so progress carried over
  *  - `restored` signed into a pre-existing account (the returning-user case,
@@ -38,7 +39,7 @@ export type AccountAction = 'created' | 'claimed' | 'restored';
 export interface AuthResponse {
   user: User;
   tokens: Tokens;
-  // Optional: absent on every endpoint except /auth/google.
+  // Optional: absent on every endpoint except /auth/google and /auth/apple.
   account_action?: AccountAction;
 }
 

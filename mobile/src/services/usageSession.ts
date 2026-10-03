@@ -17,7 +17,7 @@ const { version: APP_VERSION } = require('../../package.json') as { version: str
 let activeSessionId: string | null = null;
 let starting: Promise<void> | null = null;
 
-export type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'resume';
+export type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'apple_login' | 'apple_signup' | 'resume';
 
 // Sessions are started by a generic useAuthStore.subscribe() listener in
 // App.tsx (any user becoming truthy), not by each auth method directly — so

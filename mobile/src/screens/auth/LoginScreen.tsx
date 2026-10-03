@@ -12,6 +12,7 @@ import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
+import AppleSignInButton from '../../components/AppleSignInButton';
 import WelcomeBackModal from '../../components/WelcomeBackModal';
 import type { AccountAction } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
@@ -200,6 +201,17 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.dividerText}>or</Text>
           <View style={styles.dividerLine} />
         </View>
+
+        {/* iOS only (renders nothing elsewhere). Required by App Store
+            Guideline 4.8 because Google Sign-In is offered, and placed first
+            so it is at least as prominent as Google. Apple accounts are
+            verified by Apple, so they share Google's success routing. */}
+        <AppleSignInButton
+          label="Sign in with Apple"
+          onSuccess={handleGoogleSuccess}
+          onError={setFormError}
+          disabled={loading}
+        />
 
         <GoogleSignInButton
           label="Sign in with Google"

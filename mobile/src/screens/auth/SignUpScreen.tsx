@@ -12,6 +12,7 @@ import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
+import AppleSignInButton from '../../components/AppleSignInButton';
 import WelcomeBackModal from '../../components/WelcomeBackModal';
 import { PRIVACY_URL, TERMS_URL } from '../../config';
 import { isGuest } from '../../utils/guest';
@@ -395,10 +396,18 @@ export default function SignUpScreen({ navigation }: Props) {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Still gated on the terms checkbox — signing up through Google still
+        {/* Still gated on the terms checkbox — signing up through Apple or Google still
             creates an account, so skipping the agreement here would lose the
             consent the form deliberately collects. Tapping while unchecked
             now points at the checkbox instead of doing nothing. */}
+        <AppleSignInButton
+          label="Sign up with Apple"
+          onSuccess={handleGoogleSuccess}
+          onError={setFormError}
+          disabled={loading || !agreedTerms}
+          onBlocked={() => setTermsError(true)}
+        />
+
         <GoogleSignInButton
           label="Sign up with Google"
           onSuccess={handleGoogleSuccess}

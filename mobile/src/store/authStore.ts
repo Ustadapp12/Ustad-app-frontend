@@ -18,7 +18,8 @@ import {
 } from '../utils/guest';
 import { checkStreakLoss } from '../utils/streak';
 import { signInWithGoogle, signOutFromGoogle } from '../services/googleAuth';
-import type { AccountAction, LearningMe, User, UserProfile } from '../types/api';
+import { signInWithApple } from '../services/appleAuth';
+import type { AccountAction, AuthResponse, LearningMe, User, UserProfile } from '../types/api';
 
 interface AuthState {
   user: User | null;
@@ -57,6 +58,8 @@ interface AuthState {
   /** Resolves to what the server did, so the caller can explain a `restored`
    *  outcome to the user. Returns null if they cancelled the Google sheet. */
   loginWithGoogle: () => Promise<AccountAction | null>;
+  /** Same contract as loginWithGoogle, for Sign in with Apple (iOS only). */
+  loginWithApple: () => Promise<AccountAction | null>;
   logout: () => Promise<void>;
   /** Password is optional: Google-only accounts have none to confirm with, and
    *  the server accepts the authenticated session as proof in that case. */
@@ -83,6 +86,50 @@ export const useAuthStore = create<AuthState>((set, get) => {
     set({ user });
     await applyFreshLearning(learning);
     void prefetchAll(learning.mvp_surah_numbers ?? []);
+  };
+
+  // Everything after the server answered a Google or Apple sign-in. Shared so
+  // the two providers can never drift apart on the guest/tour/analytics rules.
+  const completeSocialSignIn = async (
+    res: AuthResponse,
+    provider: 'google' | 'apple',
+  ): Promise<AccountAction> => {
+    await setTokens(res.tokens);
+    setCrashUser(res.user.id, res.user.email);
+    // Cleared on every outcome, not just a successful claim: on `restored` the
+    // parked totals belong to a guest row that no longer exists, so keeping
+    // them would credit them to the wrong account on some later upgrade.
+    await clearPendingGuestProgress();
+
+    const action = res.account_action ?? 'created';
+    // Same rule as every other entry point: login() never resets the tour.
+    // `restored` is a returning user signing back into a real account with
+    // real history — resetting the tour here made it reappear, which is
+    // wrong. `claimed` converts the SAME guest row this session may have
+    // already been shown/dismissed the tour offer on — same reasoning as
+    // upgradeGuest() above, so it must not reset either, or the offer fires
+    // again right after signup. Only `created` (genuinely no prior guest row)
+    // is this account's actual first run.
+    if (action === 'created') await resetTourOffered();
+    setPendingEntryMethod(action === 'restored' ? `${provider}_login` : `${provider}_signup`);
+    void logAnalyticsEvent(
+      action === 'restored' ? AnalyticsEvents.LOGIN : AnalyticsEvents.SIGN_UP,
+      { method: provider },
+    );
+
+    const user: User = { ...res.user, name: displayNameFor(res.user) };
+    await setStoredUser(user);
+    set({ user, learning: null });
+    void syncDeviceTimezone();
+
+    // Unlike register(), there is no verify-email detour: the server sets
+    // email_verified because Google/Apple already asserted the address. The guard
+    // stays anyway so a future backend change can't silently 403 the setup.
+    if (res.user.email_verified) {
+      const learning = await learningApi.me();
+      await finishAuthSetup(user, learning);
+    }
+    return action;
   };
 
   // Every fresh learningApi.me() result (here and in refreshLearning below)
@@ -401,42 +448,28 @@ export const useAuthStore = create<AuthState>((set, get) => {
       pending_streak: 0,
     });
 
-    await setTokens(res.tokens);
-    setCrashUser(res.user.id, res.user.email);
-    // Cleared on every outcome, not just a successful claim: on `restored` the
-    // parked totals belong to a guest row that no longer exists, so keeping
-    // them would credit them to the wrong account on some later upgrade.
-    await clearPendingGuestProgress();
+    return completeSocialSignIn(res, 'google');
+  },
 
-    const action = res.account_action ?? 'created';
-    // Same rule as every other entry point: login() never resets the tour.
-    // `restored` is a returning user signing back into a real account with
-    // real history — resetting the tour here made it reappear, which is
-    // wrong. `claimed` converts the SAME guest row this session may have
-    // already been shown/dismissed the tour offer on — same reasoning as
-    // upgradeGuest() above, so it must not reset either, or the offer fires
-    // again right after signup. Only `created` (genuinely no prior guest row)
-    // is this account's actual first run.
-    if (action === 'created') await resetTourOffered();
-    setPendingEntryMethod(action === 'restored' ? 'google_login' : 'google_signup');
-    void logAnalyticsEvent(
-      action === 'restored' ? AnalyticsEvents.LOGIN : AnalyticsEvents.SIGN_UP,
-      { method: 'google' },
-    );
+  // Sign in with Apple. Exists because App Store Guideline 4.8 requires it
+  // whenever Google Sign-In is offered on iOS. Same one-endpoint design as
+  // Google above; the server matches on Apple's stable user ID first, since
+  // the email may be a private relay address.
+  loginWithApple: async () => {
+    const credential = await signInWithApple();
+    if (credential === null) return null;  // user backed out of the Apple sheet
 
-    const user: User = { ...res.user, name: displayNameFor(res.user) };
-    await setStoredUser(user);
-    set({ user, learning: null });
-    void syncDeviceTimezone();
-
-    // Unlike register(), there is no verify-email detour: the server sets
-    // email_verified because Google already asserted the address. The guard
-    // stays anyway so a future backend change can't silently 403 the setup.
-    if (res.user.email_verified) {
-      const learning = await learningApi.me();
-      await finishAuthSetup(user, learning);
-    }
-    return action;
+    const pending = await getPendingGuestProgress();
+    const res = await authApi.apple({
+      identity_token: credential.identityToken,
+      nonce: credential.nonce,
+      authorization_code: credential.authorizationCode,
+      full_name: credential.fullName,
+      pending_xp: pending.xp,
+      // Always 0 — see the matching comment on upgradeGuest above.
+      pending_streak: 0,
+    });
+    return completeSocialSignIn(res, 'apple');
   },
 
   // Called by VerifyEmailScreen right after a successful authApi.verifyEmail()

@@ -91,7 +91,8 @@ const STREAK_MESSAGES = [
 
 const INACTIVITY_MESSAGES = [
   { title: 'bestie it\'s been days 🥲', body: 'ur hifz journey called, it\'s worried' },
-  { title: 'no cap, even 1 ayah counts today', body: 'lumo\'s not mad, just disappointed jk come back 🤍' },
+  { title: 'no cap, even 1 ayah counts today', body: 'lumo saved your spot, pick up right where you left off 🤍' },
+  { title: 'quick ayah break? 📖', body: 'your next ayah is waiting, lumo kept it warm 🤍' },
 ];
 
 const MILESTONE_MESSAGES = [

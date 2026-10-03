@@ -83,6 +83,24 @@ export const authApi = {
       { retryOnNetworkError: true },
     ),
 
+  // Sign in with Apple, same one-endpoint design and auth: true reasoning as
+  // google() above. No retryOnNetworkError: the authorization_code inside is
+  // single use, so a retry after a request that actually reached the server
+  // would fail the code exchange (sign-in still works, revocation would not).
+  apple: (body: {
+    identity_token: string;
+    nonce: string | null;
+    authorization_code: string | null;
+    full_name: string | null;
+    pending_xp: number;
+    pending_streak: number;
+  }) =>
+    api<AuthResponse>(
+      '/auth/apple',
+      { method: 'POST', body: JSON.stringify(body) },
+      true,
+    ),
+
   // Claims the *current* guest account by attaching credentials to the same
   // user row, so level progress survives. pending_xp/pending_streak hand back
   // what the guest earned but was never banked (the server clamps them).
@@ -467,7 +485,7 @@ export const feedbackApi = {
 
 // Redeclared rather than imported from usageSession.ts, which imports
 // usageApi from this file — importing the type back would be circular.
-type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'resume';
+type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'apple_login' | 'apple_signup' | 'resume';
 
 export const usageApi = {
   startSession: (body: { platform: string; app_version?: string; device_model?: string; os_version?: string; entry_method?: EntryMethod }) =>

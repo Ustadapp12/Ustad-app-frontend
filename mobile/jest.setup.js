@@ -75,6 +75,25 @@ jest.mock('@react-native-firebase/analytics', () => () => ({
 // Native module, so it can't load under Jest. services/googleAuth.ts already
 // degrades gracefully when the require fails, but mocking it keeps the failure
 // out of the test output and lets tests drive the sign-in flow.
+// Same reasoning for Sign in with Apple. services/appleAuth.ts returns early
+// off iOS anyway, but tests can set Platform.OS = 'ios' and drive it.
+jest.mock('@invertase/react-native-apple-authentication', () => ({
+  appleAuth: {
+    isSupported: true,
+    performRequest: jest.fn().mockResolvedValue({
+      identityToken: 'test-apple-token',
+      nonce: 'test-nonce',
+      authorizationCode: 'test-code',
+      fullName: { givenName: 'Test', familyName: 'User' },
+      email: null,
+      user: 'test-apple-user',
+    }),
+    Operation: { LOGIN: 1 },
+    Scope: { EMAIL: 0, FULL_NAME: 1 },
+    Error: { CANCELED: '1001' },
+  },
+}));
+
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {
     configure: jest.fn(),
