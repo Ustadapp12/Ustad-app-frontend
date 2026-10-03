@@ -570,3 +570,40 @@ raising the workflow baseline to `20000 + run_number`.
 
 Not verified on a device yet; needs a TestFlight install. Still does not
 fix the App Review rejection (Guideline 4.8, Sign in with Apple).
+
+**20042** / 1.0.0 — IPA (TestFlight) — 2026-10-03 — commit `2ef5415`, GitHub
+Actions run `37133537903` (7m44s), EAS build
+`d9e26b64-ea24-4624-a990-6312e2ecafd6`, submission
+`913f9976-1fef-49b0-8c3f-7fb70d55e062`. Backend still **testing** (deliberate,
+user asked for it explicitly).
+
+First build carrying Sign in with Apple (`9af2e4e`). The signing step passed,
+which confirms the `com.apple.developer.applesignin` entitlement is now
+present in the App Store provisioning profile held in
+`IOS_PROVISIONING_PROFILE` — the portal work flagged as a blocker in
+changes-2026-10-03.md is done.
+
+Also the first build with performance Phase 1 step A (`f41c9ba`): console
+stripping wired, `TOUR_GLOW` moved out of `LessonSessionScreen` so `MainTabs`
+no longer pulls it into the splash bundle, `MapScreenV2` behind a `__DEV__`
+require, `renderMode="SOFTWARE"` dropped from all 12 Lotties, and
+`enableFreeze(true)` at entry. Plus the never-stopping animation fixes
+(map gold pulse, Quests/Leaderboard bobs, Profile flame) and assets cut from
+about 14 MB to 5.3 MB. Daily Quest now shows the reading-Lumo mascot and
+Profile has the logo top left on a green pill. In-app release notes 1.0.34
+were added and shipped WITHOUT the usual review, at the user's explicit
+direction for this build only.
+
+First attempt (run `37133293302`, commit `f41c9ba`) failed at `npm ci` in 16s:
+`9af2e4e` had regenerated the lock with npm 11 while the runner uses npm 10,
+dropping three nested peer entries (1454 -> 1451 packages). Fixed in `2ef5415`
+by regenerating with `npx npm@10 install --package-lock-only` (now 1455) and
+verifying with `npx npm@10 ci --dry-run`. Same failure mode as `c99783c`;
+nothing yet prevents it recurring whenever the lock is regenerated on a
+machine whose npm major differs from the runner's.
+
+Not verified on a device. Nothing in this build has been run in the app: the
+asset re-encode, the Lottie render-mode change, the focus-scoped animations
+and the new Profile logo pill are all first seen here. The pill is a new UI
+element rather than a like-for-like swap, so it is the most likely to need
+adjusting.
