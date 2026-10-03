@@ -1152,10 +1152,11 @@ function makeStyles(M: MapModel) {
     // live screen width, not available inside this style factory), this
     // just carries size/color/shadow. zIndex above the loading overlay (20)
     // so it's tappable immediately, even before the map itself has resolved.
-    // Vertical gap: sc(10) above the tab bar (was sc(20), lowered per
-    // request — still clears the 64px tab bar, just sits closer to it).
+    // Vertical gap: sc(2) above the tab bar (was sc(20), then sc(10), lowered
+    // again per request). This is about as low as it goes — the 64 is the tab
+    // bar's own height, so anything less starts tucking the ring behind it.
     feedbackFab: {
-      position: 'absolute', bottom: 64 + sc(10), zIndex: 25,
+      position: 'absolute', bottom: 64 + sc(2), zIndex: 25,
       width: FEEDBACK_FAB_SIZE, height: FEEDBACK_FAB_SIZE, borderRadius: FEEDBACK_FAB_SIZE / 2,
       alignItems: 'center', justifyContent: 'center',
       shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 6,
@@ -1964,6 +1965,17 @@ export default function MapScreen({ navigation }: Props) {
   // Search button image box, and the visible art square inside it (45 of 91px).
   const searchBox = (streakPillWidth ?? sc(40)) * 2;
   const searchArtSize = searchBox * (45 / 91);
+  // Vertical gap between each HUD pill and the button under it — search on
+  // the left, Progress on the right. Deliberately ONE value shared by both
+  // columns: the Progress side adds the search art's own internal top padding
+  // on top of this and nothing else, so changing this number moves the two
+  // together and they stay parallel by construction.
+  //
+  // Negative pulls the row up under the pills. Safe to go negative because
+  // search box (1).png carries its art 20/91 of the way down a 91x90 canvas,
+  // so roughly a quarter of the image box above the visible art is
+  // transparent padding. Was sc(6); raised per request.
+  const HUD_BTN_GAP = sc(-10);
   const startTour = useTourStore(s => s.start);
 
   function handleAcceptTour() {
@@ -3220,7 +3232,7 @@ export default function MapScreen({ navigation }: Props) {
                 and right of the pill's edges instead of starting flush with
                 its left edge. Falls back to sc(40) before the first layout
                 pass measures the pill. */}
-            <View style={{ width: streakPillWidth ?? sc(40), alignItems: 'center', marginTop: sc(6) }} pointerEvents="box-none">
+            <View style={{ width: streakPillWidth ?? sc(40), alignItems: 'center', marginTop: HUD_BTN_GAP }} pointerEvents="box-none">
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('SearchSurahs')}
@@ -3261,7 +3273,7 @@ export default function MapScreen({ navigation }: Props) {
                 width: Math.max(xpPillWidth ?? 0, searchArtSize),
                 alignItems: 'center',
                 // contain letterboxes the 91x90 canvas by box/182 vertically.
-                marginTop: sc(6) + searchBox * (20 / 91) + searchBox / 182,
+                marginTop: HUD_BTN_GAP + searchBox * (20 / 91) + searchBox / 182,
               }}
               pointerEvents="box-none"
             >
