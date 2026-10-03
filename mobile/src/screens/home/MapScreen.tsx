@@ -3033,6 +3033,11 @@ export default function MapScreen({ navigation }: Props) {
   // breadcrumbing scroll position matters here (the still-unsymbolicated
   // libc.so SIGABRT, whose only lead so far is scroll position at crash time).
   const lastBreadcrumbYRef = useRef(0);
+  // See the scroll listener below for why bounce is conditional rather than
+  // simply off. Starts true so pull-to-refresh works on a freshly opened map,
+  // which always begins at the top.
+  const [bouncesEnabled, setBouncesEnabled] = useState(true);
+  const bouncesRef = useRef(true);
 
   // Grass decode-failure retry counters, keyed by tileIdx. Plain <Image>
   // (unlike react-native-svg's Image) has a real onError — on a
@@ -3059,6 +3064,21 @@ export default function MapScreen({ navigation }: Props) {
         // lead-up context.
         try {
           const y = e.nativeEvent.contentOffset.y as number;
+          // Bottom overscroll is what exposes a strip of non-map content
+          // below the grass. The map should simply not travel past its end.
+          // Plain `bounces={false}` would do that, but on iOS it kills the
+          // TOP bounce too — and the top bounce is pull-to-refresh here
+          // (RefreshControl plus PullRefreshIndicator, which is driven by
+          // scrollY going negative). So bounce is allowed only while the
+          // view is near the top, where refresh lives, and switched off
+          // once scrolled away, which covers everywhere the bottom edge is
+          // reachable. Ref-guarded so this flips at most twice per gesture
+          // rather than calling setState on every scroll frame.
+          const nearTop = y < sc(80);
+          if (nearTop !== bouncesRef.current) {
+            bouncesRef.current = nearTop;
+            setBouncesEnabled(nearTop);
+          }
           if (Math.abs(y - lastBreadcrumbYRef.current) < height / 2) return;
           lastBreadcrumbYRef.current = y;
           addBreadcrumb('map: scrolled', { scrollY: Math.round(y), MAP_H: Math.round(MAP_H), chapterIdx });
@@ -3363,6 +3383,12 @@ export default function MapScreen({ navigation }: Props) {
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
+        // iOS rubber-band, gated to the top so pull-to-refresh survives.
+        bounces={bouncesEnabled}
+        // Android's own equivalent (glow/stretch past the end). Unlike iOS
+        // this one is safe to disable outright: Android's RefreshControl
+        // drives its own pull gesture and does not depend on overscroll.
+        overScrollMode="never"
         onScroll={onScroll}
         onScrollBeginDrag={dismissActionCards}
         scrollEventThrottle={16}
