@@ -195,18 +195,6 @@ function ProfileContent({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Brand mark, top left. logo_app.png is a white wordmark on
-          transparency and this screen's background is lightBg (#F2F4F8), so
-          on its own it would be invisible — hence the primary-green pill
-          behind it rather than a bare image. Sits outside the ScrollView so
-          it stays put while the content scrolls. */}
-      <View style={styles.brandBar}>
-        <Image
-          source={require('../../../assets/map/logo_app.png')}
-          style={styles.brandLogo}
-          resizeMode="contain"
-        />
-      </View>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Avatar card */}
         <View style={styles.avatarCard}>
@@ -580,16 +568,6 @@ function ProfileContent({ navigation }: Props) {
 function makeStyles(sc: (n: number) => number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.lightBg },
-    // alignSelf flex-start keeps the pill only as wide as its content, so it
-    // reads as a logo in the corner rather than a full-width banner.
-    brandBar: {
-      alignSelf: 'flex-start',
-      marginLeft: sc(16), marginTop: sc(6), marginBottom: sc(10),
-      backgroundColor: colors.primary, borderRadius: sc(12),
-      paddingHorizontal: sc(12), paddingVertical: sc(8),
-    },
-    // Height derived from the asset's own 2.817 aspect so it never squashes.
-    brandLogo: { width: sc(104), height: sc(104) / 2.817 },
     statusBar: { paddingHorizontal: sc(24), paddingVertical: sc(6) },
     time: { fontFamily: 'Nunito-Bold', fontSize: sc(15), color: colors.darkText },
     avatarCard: {
