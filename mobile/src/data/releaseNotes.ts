@@ -29,6 +29,20 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Shipped WITHOUT the usual pre-release review: the user explicitly
+    // chose "draft it and ship without review" for this build (2026-10-03),
+    // overriding the standing rule above for this entry only. Treat the rule
+    // as still in force for the next one.
+    version: '1.0.34',
+    date: '2026-10-03',
+    changes: [
+      { category: 'New', text: 'You can now sign in with your Apple ID.' },
+      { category: 'Improved', text: 'The app is a lot lighter to download and opens faster.' },
+      { category: 'Improved', text: 'Animations are smoother and no longer run in the background, so the app uses less battery.' },
+      { category: 'New', text: 'Lumo now sits reading the Quran on the Daily Quests screen.' },
+    ],
+  },
+  {
     // Approved by the user 2026-09-30.
     version: '1.0.33',
     date: '2026-09-30',

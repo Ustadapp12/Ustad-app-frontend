@@ -29,42 +29,16 @@ import LumoInfoModal from '../../components/LumoInfoModal';
 import LoadingStatusText from '../../components/LoadingStatusText';
 import type { ExerciseDict, ExpectedWordResult, FormulaAttemptOut, SegmentStatus } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
+import { TOUR_GLOW, TOUR_GLOW_ROUND, TOUR_GLOW_ROUND_THIN } from '../../components/tour/tourGlow';
 
 // The speaker/audio-playback icon used everywhere a "tap to hear" control
 // shows a handheld speaker — replaces the old 🔊 emoji.
 const SPEAKER_ICON = require('../../../assets/map/speaker.png');
 
-// ── Tour-only glow ───────────────────────────────────────────────────
-// The guided tour highlights a real element by asking that element to glow
-// itself, rather than drawing a separate ring on top of it at measured
-// coordinates (see TourOverlay's own comment for why: a drawn ring can
-// disagree with the real shape, drift out of sync with a timing race, or
-// simply be wrong). Every glow-capable prop below defaults to falsy and is
-// only ever set by TourLessonScreen/TourOfferModal call sites — a normal
-// lesson never passes them, so this is invisible outside the tour.
-//
-// Two variants:
-// - TOUR_GLOW has no radius of its own, so it inherits whatever the host
-//   element already declares (Check's borderRadius:16, the mic's 54, the
-//   feedback sheet's top-only 24) — same pattern EX.optionGlow already used
-//   for the pre-picked option, just generalised.
-// - TOUR_GLOW_ROUND is for the handful of targets whose ref sits on a bare
-//   wrapper View with no shape of its own (the hint icon, the hearts row,
-//   the progress slot) — borderRadius: 999 clamps to a perfect circle/pill
-//   at whatever size that wrapper actually renders, on any device.
-export const TOUR_GLOW = {
-  borderWidth: 2, borderColor: colors.gold,
-  shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
-  elevation: 8,
-} as const;
-export const TOUR_GLOW_ROUND = { ...TOUR_GLOW, borderRadius: 999 } as const;
-// Same spotlight, thinner halo — TOUR_GLOW_ROUND's shadowRadius:10 is a soft
-// blur bigger than the 10px-tall progress bar it's meant to outline, so the
-// gold blur reads as the bar's own color instead of a highlight around a
-// green bar. Every other TOUR_GLOW_ROUND target (hearts row, hint icon) is
-// tall enough that the same blur stays a thin rim; only the progress bar
-// needs the lighter version.
-export const TOUR_GLOW_ROUND_THIN = { ...TOUR_GLOW_ROUND, shadowRadius: 3, shadowOpacity: 0.7 } as const;
+// ── Tour-only glow ─────────────────────────────────
+// Moved to components/tour/tourGlow.ts: MainTabs, MapScreen and MapScreenV2
+// all import TOUR_GLOW, and that one named import was pulling this entire
+// screen into the tab bundle at splash. See that file for the full rationale.
 
 // ── Audio helper ───────────────────────────────────────────────────
 // Thin wrappers around services/audioPlayer.ts (react-native-sound) that
@@ -1946,7 +1920,6 @@ function ReadAyahAndSpeak({
             >
               {speakState === 'recording' ? (
                 <LottieView
-        renderMode="SOFTWARE"
                   source={require('../../../assets/animations/listen.json')}
                   autoPlay
                   loop
@@ -2263,7 +2236,6 @@ export function ReadAndSpeak({
               >
                 {speakState === 'recording' ? (
                   <LottieView
-          renderMode="SOFTWARE"
                     source={require('../../../assets/animations/listen.json')}
                     autoPlay
                     loop
@@ -2366,7 +2338,6 @@ function RecitationScoringFeedback() {
         autoPlay
         loop
         style={RSF.hourglass}
-        renderMode="SOFTWARE"
       />
       <Text style={RSF.text}>Scoring your recitation please</Text>
     </View>
@@ -3233,7 +3204,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
-        renderMode="SOFTWARE"
           source={require('../../../assets/animations/404.json')}
           autoPlay loop
           style={{ width: 200, height: 200 }}
@@ -3268,7 +3238,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
-        renderMode="SOFTWARE"
           source={require('../../../assets/animations/loading.json')}
           autoPlay loop
           style={{ width: 140, height: 140 }}
@@ -3326,7 +3295,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           <Text style={LL.backText}>Map</Text>
         </TouchableOpacity>
         <LottieView
-          renderMode="SOFTWARE"
           source={require('../../../assets/animations/loading.json')}
           autoPlay loop
           style={{ width: 140, height: 140 }}
@@ -3509,7 +3477,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       {showConfetti && (
         <View style={S.confettiOverlay} pointerEvents="none">
           <LottieView
-        renderMode="SOFTWARE"
             source={require('../../../assets/animations/celebration.json')}
             autoPlay
             loop={false}
@@ -3621,7 +3588,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       {systemPlaying && exercise?.type !== 'read_ayah_and_speak' && exercise?.type !== 'read_and_speak' && exercise?.type !== 'audio_fill' && exercise?.type !== 'hear_and_select' && (
         <View pointerEvents="none" style={[S.waveBar, { bottom: insets.bottom + 8 }]}>
           <LottieView
-            renderMode="SOFTWARE"
             source={require('../../../assets/animations/wave.json')}
             autoPlay loop
             style={S.waveLottie}

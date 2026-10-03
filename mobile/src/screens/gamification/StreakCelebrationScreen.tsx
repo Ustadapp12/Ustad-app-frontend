@@ -157,7 +157,6 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
       {breakDone && (
         <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <LottieView
-            renderMode="SOFTWARE"
             source={animationSource}
             autoPlay
             loop

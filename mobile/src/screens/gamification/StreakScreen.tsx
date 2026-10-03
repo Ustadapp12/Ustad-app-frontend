@@ -207,7 +207,6 @@ export default function StreakScreen({ navigation, route }: Props) {
                 of this. */}
             <Animated.View style={{ marginTop: -36, marginBottom: 16, transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
               <LottieView
-                renderMode="SOFTWARE"
                 source={frozen
                   ? require('../../../assets/animations/streak_frozen.json')
                   : require('../../../assets/animations/streak.json')}

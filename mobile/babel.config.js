@@ -10,4 +10,12 @@ module.exports = {
   // Inlines process.env.VERSION_NAME (set before release builds — see
   // utils/appVersion.ts) as a literal string at bundle time.
   plugins: ['transform-inline-environment-variables'],
+  env: {
+    production: {
+      // Strips all console.* from release bundles. The dependency was already
+      // installed but never wired here, so 45 console calls were shipping.
+      // Kept under env.production so Metro dev and jest keep their logging.
+      plugins: ['transform-remove-console'],
+    },
+  },
 };

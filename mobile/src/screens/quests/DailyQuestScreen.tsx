@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Animated, Image } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
@@ -20,14 +21,23 @@ function DailyQuestContent() {
   const insets = useSafeAreaInsets();
   const floatAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(floatAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
-      Animated.timing(floatAnim, { toValue: 0, duration: 1300, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, []);
+  // Focus-scoped, not mount-scoped. This is a tab screen, so it stays
+  // mounted for the life of the app and the unmount cleanup effectively
+  // never ran — the bob kept driving frames the whole time the user was
+  // on another tab. useFocusEffect stops it the moment the tab is left.
+  useFocusEffect(
+    useCallback(() => {
+      const loop = Animated.loop(Animated.sequence([
+        Animated.timing(floatAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: 0, duration: 1300, useNativeDriver: true }),
+      ]));
+      loop.start();
+      return () => {
+        loop.stop();
+        floatAnim.setValue(0);
+      };
+    }, [floatAnim]),
+  );
   const lumaY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
 
   return (
@@ -37,8 +47,12 @@ function DailyQuestContent() {
       </View>
 
       <View style={styles.centerFill}>
+        {/* Reading Lumo rather than the plain standing one: quests are about
+            sitting down with the Quran, and this is the only screen using it.
+            Same 1.037 aspect as the old lumo_transparent.png, so it fills the
+            165x165 contain box identically and MascotShadow still lines up. */}
         <Animated.Image
-          source={require('../../../assets/images/lumo_transparent.png')}
+          source={require('../../../assets/map/mascot.png')}
           style={[styles.luma, { marginBottom: 0, transform: [{ translateY: lumaY }] }]}
           resizeMode="contain"
         />

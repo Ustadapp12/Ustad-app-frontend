@@ -137,7 +137,6 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         {/* Medal animation — big and continuously looping. */}
         <LottieView
-          renderMode="SOFTWARE"
           source={require('../../../assets/animations/congrats.json')}
           autoPlay
           loop

@@ -17,7 +17,7 @@ import { TOUR_STEPS } from '../components/tour/tourSteps';
 import type { TourTargetKey } from '../components/tour/tourSteps';
 import { useTourTarget } from '../components/tour/useTourTarget';
 import TourOverlay from '../components/tour/TourOverlay';
-import { TOUR_GLOW } from '../screens/lesson/LessonSessionScreen';
+import { TOUR_GLOW } from '../components/tour/tourGlow';
 import type { RootNavProp, TabParamList } from './types';
 
 const Tab = createBottomTabNavigator<TabParamList>();

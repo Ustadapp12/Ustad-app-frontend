@@ -33,7 +33,7 @@ import { loadLessonGroup } from '../../services/cachedContent';
 import { setTourOffered, wasTourOffered } from '../../utils/storage';
 import { useTourStore } from '../../store/tourStore';
 import { TOUR_STEPS } from '../../components/tour/tourSteps';
-import { TOUR_GLOW } from '../lesson/LessonSessionScreen';
+import { TOUR_GLOW } from '../../components/tour/tourGlow';
 import TourOfferModal from '../../components/tour/TourOfferModal';
 import { useTourTarget } from '../../components/tour/useTourTarget';
 import type { SurahLevel } from '../../types/api';
@@ -3050,12 +3050,25 @@ export default function MapScreen({ navigation }: Props) {
     },
   );
 
-  useEffect(() => {
-    Animated.loop(Animated.sequence([
-      Animated.timing(goldAnim,  { toValue: 1, duration: 1400, useNativeDriver: true }),
-      Animated.timing(goldAnim,  { toValue: 0, duration: 1400, useNativeDriver: true }),
-    ])).start();
-  }, []);
+  // The completed-node gold pulse. This used to be a bare useEffect with []
+  // deps that started an endless loop and never stopped it — so it kept
+  // driving frames while the user sat on Quests, Leaderboard or Profile, and
+  // on every screen pushed above the map. useFocusEffect ties it to the map
+  // actually being on screen, and the blur path stops it and parks the value
+  // at 0 so the nodes come back at their resting size rather than mid-pulse.
+  useFocusEffect(
+    useCallback(() => {
+      const loop = Animated.loop(Animated.sequence([
+        Animated.timing(goldAnim,  { toValue: 1, duration: 1400, useNativeDriver: true }),
+        Animated.timing(goldAnim,  { toValue: 0, duration: 1400, useNativeDriver: true }),
+      ]));
+      loop.start();
+      return () => {
+        loop.stop();
+        goldAnim.setValue(0);
+      };
+    }, [goldAnim]),
+  );
 
   // Keep the viewport following the recommended node (formerly framed as
   // "following Lumo" — Lumo no longer stands beside it, but the

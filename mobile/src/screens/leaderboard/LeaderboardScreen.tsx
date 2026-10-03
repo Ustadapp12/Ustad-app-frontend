@@ -105,14 +105,23 @@ function LeaderboardContent() {
   };
 
   const floatAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(floatAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
-      Animated.timing(floatAnim, { toValue: 0, duration: 1300, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, []);
+  // Focus-scoped, not mount-scoped. This is a tab screen, so it stays
+  // mounted for the life of the app and the unmount cleanup effectively
+  // never ran — the bob kept driving frames the whole time the user was
+  // on another tab. useFocusEffect stops it the moment the tab is left.
+  useFocusEffect(
+    useCallback(() => {
+      const loop = Animated.loop(Animated.sequence([
+        Animated.timing(floatAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: 0, duration: 1300, useNativeDriver: true }),
+      ]));
+      loop.start();
+      return () => {
+        loop.stop();
+        floatAnim.setValue(0);
+      };
+    }, [floatAnim]),
+  );
   const lumaY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -9] });
 
   // "Me" is identified by display_name match — the backend response carries
