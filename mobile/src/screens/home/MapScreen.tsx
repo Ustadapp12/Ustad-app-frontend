@@ -73,6 +73,9 @@ const PREVIOUS_STAGE_SRC = require('../../../assets/map/PREVIOUS_STAGE.png');
 const NEXT_STAGE_ASPECT     = 678 / 767;
 const PREVIOUS_STAGE_ASPECT = 692 / 756;
 const GRASS_SRC    = require('../../../assets/map/grass.jpg');
+// Plain standing Lumo for the end-of-map sign-off. Same art the Daily Quest
+// screen used before it moved to the reading pose.
+const END_LUMO_SRC = require('../../../assets/images/lumo_transparent.png');
 // grass.jpg's own dominant colour, sampled from the file (mean is
 // rgb(146,195,1), dominant rgb(136,200,8) — close enough that either works).
 // Used wherever a flat fill has to sit flush against the tiled grass, i.e.
@@ -656,7 +659,13 @@ function buildMapModel(mapW: number, viewportH: number, chapterIdx: number): Map
   // not the bare "More coming soon…" text — so the banner never rides up
   // into the last node's ayah pill, and the captions never clip at the
   // scroll end.
-  const FOOTER_PAD    = sc(260);
+  // sc(260) for the flag + sign row, plus sc(125) of clear space under it for
+  // the end-of-map Lumo ("nothing to see here"). He needs his own room: the
+  // sign row already fills the original padding, and tucking him under it
+  // would have him overlapping the season captions. The block is about
+  // sc(101) tall (bubble text + padding + margin + sc(64) of art), and the
+  // map canvas is overflow:'hidden', so anything past MAP_H is cut.
+  const FOOTER_PAD    = sc(260) + sc(125);
   // Real visual gap from the road's widest visible (glow) stroke, not just
   // its centerline — the old NODE_SIZE/2 + sc(8) was only ~5px past the
   // glow's own half-width, which read as "touching the road."
@@ -1299,6 +1308,17 @@ function makeStyles(M: MapModel) {
       shadowColor: '#F5F7FA', shadowOpacity: 0.6, shadowRadius: 8, elevation: 5,
     },
     lumaImg: { width: sc(84), height: sc(84) },
+    // End-of-map Lumo, in the sc(90) of FOOTER_PAD reserved for him. Bubble
+    // sits above the art so the pair reads as him speaking upward into the
+    // empty space rather than down off the edge of the map.
+    endLumoWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+    endLumoBubble: {
+      backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: sc(14),
+      paddingHorizontal: sc(14), paddingVertical: sc(7), marginBottom: sc(5),
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 4, elevation: 3,
+    },
+    endLumoText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: colors.darkText, textAlign: 'center' },
+    endLumoImg: { width: sc(64), height: sc(64) },
     endText: { fontFamily: 'Nunito-Bold', fontSize: sc(11), color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: sc(4) },
     // The big "Coming soon!" banner filling a short final chapter's unused
     // reserved space (see comingSoonY) — deliberately much larger than
@@ -3837,7 +3857,7 @@ export default function MapScreen({ navigation }: Props) {
               next-at-bottom. Row is centered and gap-based (not fixed
               left/right offsets) so it re-centers on any screen width. Sits
               inside FOOTER_PAD, clear of the last node's ayah pill. */}
-          <View style={{ position: 'absolute', left: 0, right: 0, top: MAP_H - sc(240), alignItems: 'center' }}>
+          <View style={{ position: 'absolute', left: 0, right: 0, top: MAP_H - sc(365), alignItems: 'center' }}>
             <Image source={START_SRC} style={{ width: sc(100), height: sc(80) }} resizeMode="contain" />
             {(chapterIdx > 0 || chapterIdx < CHAPTER_COUNT - 1) ? (
               <View style={S.chapterSignRow}>
@@ -3872,6 +3892,44 @@ export default function MapScreen({ navigation }: Props) {
               <Text style={S.endText}>More coming soon…</Text>
             )}
           </View>
+
+          {/* End of the map. Now that bottom overscroll is off, reaching the
+              last pixel used to be a dead stop against blank grass, so Lumo
+              pops down into the space FOOTER_PAD reserves for him and says
+              as much.
+              Driven straight off scrollY rather than a focus/viewport flag:
+              the interpolation runs on the native driver, so this costs zero
+              re-renders of a screen that is already the heaviest in the app.
+              An on-mount animation would have been wrong anyway — it would
+              play while the user is still at the top of the map, and they
+              would arrive to find him already sitting there. Math.max guards
+              a map shorter than the viewport, where MAP_H - height goes
+              negative and the input range would otherwise invert. */}
+          {(() => {
+            const endY = Math.max(sc(1), MAP_H - height);
+            const popFrom = Math.max(0, endY - sc(190));
+            const pop = scrollY.interpolate({
+              inputRange: [popFrom, endY],
+              outputRange: [-sc(34), 0],
+              extrapolate: 'clamp',
+            });
+            const fade = scrollY.interpolate({
+              inputRange: [popFrom, endY - sc(40)],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            });
+            return (
+              <Animated.View
+                pointerEvents="none"
+                style={[S.endLumoWrap, { top: MAP_H - sc(113), opacity: fade, transform: [{ translateY: pop }] }]}
+              >
+                <View style={S.endLumoBubble}>
+                  <Text style={S.endLumoText}>nothing to see here</Text>
+                </View>
+                <Image source={END_LUMO_SRC} style={S.endLumoImg} resizeMode="contain" />
+              </Animated.View>
+            );
+          })()}
         </View>
       </Animated.ScrollView>
 
