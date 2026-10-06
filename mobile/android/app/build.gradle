@@ -102,13 +102,35 @@ def hasReleaseSigning =
     releaseKeyPassword != null && !releaseKeyPassword.isEmpty()
 
 // Version — overridable from CI so every distributed build is distinguishable.
-// Locally these stay at the baseline, so a dev build is always "1 / 1.0.0" and
-// nobody has to remember to bump anything by hand. The Firebase distribution
-// workflow passes VERSION_CODE=${{ github.run_number }}, which is monotonic
-// per repo, so testers can tell two builds apart from Android's own app info
-// instead of only from the release notes.
+// The Firebase distribution workflow passes VERSION_CODE=${{ github.run_number }},
+// which is monotonic per repo, so testers can tell two builds apart from
+// Android's own app info instead of only from the release notes.
+//
+// The versionName fallback reads package.json, which is the single canonical
+// source shared with the JS bundle (see src/utils/appVersion.ts). It used to
+// be a hardcoded "1.0.0" literal, which meant a local `npm run build:apk`
+// produced an APK stamped 1.0.0 no matter what had actually shipped, and the
+// Profile screen's version label agreed with it.
+//
+// Uses java.util.regex explicitly rather than Groovy's `=~` sugar: a Groovy
+// Matcher in a boolean context calls find() and advances itself, so the
+// obvious one-liner is quietly wrong on the second read. find() and group(1)
+// here are unambiguous, and java.util.regex needs no import or buildscript
+// dependency. package.json has exactly one "version" key, at the top level.
 def appVersionCode = (System.getenv("VERSION_CODE") ?: "1").toInteger()
-def appVersionName = System.getenv("VERSION_NAME") ?: "1.0.0"
+def packageJsonVersion = {
+    def pkg = file("../../package.json")
+    if (!pkg.exists()) return "1.0.0"
+    try {
+        def matcher = java.util.regex.Pattern
+            .compile('"version"\\s*:\\s*"([^"]+)"')
+            .matcher(pkg.getText("UTF-8"))
+        return matcher.find() ? matcher.group(1) : "1.0.0"
+    } catch (Exception ignored) {
+        return "1.0.0"
+    }
+}()
+def appVersionName = System.getenv("VERSION_NAME") ?: packageJsonVersion
 
 android {
     ndkVersion rootProject.ext.ndkVersion

@@ -3,6 +3,7 @@ import { API_BASE, API_PREFIX } from '../config';
 import { getTokens, setTokens } from '../utils/storage';
 import { messageForStatus } from './formatError';
 import { redirectToVerifyEmail } from '../navigation/navigationRef';
+import { connectivity } from '../store/connectivityStore';
 import type { Tokens } from '../types/api';
 
 export class ApiError extends Error {
@@ -16,6 +17,40 @@ export class ApiError extends Error {
     this.body = body;
     this.code = code;
   }
+}
+
+/**
+ * The only way this module reports "no HTTP response arrived at all" — DNS
+ * failure, TLS failure, connection refused, or our own timeout. Status 0 is
+ * reserved for exactly that, and is distinct from a real server response
+ * carrying a real status.
+ *
+ * Centralised so the connectivityStore write can never drift out of sync with
+ * the throw: a future status-0 site that forgets to flag reachability is not
+ * possible if every one of them goes through here.
+ *
+ * Note this says nothing about whether the DEVICE has a network — that is
+ * services/connectivity.ts's job, answered by the OS. This is only ever "our
+ * backend did not answer", which is a different sentence to show the user.
+ */
+function throwUnreachable(isAbort: boolean): never {
+  connectivity.setServerUnreachable(true);
+  throw new ApiError(
+    isAbort
+      ? 'Request timed out: check your connection.'
+      : 'Cannot reach server: check your internet connection.',
+    0,
+    null,
+  );
+}
+
+/**
+ * An HTTP response arrived, so the backend is reachable by definition —
+ * whatever status it carries. A 500 is a server problem, not a connectivity
+ * one, and must clear the flag rather than raise a connectivity banner.
+ */
+function markReachable(): void {
+  connectivity.setServerUnreachable(false);
 }
 
 // New-style structured errors (`AppError` on the backend) respond
@@ -58,14 +93,9 @@ async function refreshAccess(): Promise<string> {
     // and this function's own caller just below) don't mistake a network
     // hiccup during refresh for an actual invalid session and log the user
     // out over it.
-    throw new ApiError(
-      err instanceof Error && err.name === 'AbortError'
-        ? 'Request timed out: check your connection.'
-        : 'Cannot reach server: check your internet connection.',
-      0,
-      null,
-    );
+    throwUnreachable(err instanceof Error && err.name === 'AbortError');
   }
+  markReachable();
   if (!res.ok) {
     await setTokens(null);
     throw new ApiError('Session expired', 401, null);
@@ -132,7 +162,7 @@ export async function api<T>(
         res = await doFetch();
       } catch (err2) {
         captureError(err2, { path, api_base: API_BASE });
-        throw new ApiError('Cannot reach server: check your internet connection.', 0, null);
+        throwUnreachable(err2 instanceof Error && err2.name === 'AbortError');
       }
     } else {
       if (!isAbort) {
@@ -141,13 +171,7 @@ export async function api<T>(
         // since the generic message shown to the user can't say which it was.
         captureError(err, { path, api_base: API_BASE });
       }
-      throw new ApiError(
-        isAbort
-          ? 'Request timed out: check your connection.'
-          : 'Cannot reach server: check your internet connection.',
-        0,
-        null,
-      );
+      throwUnreachable(isAbort);
     }
   }
 
@@ -170,9 +194,12 @@ export async function api<T>(
       // other error reaching here (e.g. the retried fetchWithTimeout above
       // failing outright) is a network-shaped failure too, not a rejection.
       if (err instanceof ApiError) throw err;
-      throw new ApiError('Cannot reach server: check your internet connection.', 0, null);
+      throwUnreachable(false);
     }
   }
+
+  // An HTTP response arrived (any status), so the backend is reachable.
+  markReachable();
 
   if (!res.ok) {
     const body: any = await res.json().catch(() => ({ detail: res.statusText }));
@@ -209,11 +236,27 @@ export async function api<T>(
   return body as T;
 }
 
+/**
+ * Warms the serverless backend as early as possible. That is its only job.
+ *
+ * It must NOT be read as a connectivity verdict. The 5s fuse is shorter than
+ * a Vercel cold start, which is the very condition it exists to paper over,
+ * so a `false` here means "the instance was still waking up", not "this
+ * device is offline". Treating the two as the same is what used to leave the
+ * offline banner stuck on a perfectly working app: this aborted at 5s and
+ * reported offline while hydrate(), on its 30s timeout, reached the same
+ * backend fine a moment later, and whichever settled last won.
+ *
+ * The flag write is therefore deliberately one-directional. A success proves
+ * the backend is reachable and is worth recording. A timeout proves nothing
+ * and records nothing; real API calls, on the real timeout, decide that.
+ */
 export async function healthCheck(): Promise<boolean> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5_000);
   try {
     const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
+    if (res.ok) markReachable();
     return res.ok;
   } catch {
     return false;

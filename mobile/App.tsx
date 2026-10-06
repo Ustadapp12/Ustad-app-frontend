@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initAnalytics } from './src/services/analytics';
 import { syncDeviceTimezone } from './src/api';
 import { startUsageSession, endUsageSession } from './src/services/usageSession';
+import { startConnectivityWatch, stopConnectivityWatch } from './src/services/connectivity';
 import { useAuthStore } from './src/store/authStore';
 import { useLessonStore } from './src/store/lessonStore';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -16,6 +17,15 @@ const LEARNING_ME_POLL_MS = 60_000;
 function App() {
   useEffect(() => {
     void initAnalytics();
+  }, []);
+
+  useEffect(() => {
+    // The single writer of connectivityStore.isDeviceOffline. Started here,
+    // once, above the navigator, so a signed-out or guest launch is covered
+    // too — the old healthCheck-based detection only ran on Splash and could
+    // never clear itself mid-session for an unverified user.
+    startConnectivityWatch();
+    return stopConnectivityWatch;
   }, []);
 
   useEffect(() => {

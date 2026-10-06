@@ -11,8 +11,11 @@
 import { Platform } from 'react-native';
 import { usageApi } from '../api';
 import { getLastScreens } from './screenHistory';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { version: APP_VERSION } = require('../../package.json') as { version: string };
+// Shared with the Profile screen's version label, deliberately. This used to
+// read package.json directly while utils/appVersion.ts read the VERSION_NAME
+// env var, so analytics and the UI could report two different versions for
+// the same build. One source now.
+import { APP_VERSION } from '../utils/appVersion';
 
 let activeSessionId: string | null = null;
 let starting: Promise<void> | null = null;

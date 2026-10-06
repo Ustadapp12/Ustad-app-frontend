@@ -5,7 +5,7 @@
     "name": "UstadApp",
     "slug": "ustadapp",
     "scheme": "ustadapp",
-    "version": "1.0.0",
+    "version": "1.0.35",
     "platforms": [
       "ios",
       "android"

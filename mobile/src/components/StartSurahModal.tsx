@@ -11,22 +11,28 @@ interface Props {
   onCancel: () => void;
 }
 
-// "Start {surah}?" confirm — shared by SearchSurahsScreen (picking a surah
-// from the list) and MapScreen (tapping a locked node offers the same jump
-// to that surah's real opening level, instead of a dead-end shake). One
+// "Open {surah}?" confirm — shared by SearchSurahsScreen (picking a closed
+// surah from the list) and MapScreen (tapping a locked node offers the same
+// jump to that surah's real opening level, instead of a dead-end shake). One
 // component so both call sites stay visually and behaviorally identical.
+//
+// The copy says the surah opens once the first level is finished, rather than
+// on this tap, because that is what actually happens: "open" is derived from
+// the first level being complete, and nothing is recorded by confirming here.
+// Promising otherwise would be the one lie this flow can tell.
 export default function StartSurahModal({ visible, nameEn, nameAr, ayahCount, onConfirm, onCancel }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Start {nameEn}?</Text>
+          <Text style={styles.cardTitle}>Open {nameEn}?</Text>
           <Text style={styles.cardBody}>
             {nameAr} · {ayahCount} ayahs{'\n'}
-            You'll begin at the first level of this surah on the map.
+            This starts a new surah. You'll begin at its first level, and it
+            counts as open once you finish that level.
           </Text>
           <TouchableOpacity style={styles.primaryBtn} onPress={onConfirm}>
-            <Text style={styles.primaryBtnText}>Start Surah</Text>
+            <Text style={styles.primaryBtnText}>Open Surah</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.dismissBtn} onPress={onCancel}>
             <Text style={styles.dismissBtnText}>Cancel</Text>

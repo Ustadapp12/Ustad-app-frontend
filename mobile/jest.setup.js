@@ -107,3 +107,31 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
     PLAY_SERVICES_NOT_AVAILABLE: 'PLAY_SERVICES_NOT_AVAILABLE',
   },
 }));
+
+// netinfo is a native module: without this, anything importing
+// services/connectivity.ts (transitively App.tsx) fails to load under jest.
+// Defaults to a healthy wifi connection so tests see an online device, which
+// is what every existing test assumed back when connectivity was a plain
+// `isOffline: false` default on authStore.
+jest.mock('@react-native-community/netinfo', () => {
+  const state = {
+    type: 'wifi',
+    isConnected: true,
+    isInternetReachable: true,
+    details: { strength: 99, isConnectionExpensive: false },
+  };
+  return {
+    __esModule: true,
+    default: {
+      configure: jest.fn(),
+      fetch: jest.fn(() => Promise.resolve(state)),
+      refresh: jest.fn(() => Promise.resolve(state)),
+      // Hand the listener the initial state the way the real module does,
+      // then return the unsubscribe function callers store.
+      addEventListener: jest.fn(listener => {
+        listener(state);
+        return jest.fn();
+      }),
+    },
+  };
+});

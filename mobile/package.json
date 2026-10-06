@@ -1,6 +1,6 @@
 {
   "name": "UstadApp",
-  "version": "1.0.0",
+  "version": "1.0.35",
   "private": true,
   "main": "index.js",
   "scripts": {
@@ -12,8 +12,9 @@
     "generate:icons:notification": "node scripts/generate-notification-icon.mjs",
     "link:firebase:ios": "node scripts/link-firebase-ios.mjs",
     "link:fonts": "node scripts/link-fonts.mjs",
-    "build:apk": "npm run link:fonts && npm run generate:icons && npm run generate:icons:notification && node scripts/build-apk.mjs",
-    "build:aab": "npm run link:fonts && npm run generate:icons && npm run generate:icons:notification && node scripts/build-apk.mjs --aab",
+    "sync-version": "node scripts/sync-version.mjs",
+    "build:apk": "npm run sync-version && npm run link:fonts && npm run generate:icons && npm run generate:icons:notification && node scripts/build-apk.mjs",
+    "build:aab": "npm run sync-version && npm run link:fonts && npm run generate:icons && npm run generate:icons:notification && node scripts/build-apk.mjs --aab",
     "keystore:generate": "bash scripts/generate-release-keystore.sh",
     "ios": "react-native run-ios",
     "lint": "eslint .",
@@ -27,6 +28,7 @@
     "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "^3.0.2",
     "@react-native-community/blur": "^4.4.1",
+    "@react-native-community/netinfo": "^12.0.1",
     "@react-native-community/push-notification-ios": "^1.12.0",
     "@react-native-firebase/analytics": "^23.8.8",
     "@react-native-firebase/app": "^23.8.8",

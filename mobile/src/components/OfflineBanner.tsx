@@ -2,23 +2,47 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
-import { useAuthStore } from '../store/authStore';
+import { useConnectivityStore } from '../store/connectivityStore';
 
 // Mounted once in RootNavigator, above the stack navigator — shows on every
-// screen regardless of auth state (see authStore's isOffline for how it's
-// set: SplashScreen's healthCheck for a signed-out device, hydrate/
-// refreshLearning for a signed-in one). Purely informational: nothing else
-// in the app blocks on this, it just tells the user why things might be
-// stale/slow right now.
+// screen regardless of auth state. Purely informational: nothing else in the
+// app blocks on this, it just tells the user why things might be stale.
+//
+// Reads store/connectivityStore.ts, which replaced authStore's old single
+// `isOffline` boolean. The two flags are genuinely different situations and
+// now say different things:
+//
+//   isDeviceOffline      the OS says there is no network (airplane mode, no
+//                        signal). Authoritative, and clears itself the moment
+//                        the radio comes back.
+//   isServerUnreachable  the device has a network but our backend returned no
+//                        HTTP response at all (status 0).
+//
+// A server that answers with a 500/503/404 sets neither, because that is not
+// a connectivity problem and a connectivity banner is the wrong thing to show
+// for it. That case used to land here and was the loudest false positive.
+//
+// Device-offline takes precedence: if there is no network then of course the
+// backend is unreachable, and saying so twice is noise.
 export default function OfflineBanner() {
-  const isOffline = useAuthStore(s => s.isOffline);
+  const isDeviceOffline = useConnectivityStore(s => s.isDeviceOffline);
+  const isServerUnreachable = useConnectivityStore(s => s.isServerUnreachable);
   const insets = useSafeAreaInsets();
 
-  if (!isOffline) return null;
+  // Neither message promises a sync. The old copy said "Changes will sync
+  // once you're back online", which was never true: there is no write queue
+  // behind this banner, so nothing was ever waiting to sync.
+  const message = isDeviceOffline
+    ? "You're offline. Some things may be out of date."
+    : isServerUnreachable
+      ? "Can't reach Ustad right now. Some things may be out of date."
+      : null;
+
+  if (!message) return null;
 
   return (
     <View style={[styles.bar, { paddingTop: insets.top + 6 }]} pointerEvents="none">
-      <Text style={styles.text}>You're offline. Changes will sync once you're back online.</Text>
+      <Text style={styles.text}>{message}</Text>
     </View>
   );
 }

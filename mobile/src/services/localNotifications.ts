@@ -7,7 +7,7 @@
  *   - Every notifee call is wrapped so a missing/failed native module degrades to a
  *     no-op, never a thrown error into the UI.
  *
- * Wired in (see notifications-scaffold/README.md for the original scope note this
+ * Wired in (see scaffolds/notifications-scaffold/README.md for the original scope note this
  * grew from):
  *   - refreshLocalNotifications() runs on every fresh learning payload
  *     (authStore.applyFreshLearning — login/register/hydrate/refresh) and right after
@@ -26,7 +26,7 @@
  *   - "Hearts are full again" is deliberately excluded — the persistent hearts
  *     economy it depends on has no UI anywhere in the app yet.
  *   - Not yet verified on a real device/build — android/ hasn't reached
- *     C:\BuildProjects\ustadapp-mobile\ yet, see changes-2026-09-04.md.
+ *     C:\BuildProjects\ustadapp-mobile\ yet, see docs/changelog/changes-2026-09-04.md.
  */
 
 // ── Notifee lazy-loader (same pattern as analytics.ts / googleAuth.ts) ────────

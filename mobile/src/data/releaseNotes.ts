@@ -5,7 +5,7 @@
 // even though versions.md (the internal dev log this is drafted from) is
 // fine to append immediately after a verified build.
 //
-// Rewritten from ustadapp/mobile/versions.md into user-facing language and
+// Rewritten from ustadapp/mobile/docs/changelog/versions.md into user-facing language and
 // grouped by change type — that file is the internal source of truth for
 // what actually shipped in each build; this is its public-facing summary,
 // not a duplicate of its own dev-detail content.
@@ -28,6 +28,18 @@ export interface ReleaseNoteEntry {
 }
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
+  {
+    // Reviewed and approved by the user 2026-10-07, before the build that
+    // carries it — the standing rule, back in force after 1.0.34's one-off
+    // exception below.
+    version: '1.0.35',
+    date: '2026-10-07',
+    changes: [
+      { category: 'Fixed', text: "The “you're offline” message no longer shows when you are actually online." },
+      { category: 'New', text: 'Surah search now shows which surahs are open, done or closed, and asks before you open a new one.' },
+      { category: 'Fixed', text: 'The app version shown in your profile is now correct.' },
+    ],
+  },
   {
     // Shipped WITHOUT the usual pre-release review: the user explicitly
     // chose "draft it and ship without review" for this build (2026-10-03),
