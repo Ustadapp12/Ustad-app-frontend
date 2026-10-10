@@ -29,7 +29,12 @@ import LumoInfoModal from '../../components/LumoInfoModal';
 import LoadingStatusText from '../../components/LoadingStatusText';
 import type { ExerciseDict, ExpectedWordResult, FormulaAttemptOut, SegmentStatus } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
-import { TOUR_GLOW, TOUR_GLOW_ROUND, TOUR_GLOW_ROUND_THIN } from '../../components/tour/tourGlow';
+import { TOUR_GLOW } from '../../components/tour/tourGlow';
+import LessonHeader, { MAX_MISTAKES } from '../../components/lesson/LessonHeader';
+import AyahText from '../../components/lesson/AyahText';
+import ExerciseLayout from '../../components/lesson/ExerciseLayout';
+import ExerciseFooterButton from '../../components/lesson/ExerciseFooterButton';
+import UstadSays from '../../components/lesson/UstadSays';
 
 // The speaker/audio-playback icon used everywhere a "tap to hear" control
 // shows a handheld speaker — replaces the old 🔊 emoji.
@@ -237,168 +242,6 @@ const HANDLED_EXERCISE_TYPES = new Set([
   'read_ayah_and_speak', 'read_and_speak',
 ]);
 
-// ── Bismillah stripping ───────────────────────────────────────────
-// The hint modal receives ayah_ar which sometimes includes the Bismillah
-// (بسم الله الرحمن الرحيم) as a leading prefix from the backend or group data.
-// This function removes it so the hint shows only the actual ayah text with ۝.
-// Matches any diacritisation variant via the optional-harakat character class.
-
-const _D = '[ً-ٰٟ]*'; // any Arabic diacritics (harakat / dagger alif)
-const BISMILLAH_RE = new RegExp(
-  '^[\\s﷽]*' +              // leading whitespace or ﷽ glyph
-  `ب${_D}س${_D}م${_D}` + // بسم
-  `\\s+ا${_D}ل${_D}ل${_D}[هة]${_D}` + // الله
-  `\\s+ا${_D}ل${_D}ر${_D}ح${_D}م${_D}[نا]${_D}` + // الرحمن
-  `\\s+ا${_D}ل${_D}ر${_D}ح${_D}[يى]${_D}م${_D}` + // الرحيم
-  '[\\s\\n]*',
-);
-
-function stripBismillahPrefix(text: string | null | undefined): string {
-  if (!text) return text ?? '';
-  const stripped = text.replace(BISMILLAH_RE, '').trim();
-  // Guard: if stripping would empty the string (i.e. the ayah IS Bismillah,
-  // like Surah 1:1), return the original unchanged.
-  return stripped || text;
-}
-
-// ── Ayah text with matching-size ۝ end-marker ────────────────────
-function AyahText({ text, style }: { text: string; style: any }) {
-  if (!text.includes('۝')) return <Text style={style}>{text}</Text>;
-  const parts = text.split('۝');
-  const circleSize = style.fontSize ?? 20;
-  return (
-    <Text style={style}>
-      {parts.map((part, i) => (
-        <React.Fragment key={i}>
-          {part}
-          {i < parts.length - 1 && (
-            <Text style={{ fontSize: circleSize }}>۝</Text>
-          )}
-        </React.Fragment>
-      ))}
-    </Text>
-  );
-}
-
-// ── Hint button (glowing lightbulb, top-right) with Lumo modal ─────
-export function HintButton({
-  url, ayahAr, ayahTranslation,
-}: { url?: string | null; ayahAr?: string | null; ayahTranslation?: string | null }) {
-  const arabicFont = useArabicFont();
-  const glowAnim   = useRef(new Animated.Value(0.5)).current;
-  const [visible, setVisible]   = useState(false);
-  const [playing, setPlaying]   = useState(false);
-  const mountedRef = useRef(true);
-
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(glowAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-      Animated.timing(glowAnim, { toValue: 0.5, duration: 900, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, []);
-
-  // Stop audio whenever the modal closes
-  useEffect(() => {
-    if (!visible && playing) {
-      void pauseCurrentAudio();
-      if (mountedRef.current) setPlaying(false);
-    }
-  }, [visible]);
-
-  const handlePlayPause = async () => {
-    if (!url) return;
-    if (playing) {
-      setPlaying(false);
-      await pauseCurrentAudio();
-    } else {
-      setPlaying(true); // set before awaiting — playUrl only resolves once playback finishes
-      await playUrl(url, () => { if (mountedRef.current) setPlaying(false); });
-    }
-  };
-
-  // A hint is worth showing if there's either audio or text — previously an
-  // exercise that carried the ayah and its translation but no audio url hid the
-  // button entirely, throwing away a perfectly good hint.
-  if (!url && !ayahAr) return null;
-
-  return (
-    <>
-      <TouchableOpacity style={HB.container} onPress={() => setVisible(true)}>
-        <Animated.View style={[HB.glow, { opacity: glowAnim }]} />
-        <Text style={HB.icon}>💡</Text>
-        <Text style={HB.label}>Hint</Text>
-      </TouchableOpacity>
-
-      <Modal transparent animationType="fade" visible={visible} onRequestClose={() => setVisible(false)}>
-        <View style={HB.backdrop}>
-          <View style={HB.modal}>
-            <View style={{ width: 100, height: 100, marginBottom: 8 }}>
-              <Image
-                source={require('../../../assets/images/lumo_hint.png')}
-                style={[HB.lumo, { marginBottom: 0 }]}
-                resizeMode="contain"
-              />
-              <MascotShadow width={100} />
-            </View>
-            <Text style={HB.modalTitle}>Hint</Text>
-
-            {ayahAr ? (
-              <View style={HB.ayahBox}>
-                {/* Strip Bismillah so only the actual ayah with ۝ is shown */}
-                <AyahText text={stripBismillahPrefix(ayahAr)} style={arabicTextStyle(HB.ayahAr as any, arabicFont) as any} />
-                {ayahTranslation ? (
-                  <Text style={HB.ayahTrans}>"{ayahTranslation}"</Text>
-                ) : null}
-              </View>
-            ) : null}
-
-            {/* Play / Pause button — omitted when the hint is text-only */}
-            {url ? (
-              <TouchableOpacity
-                style={[HB.playBtn, playing && HB.playBtnActive]}
-                onPress={handlePlayPause}
-              >
-                <View style={HB.pauseRow}>
-                  <PlayPauseIcon playing={playing} size={16} color="#F5F7FA" />
-                  <Text style={HB.playText}>  {playing ? 'Pause' : 'Hear the Ayah'}</Text>
-                </View>
-              </TouchableOpacity>
-            ) : null}
-
-            <TouchableOpacity style={HB.cancelBtn} onPress={() => setVisible(false)}>
-              <Text style={HB.cancelText}>Got it</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </>
-  );
-}
-
-const HB = StyleSheet.create({
-  container:    { alignItems: 'center', justifyContent: 'center', width: 52, height: 52 },
-  glow:         { position: 'absolute', width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFF59D' },
-  icon:         { fontSize: 22 },
-  label:        { fontSize: 10, fontFamily: 'Nunito-Bold', color: '#A07C00', marginTop: 1 },
-  backdrop:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
-  modal:        { backgroundColor: '#F5F7FA', borderRadius: 24, padding: 24, alignItems: 'center', width: '88%', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
-  lumo:         { width: 100, height: 100, marginBottom: 8 },
-  modalTitle:   { fontFamily: 'Nunito-Bold', fontSize: 20, color: colors.darkText, marginBottom: 12 },
-  ayahBox:      { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 14, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 16, alignItems: 'center', marginBottom: 16 },
-  ayahAr:       { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 38 },
-  ayahTrans:    { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginTop: 8, fontStyle: 'italic', lineHeight: 18 },
-  playBtn:      { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
-  playBtnActive:{ backgroundColor: '#1A5C3A' },
-  playText:     { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#F5F7FA' },
-  pauseRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cancelBtn:    { width: '100%', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
-  cancelText:   { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.midText },
-});
-
 // ── Character rotation ────────────────────────────────────────────
 export interface Character { src: ImageSourcePropType; name: string }
 export const CHARACTERS: Character[] = [
@@ -421,14 +264,6 @@ export function shuffleIndices(len: number): number[] {
 export function characterForIndex(shuffled: number[], idx: number): Character {
   return CHARACTERS[shuffled[idx % shuffled.length]];
 }
-
-// ── Hearts ─────────────────────────────────────────────────────────
-// 5 heart icons, each worth 2 half-heart units (full -> half -> empty), so
-// the session actually ends at 10 total mistakes, not 5 — these two numbers
-// must move together or the "out of hearts" trigger silently drifts out of
-// sync with what the heart icons are visually showing.
-const MAX_HEARTS = 5;
-const MAX_MISTAKES = MAX_HEARTS * 2;
 
 function accuracyPct(a: { correct: number; wrong: number }): number {
   const total = a.correct + a.wrong;
@@ -579,134 +414,6 @@ const BI = StyleSheet.create({
   beginBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
 });
 
-// ── Segment progress dots ─────────────────────────────────────────
-
-// ── Exercise progress bar ─────────────────────────────────────────
-
-export function ProgressBar({ fraction }: { fraction: number }) {
-  const animW = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(animW, { toValue: Math.max(0, Math.min(fraction, 1)), duration: 600, useNativeDriver: false }).start();
-  }, [fraction]);
-  return (
-    <View style={PBR.track}>
-      <Animated.View style={[PBR.fill, {
-        width: animW.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-      }]} />
-    </View>
-  );
-}
-
-// ── Exercise header ───────────────────────────────────────────────
-// The ✕ / progress bar / hearts / hint strip that sits above every exercise.
-//
-// Extracted (rather than left inline in the main screen) so the guided tour can
-// render the genuine article instead of a mock-up of it. The tour is meant to
-// show new users what the real lesson screen looks like, and a hand-copied
-// lookalike would start lying the first time this changed. Same component, same
-// hearts, same bar, same hint modal — they cannot drift apart.
-export interface LessonHeaderTargets {
-  progress?: React.Ref<View>;
-  hearts?: React.Ref<View>;
-  hint?: React.Ref<View>;
-}
-
-export function LessonHeader({
-  mistakes,
-  progressFraction,
-  hintUrl,
-  hintAyahAr,
-  hintAyahTranslation,
-  onExit,
-  targets,
-  glowTarget,
-  hideHearts,
-}: {
-  /** In half-heart units — see MAX_MISTAKES. */
-  mistakes: number;
-  progressFraction: number;
-  hintUrl?: string | null;
-  hintAyahAr?: string | null;
-  hintAyahTranslation?: string | null;
-  onExit: () => void;
-  /** Optional refs so the tour can measure what it's about to spotlight. */
-  targets?: LessonHeaderTargets;
-  /** Tour-only: which of this header's own elements should glow itself. */
-  glowTarget?: 'hint' | 'hearts' | 'progress' | null;
-  /** Special (merged/review) levels — hearts aren't shown at all, not just
-   * exempted from loss (see isNoMistake in submitAnswer). */
-  hideHearts?: boolean;
-}) {
-  const heartsLeftHalf = MAX_MISTAKES - mistakes;
-
-  return (
-    <View style={LH.header}>
-      <TouchableOpacity
-        style={LH.backBtn}
-        onPress={onExit}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Exit lesson"
-      >
-        <Text style={LH.backText}>✕</Text>
-      </TouchableOpacity>
-
-      <View
-        ref={targets?.progress}
-        collapsable={false}
-        style={[LH.progressSlot, glowTarget === 'progress' && TOUR_GLOW_ROUND_THIN]}
-      >
-        <ProgressBar fraction={progressFraction} />
-      </View>
-
-      {!hideHearts && (
-        <View
-          ref={targets?.hearts}
-          collapsable={false}
-          style={[LH.heartsRow, glowTarget === 'hearts' && TOUR_GLOW_ROUND]}
-        >
-          {Array.from({ length: MAX_HEARTS }).map((_, i) => {
-            const heartsFromThisIcon = heartsLeftHalf - i * 2; // each icon is worth 2 half-hearts
-            const src =
-              heartsFromThisIcon >= 2 ? require('../../../assets/map/redh.png') :
-              heartsFromThisIcon === 1 ? require('../../../assets/map/halfh.png') :
-              require('../../../assets/map/whiteh.png');
-            return (
-              <View key={i} style={LH.heartWrapper}>
-                <Image source={src} style={LH.heartImage} resizeMode="contain" />
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      <View ref={targets?.hint} collapsable={false} style={glowTarget === 'hint' ? TOUR_GLOW_ROUND : undefined}>
-        <HintButton url={hintUrl} ayahAr={hintAyahAr} ayahTranslation={hintAyahTranslation} />
-      </View>
-    </View>
-  );
-}
-
-const LH = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F7FA', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
-  backText: { fontSize: 14, color: colors.mutedText },
-  // ProgressBar itself carries flex:1; this wrapper only exists so the tour has
-  // something measurable to point at, so it has to pass that through. Needs its
-  // own flexDirection:'row' — a plain View defaults to column, which put
-  // ProgressBar's flex:1 on the vertical axis instead of the horizontal one
-  // it had when it sat directly in this row-direction header, before this
-  // wrapper existed.
-  progressSlot: { flex: 1, flexDirection: 'row' },
-  heartsRow: { flexDirection: 'row', gap: 3 },
-  heartImage: { width: 20, height: 20 },
-  heartWrapper: { alignItems: 'center', justifyContent: 'center', width: 20, height: 20 },
-});
-
-const PBR = StyleSheet.create({
-  track: { flex: 1, height: 10, backgroundColor: '#E5E7EB', borderRadius: 6, overflow: 'hidden', marginHorizontal: 10 },
-  fill:  { height: '100%', backgroundColor: colors.primary, borderRadius: 6 },
-});
-
 // ── Exercise renderers ─────────────────────────────────────────────
 
 export function AyahDisplay({
@@ -735,7 +442,10 @@ export function AyahDisplay({
   };
 
   return (
-    <ScrollView contentContainerStyle={AD.container} showsVerticalScrollIndicator={false}>
+    <ExerciseLayout
+      contentStyle={AD.container}
+      footer={<ExerciseFooterButton label="Got it  →" onPress={onContinue} />}
+    >
       {showLumo && (
         <View style={AD.lumoRow}>
           <Image
@@ -777,17 +487,12 @@ export function AyahDisplay({
         <Text style={AD.tipIcon}>💡</Text>
         <Text style={AD.tipText}>Tip: Listen 3 times before continuing to help it stick in memory.</Text>
       </View>
-
-      {/* Continue */}
-      <TouchableOpacity style={AD.continueBtn} onPress={onContinue}>
-        <Text style={AD.continueBtnText}>Got it  →</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
 const AD = StyleSheet.create({
-  container: { padding: 20, paddingBottom: 40, alignItems: 'center' },
+  container: { alignItems: 'center' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF8E7', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 16, borderWidth: 1, borderColor: '#E0BC4E' },
   badgeIcon: { fontSize: 14 },
   badgeText: { fontFamily: 'Nunito-Bold', fontSize: 11, color: '#9A7A20', letterSpacing: 0.8 },
@@ -804,11 +509,9 @@ const AD = StyleSheet.create({
   lumoBubble: { flex: 1, backgroundColor: '#E8F5EE', borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, position: 'relative' },
   lumoBubbleTail: { position: 'absolute', left: -9, top: 14, width: 0, height: 0, borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: colors.primary },
   lumoBubbleText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
-  tipCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFFBEC', borderRadius: 14, padding: 14, width: '100%', marginBottom: 24, borderWidth: 1, borderColor: '#FDE68A' },
+  tipCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFFBEC', borderRadius: 14, padding: 14, width: '100%', borderWidth: 1, borderColor: '#FDE68A' },
   tipIcon: { fontSize: 16 },
   tipText: { fontFamily: 'Nunito-Regular', fontSize: 12, color: '#92400E', flex: 1, lineHeight: 18 },
-  continueBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#F5F7FA' },
 });
 
 // EX.blankBox has a fixed size tuned for the default Naskh font. Nastaliq
@@ -858,23 +561,22 @@ export function FillBlankOrNextWord({
   const isCorner = blankIdx === 0 || (ex.tokens != null && blankIdx === ex.tokens.length - 1);
   const wordAudioUrls = isCorner && ex.segment_audio_urls?.length ? ex.segment_audio_urls : null;
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}>
-          <Text style={EX.reviewBannerText}>🔁  Try again</Text>
-        </View>
-      )}
-
-      {/* Character + speech bubble */}
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT[ex.type] ?? ex.instruction}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={
+        <ExerciseFooterButton
+          onPress={() => { if (selected) onSubmit(selected); }}
+          disabled={!selected || locked}
+          buttonRef={checkButtonRef}
+          glow={glowCheck}
+        />
+      }
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT[ex.type] ?? ex.instruction}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Word-by-word speaker — only when blank is in corner position */}
       {wordAudioUrls && (
@@ -952,17 +654,7 @@ export function FillBlankOrNextWord({
           );
         })}
       </View>
-
-      <View ref={checkButtonRef} collapsable={false}>
-        <TouchableOpacity
-          style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled, glowCheck && TOUR_GLOW]}
-          onPress={() => { if (selected && !locked) onSubmit(selected); }}
-          disabled={!selected || locked}
-        >
-          <Text style={EX.continueBtnText}>Check</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1005,23 +697,13 @@ export function ReorderOrSequence({
   const ready = placed.length === answerLen;
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}>
-          <Text style={EX.reviewBannerText}>🔁  Try again</Text>
-        </View>
-      )}
-
-      {/* Character + speech bubble */}
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT[ex.type] ?? ex.instruction}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout footer={<ExerciseFooterButton onPress={() => onSubmit(placed)} disabled={!ready || locked} />}>
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT[ex.type] ?? ex.instruction}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Context before */}
       {ex.context_before?.length ? <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_before.join(' ')}</Text> : null}
@@ -1059,15 +741,7 @@ export function ReorderOrSequence({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!ready || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (ready && !locked) onSubmit(placed); }}
-        disabled={!ready || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1087,23 +761,15 @@ export function SegmentRecall({
   useEffect(() => { setSelected(null); }, [ex.ex_id]);
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}>
-          <Text style={EX.reviewBannerText}>🔁  Try again</Text>
-        </View>
-      )}
-
-      {/* Character + speech bubble */}
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT[ex.type] ?? ex.instruction}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={<ExerciseFooterButton onPress={() => { if (selected) onSubmit(selected); }} disabled={!selected || locked} />}
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT[ex.type] ?? ex.instruction}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Options: single tap = select; locked after Check */}
       <View style={EX.optionsColumn}>
@@ -1117,15 +783,7 @@ export function SegmentRecall({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (selected && !locked) onSubmit(selected); }}
-        disabled={!selected || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1165,20 +823,15 @@ export function SequenceExercise({
   const ready = placed.every(p => p !== null);
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}><Text style={EX.reviewBannerText}>🔁  Try again</Text></View>
-      )}
-
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT[ex.type] ?? ex.instruction}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={<ExerciseFooterButton onPress={() => onSubmit(placed.filter(Boolean) as string[])} disabled={!ready || locked} />}
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT[ex.type] ?? ex.instruction}
+        label={`Surah ${surahName}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Answer zone — same-size boxes side by side */}
       <View style={EX.seqAnswerZone}>
@@ -1209,15 +862,7 @@ export function SequenceExercise({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!ready || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (ready && !locked) onSubmit(placed.filter(Boolean) as string[]); }}
-        disabled={!ready || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1286,20 +931,15 @@ export function AudioFill({
   const wordAudioUrls = isCorner && ex.segment_audio_urls?.length ? ex.segment_audio_urls : null;
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}><Text style={EX.reviewBannerText}>🔁  Try again</Text></View>
-      )}
-
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT['audio_fill']}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={<ExerciseFooterButton onPress={() => { if (selected) onSubmit(selected); }} disabled={!selected || locked} />}
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT.audio_fill}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* "Hear the word" button — user must press to hear; not auto-played */}
       {ex.segment_audio_urls?.length ? (
@@ -1344,15 +984,7 @@ export function AudioFill({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (selected && !locked) onSubmit(selected); }}
-        disabled={!selected || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1360,7 +992,7 @@ const AF = StyleSheet.create({
   hearBtn:           { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 22, marginBottom: 10, borderWidth: 1.5, borderColor: colors.primary },
   hearBtnIcon:       { width: 18, height: 18 },
   hearBtnLabel:      { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.primary },
-  optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 12 },
+  optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
   optionBtn:         { width: '45%', backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 12, alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   optionSelected:    { borderColor: colors.primary, backgroundColor: colors.primaryBg },
   playCircle:        { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primaryBg, borderWidth: 2, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
@@ -1403,20 +1035,13 @@ export function AyatThenOrder({
   const ready = placed.length === answerLen;
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}><Text style={EX.reviewBannerText}>🔁  Try again</Text></View>
-      )}
-
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT['ayat_then_order']}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
-        </View>
-      </View>
+    <ExerciseLayout footer={<ExerciseFooterButton onPress={() => onSubmit(placed)} disabled={!ready || locked} />}>
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT.ayat_then_order}
+        label={`Surah ${surahName}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* First ayah — read-only header with play button */}
       {ex.first_ayah_text ? (
@@ -1460,15 +1085,7 @@ export function AyatThenOrder({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!ready || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (ready && !locked) onSubmit(placed); }}
-        disabled={!ready || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1859,22 +1476,70 @@ function ReadAyahAndSpeak({
     onFinalize(pendingResult);
   };
 
-  return (
-    // Outer wrapper: scrollable content at top, mic pinned at bottom.
-    // This ensures the mic button is always reachable regardless of screen size.
-    <View style={RAS.outer}>
-      <ScrollView contentContainerStyle={RAS.container} showsVerticalScrollIndicator={false}>
+  // Pinned below the content so the mic is always reachable on every screen size.
+  const micArea = speakState !== 'done' && speakState !== 'retry_choice' ? (
+    <View style={RAS.micArea}>
+      <Text style={RAS.micInstruction}>
+        {speakState === 'recording'
+          ? 'Recording… tap to stop'
+          : speakState === 'scoring'
+          ? 'Scoring your recitation…'
+          : 'Tap the mic to start, tap again to stop and check'}
+      </Text>
 
-        {/* Character speech bubble */}
-        <View style={EX.characterRow}>
-          <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-          <View style={EX.verseInfoCard}>
-            <View style={EX.bubbleTail} />
-            <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-            <Text style={EX.bubbleText}>{speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT['read_ayah_and_speak']}</Text>
-            <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-          </View>
+      {speakState === 'scoring' ? (
+        <RecitationScoringFeedback />
+      ) : (
+        <Pressable
+          onPress={handleMicTap}
+          style={({ pressed }) => [RAS.micBtn, pressed && RAS.micBtnActive]}
+        >
+          {speakState === 'recording' ? (
+            <LottieView
+              source={require('../../../assets/animations/listen.json')}
+              autoPlay
+              loop
+              style={RAS.listenAnim}
+            />
+          ) : (
+            <Image
+              source={require('../../../assets/images/mic.png')}
+              style={RAS.micImage}
+              resizeMode="contain"
+            />
+          )}
+        </Pressable>
+      )}
+
+      {/* Every recitation question is skippable — for people who don't
+          want to attempt speaking at all. Only offered before a
+          recording is made; once there's an attempt in flight/scored,
+          the retry-choice's own Next button covers "move on" instead. */}
+      {speakState === 'idle' && (
+        <TouchableOpacity style={RAS.skipBtn} onPress={onSkip}>
+          <Text style={RAS.skipBtnText}>Skip</Text>
+        </TouchableOpacity>
+      )}
+
+      {!!error && (
+        <View style={RAS.errorBox}>
+          <Text style={RAS.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => { setError(null); setSpeakState('idle'); }}>
+            <Text style={RAS.retryLink}>Try again</Text>
+          </TouchableOpacity>
         </View>
+      )}
+    </View>
+  ) : null;
+
+  return (
+    <View style={RAS.outer}>
+      <ExerciseLayout footer={micArea}>
+        <UstadSays
+          character={character}
+          text={speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT.read_ayah_and_speak}
+          label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        />
 
         {/* Ayah card — the text the user will recite */}
         <View style={RAS.ayahCard}>
@@ -1897,64 +1562,7 @@ function ReadAyahAndSpeak({
           disabled={speakState !== 'idle'}
         />
 
-      </ScrollView>
-
-      {/* Mic area pinned below the scroll content so it never gets
-          pushed off-screen by the ayah text on short devices */}
-      {speakState !== 'done' && speakState !== 'retry_choice' && (
-        <View style={RAS.micArea}>
-          <Text style={RAS.micInstruction}>
-            {speakState === 'recording'
-              ? 'Recording… tap to stop'
-              : speakState === 'scoring'
-              ? 'Scoring your recitation…'
-              : 'Tap the mic to start, tap again to stop and check'}
-          </Text>
-
-          {speakState === 'scoring' ? (
-            <RecitationScoringFeedback />
-          ) : (
-            <Pressable
-              onPress={handleMicTap}
-              style={({ pressed }) => [RAS.micBtn, pressed && RAS.micBtnActive]}
-            >
-              {speakState === 'recording' ? (
-                <LottieView
-                  source={require('../../../assets/animations/listen.json')}
-                  autoPlay
-                  loop
-                  style={RAS.listenAnim}
-                />
-              ) : (
-                <Image
-                  source={require('../../../assets/images/mic.png')}
-                  style={RAS.micImage}
-                  resizeMode="contain"
-                />
-              )}
-            </Pressable>
-          )}
-
-          {/* Every recitation question is skippable — for people who don't
-              want to attempt speaking at all. Only offered before a
-              recording is made; once there's an attempt in flight/scored,
-              the retry-choice's own Next button covers "move on" instead. */}
-          {speakState === 'idle' && (
-            <TouchableOpacity style={RAS.skipBtn} onPress={onSkip}>
-              <Text style={RAS.skipBtnText}>Skip</Text>
-            </TouchableOpacity>
-          )}
-
-          {!!error && (
-            <View style={RAS.errorBox}>
-              <Text style={RAS.errorText}>{error}</Text>
-              <TouchableOpacity onPress={() => { setError(null); setSpeakState('idle'); }}>
-                <Text style={RAS.retryLink}>Try again</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
+      </ExerciseLayout>
 
       {/* Retry-choice bottom sheet — same visual treatment as the final
           result banner, just with Try Again / Next instead of Continue. */}
@@ -1967,11 +1575,10 @@ function ReadAyahAndSpeak({
 
 const RAS = StyleSheet.create({
   outer:          { flex: 1 },
-  container:      { padding: 20, paddingBottom: 8 },
   ayahCard:       { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 18, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 24, alignItems: 'center', marginBottom: 16 },
   ayahText:       { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 28, color: colors.darkText, textAlign: 'center', lineHeight: 52 },
   // Fixed bottom area — always visible above the result sheet
-  micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
+  micArea:        { alignItems: 'center', paddingTop: 12, paddingBottom: 16 },
   micInstruction: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
   // White background with green border makes the mic.png icon clearly visible
@@ -1981,7 +1588,6 @@ const RAS = StyleSheet.create({
   micBtnRecorded: { width: 76, height: 76, borderRadius: 38, opacity: 0.7 },
   micImage:       { width: 52, height: 52, tintColor: '#F5F7FA' },
   listenAnim:     { width: 88, height: 88 },
-  checkBtn:       { width: '100%', marginTop: 20 },
   skipBtn:        { marginTop: 18, paddingVertical: 4, paddingHorizontal: 10 },
   skipBtnText:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
@@ -2160,20 +1766,72 @@ export function ReadAndSpeak({
   // Collect all audio URLs for the "hear them all" sequential playback
   const allAudioUrls = tokens.map(t => t.audio_url).filter(Boolean) as string[];
 
+  // Pinned below the content so the mic is always reachable on every screen size.
+  const micArea = speakState !== 'done' && speakState !== 'retry_choice' ? (
+    <View style={RANS.micArea}>
+      {speakState !== 'scoring' && (
+        <Text style={RANS.micInstruction}>
+          {speakState === 'recording'
+            ? 'Recording… tap to stop'
+            : 'Tap the mic to start, tap again to stop and check'}
+        </Text>
+      )}
+
+      {speakState === 'scoring' ? (
+        <RecitationScoringFeedback />
+      ) : (
+        <View ref={micButtonRef} collapsable={false}>
+          <Pressable
+            onPress={handleMicTap}
+            style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive, glowMic && TOUR_GLOW]}
+          >
+            {speakState === 'recording' ? (
+              <LottieView
+                source={require('../../../assets/animations/listen.json')}
+                autoPlay
+                loop
+                style={RANS.listenAnim}
+              />
+            ) : (
+              <Image
+                source={require('../../../assets/images/mic.png')}
+                style={RANS.micImage}
+                resizeMode="contain"
+              />
+            )}
+          </Pressable>
+        </View>
+      )}
+
+      {/* Every recitation question is skippable — for people who don't
+          want to attempt speaking at all. Only offered before a
+          recording is made; once there's an attempt in flight/scored,
+          the retry-choice's own Next button covers "move on" instead. */}
+      {speakState === 'idle' && (
+        <TouchableOpacity style={RANS.skipBtn} onPress={onSkip}>
+          <Text style={RANS.skipBtnText}>Skip</Text>
+        </TouchableOpacity>
+      )}
+
+      {!!error && (
+        <View style={RANS.errorBox}>
+          <Text style={RANS.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => { setError(null); setSpeakState('idle'); }}>
+            <Text style={RANS.retryLink}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  ) : null;
+
   return (
     <View style={RANS.outer}>
-      <ScrollView contentContainerStyle={RANS.container} showsVerticalScrollIndicator={false}>
-
-        {/* Character speech bubble */}
-        <View style={EX.characterRow}>
-          <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-          <View style={EX.verseInfoCard}>
-            <View style={EX.bubbleTail} />
-            <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-            <Text style={EX.bubbleText}>{speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT['read_and_speak']}</Text>
-            <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-          </View>
-        </View>
+      <ExerciseLayout footer={micArea}>
+        <UstadSays
+          character={character}
+          text={speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT.read_and_speak}
+          label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        />
 
         {/* Word chips — displayed RTL (right-to-left, Arabic reading order).
             Always stay visible; only disabled from the moment recording
@@ -2213,65 +1871,7 @@ export function ReadAndSpeak({
           </TouchableOpacity>
         )}
 
-      </ScrollView>
-
-      {/* Mic area pinned below scroll — always visible on all screen sizes */}
-      {speakState !== 'done' && speakState !== 'retry_choice' && (
-        <View style={RANS.micArea}>
-          {speakState !== 'scoring' && (
-            <Text style={RANS.micInstruction}>
-              {speakState === 'recording'
-                ? 'Recording… tap to stop'
-                : 'Tap the mic to start, tap again to stop and check'}
-            </Text>
-          )}
-
-          {speakState === 'scoring' ? (
-            <RecitationScoringFeedback />
-          ) : (
-            <View ref={micButtonRef} collapsable={false}>
-              <Pressable
-                onPress={handleMicTap}
-                style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive, glowMic && TOUR_GLOW]}
-              >
-                {speakState === 'recording' ? (
-                  <LottieView
-                    source={require('../../../assets/animations/listen.json')}
-                    autoPlay
-                    loop
-                    style={RANS.listenAnim}
-                  />
-                ) : (
-                  <Image
-                    source={require('../../../assets/images/mic.png')}
-                    style={RANS.micImage}
-                    resizeMode="contain"
-                  />
-                )}
-              </Pressable>
-            </View>
-          )}
-
-          {/* Every recitation question is skippable — for people who don't
-              want to attempt speaking at all. Only offered before a
-              recording is made; once there's an attempt in flight/scored,
-              the retry-choice's own Next button covers "move on" instead. */}
-          {speakState === 'idle' && (
-            <TouchableOpacity style={RANS.skipBtn} onPress={onSkip}>
-              <Text style={RANS.skipBtnText}>Skip</Text>
-            </TouchableOpacity>
-          )}
-
-          {!!error && (
-            <View style={RANS.errorBox}>
-              <Text style={RANS.errorText}>{error}</Text>
-              <TouchableOpacity onPress={() => { setError(null); setSpeakState('idle'); }}>
-                <Text style={RANS.retryLink}>Try again</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
+      </ExerciseLayout>
 
       {/* Retry-choice bottom sheet — same visual treatment as the final
           result banner, just with Try Again / Next instead of Continue. */}
@@ -2284,7 +1884,6 @@ export function ReadAndSpeak({
 
 const RANS = StyleSheet.create({
   outer:          { flex: 1 },
-  container:      { padding: 20, paddingBottom: 8 },
   // Words wrap into multiple lines for longer ayahs
   wordRow:        { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 16, width: '100%' },
   wordChip:       { backgroundColor: '#FFFBF0', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1.5, borderColor: '#E8D8A0' },
@@ -2295,7 +1894,7 @@ const RANS = StyleSheet.create({
   hearAllBtnDisabled: { opacity: 0.4 },
   hearAllIcon:    { width: 14, height: 14 },
   hearAllText:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
-  micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
+  micArea:        { alignItems: 'center', paddingTop: 12, paddingBottom: 16 },
   micInstruction: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
   // White background with green border makes mic.png clearly visible
@@ -2304,7 +1903,6 @@ const RANS = StyleSheet.create({
   micBtnRecorded: { width: 76, height: 76, borderRadius: 38, opacity: 0.7 },
   micImage:       { width: 52, height: 52, tintColor: '#F5F7FA' },
   listenAnim:     { width: 88, height: 88 },
-  checkBtn:       { width: '100%', marginTop: 20 },
   skipBtn:        { marginTop: 18, paddingVertical: 4, paddingHorizontal: 10 },
   skipBtnText:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
@@ -2411,23 +2009,15 @@ export function HearAndSelect({
   }, [ex.ex_id]);
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}>
-          <Text style={EX.reviewBannerText}>🔁  Try again</Text>
-        </View>
-      )}
-
-      {/* Character + speech bubble */}
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>Hear the sound and select</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={<ExerciseFooterButton onPress={() => { if (selected) onSubmit(selected); }} disabled={!selected || locked} />}
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT.hear_and_select}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Big speaker button */}
       <TouchableOpacity
@@ -2464,15 +2054,7 @@ export function HearAndSelect({
           </Pressable>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (selected && !locked) onSubmit(selected); }}
-        disabled={!selected || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -2493,32 +2075,11 @@ const HAS = StyleSheet.create({
 });
 
 const EX = StyleSheet.create({
-  // Trimmed from padding:20/paddingBottom:40 — this is a compact-fit
-  // screen (see characterImg etc. below), not a scrolling one; the outer
-  // exercise container already reserves the nav-bar inset on its own (see
-  // exerciseArea in the main render), so this only needs a modest bottom
-  // margin, not a scroll safety cushion.
-  scrollContent: { padding: 16, paddingBottom: 20 },
   instruction: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 12 },
-  // Character + speech bubble — sized to fit every exercise on one screen
-  // without scrolling on a typical phone, not to showcase the mascot.
-  characterRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10, overflow: 'visible' },
-  characterImg: { width: 80, height: 80 },
-  // padding 12->8, gap 3->2 (2026-08-28): shared by FillBlankOrNextWord and
-  // HearAndSelect's "Ustad says" clue bubble -- 12px of padding around 10-14px
-  // text read as disproportionate ("a LOT of padding for such a small font").
-  verseInfoCard: { flex: 1, backgroundColor: '#F5F7FA', borderRadius: 16, padding: 8, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2, gap: 2 },
-  bubbleTail: { position: 'absolute', left: -10, top: 18, width: 0, height: 0, borderTopWidth: 8, borderBottomWidth: 8, borderRightWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#F5F7FA' },
-  characterName: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.primary, letterSpacing: 0.8 },
-  bubbleLabel: { fontFamily: 'Nunito-Regular', fontSize: 10, color: colors.mutedText },
-  bubbleText:  { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.darkText },
   // Word-by-word speaker (above question card)
   wordAudioBtn:   { alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8, backgroundColor: colors.primaryBg, borderRadius: 14, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.primary },
   wordAudioIcon:  { width: 13, height: 13 },
   wordAudioLabel: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.primary },
-  // Review (wrong-answer replay) banner
-  reviewBanner: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 10, alignItems: 'center' as const, borderWidth: 1, borderColor: '#F59E0B' },
-  reviewBannerText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#92400E' },
   // Question card
   questionCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
   ayahCard: { backgroundColor: '#F5F7FA', borderRadius: 18, padding: 22, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
@@ -2540,7 +2101,7 @@ const EX = StyleSheet.create({
   blankSpeaker:     { alignItems: 'center', justifyContent: 'center', padding: 4 },
   blankSpeakerIcon: { fontSize: 20 },
   // Options
-  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 8 },
+  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
   optionBtn: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', minWidth: '45%', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   optionBtnFull: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, marginBottom: 10, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   optionSelected: { borderColor: colors.primary, backgroundColor: colors.primaryBg },
@@ -2552,21 +2113,18 @@ const EX = StyleSheet.create({
   optionText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: colors.darkText },
   optionTextArabic: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 18, color: colors.darkText, textAlign: 'center' },
   optionTextSelected: { color: colors.primary },
-  optionsColumn: { gap: 10, marginBottom: 24 },
+  optionsColumn: { gap: 10 },
   answerZone: { minHeight: 60, backgroundColor: '#F5F7FA', borderRadius: 14, borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed', flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, padding: 10, marginBottom: 16, alignItems: 'center', justifyContent: 'center' },
   answerPlaceholder: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText },
-  tileBank: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 24 },
+  tileBank: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
   bankTile: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
   placedTile: { backgroundColor: colors.primaryBg, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
   tileText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: colors.darkText },
   listenBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 16 },
   listenBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.primary },
-  continueBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 14, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  continueBtnDisabled: { opacity: 0.35 },
-  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#F5F7FA' },
   // Sequence (ayah ordering) exercise styles
   seqAnswerZone: { flexDirection: 'column' as const, gap: 12, marginVertical: 20, paddingHorizontal: 16 },
-  seqBank:       { flexDirection: 'column' as const, gap: 12, marginBottom: 24, paddingHorizontal: 16 },
+  seqBank:       { flexDirection: 'column' as const, gap: 12, paddingHorizontal: 16 },
   seqBox:        { minHeight: 64, borderRadius: 16,
                    alignItems: 'center' as const, justifyContent: 'center' as const,
                    paddingHorizontal: 16, paddingVertical: 14,

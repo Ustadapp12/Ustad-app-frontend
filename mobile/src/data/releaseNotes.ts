@@ -29,6 +29,21 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Reviewed and approved by the user 2026-10-10, before the build that
+    // carries it.
+    version: '1.0.36',
+    date: '2026-10-10',
+    changes: [
+      { category: 'New', text: "Search screen redesigned: surahs you've started show your real progress, the rest have a Jump Here shortcut." },
+      { category: 'New', text: 'Progress screen redesigned, with your whole Quran progress on top and your surahs split into In Progress and Completed.' },
+      { category: 'New', text: 'Fresh lesson look: a reward chest marks the end of the progress bar, a new Hint button, and the exercise sits mid screen with Check always at the bottom.' },
+      { category: 'New', text: 'Reward chests are coming soon. Tap one for a sneak peek.' },
+      { category: 'Improved', text: 'New back buttons across the app.' },
+      { category: 'Improved', text: "Clearer messages when you're offline or we can't be reached, plus a popup if the connection stays too slow." },
+      { category: 'Fixed', text: 'The practice calendar arrows are easier to tap.' },
+    ],
+  },
+  {
     // Reviewed and approved by the user 2026-10-07, before the build that
     // carries it — the standing rule, back in force after 1.0.34's one-off
     // exception below.

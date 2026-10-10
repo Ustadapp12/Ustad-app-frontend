@@ -607,3 +607,55 @@ asset re-encode, the Lottie render-mode change, the focus-scoped animations
 and the new Profile logo pill are all first seen here. The pill is a new UI
 element rather than a like-for-like swap, so it is the most likely to need
 adjusting.
+
+**20043** / 1.0.35 — IPA (TestFlight) — 2026-10-06 — commit `ae6f0fd`, GitHub
+Actions run `37516845411`, EAS build `2bd41d75-c3ab-4a1c-897c-ab9b6f8da9b9`,
+submission `ace5db33-5a6d-48e2-9865-bdd1e8933a48`. Backend switched to
+**production** (`ustad-app-backend-six.vercel.app`) on the user's explicit
+instruction, the first build to leave the testing backend.
+
+**First iOS build to carry a real version string.** The EAS log reports
+`App Version: 1.0.35`, where 20040 and 20042 were both stamped 1.0.0 — no iOS
+workflow exports `VERSION_NAME` and `MARKETING_VERSION` was a hardcoded
+"1.0.0". Fixed by making `package.json` the single canonical source and adding
+`scripts/sync-version.mjs` to propagate it into `app.json` and both pbxproj
+`MARKETING_VERSION` entries, which `build:apk`/`build:aab` now run. This build
+is the verification that it works.
+
+Contents since 1.0.34 (full detail in `changes-2026-10-05.md`, `-06`, `-07`):
+
+- Connectivity rebuilt. `authStore.isOffline` — one boolean with five write
+  sites across three uncoordinated timers — replaced by
+  `store/connectivityStore.ts`: `isDeviceOffline` from the OS via
+  `@react-native-community/netinfo` 12.0.1, `isServerUnreachable` only for
+  ApiError status 0. Fixes the offline banner appearing on a working app
+  (healthCheck's 5 s fuse raced hydrate's 30 s against a cold serverless
+  start) and a 500/503 no longer claiming the device is offline.
+- Banner copy no longer promises a sync that never existed.
+- Surah search shows open (first level complete) / closed (not) / done (all
+  complete), with `unknown` deliberately untagged so a failed fetch cannot
+  label all 114 closed. Confirm dialog on opening a closed surah.
+- `firstLevels` failures surface a retry instead of a silent `console.warn`
+  that left every row uncoloured.
+- Analytics and the Profile label now read one version source.
+- In-app release notes 1.0.35, reviewed and approved by the user **before**
+  this build — the standing rule, back in force after 1.0.34's exception.
+
+**`npm ci` passed.** The netinfo install had reproduced the exact lockfile
+regression that failed 20042 at 16 s: local npm 11.9.0 dropped the package
+count 1455 -> 1452. Caught before pushing by diffing the count against HEAD
+and fixed with `npx npm@10 install --package-lock-only` (now 1456). Now a
+standing rule in memory, so it should stop recurring.
+
+**netinfo native linkage verified** by this build: the EAS macOS worker ran
+`pod install` and the iOS build compiled, which is the confirmation that could
+not be obtained from the Windows dev machine.
+
+Timing note: the EAS build itself finished in about 6 minutes (19:10 to 19:16),
+but the run took 2 h 47 m total because the TestFlight submission wait ran to
+21:56. The workflow still reported success on every one of its 15 steps.
+
+Not verified on a device. The connectivity rebuild, the search open/closed/done
+states and the production backend switch are all first seen here. The Gradle
+`versionName` fallback that reads `package.json` is **not** exercised by an iOS
+build and still needs an Android build to confirm `versionName="1.0.35"`.

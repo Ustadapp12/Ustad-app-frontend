@@ -7,6 +7,7 @@ import SplashScreen from '../screens/startup/SplashScreen';
 import StreakLostModal from '../components/StreakLostModal';
 import ExitAppModal from '../components/ExitAppModal';
 import OfflineBanner from '../components/OfflineBanner';
+import SlowNetworkModal from '../components/SlowNetworkModal';
 import { navigationRef } from './navigationRef';
 import { logScreenView } from '../services/analytics';
 import { recordScreenView } from '../services/screenHistory';
@@ -161,6 +162,7 @@ export default function RootNavigator() {
       }}
     >
       <OfflineBanner />
+      <SlowNetworkModal />
       {streakJustLost !== null && (
         <StreakLostModal priorStreak={streakJustLost} onDismiss={clearStreakJustLost} />
       )}

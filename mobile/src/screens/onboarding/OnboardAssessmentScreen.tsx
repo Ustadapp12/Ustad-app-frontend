@@ -15,7 +15,6 @@ import {
   CHARACTERS,
   characterForIndex,
   shuffleIndices,
-  ProgressBar,
   ExerciseSlide,
   FillBlankOrNextWord,
   ReorderOrSequence,
@@ -26,6 +25,7 @@ import {
   AyatThenOrder,
   type Character,
 } from '../lesson/LessonSessionScreen';
+import LessonProgressBar from '../../components/lesson/LessonProgressBar';
 import { safeBottomInset } from '../../utils/responsive';
 import type { ExerciseDict } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
@@ -209,7 +209,7 @@ export default function OnboardAssessmentScreen({ navigation }: Props) {
         <TouchableOpacity style={S.backBtn} onPress={handleClose}>
           <Text style={S.backText}>✕</Text>
         </TouchableOpacity>
-        <ProgressBar fraction={progress} />
+        <LessonProgressBar fraction={progress} />
       </View>
 
       <View style={S.exerciseArea}>

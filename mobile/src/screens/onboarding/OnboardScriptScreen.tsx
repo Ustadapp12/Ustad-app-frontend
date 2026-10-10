@@ -6,6 +6,7 @@ import { scriptFontScale, scriptLineHeightScale } from '../../utils/arabicFont';
 import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
 import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
+import BackButton from '../../components/BackButton';
 import type { ScriptPreference } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -67,9 +68,7 @@ export default function OnboardScriptScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('OnboardPath')}>
-          <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.navigate('OnboardPath')} style={styles.backBtn} size={sc(18)} />
         <View style={styles.dots}>
           <View style={[styles.dot, styles.dotActive]} />
           <View style={[styles.dot, styles.dotActive]} />
@@ -143,7 +142,6 @@ function makeStyles(sc: (n: number) => number) {
   container:    { flex: 1, backgroundColor: colors.lightBg },
   headerRow:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: sc(20), paddingBottom: sc(6), paddingTop: sc(4) },
   backBtn:      { width: sc(36), height: sc(36), borderRadius: sc(18), borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  backArrow:    { width: sc(18), height: sc(18), tintColor: colors.darkText },
   dots:         { flexDirection: 'row', gap: sc(6), marginLeft: 'auto' },
   dot:          { width: sc(24), height: sc(6), borderRadius: sc(3), backgroundColor: colors.border },
   dotActive:    { backgroundColor: colors.primary },

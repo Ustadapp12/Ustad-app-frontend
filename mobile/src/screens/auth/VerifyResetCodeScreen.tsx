@@ -8,6 +8,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { authApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
+import BackButton from '../../components/BackButton';
 import MascotShadow from '../../components/MascotShadow';
 import { maskEmail } from '../../utils/validators';
 import { LoadingRing } from '../../components/LoadingSpinner';
@@ -102,14 +103,7 @@ export default function VerifyResetCodeScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={[styles.backBtn, { top: insets.top + 12 }]}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Back"
-      >
-        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 12 }]} />
 
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
         <View style={{ width: 120, height: 120, marginBottom: 8 }}>
@@ -164,7 +158,6 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
   luma: { width: 120, height: 120, marginBottom: 8 },
   heading: { fontFamily: 'Nunito-Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 6 },

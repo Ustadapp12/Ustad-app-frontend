@@ -27,6 +27,10 @@ function isoDate(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+/** Takes the 36pt arrows to a 60pt effective target, comfortably over the
+ *  44pt iOS minimum, without changing how big they look. */
+const NAV_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const;
+
 /**
  * Duolingo-style practice calendar — one month at a time, current month
  * first, paged sideways with the arrow buttons instead of a long vertical scroll.
@@ -73,9 +77,21 @@ export default function StreakCalendar({ startDate, practicedDates, frozenDates 
       <Text style={styles.cardTitle}>Practice Calendar</Text>
 
       <View style={styles.monthNav}>
+        {/* hitSlop matters more than usual here: the visible circle is 36pt,
+            under the 44pt iOS minimum, and it sits at the very edge of the
+            card inside StreakScreen's vertical ScrollView. Without slop a tap
+            that drifts a couple of pixels is claimed by the scroll gesture
+            instead, so the arrows looked enabled and simply did nothing.
+            activeOpacity is explicit so a registered tap is visibly
+            acknowledged. */}
         <TouchableOpacity
           onPress={() => step(-1)}
           disabled={atEarliest}
+          activeOpacity={0.6}
+          hitSlop={NAV_HIT_SLOP}
+          accessibilityRole="button"
+          accessibilityLabel="Previous month"
+          accessibilityState={{ disabled: atEarliest }}
           style={[styles.navBtn, atEarliest && styles.navBtnDisabled]}
         >
           <Text style={[styles.navBtnText, atEarliest && styles.navBtnTextDisabled]}>‹</Text>
@@ -84,6 +100,11 @@ export default function StreakCalendar({ startDate, practicedDates, frozenDates 
         <TouchableOpacity
           onPress={() => step(1)}
           disabled={atLatest}
+          activeOpacity={0.6}
+          hitSlop={NAV_HIT_SLOP}
+          accessibilityRole="button"
+          accessibilityLabel="Next month"
+          accessibilityState={{ disabled: atLatest }}
           style={[styles.navBtn, atLatest && styles.navBtnDisabled]}
         >
           <Text style={[styles.navBtnText, atLatest && styles.navBtnTextDisabled]}>›</Text>
@@ -169,7 +190,7 @@ const styles = StyleSheet.create({
   },
   monthTitle: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.darkText },
   navBtn: {
-    width: 30, height: 30, borderRadius: 15, backgroundColor: colors.lightBg,
+    width: 36, height: 36, borderRadius: 18, backgroundColor: colors.lightBg,
     alignItems: 'center', justifyContent: 'center',
   },
   navBtnDisabled: { opacity: 0.35 },

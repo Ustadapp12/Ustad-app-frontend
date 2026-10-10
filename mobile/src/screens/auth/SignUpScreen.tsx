@@ -11,6 +11,7 @@ import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import BackButton from '../../components/BackButton';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
 import AppleSignInButton from '../../components/AppleSignInButton';
 import WelcomeBackModal from '../../components/WelcomeBackModal';
@@ -215,9 +216,7 @@ export default function SignUpScreen({ navigation }: Props) {
       <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.stepScroll} keyboardShouldPersistTaps="handled">
           <View style={styles.headerRow}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => setStep('email')}>
-              <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
-            </TouchableOpacity>
+            <BackButton onPress={() => setStep('email')} style={styles.backBtn} size={18} />
             <View style={styles.dots}>
               <View style={styles.dot} />
               <View style={[styles.dot, styles.dotActive]} />
@@ -506,7 +505,6 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
     backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
   },
-  backArrow: { width: 18, height: 18, tintColor: colors.darkText },
   dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },

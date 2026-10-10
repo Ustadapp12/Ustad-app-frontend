@@ -9,6 +9,7 @@ import { ApiError } from '../../api/client';
 import { colors } from '../../theme/colors';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import BackButton from '../../components/BackButton';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -90,14 +91,7 @@ export default function FeedbackScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={[styles.backBtn, { top: insets.top + 12 }]}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Back"
-      >
-        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 12 }]} />
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 }]}
@@ -209,7 +203,6 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 28 },
   heading: { fontFamily: 'Nunito-Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 6 },
   subheading: {

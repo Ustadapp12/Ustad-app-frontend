@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Image,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authApi } from '../../api';
@@ -9,6 +9,7 @@ import { ApiError } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import BackButton from '../../components/BackButton';
 import { maskEmail } from '../../utils/validators';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
@@ -58,14 +59,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={[styles.backBtn, { top: insets.top + 12 }]}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Back"
-      >
-        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 12 }]} />
 
       <View style={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom }]}>
         <View style={styles.iconBadge}>
@@ -115,7 +109,6 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
   iconBadge: {
     width: 76, height: 76, borderRadius: 38, backgroundColor: colors.primaryBg,

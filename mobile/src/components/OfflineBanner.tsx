@@ -29,13 +29,14 @@ export default function OfflineBanner() {
   const isServerUnreachable = useConnectivityStore(s => s.isServerUnreachable);
   const insets = useSafeAreaInsets();
 
-  // Neither message promises a sync. The old copy said "Changes will sync
-  // once you're back online", which was never true: there is no write queue
-  // behind this banner, so nothing was ever waiting to sync.
+  // Neither message promises a sync, and neither claims things still mostly
+  // work. The old copy said "Some things may be out of date", which read as
+  // "it's fine, keep going" when a lot of the app actually won't load at all.
+  // Just say there's a network problem and to come back.
   const message = isDeviceOffline
-    ? "You're offline. Some things may be out of date."
+    ? "You're offline. Please come back when you have a connection."
     : isServerUnreachable
-      ? "Can't reach Ustad right now. Some things may be out of date."
+      ? "Can't reach Ustad right now. Please come back in a bit."
       : null;
 
   if (!message) return null;

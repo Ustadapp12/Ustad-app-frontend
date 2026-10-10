@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Image,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authApi } from '../../api';
@@ -12,6 +12,7 @@ import type { RootNavProp } from '../../navigation/types';
 import { validateEmail, normalizeEmail, maskEmail } from '../../utils/validators';
 import { getLastEmailHint, setLastEmailHint } from '../../utils/storage';
 import { safeBottomInset } from '../../utils/responsive';
+import BackButton from '../../components/BackButton';
 
 interface Props { navigation: RootNavProp }
 
@@ -68,14 +69,11 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity
+      <BackButton
         onPress={() => navigation.goBack()}
         style={[styles.backBtn, { top: insets.top + 12 }]}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         accessibilityLabel="Back to login"
-      >
-        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
-      </TouchableOpacity>
+      />
 
       <View style={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom }]}>
         <View style={styles.iconBadge}>
@@ -139,7 +137,6 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
   iconBadge: {
     width: 76, height: 76, borderRadius: 38, backgroundColor: colors.primaryBg,
