@@ -659,3 +659,41 @@ Not verified on a device. The connectivity rebuild, the search open/closed/done
 states and the production backend switch are all first seen here. The Gradle
 `versionName` fallback that reads `package.json` is **not** exercised by an iOS
 build and still needs an Android build to confirm `versionName="1.0.35"`.
+
+
+**20044** / 1.0.36 — IPA (TestFlight) — 2026-10-10 — commit `4224a9f`, GitHub
+Actions run `38019597100` (#44), EAS build `807255ea-bc84-4a38-91ed-44ecaac9a996`
+(account `ahmad.claf`), submission `8dc24c5b-4e69-4ec5-9d31-35d0c81a9f15`.
+Backend: **production** (`ustad-app-backend-six.vercel.app`), unchanged since
+1.0.35. All 15 workflow steps green on the first try, 7m16s end to end
+(EAS reported `App Version: 1.0.36`, `Build number: 20044`).
+
+Contents since 1.0.35 (full detail in `changes-2026-10-08.md`, `-09`, `-10`):
+
+- Search Surah screen rebuilt to the Figma mock on real data: green progress
+  card with the real completed/total fraction for started surahs, Jump Here
+  for the rest, Map button and reward chest both open "coming soon" popups.
+- Progress screen rebuilt to the Figma mock: Al Quran Al kareem summary bar,
+  In Progress and Completed sections (Not started no longer listed), Claim
+  Reward opens the coming-soon chest popup.
+- Real Figma assets: reward chest, Map feature button, back arrow, Hint badge.
+- Lesson header: chest badge joined onto the end of the bar, new Hint badge
+  (floats below-right when hearts show, inline in review levels).
+- Every exercise type: content sits as low as it can while ending above the
+  feedback sheet, Check pinned at the bottom, never adds scrolling.
+- Shared components: BackButton (14 screens), RewardChestButton,
+  ChestInfoModal, and components/lesson/ (LessonHeader, HintButton,
+  LessonProgressBar, AyahText, ExerciseLayout, ExerciseFooterButton,
+  UstadSays). LessonSessionScreen.tsx 3674 to about 3200 lines.
+- Earlier-session fixes shipped with it: offline/unreachable banner copy,
+  SlowNetworkModal (server unreachable for 9s+), bigger tap targets on the
+  practice calendar's month arrows.
+- In-app release notes 1.0.36, reviewed and approved by the user before
+  this build.
+
+Pre-flight before pushing: `tsc` clean, `jest` 54/54, local
+`expo export:embed` iOS bundle (6.7 MB) with all new assets present.
+
+Not verified on a device. First time anyone sees the new exercise layout,
+the measured anchor line above the feedback sheet, and the no-scroll rule on
+a short phone.
