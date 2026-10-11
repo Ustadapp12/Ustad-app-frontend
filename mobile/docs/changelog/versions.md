@@ -697,3 +697,22 @@ Pre-flight before pushing: `tsc` clean, `jest` 54/54, local
 Not verified on a device. First time anyone sees the new exercise layout,
 the measured anchor line above the feedback sheet, and the no-scroll rule on
 a short phone.
+
+
+**20045** / 1.0.37 — IPA (TestFlight) — 2026-10-11 — commit `a4d6429`, GitHub
+Actions run `38129187903` (#45), EAS build `2dd5d36f-a227-4e6b-8dee-3ef5b40e337c`
+(account `ahmad.claf`), submission `92c615d6-6c70-422d-97fe-00898be866e0`.
+Backend: **production**, unchanged. All workflow steps green on the first try
+(2026-10-11T09:40:09Z -> 2026-10-11T09:46:21Z UTC); EAS reported `App Version: 1.0.37`, `Build number: 20045`.
+
+Contents since 1.0.36 (detail in `changes-2026-10-11.md`):
+
+- Progress screen sections now match Search's surah states: Open (first
+  level complete), Completed, Closed (everything else, including a first
+  level started but unfinished, which used to show under "In Progress").
+  Closed rows use Search's Jump Here card and "Open {surah}?" confirm.
+- In-app release notes 1.0.37, reviewed and approved by the user before
+  this build.
+
+Pre-flight: `tsc` clean, `jest` 54/54, local iOS bundle 6.7 MB.
+Not verified on a device yet.
