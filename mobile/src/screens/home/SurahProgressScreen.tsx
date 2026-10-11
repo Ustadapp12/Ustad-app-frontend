@@ -12,6 +12,7 @@ import { fetchAllSurahProgress, type SurahProgress } from '../../utils/surahProg
 import ChestInfoModal from '../../components/ChestInfoModal';
 import BackButton from '../../components/BackButton';
 import RewardChestButton from '../../components/RewardChestButton';
+import StartSurahModal from '../../components/StartSurahModal';
 
 interface Props { navigation: RootNavProp }
 
@@ -70,6 +71,7 @@ export default function SurahProgressScreen({ navigation }: Props) {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [chestInfoVisible, setChestInfoVisible] = useState(false);
+  const [confirmClosed, setConfirmClosed] = useState<SurahProgress | null>(null);
 
   const load = useCallback(async (asRefresh: boolean) => {
     if (asRefresh) setRefreshing(true);
@@ -87,22 +89,28 @@ export default function SurahProgressScreen({ navigation }: Props) {
   // Refetch on every focus so coming back from a lesson shows the new level.
   useFocusEffect(useCallback(() => { void load(false); }, [load]));
 
-  // 'Not started' is deliberately left out of what's rendered -- the new
-  // design only has "In progress" and "Completed" sections. A page titled
-  // Progress listing all 114 surahs including the ones never touched just
-  // duplicates the Search screen; still computed from real data, just not
-  // shown here.
+  // Same three states as SearchSurahsScreen: a surah is Open once its FIRST
+  // level is complete, Completed once every level is, and Closed otherwise --
+  // including one whose first level was started but not finished (that used
+  // to land in "In Progress" here while Search called it closed). Levels
+  // unlock strictly in order, so completed > 0 means the first level is done.
+  // 'unavailable' only ever comes from the detailed fetch, which only runs for
+  // surahs whose first level is complete, so it belongs with Open.
   const sections = useMemo(() => {
     if (!progress) return [];
     const pct = (p: SurahProgress) => (p.total ? p.completed / p.total : 0);
-    const inProgress = progress
-      .filter(p => p.state === 'in_progress' || p.state === 'unavailable')
+    const isOpen = (p: SurahProgress) =>
+      (p.state === 'in_progress' && p.completed > 0) || p.state === 'unavailable';
+    const open = progress.filter(isOpen)
       .sort((a, b) => pct(b) - pct(a) || b.surah.surah_number - a.surah.surah_number);
     const done = progress.filter(p => p.state === 'completed')
       .sort((a, b) => b.surah.surah_number - a.surah.surah_number);
+    const closed = progress.filter(p => p.state !== 'completed' && !isOpen(p))
+      .sort((a, b) => a.surah.surah_number - b.surah.surah_number);
     return [
-      { title: 'In Progress', data: inProgress },
-      { title: 'Completed', data: done },
+      { title: 'Open', key: 'open', data: open },
+      { title: 'Completed', key: 'completed', data: done },
+      { title: 'Closed', key: 'closed', data: closed },
     ].filter(s => s.data.length > 0);
   }, [progress]);
 
@@ -123,7 +131,27 @@ export default function SurahProgressScreen({ navigation }: Props) {
     });
   }
 
-  function renderRow({ item: p }: { item: SurahProgress }) {
+  function renderRow({ item: p, section }: { item: SurahProgress; section: { key: string } }) {
+    if (section.key === 'closed') {
+      // Mirrors Search's closed card, including the "Open {surah}?" confirm.
+      return (
+        <TouchableOpacity
+          style={[styles.row, styles.rowClosed]}
+          activeOpacity={0.7}
+          onPress={() => setConfirmClosed(p)}
+          accessibilityLabel={`${p.surah.name_en}, closed`}
+        >
+          <View style={styles.rowTop}>
+            <Text style={styles.numText}>{p.surah.surah_number}</Text>
+            <Text style={styles.rowNameEn} numberOfLines={1}>{p.surah.name_en}</Text>
+            <Text style={styles.rowNameAr} numberOfLines={1}>{p.surah.name_ar}</Text>
+          </View>
+          <Text style={styles.rowMeta}>LESSON AYAH 1-{p.surah.ayah_count}</Text>
+          <Text style={styles.jumpHere}>JUMP HERE ▶</Text>
+        </TouchableOpacity>
+      );
+    }
+
     const fraction = p.total ? p.completed / p.total : 0;
     const isDone = p.state === 'completed';
     const isUnavailable = p.state === 'unavailable';
@@ -231,6 +259,19 @@ export default function SurahProgressScreen({ navigation }: Props) {
         />
       )}
 
+      <StartSurahModal
+        visible={!!confirmClosed}
+        nameEn={confirmClosed?.surah.name_en}
+        nameAr={confirmClosed?.surah.name_ar}
+        ayahCount={confirmClosed?.surah.ayah_count}
+        onConfirm={() => {
+          const p = confirmClosed;
+          setConfirmClosed(null);
+          if (p) openOnMap(p);
+        }}
+        onCancel={() => setConfirmClosed(null)}
+      />
+
       {/* Neither the per-surah chest nor the overall one is wired to a real
           reward yet -- same honest "coming soon" as SearchSurahsScreen's. */}
       <ChestInfoModal
@@ -276,6 +317,12 @@ function makeStyles(sc: Scale) {
       backgroundColor: P.cardBg, borderRadius: sc(16),
       paddingHorizontal: sc(14), paddingVertical: sc(12), marginBottom: sc(10),
       borderWidth: 1.5, borderColor: P.cardBorder,
+    },
+    // Closed = not started yet: plain card, same as Search's closed rows.
+    rowClosed: { backgroundColor: colors.white, borderColor: colors.border },
+    jumpHere: {
+      fontFamily: 'Nunito-Bold', fontSize: sc(11), color: colors.success,
+      textAlign: 'right', marginTop: sc(8), letterSpacing: 0.3,
     },
     rowTop: { flexDirection: 'row', alignItems: 'center', gap: sc(8) },
     numText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: P.headerText },
