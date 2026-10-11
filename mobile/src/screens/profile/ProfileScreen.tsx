@@ -199,7 +199,7 @@ function ProfileContent({ navigation }: Props) {
         {/* Avatar card */}
         <View style={styles.avatarCard}>
           <View style={styles.avatarWrap}>
-            <View style={[styles.avatar, { backgroundColor: 'transparent', overflow: 'visible' }]}>
+            <View style={styles.avatar}>
               {isGuestUser ? (
                 <GuestAvatarIcon size={sc(86)} />
               ) : (
@@ -545,7 +545,7 @@ function ProfileContent({ navigation }: Props) {
         <AvatarPickerModal
           visible={avatarPickerVisible}
           variantSrcs={avatarSrcsForGender(profile?.gender)}
-          initialVariant={currentAvatarVariantIndex(user?.id ?? '', profile?.avatar_variant)}
+          initialVariant={currentAvatarVariantIndex(user?.id ?? '', profile?.avatar_variant, profile?.gender)}
           saving={avatarSaving}
           onSave={handleSaveAvatarVariant}
           onClose={() => setAvatarPickerVisible(false)}
@@ -576,11 +576,8 @@ function makeStyles(sc: (n: number) => number) {
       shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3,
     },
     avatarWrap: { position: 'relative', marginBottom: sc(6) },
-    avatar: {
-      width: sc(80), height: sc(80), borderRadius: sc(40), backgroundColor: colors.primary,
-      alignItems: 'center', justifyContent: 'center',
-      shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
-    },
+    // The avatar art sits as-is: no circle, no clip, no colored disc behind it.
+    avatar: { width: sc(86), height: sc(86), alignItems: 'center', justifyContent: 'center' },
     initials: { fontFamily: 'Nunito-Bold', fontSize: sc(28), color: '#F5F7FA' },
     editBadge: {
       position: 'absolute', right: -4, bottom: -4,

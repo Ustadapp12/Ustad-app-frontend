@@ -18,8 +18,9 @@ export default function OnboardWelcomeScreen({ navigation, route }: Props) {
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const name = useAuthStore(s => s.user?.name) ?? 'there';
   const userId = useAuthStore(s => s.user?.id);
+  const avatarVariant = useAuthStore(s => s.profile?.avatar_variant);
   const { gender } = route.params;
-  const avatarSrc = characterSrcFor(userId ?? '', gender);
+  const avatarSrc = characterSrcFor(userId ?? '', gender, avatarVariant);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

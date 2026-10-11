@@ -12,7 +12,7 @@ import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
 import BackButton from '../../components/BackButton';
 import { validateName } from '../../utils/validators';
-import { characterSrcFor, GENDER_PREVIEW_SRCS } from '../../utils/avatar';
+import { characterSrcFor, currentAvatarVariantIndex, GENDER_PREVIEW_SRCS } from '../../utils/avatar';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -52,7 +52,12 @@ export default function EditProfileScreen({ navigation }: Props) {
     : !hasChanges ? 'Make a change to save.'
     : null;
 
-  const avatarSrc = characterSrcFor(user?.id ?? '', gender);
+  // Same gender as saved: their saved pick. Gender switched: the saved pick
+  // indexes the other gender's folder, so preview (and, on save, grant) the
+  // stable hash pick from the new gender's pool instead.
+  const genderChanged = !!gender && gender !== initialGender;
+  const regrantedVariant = gender ? currentAvatarVariantIndex(user?.id ?? '', null, gender) : null;
+  const avatarSrc = characterSrcFor(user?.id ?? '', gender, genderChanged ? regrantedVariant : profile?.avatar_variant);
 
   async function handleSave() {
     if (!canSubmit || loading) return;
@@ -66,6 +71,10 @@ export default function EditProfileScreen({ navigation }: Props) {
       if (gender && gender !== initialGender) {
         await usersApi.updateGender(gender);
         updateProfileFields({ gender });
+        if (regrantedVariant != null) {
+          await usersApi.updateAvatarVariant(regrantedVariant);
+          updateProfileFields({ avatar_variant: regrantedVariant });
+        }
       }
       if (ageNum && ageNum !== initialAge) {
         await usersApi.updateAge(ageNum);

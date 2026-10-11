@@ -8,7 +8,7 @@ import { colors } from '../../theme/colors';
 import MascotShadow from '../../components/MascotShadow';
 import BackButton from '../../components/BackButton';
 import { safeBottomInset } from '../../utils/responsive';
-import { GENDER_PREVIEW_SRCS } from '../../utils/avatar';
+import { GENDER_PREVIEW_SRCS, randomAvatarVariant } from '../../utils/avatar';
 import type { RootNavProp } from '../../navigation/types';
 
 interface Props { navigation: RootNavProp }
@@ -30,6 +30,15 @@ export default function OnboardGenderScreen({ navigation }: Props) {
     try {
       await usersApi.updateGender(selected);
       updateProfileFields({ gender: selected });
+      // Grant one avatar from this gender's folder now, so the account has a
+      // real saved pick that the leaderboard can show to everyone else. A
+      // failed save must not block onboarding: Welcome/Profile still fall
+      // back to the stable per-user pick, and Profile's picker can save later.
+      const variant = randomAvatarVariant(selected);
+      try {
+        await usersApi.updateAvatarVariant(variant);
+        updateProfileFields({ avatar_variant: variant });
+      } catch {}
       navigation.navigate('OnboardWelcome', { gender: selected });
     } catch (e) {
       if (e instanceof ApiError && e.code === 'INVALID_GENDER') setError(e.message);

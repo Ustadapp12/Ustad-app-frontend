@@ -73,10 +73,20 @@ export interface LeaderboardEntry {
   display_name: string;
   xp: number;
   gender?: 'male' | 'female' | null;
+  /** The learner's saved avatar index within their gender's pool (see
+   * utils/avatar.ts). Absent from older/cached backend responses, null when
+   * they never picked; either way the row falls back to a name-keyed pick. */
+  avatar_variant?: number | null;
+  /** The caller's own row (at most one). Absent from older backends. */
+  is_me?: boolean;
 }
 
 export interface LeaderboardOut {
   entries: LeaderboardEntry[];
+  /** The caller's own standing, always sent by current backends so they are
+   * ranked even outside the top entries; same row as the is_me entry when
+   * they are inside. Absent from older backends. */
+  me?: LeaderboardEntry | null;
 }
 
 export interface SurahBrief {
@@ -234,10 +244,10 @@ export interface UserProfile {
   gender: 'male' | 'female' | null;
   age: number | null;
   timezone: string | null;
-  /** Which of the 2 same-gender avatar art variants the user picked (0 or
-   * 1, indexing utils/avatar.ts's MALE_SRCS/FEMALE_SRCS) — null means no
-   * explicit choice yet, so characterSrcFor() falls back to its existing
-   * deterministic hash-of-user-id pick. */
+  /** Index of the user's avatar within their gender's pool (0..25 male,
+   * 0..18 female; see utils/avatar.ts). Granted at onboarding, changeable
+   * from Profile. null means no saved pick, so characterSrcFor() falls back
+   * to its deterministic hash-of-user-id pick. */
   avatar_variant: number | null;
   /** Server-side "has this account finished onboarding" flag — the
    * authoritative source SplashScreen's routing checks, unlike the

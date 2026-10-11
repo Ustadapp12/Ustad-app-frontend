@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, Image, Modal, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Image, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { colors } from '../theme/colors';
-import { AVATAR_VARIANT_COUNT } from '../utils/avatar';
 
 interface Props {
   visible: boolean;
-  /** Art for both variants of the user's own gender, in index order — the
-   * caller resolves gender→srcs (utils/avatar.ts's MALE_SRCS/FEMALE_SRCS
-   * aren't exported directly, keeping this component gender-agnostic). */
+  /** Every avatar for the user's own gender, in index order — the caller
+   * resolves gender→srcs via utils/avatar.ts, keeping this component
+   * gender-agnostic. */
   variantSrcs: any[];
   initialVariant: number;
   saving?: boolean;
@@ -15,10 +14,12 @@ interface Props {
   onClose: () => void;
 }
 
-// Only 2 variants exist per gender (see AVATAR_VARIANT_COUNT), so both
-// arrows currently just toggle between them — written as a real cycle
-// (wrapping mod length) rather than a hardcoded flip, so a future 3rd
-// variant would work here with no changes.
+const COLUMNS = 4;
+const TILE = 64;
+const GAP = 10;
+
+// A grid rather than prev/next arrows: with 19 to 26 avatars per gender,
+// cycling one at a time made the last ones effectively unreachable.
 export default function AvatarPickerModal({ visible, variantSrcs, initialVariant, saving, onSave, onClose }: Props) {
   const [variant, setVariant] = useState(initialVariant);
 
@@ -29,10 +30,6 @@ export default function AvatarPickerModal({ visible, variantSrcs, initialVariant
     if (visible) setVariant(initialVariant);
   }, [visible, initialVariant]);
 
-  const cycle = (delta: number) => {
-    setVariant(v => (v + delta + AVATAR_VARIANT_COUNT) % AVATAR_VARIANT_COUNT);
-  };
-
   const changed = variant !== initialVariant;
 
   return (
@@ -41,35 +38,22 @@ export default function AvatarPickerModal({ visible, variantSrcs, initialVariant
         <View style={styles.card}>
           <Text style={styles.title}>Choose your avatar</Text>
 
-          <View style={styles.pickerRow}>
-            <TouchableOpacity
-              style={styles.arrowBtn}
-              onPress={() => cycle(-1)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityLabel="Previous avatar"
-            >
-              <Text style={styles.arrowText}>‹</Text>
-            </TouchableOpacity>
+          <Image source={variantSrcs[variant]} style={styles.preview} resizeMode="contain" />
 
-            <View style={styles.avatarBox}>
-              <Image source={variantSrcs[variant]} style={styles.avatarImg} resizeMode="contain" />
-            </View>
-
-            <TouchableOpacity
-              style={styles.arrowBtn}
-              onPress={() => cycle(1)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityLabel="Next avatar"
-            >
-              <Text style={styles.arrowText}>›</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.dotsRow}>
-            {variantSrcs.map((_, i) => (
-              <View key={i} style={[styles.dot, i === variant && styles.dotActive]} />
+          <ScrollView style={styles.gridScroll} contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
+            {variantSrcs.map((src, i) => (
+              <TouchableOpacity
+                key={i}
+                style={[styles.tile, i === variant && styles.tileActive]}
+                onPress={() => setVariant(i)}
+                activeOpacity={0.8}
+                accessibilityLabel={`Avatar ${i + 1}`}
+                accessibilityState={{ selected: i === variant }}
+              >
+                <Image source={src} style={styles.tileImg} resizeMode="contain" />
+              </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
 
           <TouchableOpacity
             style={[styles.saveBtn, (!changed || saving) && styles.saveBtnDisabled]}
@@ -90,21 +74,22 @@ export default function AvatarPickerModal({ visible, variantSrcs, initialVariant
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   card: {
-    backgroundColor: colors.white, borderRadius: 24, padding: 24, alignItems: 'center', width: '85%',
+    backgroundColor: colors.white, borderRadius: 24, padding: 20, alignItems: 'center',
+    width: COLUMNS * (TILE + 4) + (COLUMNS - 1) * GAP + 40, maxWidth: '92%', maxHeight: '85%',
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
   },
-  title: { fontFamily: 'Nunito-Bold', fontSize: 18, color: colors.darkText, marginBottom: 20 },
-  pickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 12 },
-  arrowBtn: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: colors.lightBg,
+  title: { fontFamily: 'Nunito-Bold', fontSize: 18, color: colors.darkText, marginBottom: 12 },
+  preview: { width: 110, height: 110, marginBottom: 12 },
+  gridScroll: { flexGrow: 0, alignSelf: 'stretch', marginBottom: 16 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: GAP },
+  // Selection is a rounded-square outline around the tile; the art itself
+  // is never clipped to a circle.
+  tile: {
+    width: TILE + 4, height: TILE + 4, borderRadius: 14, borderWidth: 2, borderColor: 'transparent',
     alignItems: 'center', justifyContent: 'center',
   },
-  arrowText: { fontSize: 22, color: colors.midText, fontFamily: 'Nunito-Bold' },
-  avatarBox: { width: 120, height: 120, alignItems: 'center', justifyContent: 'center' },
-  avatarImg: { width: 120, height: 120 },
-  dotsRow: { flexDirection: 'row', gap: 6, marginBottom: 20 },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
-  dotActive: { backgroundColor: colors.primary },
+  tileActive: { borderColor: colors.primary, backgroundColor: '#F0FAF5' },
+  tileImg: { width: TILE, height: TILE },
   saveBtn: {
     width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14,
     alignItems: 'center', marginBottom: 10,
