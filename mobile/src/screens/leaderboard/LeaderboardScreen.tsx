@@ -14,6 +14,7 @@ import BackButton from '../../components/BackButton';
 import LumoInfoModal from '../../components/LumoInfoModal';
 import LoadingStatusText from '../../components/LoadingStatusText';
 import MascotShadow from '../../components/MascotShadow';
+import { useFocusedLoop } from '../../hooks/useFocusedLoop';
 import LeaderboardRow from './LeaderboardRow';
 import { makeStyles, designScale, LB } from './styles';
 import type { LeaderboardEntry } from '../../types/api';
@@ -73,21 +74,7 @@ function LeaderboardContent() {
   }, [load]));
 
   const floatAnim = useRef(new Animated.Value(0)).current;
-  // Focus-scoped, not mount-scoped: this tab stays mounted for the life of
-  // the app, so a mount-scoped loop kept driving frames on other tabs.
-  useFocusEffect(
-    useCallback(() => {
-      const loop = Animated.loop(Animated.sequence([
-        Animated.timing(floatAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
-        Animated.timing(floatAnim, { toValue: 0, duration: 1300, useNativeDriver: true }),
-      ]));
-      loop.start();
-      return () => {
-        loop.stop();
-        floatAnim.setValue(0);
-      };
-    }, [floatAnim]),
-  );
+  useFocusedLoop(floatAnim, 1300);
   const lumoY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -d(9)] });
 
   const onRefresh = async () => {

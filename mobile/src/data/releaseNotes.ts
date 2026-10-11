@@ -31,6 +31,19 @@ export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
     // Reviewed and approved by the user 2026-10-11, before the build that
     // carries it.
+    version: '1.0.38',
+    date: '2026-10-11',
+    changes: [
+      { category: 'New', text: "Leaderboard redesigned, with today's Islamic date, Lumo cheering you on, and medals for the top three." },
+      { category: 'New', text: "You always see your own rank, highlighted in gold, even when you're outside the top learners." },
+      { category: 'New', text: '45 new avatars. Tap the pencil on your Profile picture to choose yours.' },
+      { category: 'New', text: 'New learners get an avatar that matches the gender they pick.' },
+      { category: 'Improved', text: 'The map scrolls and responds more smoothly.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-11, before the build that
+    // carries it.
     version: '1.0.37',
     date: '2026-10-11',
     changes: [
