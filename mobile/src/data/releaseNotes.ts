@@ -29,6 +29,16 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Reviewed and approved by the user 2026-10-11, before the build that
+    // carries it.
+    version: '1.0.37',
+    date: '2026-10-11',
+    changes: [
+      { category: 'Fixed', text: 'The Progress screen now groups your surahs the same way as Search: Open, Completed and Closed. A surah counts as open once you finish its first level.' },
+      { category: 'Improved', text: 'Closed surahs on the Progress screen have a Jump Here shortcut to start them.' },
+    ],
+  },
+  {
     // Reviewed and approved by the user 2026-10-10, before the build that
     // carries it.
     version: '1.0.36',
