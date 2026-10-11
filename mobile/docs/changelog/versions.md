@@ -716,3 +716,56 @@ Contents since 1.0.36 (detail in `changes-2026-10-11.md`):
 
 Pre-flight: `tsc` clean, `jest` 54/54, local iOS bundle 6.7 MB.
 Not verified on a device yet.
+
+
+**20046** / 1.0.38 — IPA (TestFlight) — 2026-10-11 — commit `9f7fe0b`, GitHub
+Actions run `38163321853` (#46), EAS build `5c20369e-78e2-48a0-baa3-036c53fd23b7`
+(account `ahmad.claf`), submission `ed922e96-b145-4094-95f5-f2b4ca4c3cea`.
+Backend: **production** (`ustad-app-backend-six`), which now serves backend
+commit `eb261fa` (leaderboard `avatar_variant`/`is_me`/`me`, per-gender avatar
+validation; confirmed live via `/openapi.json` before building). All workflow
+steps green first try (18:19:27Z -> 18:26:28Z UTC). `eas-cli build:view`
+confirms status finished, Version 1.0.38, Build number 20046, commit
+`9f7fe0bd` exact match, real `.ipa`.
+
+Contents since 1.0.37 (detail in `changes-2026-10-11.md`):
+
+- Leaderboard redesigned (Figma 1121:8311, league card replaced by one Lumo):
+  back to Home, Hijri date, rank/medal rows, gold "You" row that is always
+  the user, own rank shown after the list when outside the top 13.
+- 45 head-and-shoulders avatars (26 male, 19 female); onboarding grants one
+  by gender; Profile picker is a grid of the user's gender's set; no circles.
+- MapScreen split into components and hooks (4017 -> 879 lines), memoized
+  background/HUD/chapter-end/feedback button, auth-store selectors.
+- In-app release notes 1.0.38, reviewed and approved by the user before
+  this build.
+
+Pre-flight: `tsc` clean, `jest` 54/54, local `expo export:embed` iOS bundle
+6.7 MB with all 45 avatars. Not verified on a device yet.
+
+**26101123** / 1.0.38 — AAB (Play) — 2026-10-11 — commit `9f7fe0b` (same
+source as iOS 20046). Backend: **production**. Built locally from
+`C:\BuildProjects\ustadapp-mobile` (`gradlew clean bundleRelease`,
+VERSION_CODE=26101123, VERSION_NAME=1.0.38, NODE_ENV=production), 13m35s.
+
+Build tree was stale since 1.0.33 and was brought in line first: `src/`
+mirrored, `assets/`, `package.json`, `app.json`, `index.js` (enableFreeze),
+`babel.config.js` (remove-console in production), `metro.config.js` (Expo
+config), `android/app/build.gradle` (versionName from package.json),
+`splash_logo.png`, plus the two packages it was missing
+(`@react-native-community/netinfo` 12.0.1,
+`@invertase/react-native-apple-authentication` 2.5.1). Patched native modules
+left untouched. Old 1.0.33 AAB kept at `C:\BuildProjects\app-release-1.0.33-26093022.aab`.
+
+Verified from the artifact: manifest versionName 1.0.38 and versionCode
+26101123; signed (`META-INF/USTAD.RSA`); Hermes bundle 4.06 MB contains the
+production URL and not the testing one, plus "Choose your avatar", the 1.0.38
+release notes, `is_me`, `avatar-variant`, "Rabi al Akhir", "nothing to see
+here"; "Bronze League" and the `[APP] index.js loaded` console line absent;
+45 avatar drawables; dex contains netinfo, RNAppleAuthentication, notifee;
+libs for arm64-v8a and armeabi-v7a.
+
+Contents: same as iOS 20046 above. Not verified on a device yet.
+
+Output: `C:\BuildProjects\app-release-1.0.38-26101123.aab` (also at
+`android\app\build\outputs\bundle\release\app-release.aab`).
