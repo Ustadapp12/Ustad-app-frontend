@@ -11,18 +11,17 @@ import { useResponsiveScale, designScale, type Scale } from '../utils/responsive
 // design's big-to-small gradient is what travels (user, 2026-10-12: "the
 // stars remain where they are, the flow increases their size").
 //
-// Slot positions are measured from the export: angle (deg, screen coords,
-// 0 = right, clockwise positive) and distance from Lumo's centre.
-const SLOTS: { angle: number; r: number }[] = [
-  { angle: -93, r: 138 },
-  { angle: -134, r: 137 },
-  { angle: -174, r: 130 },
-  { angle: 151, r: 122 },
-  { angle: 113, r: 115 },
-  { angle: 77, r: 115 },
-  { angle: 42, r: 119 },
-  { angle: 14, r: 116 },
-];
+// Slots: a complete, evenly spaced circle round Lumo (user, 2026-10-12: the
+// stars should form a complete circle). The design's eight stars only cover
+// ~250 degrees, leaving a gap on the right; here they sit every 45 degrees
+// at the design's average distance from Lumo, slot 0 at the top and the rest
+// going anticlockwise, so the wave (moving clockwise) trails its tail behind.
+const RADIUS = 128;
+const SLOT_COUNT = 8;
+const SLOTS: { angle: number; r: number }[] = Array.from({ length: SLOT_COUNT }, (_, i) => ({
+  angle: -90 - (360 / SLOT_COUNT) * i,
+  r: RADIUS,
+}));
 // The design's gradient, head to tail: star width (pt) and how strongly it
 // shows. The design fades gold (#FFC800) through paler golds to a light grey;
 // gold at falling opacity over the white screen reproduces that and, unlike a
@@ -39,12 +38,12 @@ const RANKS: { w: number; opacity: number }[] = [
 ];
 const MAX_W = RANKS[0].w;
 const STAR_COLOR = '#FFC800';
-const RING = 2 * (138 + MAX_W / 2) + 4; // fits a full-size star at any slot
+const RING = 2 * (RADIUS + MAX_W / 2) + 4; // fits a full-size star at any slot
 const ONE_LAP_MS = 1600; // the wave goes once round all eight stars
 
 // Slot i at wave step k (0..8, step 8 == step 0) shows rank (i + k) % 8, so
 // the head moves one slot clockwise each step: slot 0 at the top, then slot 7
-// on the right, slot 6, and on round.
+// (upper right), slot 6 (right), and on round.
 function waveOutput(slot: number, pick: (rank: (typeof RANKS)[number]) => number): number[] {
   return Array.from({ length: SLOTS.length + 1 }, (_, k) => pick(RANKS[(slot + k) % SLOTS.length]));
 }
@@ -123,10 +122,10 @@ function makeStyles(d: Scale) {
     ring: { width: d(RING), height: d(RING), alignItems: 'center', justifyContent: 'center' },
     lumo: { width: d(157), height: d(165) },
     star: { position: 'absolute' },
-    // Design: text top sits ~165pt below Lumo's centre, i.e. just under the
-    // tail of the ring rather than under the ring's full square box.
+    // Just below the ring: with a full circle there is a star straight under
+    // Lumo, and at full size it reaches the ring's bottom edge.
     label: {
-      marginTop: -d(16), fontFamily: 'Nunito-Bold', fontSize: d(17), color: '#5A5D68', textAlign: 'center',
+      marginTop: d(8), fontFamily: 'Nunito-Bold', fontSize: d(17), color: '#5A5D68', textAlign: 'center',
     },
   });
 }
