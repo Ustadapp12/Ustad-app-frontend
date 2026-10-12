@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback, useReducer } 
 import { View, Text, Animated, useWindowDimensions, Image, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import LumoLoader from '../../components/LumoLoader';
 import LoadingStatusText from '../../components/LoadingStatusText';
 import { useAuthStore } from '../../store/authStore';
 import { setCrashContext, addBreadcrumb, captureError } from '../../services/crashReporter';
@@ -576,12 +577,18 @@ export default function MapScreen({ navigation }: Props) {
       />
 
       {(!nodesReady || refreshing) && <LoadingBar nodesReady={nodesReady} />}
-      {(!nodesReady || refreshing) && (
+      {!nodesReady && (
         // Gate on nodesReady (chapterResolved + firstLevel data for current chapter) to prevent
-        // the SVG background from appearing before nodes finish loading. Kept translucent for
-        // pull-to-refresh, where the already-correct map underneath is meant to stay visible
-        // while it re-fetches.
-        <View style={[S.loadingOverlay, !nodesReady && S.loadingOverlaySolid]} pointerEvents="none">
+        // the SVG background from appearing before nodes finish loading. First load is the
+        // full-screen Lumo loader (Figma loading.png).
+        <View style={[S.loadingOverlay, S.loadingOverlaySolid]} pointerEvents="none">
+          <LumoLoader />
+        </View>
+      )}
+      {nodesReady && refreshing && (
+        // Pull-to-refresh: kept translucent, the already-correct map underneath is meant to
+        // stay visible while it re-fetches.
+        <View style={S.loadingOverlay} pointerEvents="none">
           <Image
             source={require('../../../assets/images/lumo_transparent.png')}
             style={S.loadingOverlayLumo}

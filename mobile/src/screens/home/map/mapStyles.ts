@@ -85,7 +85,7 @@ export function makeStyles(M: MapModel) {
       backgroundColor: 'rgba(42,140,90,0.72)', zIndex: 20,
     },
     // Opaque variant for the initial load — see the comment at its use site.
-    loadingOverlaySolid: { backgroundColor: colors.mapBg },
+    loadingOverlaySolid: { backgroundColor: '#FFFFFF' },
     loadingOverlayLumo: { width: sc(120), height: sc(120), marginBottom: sc(4) },
     loadingOverlayText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: '#F5F7FA', marginTop: sc(10) },
     node: { width: NODE_SIZE, height: NODE_SIZE, alignItems: 'center', justifyContent: 'center' },
