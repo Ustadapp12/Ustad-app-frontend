@@ -4,24 +4,51 @@ import Svg, { Path } from 'react-native-svg';
 import { useResponsiveScale, designScale, type Scale } from '../utils/responsive';
 
 // Full-screen loading state from Figma "loading.png" (440pt frame): the sad
-// Lumo in the middle with a comet of stars around him. The stars ride a ring
-// that turns clockwise, biggest/brightest star first, shrinking and fading
-// to a small grey one at the tail, so the size gradient is what reads as
-// motion. Positions, sizes and colours are measured from the export: angle
-// (deg, screen coords, 0 = right, clockwise positive), distance from Lumo's
-// centre, star width, colour.
-const STARS: { angle: number; r: number; w: number; color: string }[] = [
-  { angle: -93, r: 138, w: 74, color: '#FFC800' },
-  { angle: -134, r: 137, w: 61, color: '#FFC800' },
-  { angle: -174, r: 130, w: 54, color: '#FFC800' },
-  { angle: 151, r: 122, w: 45, color: '#F5CF46' },
-  { angle: 113, r: 115, w: 36, color: '#F3D66D' },
-  { angle: 77, r: 115, w: 27, color: '#FCE285' },
-  { angle: 42, r: 119, w: 21, color: '#F6E4A6' },
-  { angle: 14, r: 116, w: 14, color: '#D8D8D8' },
+// Lumo in the middle with eight stars around him. The stars never move: they
+// stay at the design's positions, and a wave of size flows round them
+// clockwise. The star the wave reaches grows to full size and bright gold,
+// the ones it has passed shrink and fade back to the small grey tail, so the
+// design's big-to-small gradient is what travels (user, 2026-10-12: "the
+// stars remain where they are, the flow increases their size").
+//
+// Slot positions are measured from the export: angle (deg, screen coords,
+// 0 = right, clockwise positive) and distance from Lumo's centre.
+const SLOTS: { angle: number; r: number }[] = [
+  { angle: -93, r: 138 },
+  { angle: -134, r: 137 },
+  { angle: -174, r: 130 },
+  { angle: 151, r: 122 },
+  { angle: 113, r: 115 },
+  { angle: 77, r: 115 },
+  { angle: 42, r: 119 },
+  { angle: 14, r: 116 },
 ];
-const RING = 2 * (138 + 74 / 2) + 4; // fits the largest star at its radius
-const ONE_TURN_MS = 1600;
+// The design's gradient, head to tail: star width (pt) and how strongly it
+// shows. The design fades gold (#FFC800) through paler golds to a light grey;
+// gold at falling opacity over the white screen reproduces that and, unlike a
+// colour change, runs on the native driver.
+const RANKS: { w: number; opacity: number }[] = [
+  { w: 74, opacity: 1 },
+  { w: 61, opacity: 1 },
+  { w: 54, opacity: 1 },
+  { w: 45, opacity: 0.8 },
+  { w: 36, opacity: 0.62 },
+  { w: 27, opacity: 0.48 },
+  { w: 21, opacity: 0.34 },
+  { w: 14, opacity: 0.22 },
+];
+const MAX_W = RANKS[0].w;
+const STAR_COLOR = '#FFC800';
+const RING = 2 * (138 + MAX_W / 2) + 4; // fits a full-size star at any slot
+const ONE_LAP_MS = 1600; // the wave goes once round all eight stars
+
+// Slot i at wave step k (0..8, step 8 == step 0) shows rank (i + k) % 8, so
+// the head moves one slot clockwise each step: slot 0 at the top, then slot 7
+// on the right, slot 6, and on round.
+function waveOutput(slot: number, pick: (rank: (typeof RANKS)[number]) => number): number[] {
+  return Array.from({ length: SLOTS.length + 1 }, (_, k) => pick(RANKS[(slot + k) % SLOTS.length]));
+}
+const WAVE_INPUT = Array.from({ length: SLOTS.length + 1 }, (_, k) => k / SLOTS.length);
 
 // Rounded five-point star; stroke in the fill colour softens the points the
 // way the design's stars are softened.
@@ -47,38 +74,42 @@ export default function LumoLoader({ label = 'Loading ....', backgroundColor = '
   const d = useMemo(() => designScale(sc), [sc]);
   const s = useMemo(() => makeStyles(d), [d]);
 
-  const spin = useRef(new Animated.Value(0)).current;
+  const wave = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const loop = Animated.loop(Animated.timing(spin, {
-      toValue: 1, duration: ONE_TURN_MS, easing: Easing.linear, useNativeDriver: true,
+    const loop = Animated.loop(Animated.timing(wave, {
+      toValue: 1, duration: ONE_LAP_MS, easing: Easing.linear, useNativeDriver: true,
     }));
     loop.start();
     return () => loop.stop();
-  }, [spin]);
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  }, [wave]);
+  const starAnims = useMemo(() => SLOTS.map((_, i) => ({
+    scale: wave.interpolate({ inputRange: WAVE_INPUT, outputRange: waveOutput(i, r => r.w / MAX_W) }),
+    opacity: wave.interpolate({ inputRange: WAVE_INPUT, outputRange: waveOutput(i, r => r.opacity) }),
+  })), [wave]);
 
   const half = d(RING) / 2;
+  const full = d(MAX_W);
   return (
     <View style={[s.screen, { backgroundColor }, style]} accessibilityRole="progressbar" accessibilityLabel={label}>
       <View style={s.ring}>
-        <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate }] }]}>
-          {STARS.map((st, i) => {
-            const size = d(st.w);
-            const a = (st.angle * Math.PI) / 180;
-            return (
-              <View
-                key={i}
-                style={{
-                  position: 'absolute',
-                  left: half + Math.cos(a) * d(st.r) - size / 2,
-                  top: half + Math.sin(a) * d(st.r) - size / 2,
-                }}
-              >
-                <Star size={size} color={st.color} />
-              </View>
-            );
-          })}
-        </Animated.View>
+        {SLOTS.map((slot, i) => {
+          const a = (slot.angle * Math.PI) / 180;
+          // Drawn at full size and scaled down, centred on its slot, so the
+          // star grows and shrinks in place without ever moving.
+          return (
+            <Animated.View
+              key={i}
+              style={[s.star, {
+                left: half + Math.cos(a) * d(slot.r) - full / 2,
+                top: half + Math.sin(a) * d(slot.r) - full / 2,
+                opacity: starAnims[i].opacity,
+                transform: [{ scale: starAnims[i].scale }],
+              }]}
+            >
+              <Star size={full} color={STAR_COLOR} />
+            </Animated.View>
+          );
+        })}
         <Image source={require('../../assets/images/lumo_sad.png')} style={s.lumo} resizeMode="contain" />
       </View>
       <Text style={s.label}>{label}</Text>
@@ -91,6 +122,7 @@ function makeStyles(d: Scale) {
     screen: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     ring: { width: d(RING), height: d(RING), alignItems: 'center', justifyContent: 'center' },
     lumo: { width: d(157), height: d(165) },
+    star: { position: 'absolute' },
     // Design: text top sits ~165pt below Lumo's centre, i.e. just under the
     // tail of the ring rather than under the ring's full square box.
     label: {
