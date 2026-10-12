@@ -36,11 +36,24 @@ describe('device-offline detection', () => {
     expect(emit({ type: 'none', isConnected: false, isInternetReachable: false })).toBe(true);
   });
 
-  it('treats an explicit isInternetReachable=false as offline', () => {
-    // Connected to a WiFi network that has no route to the internet, e.g. a
-    // captive portal.
+  it('does NOT treat a failed internet probe as offline while a network exists', () => {
+    // On iOS isInternetReachable comes only from netinfo's Google probe; one
+    // failed or slow probe kept "You're offline" up on a working connection
+    // (2026-10-12). Only the OS's "no network" answer counts now; a network
+    // that can't reach us is isServerUnreachable's job, from real API calls.
     expect(emit({ type: 'wifi', isConnected: true, isInternetReachable: false, details: {} }))
+      .toBe(false);
+  });
+
+  it('treats an explicit isConnected=false as offline', () => {
+    expect(emit({ type: 'cellular', isConnected: false, isInternetReachable: false, details: {} }))
       .toBe(true);
+  });
+
+  it('does NOT treat isConnected=null as offline', () => {
+    // null means "not determined yet", normal for the first event.
+    expect(emit({ type: 'unknown', isConnected: null, isInternetReachable: null, details: {} }))
+      .toBe(false);
   });
 
   it('does NOT treat isInternetReachable=null as offline', () => {

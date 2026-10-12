@@ -16,19 +16,25 @@ import { addBreadcrumb } from './crashReporter';
  * Deliberately NOT configured with our own /health as reachabilityUrl. That
  * would recreate the exact bug this replaces, just inside the library: a
  * cold-starting serverless function would again decide whether the user is
- * "offline". netinfo's default probe is a tiny always-warm endpoint, which is
- * the right instrument for "does this device have internet", and on Android
- * useNativeReachability (default true) means the OS answers and no URL is
- * called at all. Our /health still runs, from SplashScreen, for its real job:
- * warming the serverless instance.
+ * "offline". No internet probe is used at all any more (see isOffline): only
+ * the OS's own "is there a network" answer drives the banner. Our /health
+ * still runs, from SplashScreen, for its real job: warming the serverless
+ * instance.
  */
 
-// isInternetReachable is `boolean | null` — null means "not determined yet",
-// which is normal for the first event or two and must not be read as offline.
-// Only treat the device as offline on an explicit negative.
+// Offline means the OS reports no network at all (no WiFi, no cellular,
+// airplane mode). isInternetReachable is deliberately NOT read: on iOS
+// netinfo has no native reachability, so it comes only from a JS HEAD probe
+// to clients3.google.com, and one failed or slow probe (an ad blocker, a DNS
+// filter, Private Relay, a probe cut off by backgrounding) kept "You're
+// offline" up on a phone with working internet while every API call
+// succeeded (reported 2026-10-12). "Has a network but can't reach us" is
+// covered by connectivityStore.isServerUnreachable, set from real API calls.
+// isConnected is `boolean | null`; null ("not determined yet", normal for the
+// first event) must not read as offline, so only an explicit false counts.
 function isOffline(state: NetInfoState): boolean {
   if (state.type === 'none') return true;
-  return state.isInternetReachable === false;
+  return state.isConnected === false;
 }
 
 /** Human-readable connection quality, for breadcrumbs on network-shaped crashes. */
@@ -75,6 +81,10 @@ export function startConnectivityWatch(): void {
 }
 
 function subscribe(): () => void {
+  // isOffline() no longer reads isInternetReachable, so the Google probe
+  // would only cost a request a minute (every 5s while failing) for nothing.
+  // Must be configured before the first listener is added.
+  NetInfo.configure({ reachabilityShouldRun: () => false });
   return NetInfo.addEventListener(state => {
     const offline = isOffline(state);
     const was = connectivity.isDeviceOffline();
