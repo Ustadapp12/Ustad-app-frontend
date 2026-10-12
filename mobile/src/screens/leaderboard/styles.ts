@@ -1,13 +1,11 @@
 import { StyleSheet } from 'react-native';
+import { designScale, type Scale } from '../../utils/responsive';
 import { colors } from '../../theme/colors';
 
 // Figma "leaderboard iPhone 16 & 17 Pro Max - 8" (node 1121:8311) is drawn on
-// a 440pt frame; the app's sc() baseline is 393pt. Every design number below
-// goes through d() so it is read straight off the Figma frame.
-const DESIGN_W = 440;
-const BASELINE_W = 393;
-export type Scale = (n: number) => number;
-export const designScale = (sc: Scale): Scale => (n: number) => sc((n * BASELINE_W) / DESIGN_W);
+// a 440pt frame. Every design number below goes through d() (designScale, in
+// utils/responsive) so it is read straight off the Figma frame.
+export { designScale, type Scale };
 
 // Colours sampled from the Figma render.
 export const LB = {
