@@ -10,7 +10,6 @@ import ChestInfoModal from '../../components/ChestInfoModal';
 import BackButton from '../../components/BackButton';
 import RewardChestButton from '../../components/RewardChestButton';
 import GlowProgressBar from '../../components/GlowProgressBar';
-import StartSurahModal from '../../components/StartSurahModal';
 
 interface Props { navigation: RootNavProp }
 
@@ -70,7 +69,6 @@ export default function SurahProgressScreen({ navigation }: Props) {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [chestInfoVisible, setChestInfoVisible] = useState(false);
-  const [confirmClosed, setConfirmClosed] = useState<SurahProgress | null>(null);
 
   const load = useCallback(async (asRefresh: boolean) => {
     if (asRefresh) setRefreshing(true);
@@ -131,33 +129,19 @@ export default function SurahProgressScreen({ navigation }: Props) {
   }
 
   function renderRow({ item: p, section }: { item: SurahProgress; section: { key: string } }) {
-    if (section.key === 'closed') {
-      // Mirrors Search's closed card, including the "Open {surah}?" confirm.
-      return (
-        <TouchableOpacity
-          style={[styles.row, styles.rowClosed]}
-          activeOpacity={0.7}
-          onPress={() => setConfirmClosed(p)}
-          accessibilityLabel={`${p.surah.name_en}, closed`}
-        >
-          <View style={styles.rowTop}>
-            <Text style={styles.numText}>{p.surah.surah_number}</Text>
-            <Text style={styles.rowNameEn} numberOfLines={1}>{p.surah.name_en}</Text>
-            <Text style={styles.rowNameAr} numberOfLines={1}>{p.surah.name_ar}</Text>
-          </View>
-          <Text style={styles.rowMeta}>LESSON AYAH 1-{p.surah.ayah_count}</Text>
-          <Text style={styles.jumpHere}>JUMP HERE ▶</Text>
-        </TouchableOpacity>
-      );
-    }
-
-    const fraction = p.total ? p.completed / p.total : 0;
+    // Closed rows use the same card as Open and Completed: the bar with the
+    // chest, empty, reading 0% (user, 2026-10-13). Nothing completed counts
+    // here, so the fraction is 0 even if a first level was started. Not
+    // tappable: jumping to a surah is what Search is for.
+    const isClosed = section.key === 'closed';
+    const fraction = isClosed ? 0 : (p.total ? p.completed / p.total : 0);
     const isDone = p.state === 'completed';
     const isUnavailable = p.state === 'unavailable';
     return (
       <TouchableOpacity
         style={[styles.row, isDone && styles.rowDone]}
         activeOpacity={0.7}
+        disabled={isClosed}
         onPress={() => openOnMap(p)}
         accessibilityLabel={`${p.surah.name_en}, ${isUnavailable ? 'progress unavailable' : `${pctLabel(fraction)} done`}`}
       >
@@ -248,19 +232,6 @@ export default function SurahProgressScreen({ navigation }: Props) {
         />
       )}
 
-      <StartSurahModal
-        visible={!!confirmClosed}
-        nameEn={confirmClosed?.surah.name_en}
-        nameAr={confirmClosed?.surah.name_ar}
-        ayahCount={confirmClosed?.surah.ayah_count}
-        onConfirm={() => {
-          const p = confirmClosed;
-          setConfirmClosed(null);
-          if (p) openOnMap(p);
-        }}
-        onCancel={() => setConfirmClosed(null)}
-      />
-
       {/* Neither the per-surah chest nor the overall one is wired to a real
           reward yet -- same honest "coming soon" as SearchSurahsScreen's. */}
       <ChestInfoModal
@@ -306,12 +277,6 @@ function makeStyles(d: Scale) {
       marginBottom: d(9.5),
     },
     rowDone: { paddingBottom: d(7) },
-    // Closed = not started yet: plain card, same as Search's closed rows.
-    rowClosed: { backgroundColor: colors.white, borderColor: colors.border, paddingBottom: d(10) },
-    jumpHere: {
-      fontFamily: 'Nunito-Bold', fontSize: d(9.5), color: colors.success,
-      textAlign: 'right', marginTop: d(6), letterSpacing: d(1),
-    },
     rowTop: { flexDirection: 'row', alignItems: 'center', paddingRight: d(19) },
     numText: { width: d(31), fontFamily: 'Nunito-Bold', fontSize: d(9), color: P.headerText },
     rowNameEn: { flex: 1, fontFamily: 'Nunito-Bold', fontSize: d(12.5), color: P.nameText },
