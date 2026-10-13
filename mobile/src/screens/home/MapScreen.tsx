@@ -191,7 +191,7 @@ export default function MapScreen({ navigation }: Props) {
   }
 
   const {
-    fullLevels, setFullLevels, firstLevel, loadingPaths, fetchingSurah, refreshing,
+    fullLevels, setFullLevels, firstLevel, loadingPaths, fetchingSurah, refreshing, reloading,
     handleRefresh, fetchPhase, fetchFirstLevelNow,
     currentSurahNumRef, returnedFromLevelTick,
   } = useMapData(learning);
@@ -619,7 +619,7 @@ export default function MapScreen({ navigation }: Props) {
         navigation={navigation}
       />
 
-      {(!nodesReady || refreshing) && <LoadingBar nodesReady={nodesReady} />}
+      {(!nodesReady || reloading) && <LoadingBar nodesReady={nodesReady} />}
       {!nodesReady && (
         // Gate on nodesReady (chapterResolved + firstLevel data for current chapter) to prevent
         // the SVG background from appearing before nodes finish loading. First load is the
@@ -628,7 +628,7 @@ export default function MapScreen({ navigation }: Props) {
           <LumoLoader />
         </View>
       )}
-      {nodesReady && refreshing && (
+      {nodesReady && reloading && (
         // Pull-to-refresh / in-place reload: same star loader as the first load,
         // but over the existing translucent overlay instead of a white screen, so
         // the already-correct map underneath stays visible while it re-fetches.

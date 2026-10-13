@@ -59,7 +59,15 @@ export function useMapData(learning: LearningMe | null) {
   // Latest resolved "current surah" — read (not reactive) by the chapter and
   // search-jump prefetches, set by both the mount effect and the focus effect.
   const currentSurahNumRef = useRef<number | null>(null);
+  // `refreshing` is ONLY a refresh the user pulled for; it drives the native
+  // RefreshControl. Automatic reloads (app back from background) set
+  // `silentRefreshing` instead. Driving RefreshControl from code makes iOS
+  // pull the map down ~60pt as if swiped; when that happened while a level
+  // was open on top, iOS often didn't scroll it back after the refresh, so
+  // the map came back stuck pulled down with the Lumo pull indicator above
+  // the mountain until the user scrolled (reported 2026-10-13).
   const [refreshing, setRefreshing] = useState(false);
+  const [silentRefreshing, setSilentRefreshing] = useState(false);
 
 
   const mergeFirstLevels = (levels: SurahLevel[]) => {
@@ -102,8 +110,9 @@ export function useMapData(learning: LearningMe | null) {
   // bypasses the cache"), hit the network directly for the recommendation
   // and every surah whose phase has already loaded, instead of reading
   // getCachedRecommended()/getCachedLevels().
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
+  const runRefresh = useCallback(async (silent: boolean) => {
+    const setBusy = silent ? setSilentRefreshing : setRefreshing;
+    setBusy(true);
     try {
       const recommended = await learningApi.recommendedNext().catch(() => null);
       setCachedRecommended(recommended ?? null);
@@ -131,9 +140,11 @@ export function useMapData(learning: LearningMe | null) {
       }
       await Promise.all(tasks);
     } finally {
-      setRefreshing(false);
+      setBusy(false);
     }
   }, [learning]);
+  // RefreshControl's onRefresh: the user pulled.
+  const handleRefresh = useCallback(() => runRefresh(false), [runRefresh]);
 
   // MapScreen only mounts once for the app's lifetime (see the comments on
   // lastVisitedSurah/the focus-effect above), so the initial-load effect
@@ -150,19 +161,20 @@ export function useMapData(learning: LearningMe | null) {
   // pull-to-refresh. Re-running the same handleRefresh() pull-to-refresh
   // uses (recommendedNext + current-surah levels + every already-loaded
   // surah, all from the network, none from cache) on every real
-  // background-to-foreground transition closes that gap, and reuses the
-  // exact same RefreshControl spinner as the visible "still loading" signal.
+  // background-to-foreground transition closes that gap. It runs silently
+  // (overlay + loading bar only, never the native RefreshControl), see
+  // `silentRefreshing` above for why.
   const appStateRef = useRef(AppState.currentState);
   useEffect(() => {
     const sub = AppState.addEventListener('change', next => {
       const prev = appStateRef.current;
       appStateRef.current = next;
       if (next === 'active' && prev.match(/inactive|background/)) {
-        void handleRefresh();
+        void runRefresh(true);
       }
     });
     return () => sub.remove();
-  }, [handleRefresh]);
+  }, [runRefresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -385,6 +397,8 @@ export function useMapData(learning: LearningMe | null) {
 
   return {
     fullLevels, setFullLevels, firstLevel, loadingPaths, fetchingSurah, refreshing,
+    // Either kind of refresh in flight: drives the loading bar and overlay.
+    reloading: refreshing || silentRefreshing,
     handleRefresh, fetchPhase, fetchFirstLevelNow,
     currentSurahNumRef, fetchedPhasesRef, returnedFromLevelTick,
   };
