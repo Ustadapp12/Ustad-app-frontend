@@ -807,3 +807,11 @@ Android AAB 26101317 above: iOS recorder AAC fix (the "Scoring failed" bug),
 lesson fixes, map speed work, loading screen, Progress screen, offline banner.
 Release notes 1.0.39 approved by the user 2026-10-13. Not yet verified on an
 iPhone; recitation is the key thing to check.
+
+**20048** / 1.0.39 — IPA (TestFlight) — 2026-10-13 — commit `c9ed857`, GitHub
+Actions run 38424464387 (#48), `ios-testflight.yml` on `Ahmad/dev`, green.
+Backend: **production**. 20047 + the iOS recorder fix: 20047's AAC 16kHz
+mono + default 128kbps made iOS refuse to start recording ("Could not start
+recording"); now AAC mono 44.1kHz 64kbps with two AAC fallbacks. Also carries
+the efficiency pass and device_model in usage sessions. Not yet verified on
+an iPhone. Map reload star loader (dfc4415) is NOT in this build.
