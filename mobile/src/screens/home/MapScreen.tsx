@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback, useReducer } from 'react';
-import { View, Text, Animated, useWindowDimensions, Image, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, Animated, useWindowDimensions, Image, TouchableOpacity, ScrollView, RefreshControl, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import LumoLoader from '../../components/LumoLoader';
@@ -16,10 +16,10 @@ import { setTourOffered, wasTourOffered } from '../../utils/storage';
 import { useTourStore } from '../../store/tourStore';
 import TourOfferModal from '../../components/tour/TourOfferModal';
 import type { MapNavProp } from '../../navigation/types';
-import { GRASS_FALLBACK, type NodeStatus, type SectionNode, type Section, CHAPTER_COUNT, SURAH_TO_CHAPTER, trustedLevels, CHAPTER_SEASON_INDICES, stageToNodeStatus, formatAyahRange, estimateAyahRange, type TagPlacement, buildMapModel } from './map/mapModel';
+import { GRASS_FALLBACK, type NodeStatus, type SectionNode, type Section, CHAPTER_COUNT, SURAH_TO_CHAPTER, trustedLevels, CHAPTER_SEASON_INDICES, stageToNodeStatus, estimateAyahRange, type TagPlacement, buildMapModel } from './map/mapModel';
 import { makeStyles } from './map/mapStyles';
 import { SurahLabel } from './map/components/SurahLabel';
-import { MapNode } from './map/components/MapNode';
+import { MapNodeItem } from './map/components/MapNodeItem';
 import { LevelActionCard } from './map/components/LevelActionCard';
 import { LumaFloat } from './map/components/LumaFloat';
 import { PullRefreshIndicator } from './map/components/PullRefreshIndicator';
@@ -32,7 +32,6 @@ import { useMapData, sortedLevels } from './map/useMapData';
 import { useRecommendedJump } from './map/useRecommendedJump';
 import { createLevelLaunchHandlers } from './map/levelLaunch';
 import { useStreakFrozenPopup } from './map/useStreakFrozenPopup';
-import { useFocusedLoop } from '../../hooks/useFocusedLoop';
 
 interface Props { navigation: MapNavProp }
 
@@ -158,9 +157,11 @@ export default function MapScreen({ navigation }: Props) {
   // exactly why "above" was safe to use as that fallback; going there
   // unconditionally now carries the same guarantee, so the label-collision
   // math the beside-based version needed no longer applies.
-  function nodeTagPlacement(): TagPlacement {
-    return { left: Math.round((NODE_SIZE - NODE_TAG_W) / 2), alignItems: 'center', above: true };
-  }
+  // Memoized so the memoized MapNodeItem sees the same object every render.
+  const nodeTagPlacement = useMemo<TagPlacement>(
+    () => ({ left: Math.round((NODE_SIZE - NODE_TAG_W) / 2), alignItems: 'center', above: true }),
+    [NODE_SIZE, NODE_TAG_W],
+  );
 
   // ── Guided tour ──────────────────────────────────────────────────
   // Offered once, on a first-time user's first sight of the map. Declining
@@ -286,8 +287,11 @@ export default function MapScreen({ navigation }: Props) {
   // longer needs its own focus/blur toggle.
 
 
-  // Enrich base layout with live backend statuses and real ayah ranges
-  const enrichedSections = BASE_SECTIONS.map(section => {
+  // Enrich base layout with live backend statuses and real ayah ranges.
+  // Memoized: node objects keep their identity across renders until the
+  // chapter or the level data actually changes, which is what lets the
+  // memoized MapNodeItem skip re-rendering every node on every map render.
+  const enrichedSections = useMemo(() => BASE_SECTIONS.map(section => {
     const full = trustedLevels(section.surahNum, fullLevels[section.surahNum]);
     const first = firstLevel[section.surahNum];
     return {
@@ -333,7 +337,7 @@ export default function MapScreen({ navigation }: Props) {
         return { ...node, resolved: false }; // stays computeLayout's default 'locked' — a real gate
       }),
     };
-  });
+  }), [BASE_SECTIONS, fullLevels, firstLevel]);
 
   // NOTE: seasons no longer gate anything. Every surah on the map is open from
   // the start; the sequential unlock seasons used to enforce stopped being a
@@ -388,7 +392,10 @@ export default function MapScreen({ navigation }: Props) {
   // lands: a surah that opens, opens.
   const gatedSections = enrichedSections;
 
-  const allEnrichedNodes = gatedSections.flatMap(s => s.nodes.map(n => ({ ...n, surahNum: s.surahNum })));
+  const allEnrichedNodes = useMemo(
+    () => gatedSections.flatMap(s => s.nodes.map(n => ({ ...n, surahNum: s.surahNum }))),
+    [gatedSections],
+  );
   // Multiple surahs' first levels can be simultaneously unlocked (no
   // cross-surah gate), so more than one node can read 'current'/'available'
   // at once — trust the backend's own "start here" answer instead of
@@ -458,8 +465,7 @@ export default function MapScreen({ navigation }: Props) {
   }, [surahsNeedingFullLevels, setFullLevels]);
 
 
-  const goldAnim  = useRef(new Animated.Value(0)).current;
-  // One shared value (mirrors goldAnim above) driving a shake on
+  // One shared value driving a shake on
   // whichever locked node was just tapped — the tap itself is a no-op
   // otherwise, which reads as the app ignoring you rather than as "locked."
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -487,52 +493,66 @@ export default function MapScreen({ navigation }: Props) {
   const [bouncesEnabled, setBouncesEnabled] = useState(true);
   const bouncesRef = useRef(true);
 
-  const onScroll  = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    {
-      useNativeDriver: true,
-      listener: (e: any) => {
-        // Reported crash: the app closes while scrolling the map — no JS
-        // exception ever reaches ErrorUtils for that, because the failure
-        // mode documented above (a native bitmap allocation over Canvas's
-        // ~100MB ceiling) aborts the process straight from native code. This
-        // whole listener is therefore wrapped, and scroll position is
-        // breadcrumbed (throttled to a real move, not every pixel), so that
-        // WHEN it crashes again, Crashlytics has the exact scroll position
-        // and map size that preceded it, sitting right next to the
-        // now-symbolicated native stack (see the Gradle
-        // nativeSymbolUploadEnabled change) instead of a bare offset with no
-        // lead-up context.
-        try {
-          const y = e.nativeEvent.contentOffset.y as number;
-          // Bottom overscroll is what exposes a strip of non-map content
-          // below the grass. The map should simply not travel past its end.
-          // Plain `bounces={false}` would do that, but on iOS it kills the
-          // TOP bounce too — and the top bounce is pull-to-refresh here
-          // (RefreshControl plus PullRefreshIndicator, which is driven by
-          // scrollY going negative). So bounce is allowed only while the
-          // view is near the top, where refresh lives, and switched off
-          // once scrolled away, which covers everywhere the bottom edge is
-          // reachable. Ref-guarded so this flips at most twice per gesture
-          // rather than calling setState on every scroll frame.
-          const nearTop = y < sc(80);
-          if (nearTop !== bouncesRef.current) {
-            bouncesRef.current = nearTop;
-            setBouncesEnabled(nearTop);
-          }
-          if (Math.abs(y - lastBreadcrumbYRef.current) < height / 2) return;
-          lastBreadcrumbYRef.current = y;
-          addBreadcrumb('map: scrolled', { scrollY: Math.round(y), MAP_H: Math.round(MAP_H), chapterIdx });
-        } catch (err) {
-          captureError(err, { where: 'MapScreen.onScroll', chapterIdx, MAP_H: Math.round(MAP_H) });
-        }
-      },
-    },
-  );
+  // Latest values for the scroll handlers below, read through a ref so the
+  // handlers themselves can stay stable (a new Animated.event every render
+  // re-attaches the native scroll binding on every render).
+  const scrollCtxRef = useRef({ sc, height, MAP_H, chapterIdx });
+  scrollCtxRef.current = { sc, height, MAP_H, chapterIdx };
 
-  // The completed-node gold pulse, running only while the map is on screen
-  // (see useFocusedLoop for why it must stop on blur).
-  useFocusedLoop(goldAnim, 1400);
+  // scrollY is driven natively. On Android there is no JS listener at all:
+  // a listener forces every scroll frame across to the JS thread, which was
+  // a main source of map scroll jank on mid-range Android phones. iOS keeps a
+  // small one, only for the bounce flag below (`bounces` is iOS-only).
+  const onScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    Platform.OS === 'ios'
+      ? {
+        useNativeDriver: true,
+        listener: (e: any) => {
+          try {
+            const y = e.nativeEvent.contentOffset.y as number;
+            // Bottom overscroll is what exposes a strip of non-map content
+            // below the grass. The map should simply not travel past its end.
+            // Plain `bounces={false}` would do that, but on iOS it kills the
+            // TOP bounce too — and the top bounce is pull-to-refresh here
+            // (RefreshControl plus PullRefreshIndicator, which is driven by
+            // scrollY going negative). So bounce is allowed only while the
+            // view is near the top, where refresh lives, and switched off
+            // once scrolled away, which covers everywhere the bottom edge is
+            // reachable. Ref-guarded so this flips at most twice per gesture
+            // rather than calling setState on every scroll frame.
+            const nearTop = y < scrollCtxRef.current.sc(80);
+            if (nearTop !== bouncesRef.current) {
+              bouncesRef.current = nearTop;
+              setBouncesEnabled(nearTop);
+            }
+          } catch (err) {
+            const { chapterIdx: c, MAP_H: h } = scrollCtxRef.current;
+            captureError(err, { where: 'MapScreen.onScroll', chapterIdx: c, MAP_H: Math.round(h) });
+          }
+        },
+      }
+      : { useNativeDriver: true },
+  ), [scrollY]);
+
+  // Reported crash: the app closes while scrolling the map — no JS exception
+  // ever reaches ErrorUtils for that, because the failure mode (a native
+  // bitmap allocation over Canvas's ~100MB ceiling) aborts the process
+  // straight from native code. So scroll position is breadcrumbed, and WHEN it
+  // crashes again Crashlytics has the scroll position and map size that
+  // preceded it. Logged when a drag or fling settles rather than per frame
+  // (same half-screen threshold as before), so it costs no per-frame JS.
+  const breadcrumbScroll = useCallback((e: any) => {
+    const { height: h, MAP_H: mapH, chapterIdx: c } = scrollCtxRef.current;
+    try {
+      const y = e.nativeEvent.contentOffset.y as number;
+      if (Math.abs(y - lastBreadcrumbYRef.current) < h / 2) return;
+      lastBreadcrumbYRef.current = y;
+      addBreadcrumb('map: scrolled', { scrollY: Math.round(y), MAP_H: Math.round(mapH), chapterIdx: c });
+    } catch (err) {
+      captureError(err, { where: 'MapScreen.onScroll', chapterIdx: c, MAP_H: Math.round(mapH) });
+    }
+  }, []);
 
   const { jumpToSurahStart } = useRecommendedJump({
     navigation, recommended, fullLevels, chapterIdx, setChapterIdx, setChapterResolved,
@@ -548,6 +568,14 @@ export default function MapScreen({ navigation }: Props) {
     setLockedSurahPrompt, setFullLevels, fetchFirstLevelNow, jumpToSurahStart, shakeLockedNode,
     suppressFollowRef,
   });
+  // Stable handle for the memoized MapNodeItem: always calls the latest
+  // handleNodePress (rebuilt every render) without changing identity, the same
+  // pattern as goToChapterStable above.
+  const handleNodePressRef = useRef(handleNodePress);
+  handleNodePressRef.current = handleNodePress;
+  const onNodePress = useCallback(
+    (section: Section, node: SectionNode) => { void handleNodePressRef.current(section, node); }, [],
+  );
 
   // Crash context, not app behavior — this screen had none of the
   // breadcrumb/context wiring the rest of the app relies on (see
@@ -653,6 +681,8 @@ export default function MapScreen({ navigation }: Props) {
         overScrollMode="never"
         onScroll={onScroll}
         onScrollBeginDrag={dismissActionCards}
+        onScrollEndDrag={breadcrumbScroll}
+        onMomentumScrollEnd={breadcrumbScroll}
         scrollEventThrottle={16}
         refreshControl={
           // Spinner suppressed as far as each platform allows —
@@ -711,47 +741,26 @@ export default function MapScreen({ navigation }: Props) {
                 // Review ("R") nodes don't consume a number in the sequence —
                 // only advance the counter for normal, numbered nodes.
                 if (!node.isSpecial) globalIdx++;
-                const idx = globalIdx;
-                const pill = AYAH_PILLS[`${section.surahNum}_${nodeIdx}`];
-                const nodeEstimate = estimateAyahRange(node.levelNum ?? 1, section.ayahCount, node.isSpecial);
-                const ayahFrom = node.startAyah ?? nodeEstimate.from;
-                const ayahTo = node.endAyah ?? nodeEstimate.to;
-                const rangeLabel = formatAyahRange(ayahFrom, ayahTo);
+                const isActive = node.id === firstActiveNode?.id;
+                // Keyed by the node's fixed (surah, level) slot, not node.id:
+                // the id changes from placeholder to real lesson_group_id when
+                // the level data lands, and a changing key remounts the node.
+                // Each (surah, level) sits in exactly one chapter, so unique.
                 return (
-                  <React.Fragment key={node.id}>
-                    <Animated.View
-                      style={[
-                        { position: 'absolute', left: node.x, top: node.y },
-                        shakingNodeId === node.id && {
-                          transform: [{
-                            translateX: shakeAnim.interpolate({ inputRange: [-1, 1], outputRange: [-6, 6] }),
-                          }],
-                        },
-                      ]}
-                    >
-                    <TouchableOpacity
-                      activeOpacity={node.status === 'locked' ? 1 : 0.85}
-                      onPress={() => void handleNodePress(section, node)}
-                    >
-                      <MapNode
-                        status={node.status}
-                        stars={node.stars}
-                        goldAnim={goldAnim}
-                        levelNum={idx}
-                        isFetching={node.status === 'pending' && fetchingSurah === section.surahNum}
-                        isSpecial={node.isSpecial}
-                        tagLabel={node.id === firstActiveNode?.id ? (hasAnyProgress ? 'Continue here' : 'Begin here') : undefined}
-                        tagPlacement={node.id === firstActiveNode?.id ? nodeTagPlacement() : undefined}
-                        S={S}
-                      />
-                    </TouchableOpacity>
-                    </Animated.View>
-                    {pill && (
-                      <View pointerEvents="none" style={[S.ayahPill, { position: 'absolute', left: pill.x, top: pill.y, width: pill.w, height: pill.h }]}>
-                        <Text style={S.ayahPillText} numberOfLines={1} adjustsFontSizeToFit>{rangeLabel}</Text>
-                      </View>
-                    )}
-                  </React.Fragment>
+                  <MapNodeItem
+                    key={`${section.surahNum}:${node.surahLevelIdx}`}
+                    section={section}
+                    node={node}
+                    levelNum={globalIdx}
+                    pill={AYAH_PILLS[`${section.surahNum}_${nodeIdx}`]}
+                    isShaking={shakingNodeId === node.id}
+                    shakeAnim={shakeAnim}
+                    isFetching={node.status === 'pending' && fetchingSurah === section.surahNum}
+                    tagLabel={isActive ? (hasAnyProgress ? 'Continue here' : 'Begin here') : undefined}
+                    tagPlacement={isActive ? nodeTagPlacement : undefined}
+                    onPress={onNodePress}
+                    S={S}
+                  />
                 );
               })
             );

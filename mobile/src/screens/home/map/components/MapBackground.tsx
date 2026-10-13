@@ -152,13 +152,23 @@ function MapBackground({ M, mapInstanceId }: Props) {
             // even a repeat of the old bug here is invisible.
             const grassImgTop = tileIdx === 0 ? grassPlainTop : tileTop;
             const grassImgH = tileTop + tileH - grassImgTop;
+            // Tile 0's seam Svg: from the sky line to a few dp under the
+            // top of the plain grass Image (which paints over the overlap).
+            const seamH = Math.min(grassPlainTop + sc(8), tileTop + tileH) - SKY_BOUNDARY_Y;
             return (
               <React.Fragment key={`bgtile-${tileIdx}`}>
-                {tileIdx === 0 && (
+                {/* Cropped to the seam strip only (SKY_BOUNDARY_Y down to a
+                    little past grassPlainTop). It used to span the whole
+                    3000dp tile, and react-native-svg backs every <Svg> with a
+                    bitmap of its full size: about 30+MB on a 1080p phone for
+                    a strip that is ~20dp tall, the rest being covered by the
+                    plain grass Image anyway. userSpaceOnUse keeps the pattern
+                    anchored to the same map coordinates, so it looks the same. */}
+                {tileIdx === 0 && seamH > 0 && (
                   <Svg
                     width={MAP_W + 2}
-                    height={tileH}
-                    viewBox={`0 ${tileTop} ${MAP_W + 2} ${tileH}`}
+                    height={seamH}
+                    viewBox={`0 ${SKY_BOUNDARY_Y} ${MAP_W + 2} ${seamH}`}
                     // "none": with the default "meet", a sub-pixel width
                     // mismatch shrinks this very tall tile and centers it,
                     // pushing the grass edge ~2dp below SKY_BOUNDARY_Y and
@@ -167,7 +177,7 @@ function MapBackground({ M, mapInstanceId }: Props) {
                     // rounds its width down, leaving a 2px strip at the
                     // right edge.
                     preserveAspectRatio="none"
-                    style={[StyleSheet.absoluteFill, { top: tileTop, height: tileH, width: MAP_W + 2, overflow: 'hidden' }]}
+                    style={[StyleSheet.absoluteFill, { top: SKY_BOUNDARY_Y, height: seamH, width: MAP_W + 2, overflow: 'hidden' }]}
                   >
                     <Defs>
                       <Pattern id={`grassPattern-${mapInstanceId}-${tileIdx}`} patternUnits="userSpaceOnUse" width={sc(140)} height={sc(140)}>

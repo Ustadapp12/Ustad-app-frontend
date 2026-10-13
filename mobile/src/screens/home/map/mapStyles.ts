@@ -102,16 +102,6 @@ export function makeStyles(M: MapModel) {
     // image (recommendedSpecial) already renders at 1.3x NODE_SIZE.
     // Tightened 2026-09-01 (user: original was "too ugly and too big") — a
     // close highlight ring hugging the node's own edge, not a diffuse halo.
-    nodeGlowNormal: {
-      position: 'absolute', width: NODE_SIZE * 1.14, height: NODE_SIZE * 1.14, borderRadius: NODE_SIZE * 0.57,
-      backgroundColor: 'rgba(176,184,200,0.35)',
-      shadowColor: colors.nodeLocked, shadowOpacity: 0.55, shadowRadius: sc(5), shadowOffset: { width: 0, height: 0 }, elevation: 4,
-    },
-    nodeGlowSpecial: {
-      position: 'absolute', width: NODE_SIZE * 1.32, height: NODE_SIZE * 1.32, borderRadius: NODE_SIZE * 0.66,
-      backgroundColor: 'rgba(42,125,79,0.32)',
-      shadowColor: colors.primary, shadowOpacity: 0.55, shadowRadius: sc(6), shadowOffset: { width: 0, height: 0 }, elevation: 4,
-    },
     nodeShadow: {
       position: 'absolute', bottom: -sc(4), width: NODE_SIZE * 0.8, height: sc(10), borderRadius: sc(6),
       backgroundColor: 'rgba(0,0,0,0.25)', left: NODE_SIZE * 0.1,

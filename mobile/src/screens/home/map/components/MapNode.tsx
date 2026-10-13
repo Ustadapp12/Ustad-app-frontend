@@ -1,14 +1,13 @@
 import React from 'react';
-import { View, Text, Animated, Image, ActivityIndicator } from 'react-native';
+import { View, Text, Image, ActivityIndicator } from 'react-native';
 import { NODE_SRCS, type NodeStatus, type TagPlacement } from '../mapModel';
 import type { Styles } from '../mapStyles';
 
 // ── Map node — one visual shell for every non-completed/non-green status.
 // The ONLY differentiator for a real locked gate is the lock icon; nothing
 // is dimmed/faded anymore (dimming previously read as "broken", not "locked"). ──
-export function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpecial, tagLabel, tagPlacement, S }: {
+export function MapNode({ status, stars, levelNum, isFetching, isSpecial, tagLabel, tagPlacement, S }: {
   status: NodeStatus; stars: number;
-  goldAnim: Animated.Value;
   levelNum: number; isFetching?: boolean; isSpecial?: boolean;
   // "Begin here" (never completed a level yet) / "Continue here" (returning
   // user) — shown only on the one node the backend recommends next.
@@ -20,17 +19,11 @@ export function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpeci
   tagPlacement?: TagPlacement;
   S: Styles['S'];
 }) {
-  const goldScale  = goldAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
-  // Open = unlocked and playable right now, whether or not it's the one
-  // backend-recommended node — every open node glows, not just that one.
-  // Locked and completed nodes never do: locked has nothing to invite the
-  // player toward yet, and completed already has its own gold pop (goldScale
-  // above) as its "done" cue.
+  // Open = unlocked and playable right now. Open nodes sit slightly larger
+  // (below) as their cue. The breathing glow they used to have was removed
+  // 2026-10-13: an elevation shadow with a looping opacity forced the whole
+  // map to redraw several times a second, the main cost on Samsung phones.
   const isOpen = status !== 'locked' && status !== 'completed';
-  // Reuses goldAnim (already looping continuously for the completed pop)
-  // to breathe the glow's opacity instead of starting a second animation
-  // loop per node.
-  const glowOpacity = goldAnim.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] });
   // Special/review (collective) node art, by status:
   //   completed → gold special_done.png
   //   locked    → plain green node_current.png. Green keeps it visually
@@ -78,19 +71,15 @@ export function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpeci
         </View>
       )}
       <View style={S.nodeShadow} />
-      <Animated.View style={[
+      {/* Completed nodes used to pulse (looping scale); removed 2026-10-13
+          with the glow, since any looping animation keeps the whole map
+          redrawing. Gold art + stars are the completed cue now. */}
+      <View style={[
         S.node,
-        status === 'completed' && { transform: [{ scale: goldScale }] },
         // Open nodes sit a touch larger than locked ones — a "pop out" cue
         // that reads even with the glow now much smaller (2026-09-01).
         isOpen && { transform: [{ scale: 1.06 }] },
       ]}>
-        {isOpen && (
-          <Animated.View
-            pointerEvents="none"
-            style={[isSpecial ? S.nodeGlowSpecial : S.nodeGlowNormal, { opacity: glowOpacity }]}
-          />
-        )}
         {/* recommended_special.png has substantially more baked-in
             transparent padding around its badge than every other node's
             art (node_current.png, node_locked.png, etc.) — at the same
@@ -119,7 +108,7 @@ export function MapNode({ status, stars, goldAnim, levelNum, isFetching, isSpeci
         {status === 'completed' && stars > 0 && (
           <View style={S.starsBadge}><Text style={S.starsText}>{'★'.repeat(stars)}</Text></View>
         )}
-      </Animated.View>
+      </View>
     </View>
   );
 }
