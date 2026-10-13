@@ -29,6 +29,22 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // First two lines approved by the user 2026-10-12; the rest added and
+    // approved 2026-10-13, before the build that carries it.
+    version: '1.0.39',
+    date: '2026-10-13',
+    changes: [
+      { category: 'Improved', text: 'Progress screen refreshed, with glowing progress bars, a tidier layout, and your reward chest at the end of each bar.' },
+      { category: 'Fixed', text: "The \"You're offline\" message no longer shows up when your internet is working." },
+      { category: 'New', text: 'A fresh loading screen with Lumo while your map gets ready.' },
+      { category: 'Improved', text: 'The map uses less memory and responds faster.' },
+      { category: 'Fixed', text: 'The Hint button in lessons works again.' },
+      { category: 'Improved', text: 'Exercises now sit in the middle of the screen, and fill in the blank ayahs read on one line with the blank in place.' },
+      { category: 'Improved', text: 'One matching Hear button across all exercises.' },
+      { category: 'Fixed', text: 'Recording your recitation now stops any audio that is playing, so only your voice is scored.' },
+    ],
+  },
+  {
     // Reviewed and approved by the user 2026-10-11, before the build that
     // carries it.
     version: '1.0.38',

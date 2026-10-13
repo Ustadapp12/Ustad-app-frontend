@@ -769,3 +769,33 @@ Contents: same as iOS 20046 above. Not verified on a device yet.
 
 Output: `C:\BuildProjects\app-release-1.0.38-26101123.aab` (also at
 `android\app\build\outputs\bundle\release\app-release.aab`).
+
+**26101317** / 1.0.39 — AAB (Play) — 2026-10-13 — uncommitted working tree
+(no commit yet). Backend: **production**. Built locally from
+`C:\BuildProjects\ustadapp-mobile` (`gradlew clean bundleRelease`,
+VERSION_CODE=26101317, VERSION_NAME=1.0.39, NODE_ENV=production), 8m41s.
+`src/`, `assets/` synced; `package.json`/`app.json` copied (only the version
+differed); the two resized mdpi drawables copied.
+
+Verified from the artifact: merged manifest versionCode 26101317 /
+versionName 1.0.39; signed (`META-INF/USTAD.RSA`); libs arm64-v8a +
+armeabi-v7a only; Hermes bundle 3.88 MB contains the production URL and not
+the testing one, `isShaking` (MapNodeItem), the approved 1.0.39 release notes
+("One matching Hear button", "fresh loading screen with Lumo"); the removed
+glow styles (`nodeGlowNormal`) absent.
+
+Contents since 1.0.38: map perf (memoized MapNodeItem + node data, no JS
+scroll listener on Android, grass-seam Svg cropped, 6 map images resized,
+open-node glow and completed-node pulse removed); new map loading screen
+(LumoLoader); Progress screen matched to progress_final; offline banner only
+when no network; lesson fixes (hint button, centred exercise layout,
+one-line fill-blank ayah, shared HearButton, full-width answer grid,
+playback blocked while recording); iOS recorder AAC (no effect on Android).
+Release notes 1.0.39 reviewed and approved by the user 2026-10-13.
+
+Emulator (x86_64 builds of the same source): map loads, nodes/tag/card/
+chapter-end art correct, idle redraws 0, scroll median frame 650 -> 450ms.
+Not verified on a real device yet. SVG background still the main cost.
+
+Output: `C:\BuildProjects\app-release-1.0.39-26101317.aab` (also at
+`android\app\build\outputs\bundle\release\app-release.aab`).
