@@ -17,6 +17,14 @@ import { getLastScreens } from './screenHistory';
 // the same build. One source now.
 import { APP_VERSION } from '../utils/appVersion';
 
+// Android reports manufacturer + model code (e.g. "samsung SM-S938B" for a
+// Galaxy S25 Ultra) with no extra native dependency. iOS exposes no model
+// without one, so it reports the device class only. Stored in
+// usage_sessions.device_model (the backend truncates to 64 chars).
+const DEVICE_MODEL: string = Platform.OS === 'android'
+  ? `${(Platform.constants as any).Manufacturer ?? ''} ${(Platform.constants as any).Model ?? ''}`.trim()
+  : ((Platform as any).isPad ? 'iPad' : 'iPhone');
+
 let activeSessionId: string | null = null;
 let starting: Promise<void> | null = null;
 
@@ -44,6 +52,7 @@ export async function startUsageSession(): Promise<void> {
       const { session_id } = await usageApi.startSession({
         platform: Platform.OS,
         app_version: APP_VERSION,
+        device_model: DEVICE_MODEL || undefined,
         os_version: String(Platform.Version),
         entry_method: entryMethod,
       });
