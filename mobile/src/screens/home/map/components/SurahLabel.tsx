@@ -4,7 +4,9 @@ import { SCROLL_SRC, type LabelBox } from '../mapModel';
 import type { Styles } from '../mapStyles';
 
 // ── Surah name label — scroll art behind Arabic + English name ───────────
-export function SurahLabel({ name, box, SL }: {
+// Memoized: its props only change with the chapter layout, so it skips every
+// other MapScreen render.
+export const SurahLabel = React.memo(function Label({ name, box, SL }: {
   name: string; box: LabelBox; sc: (n: number) => number; SL: Styles['SL'];
 }) {
   return (
@@ -15,4 +17,4 @@ export function SurahLabel({ name, box, SL }: {
       </View>
     </View>
   );
-}
+});

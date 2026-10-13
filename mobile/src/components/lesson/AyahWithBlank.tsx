@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
@@ -25,29 +25,34 @@ interface Props {
 // near its real place in the sentence.
 export default function AyahWithBlank({ before, tokens, after, blankText }: Props) {
   const arabicFont = useArabicFont();
-  const wordStyle = arabicTextStyle(S.word as any, arabicFont) as any;
-  const blankSize = {
+  // Memoized: the lesson screen re-renders often (timers, feedback, audio
+  // state), and none of these change unless the font or the exercise does.
+  const { wordStyle, blankTextStyle, blankStyle } = useMemo(() => ({
+    wordStyle: arabicTextStyle(S.word as any, arabicFont) as any,
+    blankTextStyle: arabicTextStyle(S.blankText as any, arabicFont) as any,
     // Fixed size tuned for the default Naskh font. Nastaliq needs a narrower
     // box (scale shrinks glyph width) but a taller one (lineHeightScale, its
     // letterforms stack vertically); see arabicFont.ts.
-    height: Math.round(40 * arabicFont.scale * arabicFont.lineHeightScale),
-    minWidth: Math.round(70 * arabicFont.scale),
-  };
+    blankStyle: [S.blank, {
+      height: Math.round(40 * arabicFont.scale * arabicFont.lineHeightScale),
+      minWidth: Math.round(70 * arabicFont.scale),
+    }],
+  }), [arabicFont]);
 
   // Empty strings (stray whitespace tokens) would still take up a gap slot
   // and push everything off centre, so they're dropped.
-  const words: Token[] = [
+  const words = useMemo((): Token[] => [
     ...(before ?? []).map((ar): Token => ({ ar })),
     ...(tokens ?? []),
     ...(after ?? []).map((ar): Token => ({ ar })),
-  ].filter(t => t.blank || t.ar.trim().length > 0);
+  ].filter(t => t.blank || t.ar.trim().length > 0), [before, tokens, after]);
 
   return (
     <View style={S.row}>
       {words.map((t, i) =>
         t.blank ? (
-          <View key={i} style={[S.blank, blankSize]}>
-            {blankText ? <Text style={arabicTextStyle(S.blankText as any, arabicFont) as any}>{blankText}</Text> : null}
+          <View key={i} style={blankStyle}>
+            {blankText ? <Text style={blankTextStyle}>{blankText}</Text> : null}
           </View>
         ) : (
           <Text key={i} style={wordStyle}>{t.ar}</Text>

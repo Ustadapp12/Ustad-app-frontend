@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useScriptStore } from '../store/scriptStore';
 import type { ScriptPreference } from '../types/api';
 
@@ -48,11 +49,12 @@ export function scriptLineHeightScale(script: ScriptPreference | null | undefine
 /** Hook: returns { fontFamily, scale, lineHeightScale } derived from the global script store. */
 export function useArabicFont(): { fontFamily: string; scale: number; lineHeightScale: number } {
   const script = useScriptStore(s => s.script);
-  return {
+  // Same object until the script changes, so callers can memoize on it.
+  return useMemo(() => ({
     fontFamily: scriptToFontFamily(script),
     scale: scriptFontScale(script),
     lineHeightScale: scriptLineHeightScale(script),
-  };
+  }), [script]);
 }
 
 /** Convenience: inline style object for an Arabic Text element. */

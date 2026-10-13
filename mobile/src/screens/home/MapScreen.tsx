@@ -128,7 +128,7 @@ export default function MapScreen({ navigation }: Props) {
   const styles = useMemo(() => makeStyles(M), [M]);
   const { S, SL, SB } = styles;
   const {
-    MAP_W, MAP_H, sc, NODE_SIZE, TOP_MARGIN, BASE_SECTIONS, comingSoonY, AYAH_PILLS, SURAH_LABELS,
+    MAP_W, MAP_H, sc, NODE_SIZE, BASE_SECTIONS, comingSoonY, AYAH_PILLS, SURAH_LABELS,
     ACTION_CARD_W, ACTION_CARD_H, NODE_TAG_W,
   } = M;
   // Beside the node — level with it (not above, like the old retry bubble),
@@ -291,53 +291,70 @@ export default function MapScreen({ navigation }: Props) {
   // Memoized: node objects keep their identity across renders until the
   // chapter or the level data actually changes, which is what lets the
   // memoized MapNodeItem skip re-rendering every node on every map render.
-  const enrichedSections = useMemo(() => BASE_SECTIONS.map(section => {
-    const full = trustedLevels(section.surahNum, fullLevels[section.surahNum]);
-    const first = firstLevel[section.surahNum];
-    return {
-      ...section,
-      nodes: section.nodes.map((node) => {
-        // Index by the node's stable per-surah position, NOT its position in
-        // this chapter-local nodes array — a surah split across a chapter
-        // boundary (see SectionNode.surahLevelIdx) means that array position
-        // no longer lines up with full's real backend order past the split.
-        const group = full?.[node.surahLevelIdx];
-        if (group) {
-          return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: levelStars(group), startAyah: group.start_ayah, endAyah: group.end_ayah, isSpecial: group.is_special, resolved: true };
-        }
-        if (node.surahLevelIdx === 0 && first) {
-          return { ...node, id: first.lesson_group_id, status: stageToNodeStatus(first.status), stars: levelStars(first), startAyah: first.start_ayah, endAyah: first.end_ayah, isSpecial: first.is_special, resolved: true };
-        }
-        if (node.surahLevelIdx === 0) {
-          // First level of a surah is never actually locked server-side —
-          // just not confirmed yet. Tappable; see handleNodePress.
-          return { ...node, status: 'pending' as NodeStatus, resolved: false };
-        }
-        // Later levels of a surah whose first level reads 'completed' but
-        // whose full levels haven't arrived yet (surahsNeedingFullLevels'
-        // backfill below is fetching them). Shown as 'available': open,
-        // tappable, no gold, no stars.
-        //
-        // This used to guess 'completed' with a flat 3 stars, and that guess
-        // is not allowed to exist. The map is the user's record of their own
-        // work, and a node claiming three gold stars for a level they never
-        // played misjudges them — the one failure mode here that isn't
-        // merely cosmetic. 'available' can only ever be wrong in the
-        // harmless direction: it offers a level the user may have already
-        // finished, it never credits them with one they haven't.
-        //
-        // resolved:false marks it as unconfirmed either way, and
-        // handleNodePress resolves the real group (id AND status) from the
-        // backend before it will navigate — which is also what keeps this
-        // safe, since an unresolved node's `id` is still the static
-        // placeholder (`${surahNum}_${n}`), not a real lesson_group_id.
-        if (first?.status === 'completed') {
-          return { ...node, status: 'available' as NodeStatus, stars: 0, resolved: false };
-        }
-        return { ...node, resolved: false }; // stays computeLayout's default 'locked' — a real gate
-      }),
-    };
-  }), [BASE_SECTIONS, fullLevels, firstLevel]);
+  // Per surah, too: a level fetch for one surah reuses every other surah's
+  // previous section object (cache keyed on the inputs that build it), so
+  // only that surah's nodes re-render.
+  const enrichCacheRef = useRef(new Map<Section, { rawFull: unknown; first: unknown; out: Section }>());
+  const enrichedSections = useMemo(() => {
+    // Rebuilt each run with only this chapter's sections, so paging through
+    // chapters doesn't accumulate old entries.
+    const prevCache = enrichCacheRef.current;
+    const nextCache: typeof prevCache = new Map();
+    const result = BASE_SECTIONS.map(section => {
+      const rawFull = fullLevels[section.surahNum];
+      const first = firstLevel[section.surahNum];
+      const hit = prevCache.get(section);
+      if (hit && hit.rawFull === rawFull && hit.first === first) { nextCache.set(section, hit); return hit.out; }
+      const full = trustedLevels(section.surahNum, rawFull);
+      const out = {
+        ...section,
+        nodes: section.nodes.map((node) => {
+          // Index by the node's stable per-surah position, NOT its position in
+          // this chapter-local nodes array — a surah split across a chapter
+          // boundary (see SectionNode.surahLevelIdx) means that array position
+          // no longer lines up with full's real backend order past the split.
+          const group = full?.[node.surahLevelIdx];
+          if (group) {
+            return { ...node, id: group.lesson_group_id, status: stageToNodeStatus(group.status), stars: levelStars(group), startAyah: group.start_ayah, endAyah: group.end_ayah, isSpecial: group.is_special, resolved: true };
+          }
+          if (node.surahLevelIdx === 0 && first) {
+            return { ...node, id: first.lesson_group_id, status: stageToNodeStatus(first.status), stars: levelStars(first), startAyah: first.start_ayah, endAyah: first.end_ayah, isSpecial: first.is_special, resolved: true };
+          }
+          if (node.surahLevelIdx === 0) {
+            // First level of a surah is never actually locked server-side —
+            // just not confirmed yet. Tappable; see handleNodePress.
+            return { ...node, status: 'pending' as NodeStatus, resolved: false };
+          }
+          // Later levels of a surah whose first level reads 'completed' but
+          // whose full levels haven't arrived yet (surahsNeedingFullLevels'
+          // backfill below is fetching them). Shown as 'available': open,
+          // tappable, no gold, no stars.
+          //
+          // This used to guess 'completed' with a flat 3 stars, and that guess
+          // is not allowed to exist. The map is the user's record of their own
+          // work, and a node claiming three gold stars for a level they never
+          // played misjudges them — the one failure mode here that isn't
+          // merely cosmetic. 'available' can only ever be wrong in the
+          // harmless direction: it offers a level the user may have already
+          // finished, it never credits them with one they haven't.
+          //
+          // resolved:false marks it as unconfirmed either way, and
+          // handleNodePress resolves the real group (id AND status) from the
+          // backend before it will navigate — which is also what keeps this
+          // safe, since an unresolved node's `id` is still the static
+          // placeholder (`${surahNum}_${n}`), not a real lesson_group_id.
+          if (first?.status === 'completed') {
+            return { ...node, status: 'available' as NodeStatus, stars: 0, resolved: false };
+          }
+          return { ...node, resolved: false }; // stays computeLayout's default 'locked' — a real gate
+        }),
+      };
+      nextCache.set(section, { rawFull, first, out });
+      return out;
+    });
+    enrichCacheRef.current = nextCache;
+    return result;
+  }, [BASE_SECTIONS, fullLevels, firstLevel]);
 
   // NOTE: seasons no longer gate anything. Every surah on the map is open from
   // the start; the sequential unlock seasons used to enforce stopped being a
