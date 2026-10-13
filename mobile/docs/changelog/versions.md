@@ -799,3 +799,11 @@ Not verified on a real device yet. SVG background still the main cost.
 
 Output: `C:\BuildProjects\app-release-1.0.39-26101317.aab` (also at
 `android\app\build\outputs\bundle\release\app-release.aab`).
+
+**20047** / 1.0.39 — IPA (TestFlight) — 2026-10-13 — commit `6f1e64f`, GitHub
+Actions run 38407709463 (#47), `ios-testflight.yml` on `Ahmad/dev`, green
+first try (~25 min including submit). Backend: **production**. Same source as
+Android AAB 26101317 above: iOS recorder AAC fix (the "Scoring failed" bug),
+lesson fixes, map speed work, loading screen, Progress screen, offline banner.
+Release notes 1.0.39 approved by the user 2026-10-13. Not yet verified on an
+iPhone; recitation is the key thing to check.
