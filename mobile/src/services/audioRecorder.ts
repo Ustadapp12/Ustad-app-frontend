@@ -48,16 +48,18 @@ export async function requestMicPermission(): Promise<boolean> {
 // Force mono AAC, which Deepgram accepts and which is also far smaller to
 // upload. Android ignores the IOS keys and already defaults to AAC/MPEG4.
 //
-// The bitrate must be set too: left out, the library defaults to 128kbps,
-// which AAC can't encode at 16kHz mono (its ceiling there is ~96kbps), and
-// AVAudioRecorder's response to an impossible setting is undefined (refuse to
-// start, or write an unreadable file). 32kbps is ample for speech.
-const RECORDING_SETTINGS = {
-  AVFormatIDKeyIOS: 'aac',
-  AVNumberOfChannelsKeyIOS: 1,
-  AVSampleRateKeyIOS: 16000,
-  AVEncoderBitRateKeyIOS: 32000,
-};
+// Build 20047 used AAC at 16kHz mono with the library's default 128kbps
+// bitrate, which AAC can't encode at that rate: iOS refused to start the
+// recorder ("Could not start recording"). So the settings are now the most
+// standard iOS voice-recording ones, tried in order, every one of them AAC
+// (never ALAC). 44.1kHz is the iPhone mic's native rate, so no resampling is
+// involved, and the bitrates are well inside AAC's range at that rate. Each
+// fallback is only used if iOS refuses the one before it.
+const RECORDING_SETTINGS_IOS: Record<string, string | number>[] = [
+  { AVFormatIDKeyIOS: 'aac', AVNumberOfChannelsKeyIOS: 1, AVSampleRateKeyIOS: 44100, AVEncoderBitRateKeyIOS: 64000 },
+  { AVFormatIDKeyIOS: 'aac', AVNumberOfChannelsKeyIOS: 1, AVSampleRateKeyIOS: 44100 },
+  { AVFormatIDKeyIOS: 'aac', AVNumberOfChannelsKeyIOS: 2, AVSampleRateKeyIOS: 44100 },
+];
 
 /** Start recording. Returns the file path (used later as audioUri). */
 export async function startRecording(): Promise<void> {
@@ -74,25 +76,33 @@ export async function startRecording(): Promise<void> {
 }
 
 async function startRecorderWithReset(): Promise<void> {
-  try {
-    await getRecorder().startRecorder(undefined, RECORDING_SETTINGS);
-  } catch (e) {
-    // The native recorder can be left thinking it's still recording after an
-    // interrupted session (backing out mid-recording, a call/notification
-    // cutting in, etc.) — every subsequent startRecorder() then throws
-    // against that same stuck instance, with no in-app way to recover short
-    // of a full app restart (which recreates _recorder from scratch, since
-    // getRecorder() only builds one the first time it's null). Reproduce
-    // that reset here instead of making the user restart the app: release
-    // the stuck instance, drop it, and retry once against a fresh one.
-    console.warn('[audioRecorder] startRecorder failed, resetting recorder and retrying:', e);
-    const stuck = _recorder;
-    _recorder = null;
-    if (stuck) {
-      await stuck.stopRecorder().catch(() => {});
+  // Android ignores the iOS keys (it records AAC/MPEG4 by default), so it
+  // just gets the same settings twice: the second try is the fresh-recorder
+  // retry after a stuck-recorder reset, exactly as before.
+  const attempts = Platform.OS === 'ios'
+    ? RECORDING_SETTINGS_IOS
+    : [RECORDING_SETTINGS_IOS[0], RECORDING_SETTINGS_IOS[0]];
+  let lastError: unknown;
+  for (const settings of attempts) {
+    try {
+      await getRecorder().startRecorder(undefined, settings);
+      return;
+    } catch (e) {
+      lastError = e;
+      // The native recorder can be left thinking it's still recording after
+      // an interrupted session (backing out mid-recording, a call cutting
+      // in), and every later startRecorder() then throws against that same
+      // stuck instance. Release it and drop it before the next try, so each
+      // attempt runs against a fresh recorder (getRecorder() rebuilds it).
+      console.warn('[audioRecorder] startRecorder failed, resetting and trying next settings:', e);
+      const stuck = _recorder;
+      _recorder = null;
+      if (stuck) {
+        await stuck.stopRecorder().catch(() => {});
+      }
     }
-    await getRecorder().startRecorder(undefined, RECORDING_SETTINGS);
   }
+  throw lastError;
 }
 
 /** Stop recording. Returns the local URI of the recorded file. */
