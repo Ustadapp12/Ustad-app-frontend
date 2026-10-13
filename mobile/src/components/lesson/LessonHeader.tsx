@@ -45,7 +45,18 @@ export default function LessonHeader({
 }: Props) {
   const heartsLeftHalf = MAX_MISTAKES - mistakes;
 
+  const hint = (
+    <View
+      ref={targets?.hint}
+      collapsable={false}
+      style={glowTarget === 'hint' ? TOUR_GLOW_ROUND : undefined}
+    >
+      <HintButton url={hintUrl} ayahAr={hintAyahAr} ayahTranslation={hintAyahTranslation} />
+    </View>
+  );
+
   return (
+    <View>
     <View style={S.header}>
       <TouchableOpacity
         style={S.exitBtn}
@@ -87,15 +98,16 @@ export default function LessonHeader({
         </View>
       )}
 
-      {/* With hearts showing the row is full, so Hint floats below-right over
-          the card; with hearts hidden it fits inline. Matches both mocks. */}
-      <View
-        ref={targets?.hint}
-        collapsable={false}
-        style={[!hideHearts && S.hintFloating, glowTarget === 'hint' && TOUR_GLOW_ROUND]}
-      >
-        <HintButton url={hintUrl} ayahAr={hintAyahAr} ayahTranslation={hintAyahTranslation} />
-      </View>
+      {/* With hearts hidden there's room for Hint inline in this row. */}
+      {hideHearts && hint}
+    </View>
+
+    {/* With hearts showing the row is full, so Hint sits below-right, in a
+        row of its own. It used to float there with position: 'absolute',
+        which left it outside the header's bounds: taps never reached it and
+        the exercise content drew over it. A real row fixes both, and the
+        tour's cutout measures this same view, so it follows automatically. */}
+    {!hideHearts && <View style={S.hintRow}>{hint}</View>}
     </View>
   );
 }
@@ -113,5 +125,8 @@ const S = StyleSheet.create({
   chestImage: { width: 22, height: 18 },
   heartsRow: { flexDirection: 'row', gap: 3 },
   heart: { width: 20, height: 20 },
-  hintFloating: { position: 'absolute', top: 50, right: 14 },
+  // Keeps its height even when HintButton renders null (exercise types with
+  // no hint), so the exercise area below doesn't jump between questions.
+  // 43 = the badge's 47 minus the -4 tuck under the header row.
+  hintRow: { alignItems: 'flex-end', paddingHorizontal: 14, marginTop: -4, minHeight: 43 },
 });

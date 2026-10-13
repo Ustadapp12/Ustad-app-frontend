@@ -1,7 +1,8 @@
 import { Platform, PermissionsAndroid } from 'react-native';
+import { setPlaybackBlocked } from './audioPlayer';
 
 type Recorder = {
-  startRecorder: (path?: string) => Promise<string>;
+  startRecorder: (path?: string, audioSets?: Record<string, string | number>) => Promise<string>;
   stopRecorder: () => Promise<string>;
   startPlayer: (uri: string) => Promise<string>;
   stopPlayer: () => Promise<string>;
@@ -41,10 +42,34 @@ export async function requestMicPermission(): Promise<boolean> {
   return true;
 }
 
+// With no audio settings the library records iOS in Apple Lossless (ALAC),
+// stereo, 44.1kHz. Deepgram rejects ALAC outright ("failed to process audio:
+// corrupt or unsupported data"), so every iOS recitation failed to score.
+// Force mono AAC, which Deepgram accepts and which is also far smaller to
+// upload. Android ignores the IOS keys and already defaults to AAC/MPEG4.
+const RECORDING_SETTINGS = {
+  AVFormatIDKeyIOS: 'aac',
+  AVNumberOfChannelsKeyIOS: 1,
+  AVSampleRateKeyIOS: 16000,
+};
+
 /** Start recording. Returns the file path (used later as audioUri). */
 export async function startRecording(): Promise<void> {
+  // Silence and lock all reference audio before the mic opens, so a "Hear"
+  // tapped just before the mic can't be recorded and scored as the
+  // learner's own recitation. Unlocked again in stopRecording().
+  setPlaybackBlocked(true);
   try {
-    await getRecorder().startRecorder();
+    await startRecorderWithReset();
+  } catch (e) {
+    setPlaybackBlocked(false);
+    throw e;
+  }
+}
+
+async function startRecorderWithReset(): Promise<void> {
+  try {
+    await getRecorder().startRecorder(undefined, RECORDING_SETTINGS);
   } catch (e) {
     // The native recorder can be left thinking it's still recording after an
     // interrupted session (backing out mid-recording, a call/notification
@@ -60,14 +85,17 @@ export async function startRecording(): Promise<void> {
     if (stuck) {
       await stuck.stopRecorder().catch(() => {});
     }
-    await getRecorder().startRecorder();
+    await getRecorder().startRecorder(undefined, RECORDING_SETTINGS);
   }
 }
 
 /** Stop recording. Returns the local URI of the recorded file. */
 export async function stopRecording(): Promise<string> {
-  const uri = await getRecorder().stopRecorder();
-  return uri;
+  try {
+    return await getRecorder().stopRecorder();
+  } finally {
+    setPlaybackBlocked(false);
+  }
 }
 
 type PlaybackUpdate = { currentPosition: number; duration: number };

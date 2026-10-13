@@ -20,15 +20,20 @@ interface Props {
   contentStyle?: StyleProp<ViewStyle>;
 }
 
-// Shared layout for every exercise: content sits as low as it can while still
-// ending above the feedback sheet, so it lands around the middle of the
-// screen instead of hugging the header. The action button is pinned at the
-// bottom.
+// Shared layout for every exercise: content is centred vertically in the
+// space between the header and the footer (Check button / mic area). The
+// action button is pinned at the bottom.
 //
-// The space reserved for the sheet never makes a screen scroll: it only uses
-// room that is actually free, so on a short phone the content just sits a
-// little lower instead. Only content that is genuinely taller than the screen
-// scrolls, exactly as it did before this layout existed.
+// Centring alone would let the feedback sheet cover the bottom of tall
+// content, so when the centred position would end below the sheet's top
+// edge the content moves up just enough to clear it. It never moves above
+// the top padding and never makes a screen scroll: only content genuinely
+// taller than the screen scrolls.
+//
+// This used to anchor content to the bottom (justifyContent: 'flex-end') and
+// hand all leftover space to the top, so where an exercise sat depended on
+// its own height: short ones (recitation) dropped onto the mic with a large
+// empty gap above, tall ones (audio_fill) rose under the header.
 export default function ExerciseLayout({ children, footer, contentStyle }: Props) {
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -44,15 +49,23 @@ export default function ExerciseLayout({ children, footer, contentStyle }: Props
     });
   };
 
-  const wanted = FEEDBACK_SHEET_HEIGHT + SHEET_GAP - spaceBelowViewport;
-  const free = viewportHeight > 0 ? viewportHeight - contentHeight - CONTENT_PADDING : wanted;
-  const paddingBottom = Math.max(CONTENT_PADDING, Math.min(wanted, free));
+  const measured = viewportHeight > 0 && contentHeight > 0;
+  // How far above the viewport's bottom edge content must end to clear the sheet.
+  const sheetClearance = FEEDBACK_SHEET_HEIGHT + SHEET_GAP - spaceBelowViewport;
+  // Room left over once the content and the base padding on both sides fit.
+  const free = measured ? viewportHeight - contentHeight - CONTENT_PADDING * 2 : 0;
+  const centredOffset = free / 2;
+  const offsetClearingSheet = free - (sheetClearance - CONTENT_PADDING);
+  const extraTop = Math.max(0, Math.min(centredOffset, offsetClearingSheet));
 
   return (
     <View style={S.root}>
       <View ref={viewportRef} collapsable={false} style={S.viewport} onLayout={onViewportLayout}>
         <ScrollView
-          contentContainerStyle={[S.content, { paddingBottom }]}
+          // Hidden for the one frame before both heights are known, so the
+          // content doesn't flash at the top and then jump to the middle.
+          style={!measured && S.hidden}
+          contentContainerStyle={[S.content, { paddingTop: CONTENT_PADDING + extraTop }]}
           showsVerticalScrollIndicator={false}
           alwaysBounceVertical={false}
         >
@@ -69,6 +82,7 @@ export default function ExerciseLayout({ children, footer, contentStyle }: Props
 const S = StyleSheet.create({
   root: { flex: 1 },
   viewport: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: CONTENT_PADDING, paddingTop: CONTENT_PADDING },
+  content: { paddingHorizontal: CONTENT_PADDING, paddingBottom: CONTENT_PADDING },
+  hidden: { opacity: 0 },
   footer: { paddingHorizontal: CONTENT_PADDING, paddingTop: 8, paddingBottom: CONTENT_PADDING },
 });

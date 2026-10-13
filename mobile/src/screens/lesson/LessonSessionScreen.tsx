@@ -35,6 +35,8 @@ import AyahText from '../../components/lesson/AyahText';
 import ExerciseLayout from '../../components/lesson/ExerciseLayout';
 import ExerciseFooterButton from '../../components/lesson/ExerciseFooterButton';
 import UstadSays from '../../components/lesson/UstadSays';
+import AyahWithBlank from '../../components/lesson/AyahWithBlank';
+import HearButton from '../../components/lesson/HearButton';
 
 // The speaker/audio-playback icon used everywhere a "tap to hear" control
 // shows a handheld speaker — replaces the old 🔊 emoji.
@@ -514,17 +516,6 @@ const AD = StyleSheet.create({
   tipText: { fontFamily: 'Nunito-Regular', fontSize: 12, color: '#92400E', flex: 1, lineHeight: 18 },
 });
 
-// EX.blankBox has a fixed size tuned for the default Naskh font. Nastaliq
-// needs a narrower box (scale shrinks glyph width) but a taller one
-// (lineHeightScale — its letterforms stack vertically) — see arabicFont.ts
-// for why these can't be the same single factor.
-function scaledBlankBox(font: { scale: number; lineHeightScale: number }): { height: number; minWidth: number } {
-  return {
-    height: Math.round(40 * font.scale * font.lineHeightScale),
-    minWidth: Math.round(70 * font.scale),
-  };
-}
-
 export function FillBlankOrNextWord({
   ex, surahName, character, locked, onSubmit, previewSelected, checkButtonRef, selectedOptionRef,
   glowCheck,
@@ -580,33 +571,12 @@ export function FillBlankOrNextWord({
 
       {/* Word-by-word speaker — only when blank is in corner position */}
       {wordAudioUrls && (
-        <TouchableOpacity style={EX.wordAudioBtn} onPress={() => void playUrlSequence(wordAudioUrls)}>
-          <Image source={SPEAKER_ICON} style={EX.wordAudioIcon} resizeMode="contain" />
-          <Text style={EX.wordAudioLabel}>Hear words</Text>
-        </TouchableOpacity>
+        <HearButton label="Hear words" onPress={() => void playUrlSequence(wordAudioUrls)} />
       )}
 
-      {/* Question card: context + tokens */}
+      {/* Question card: the whole ayah on one line, blank inline */}
       <View style={EX.questionCard}>
-        {ex.context_before?.length ? (
-          <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_before.join(' ')}</Text>
-        ) : null}
-
-        {ex.tokens?.length ? (
-          <View style={EX.tokensRow}>
-            {ex.tokens.map((t, i) =>
-              t.blank
-                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont), selected && EX.blankFilled]}>
-                    {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>{selected}</Text> : null}
-                  </View>
-                : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
-            )}
-          </View>
-        ) : null}
-
-        {ex.context_after?.length ? (
-          <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_after.join(' ')}</Text>
-        ) : null}
+        <AyahWithBlank before={ex.context_before} tokens={ex.tokens} after={ex.context_after} blankText={selected} />
       </View>
 
       {/* Options: tap once = select, long-press = audio; locked after Check */}
@@ -881,7 +851,6 @@ export function AudioFill({
   const [selected, setSelected] = useState<string | null>(null);
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
   const mountedRef = useRef(true);
-  const arabicFont = useArabicFont();
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
@@ -943,26 +912,12 @@ export function AudioFill({
 
       {/* "Hear the word" button — user must press to hear; not auto-played */}
       {ex.segment_audio_urls?.length ? (
-        <TouchableOpacity style={AF.hearBtn} onPress={() => void playUrlSequence(ex.segment_audio_urls!)}>
-          <Image source={SPEAKER_ICON} style={AF.hearBtnIcon} resizeMode="contain" />
-          <Text style={AF.hearBtnLabel}>Hear the word</Text>
-        </TouchableOpacity>
+        <HearButton label="Hear the word" onPress={() => void playUrlSequence(ex.segment_audio_urls!)} />
       ) : null}
 
+      {/* Options are audio-only, so a pick shows "?" rather than the word */}
       <View style={EX.questionCard}>
-        {ex.context_before?.length ? <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_before.join(' ')}</Text> : null}
-        {ex.tokens?.length ? (
-          <View style={EX.tokensRow}>
-            {ex.tokens.map((t, i) =>
-              t.blank
-                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont), selected ? EX.blankFilled : null]}>
-                    {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>?</Text> : null}
-                  </View>
-                : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
-            )}
-          </View>
-        ) : null}
-        {ex.context_after?.length ? <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_after.join(' ')}</Text> : null}
+        <AyahWithBlank before={ex.context_before} tokens={ex.tokens} after={ex.context_after} blankText={selected ? '?' : null} />
       </View>
 
       {/* Audio-only options — numbered play circles, no Arabic text shown */}
@@ -989,11 +944,8 @@ export function AudioFill({
 }
 
 const AF = StyleSheet.create({
-  hearBtn:           { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 22, marginBottom: 10, borderWidth: 1.5, borderColor: colors.primary },
-  hearBtnIcon:       { width: 18, height: 18 },
-  hearBtnLabel:      { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.primary },
   optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
-  optionBtn:         { width: '45%', backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 12, alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  optionBtn:         { flexBasis: '45%', flexGrow: 1, backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 12, alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   optionSelected:    { borderColor: colors.primary, backgroundColor: colors.primaryBg },
   playCircle:        { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primaryBg, borderWidth: 2, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   playCircleSelected:{ backgroundColor: colors.primary },
@@ -1858,17 +1810,14 @@ export function ReadAndSpeak({
             Disabled from the moment recording starts through scoring/done,
             same as the word chips, and while its own playback is in flight. */}
         {allAudioUrls.length > 0 && (
-          <TouchableOpacity
-            style={[RANS.hearAllBtn, (speakState !== 'idle' || hearingAll) && RANS.hearAllBtnDisabled]}
+          <HearButton
+            label="Hear"
             onPress={() => {
               setHearingAll(true);
               void playUrlSequenceFast(allAudioUrls, () => { if (mountedRef.current) setHearingAll(false); });
             }}
             disabled={speakState !== 'idle' || hearingAll}
-          >
-            <Image source={SPEAKER_ICON} style={RANS.hearAllIcon} resizeMode="contain" />
-            <Text style={RANS.hearAllText}>Hear</Text>
-          </TouchableOpacity>
+          />
         )}
 
       </ExerciseLayout>
@@ -1889,11 +1838,6 @@ const RANS = StyleSheet.create({
   wordChip:       { backgroundColor: '#FFFBF0', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1.5, borderColor: '#E8D8A0' },
   wordChipDisabled: { opacity: 0.4 },
   wordText:       { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText },
-  // "Hear them all" button — plays the full phrase sequence
-  hearAllBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 18, marginBottom: 8, borderWidth: 1, borderColor: colors.primary },
-  hearAllBtnDisabled: { opacity: 0.4 },
-  hearAllIcon:    { width: 14, height: 14 },
-  hearAllText:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
   micArea:        { alignItems: 'center', paddingTop: 12, paddingBottom: 16 },
   micInstruction: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
@@ -2076,33 +2020,19 @@ const HAS = StyleSheet.create({
 
 const EX = StyleSheet.create({
   instruction: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 12 },
-  // Word-by-word speaker (above question card)
-  wordAudioBtn:   { alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8, backgroundColor: colors.primaryBg, borderRadius: 14, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.primary },
-  wordAudioIcon:  { width: 13, height: 13 },
-  wordAudioLabel: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.primary },
   // Question card
   questionCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
   ayahCard: { backgroundColor: '#F5F7FA', borderRadius: 18, padding: 22, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   ayahAr: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 28, color: colors.darkText, textAlign: 'right', lineHeight: 52, marginBottom: 10 },
   ayahTrans: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
-  // lineHeight was previously unset on these three (unlike every other
-  // Arabic style in this file, e.g. ayahAr's 28/52) — Naskh harakat sit
-  // outside the font's own ascent/descent box, so with no reserved
-  // clearance the diacritics got clipped by whichever neighbor happened to
-  // sit closest: the row above, the row below, or blankBox's own bottom
-  // border bar, depending on how tightly each OS/device rasterizes the
-  // font. Ratio matches ayahAr/ayahText's existing ~1.55-1.6x convention.
+  // lineHeight is required: Naskh harakat sit outside the font's own
+  // ascent/descent box, so with no reserved clearance the diacritics get
+  // clipped by the row above or below. Ratio matches ayahAr/ayahText's
+  // ~1.55-1.6x convention.
   contextText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 4, lineHeight: 36 },
-  tokensRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginTop: 8 },
-  tokenWord: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 24, color: colors.darkText, lineHeight: 38 },
-  blankBox: { borderBottomWidth: 2.5, borderColor: colors.primary, minWidth: 70, height: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  blankFilled: { borderColor: colors.primary },
-  blankText:        { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 24, color: colors.primary, lineHeight: 38 },
-  blankSpeaker:     { alignItems: 'center', justifyContent: 'center', padding: 4 },
-  blankSpeakerIcon: { fontSize: 20 },
   // Options
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
-  optionBtn: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', minWidth: '45%', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  optionBtn: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', flexBasis: '45%', flexGrow: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   optionBtnFull: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, marginBottom: 10, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   optionSelected: { borderColor: colors.primary, backgroundColor: colors.primaryBg },
   optionGlow: {
