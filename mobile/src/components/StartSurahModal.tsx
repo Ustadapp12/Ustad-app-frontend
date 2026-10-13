@@ -23,19 +23,19 @@ interface Props {
 export default function StartSurahModal({ visible, nameEn, nameAr, ayahCount, onConfirm, onCancel }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Open {nameEn}?</Text>
-          <Text style={styles.cardBody}>
+      <View style={confirmModalStyles.backdrop}>
+        <View style={confirmModalStyles.card}>
+          <Text style={confirmModalStyles.cardTitle}>Open {nameEn}?</Text>
+          <Text style={confirmModalStyles.cardBody}>
             {nameAr} · {ayahCount} ayahs{'\n'}
             This starts a new surah. You'll begin at its first level, and it
             counts as open once you finish that level.
           </Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={onConfirm}>
-            <Text style={styles.primaryBtnText}>Open Surah</Text>
+          <TouchableOpacity style={confirmModalStyles.primaryBtn} onPress={onConfirm}>
+            <Text style={confirmModalStyles.primaryBtnText}>Open Surah</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.dismissBtn} onPress={onCancel}>
-            <Text style={styles.dismissBtnText}>Cancel</Text>
+          <TouchableOpacity style={confirmModalStyles.dismissBtn} onPress={onCancel}>
+            <Text style={confirmModalStyles.dismissBtnText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -43,7 +43,8 @@ export default function StartSurahModal({ visible, nameEn, nameAr, ayahCount, on
   );
 }
 
-const styles = StyleSheet.create({
+// Shared with ResumeLevelModal so both confirm cards look identical.
+export const confirmModalStyles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   card: {
     backgroundColor: colors.white, borderRadius: 20, padding: 24, width: '100%',

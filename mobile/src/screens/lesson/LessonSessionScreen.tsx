@@ -26,6 +26,7 @@ import PlayPauseIcon from '../../components/PlayPauseIcon';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
+import ResumeLevelModal from '../../components/ResumeLevelModal';
 import LoadingStatusText from '../../components/LoadingStatusText';
 import type { ExerciseDict, ExpectedWordResult, FormulaAttemptOut, SegmentStatus } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
@@ -2253,6 +2254,9 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   // guessing the mount is fast enough not to matter.
   useEffect(() => { setSubmitting(false); }, [exercise?.ex_id]);
   const [noHeartsVisible, setNoHeartsVisible] = useState(false);
+  // "Continue where you left off?" for a resumed session (see the seeding
+  // effect below and handleStartOver).
+  const [resumePromptVisible, setResumePromptVisible] = useState(false);
   const [exitConfirmVisible, setExitConfirmVisible] = useState(false);
   const [heartRefillInfoVisible, setHeartRefillInfoVisible] = useState(false);
   const [loadErrorFeedbackVisible, setLoadErrorFeedbackVisible] = useState(false);
@@ -2419,6 +2423,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         // "Retry Level" modal instead of letting play continue unchecked.
         if (storeMistakes >= MAX_MISTAKES) {
           setNoHeartsVisible(true);
+        } else {
+          // Ask before dropping the learner back mid-level (user, 2026-10-13:
+          // reopening a level after an app update landed on an old exercise
+          // with no intro and no explanation).
+          setResumePromptVisible(true);
         }
       } else {
         setShowBismillah(true);
@@ -2658,6 +2667,16 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const handleBack = () => {
     abandonSession({ silent: true }).catch(() => {});
     navigation.goBack();
+  };
+
+  // Resume prompt's "Start over": end the unfinished session on the server
+  // first (awaited, or the server would just resume it again), then reopen
+  // this same level as a fresh screen, which starts a new session with the
+  // Bismillah intro and fresh hearts/score.
+  const handleStartOver = async () => {
+    setResumePromptVisible(false);
+    await abandonSession({ silent: true }).catch(() => {});
+    navigation.replace('LessonSession', { groupId, surahName, surahNumber, isSpecial });
   };
 
   // Hardware back during a live exercise must ask before throwing progress
@@ -3054,6 +3073,12 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           </View>
         </View>
       </Modal>
+
+      <ResumeLevelModal
+        visible={resumePromptVisible}
+        onContinue={() => setResumePromptVisible(false)}
+        onStartOver={() => { void handleStartOver(); }}
+      />
 
       <LumoInfoModal
         visible={heartRefillInfoVisible}
