@@ -86,8 +86,6 @@ export function makeStyles(M: MapModel) {
     },
     // Opaque variant for the initial load — see the comment at its use site.
     loadingOverlaySolid: { backgroundColor: '#FFFFFF' },
-    loadingOverlayLumo: { width: sc(120), height: sc(120), marginBottom: sc(4) },
-    loadingOverlayText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: '#F5F7FA', marginTop: sc(10) },
     node: { width: NODE_SIZE, height: NODE_SIZE, alignItems: 'center', justifyContent: 'center' },
     nodeImg: { position: 'absolute', width: NODE_SIZE, height: NODE_SIZE },
     // No top/left set, so `node`'s own alignItems/justifyContent:'center'

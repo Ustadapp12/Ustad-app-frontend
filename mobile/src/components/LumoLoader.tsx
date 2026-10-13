@@ -63,12 +63,15 @@ function Star({ size, color }: { size: number; color: string }) {
 
 interface Props {
   label?: string;
-  /** Screen behind the loader; the design is plain white. */
+  /** Screen behind the loader; the design is plain white. Pass
+   * 'transparent' to show the loader over something already on screen. */
   backgroundColor?: string;
+  /** Label colour; the default grey is for the white screen. */
+  labelColor?: string;
   style?: StyleProp<ViewStyle>;
 }
 
-export default function LumoLoader({ label = 'Loading ....', backgroundColor = '#FFFFFF', style }: Props) {
+export default function LumoLoader({ label = 'Loading ....', backgroundColor = '#FFFFFF', labelColor, style }: Props) {
   const sc = useResponsiveScale();
   const d = useMemo(() => designScale(sc), [sc]);
   const s = useMemo(() => makeStyles(d), [d]);
@@ -111,7 +114,7 @@ export default function LumoLoader({ label = 'Loading ....', backgroundColor = '
         })}
         <Image source={require('../../assets/images/lumo_sad.png')} style={s.lumo} resizeMode="contain" />
       </View>
-      <Text style={s.label}>{label}</Text>
+      <Text style={[s.label, labelColor ? { color: labelColor } : null]}>{label}</Text>
     </View>
   );
 }

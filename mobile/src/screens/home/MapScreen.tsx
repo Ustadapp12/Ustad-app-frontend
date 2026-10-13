@@ -1,9 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback, useReducer } from 'react';
-import { View, Text, Animated, useWindowDimensions, Image, TouchableOpacity, ScrollView, RefreshControl, Platform } from 'react-native';
+import { View, Text, Animated, useWindowDimensions, TouchableOpacity, ScrollView, RefreshControl, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LoadingRing } from '../../components/LoadingSpinner';
 import LumoLoader from '../../components/LumoLoader';
-import LoadingStatusText from '../../components/LoadingStatusText';
 import { useAuthStore } from '../../store/authStore';
 import { setCrashContext, addBreadcrumb, captureError } from '../../services/crashReporter';
 import { levelStars } from '../../utils/stars';
@@ -631,19 +629,11 @@ export default function MapScreen({ navigation }: Props) {
         </View>
       )}
       {nodesReady && refreshing && (
-        // Pull-to-refresh: kept translucent, the already-correct map underneath is meant to
-        // stay visible while it re-fetches.
+        // Pull-to-refresh / in-place reload: same star loader as the first load,
+        // but over the existing translucent overlay instead of a white screen, so
+        // the already-correct map underneath stays visible while it re-fetches.
         <View style={S.loadingOverlay} pointerEvents="none">
-          <Image
-            source={require('../../../assets/images/lumo_transparent.png')}
-            style={S.loadingOverlayLumo}
-            resizeMode="contain"
-          />
-          <LoadingRing size={64} color="#F5F7FA" />
-          <LoadingStatusText
-            messages={['Loading your map…', 'Almost there…']}
-            style={S.loadingOverlayText}
-          />
+          <LumoLoader backgroundColor="transparent" labelColor="#F5F7FA" label="Loading your map…" />
         </View>
       )}
 
