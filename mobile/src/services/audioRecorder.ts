@@ -47,10 +47,16 @@ export async function requestMicPermission(): Promise<boolean> {
 // corrupt or unsupported data"), so every iOS recitation failed to score.
 // Force mono AAC, which Deepgram accepts and which is also far smaller to
 // upload. Android ignores the IOS keys and already defaults to AAC/MPEG4.
+//
+// The bitrate must be set too: left out, the library defaults to 128kbps,
+// which AAC can't encode at 16kHz mono (its ceiling there is ~96kbps), and
+// AVAudioRecorder's response to an impossible setting is undefined (refuse to
+// start, or write an unreadable file). 32kbps is ample for speech.
 const RECORDING_SETTINGS = {
   AVFormatIDKeyIOS: 'aac',
   AVNumberOfChannelsKeyIOS: 1,
   AVSampleRateKeyIOS: 16000,
+  AVEncoderBitRateKeyIOS: 32000,
 };
 
 /** Start recording. Returns the file path (used later as audioUri). */
