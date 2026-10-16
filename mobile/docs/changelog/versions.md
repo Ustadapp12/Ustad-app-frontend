@@ -828,3 +828,16 @@ unbuilt 2026-10-13 commits (ResumeLevelModal, Progress closed surahs, and
 two old-map reload fixes the new map doesn't use). The old map is not in
 this build, and the guided tour is not offered. Release notes 1.0.40
 approved by the user 2026-10-16. Not yet verified on an iPhone.
+
+**20050** / 1.0.41 — IPA (TestFlight) — 2026-10-16 — commit `d0f505f`, GitHub
+Actions run 38899246949 (#50), `ios-testflight.yml` on `Ahmad/dev`, green in
+about 7 minutes. EAS build `8b5f3ff4`, production profile. Backend:
+**production**. Changes on top of 20049: new node mapping (green current, grey
+locked, gold done; book on review levels), wider node spacing (112pt), a full
+green ring centred on the current node, a static Lumo beside the current level
+only, nodes and the back button press down when tapped (shared `FaceOnLip`),
+the back-to-my-level button under Feedback (Feedback slides up), and the
+bottom bar's corner strip fixed on the other tabs. Release notes 1.0.41
+approved by the user 2026-10-16. Pre-flight run on the exact commit
+(tsc, jest 56/56, export:embed). Uncommitted login / token / connectivity work
+is not in this build. Not yet verified on an iPhone.
