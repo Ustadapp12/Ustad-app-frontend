@@ -47,9 +47,11 @@ ALL_FLAT_LEVELS.forEach((flat, slot) => {
 // ── Figma geometry (440pt frame) ────────────────────────────────────
 // Node centre x for 16 consecutive nodes, read off the Figma frame bottom-up.
 const X_CYCLE = [225, 276, 287, 286, 241, 201, 171, 196, 241, 274, 292, 284, 214, 169, 144, 169];
-const GAP = 90;
-// The Figma frame leaves 119pt above the START node (ring + label) instead of ~90.
-const GAP_ABOVE_CURRENT = 119;
+// Spacing between consecutive nodes, raised from the Figma frame's ~90pt on
+// request (2026-10-16). Node and star sizes are unchanged.
+const GAP = 112;
+// Extra room above the START node for its ring and tag, same 29pt as Figma's.
+const GAP_ABOVE_CURRENT = 141;
 const NODE_W = 70;
 const NODE_FACE_H = 57;
 const NODE_LIP = 8;

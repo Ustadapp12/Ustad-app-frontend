@@ -4,9 +4,6 @@ import IconStarArt from '../art/IconStarArt';
 import IconLockArt from '../art/IconLockArt';
 import IconBookArt from '../art/IconBookArt';
 import IconJumpArt from '../art/IconJumpArt';
-import IconTrophyArt from '../art/IconTrophyArt';
-import IconCameraArt from '../art/IconCameraArt';
-import IconChestNodeArt from '../art/IconChestNodeArt';
 import { DAY } from '../map2Theme';
 import type { Map2NodeData, Map2Section } from '../map2Model';
 import type { Map2Styles } from '../styles';
@@ -14,9 +11,10 @@ import ProgressRing from './ProgressRing';
 import StarRow from './StarRow';
 import NodeLabel from './NodeLabel';
 
-// Which Figma node art each level state uses (user's mapping, 2026-10-15).
-// reviewLocked is the chest, which has no pill face of its own.
-export type NodeLook = 'current' | 'completed' | 'jump' | 'locked' | 'open' | 'reviewLocked' | 'reviewOpen';
+// Node colour by state (user's mapping, 2026-10-16): current green, locked
+// grey, done gold. The icon follows the level type: a star for normal levels
+// (a lock while locked), the book for review levels in every state.
+export type NodeLook = 'current' | 'completed' | 'jump' | 'locked' | 'open';
 
 const FACE = {
   current: DAY.node.current,
@@ -24,8 +22,6 @@ const FACE = {
   jump: DAY.node.jump,
   locked: DAY.node.grey,
   open: DAY.node.grey,
-  reviewLocked: DAY.node.grey,
-  reviewOpen: DAY.node.grey,
 } as const;
 
 // Every surah's first level carries "JUMP HERE?" until it's done: every surah
@@ -34,13 +30,13 @@ export function lookFor(node: Map2NodeData, activeSlot: number | null): NodeLook
   if (node.slot === activeSlot) return 'current';
   if (node.status === 'completed') return 'completed';
   if (node.surahLevelIdx === 0) return 'jump';
-  if (node.isSpecial) return node.status === 'locked' ? 'reviewLocked' : 'reviewOpen';
   if (node.status === 'locked') return 'locked';
   return 'open';
 }
 
-// The grey book drawn white on the green current node, like the Figma star.
+// Icons are white on the green and gold faces, grey on the grey face.
 const WHITE_BOOK = { '#AFAFAF': '#FFFFFF', '#D8D8D8': 'rgba(255,255,255,0.7)' } as const;
+const GREY_STAR = { white: '#AFAFAF' } as const;
 
 interface Props {
   S: Map2Styles;
@@ -58,25 +54,14 @@ interface Props {
   onPress: (section: Map2Section, node: Map2NodeData) => void;
 }
 
-function NodeIcon({ look, s }: { look: NodeLook; s: number }) {
-  // Figma icon boxes inside the 70 x 57pt face.
+function NodeIcon({ look, review, s }: { look: NodeLook; review: boolean; s: number }) {
+  // Figma icon box inside the 70 x 57pt face.
   const box = { position: 'absolute' as const, left: 14 * s, top: 11.5 * s };
-  switch (look) {
-    case 'current':
-      return <IconBookArt width={42 * s} style={box} fills={WHITE_BOOK} />;
-    case 'completed':
-      return <IconStarArt width={42 * s} style={box} />;
-    case 'jump':
-      return <IconJumpArt width={42 * s} style={box} />;
-    case 'locked':
-      return <IconLockArt width={42 * s} style={box} />;
-    case 'open':
-      return <IconTrophyArt width={40 * s} style={{ position: 'absolute', left: 15 * s, top: 9 * s }} />;
-    case 'reviewOpen':
-      return <IconCameraArt width={48 * s} style={{ position: 'absolute', left: 11 * s, top: 6 * s }} />;
-    case 'reviewLocked':
-      return null;
-  }
+  const onColour = look === 'current' || look === 'completed';
+  if (look === 'jump') return <IconJumpArt width={42 * s} style={box} />;
+  if (review) return <IconBookArt width={42 * s} style={box} fills={onColour ? WHITE_BOOK : undefined} />;
+  if (look === 'locked') return <IconLockArt width={42 * s} style={box} />;
+  return <IconStarArt width={42 * s} style={box} fills={onColour ? undefined : GREY_STAR} />;
 }
 
 function Map2NodeView({
@@ -99,16 +84,9 @@ function Map2NodeView({
       )}
       <TouchableOpacity activeOpacity={0.8} onPress={() => onPress(section, node)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
         <View style={{ width: w, height: faceH + lip }}>
-          {look === 'reviewLocked' ? (
-            // Figma "Progress Check": an 80 x 90pt chest, same centre as a node.
-            <IconChestNodeArt width={80 * s} style={{ position: 'absolute', left: -5 * s, top: -12.5 * s }} />
-          ) : (
-            <>
-              <View style={{ position: 'absolute', top: lip, width: w, height: faceH, borderRadius: r, backgroundColor: colors.lip }} />
-              <View style={{ position: 'absolute', top: 0, width: w, height: faceH, borderRadius: r, backgroundColor: colors.face }} />
-              <NodeIcon look={look} s={s} />
-            </>
-          )}
+          <View style={{ position: 'absolute', top: lip, width: w, height: faceH, borderRadius: r, backgroundColor: colors.lip }} />
+          <View style={{ position: 'absolute', top: 0, width: w, height: faceH, borderRadius: r, backgroundColor: colors.face }} />
+          <NodeIcon look={look} review={!!node.isSpecial} s={s} />
         </View>
       </TouchableOpacity>
       {look === 'completed' && (
