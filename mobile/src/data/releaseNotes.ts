@@ -31,6 +31,20 @@ export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
     // Reviewed and approved by the user 2026-10-16, before the build that
     // carries it.
+    version: '1.0.41',
+    date: '2026-10-16',
+    changes: [
+      { category: 'Improved', text: 'Clearer levels on the map. Green is where you are, grey is locked, and gold is done. Review levels show a book.' },
+      { category: 'Improved', text: 'More space between levels, so the path is easier to follow.' },
+      { category: 'New', text: 'Lumo now stands next to your current level.' },
+      { category: 'Improved', text: 'Levels press down when you tap them.' },
+      { category: 'Improved', text: 'The arrow that takes you back to your level now sits just below the Feedback button.' },
+      { category: 'Fixed', text: 'A dark strip no longer shows at the corners of the bottom bar.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-16, before the build that
+    // carries it.
     version: '1.0.40',
     date: '2026-10-16',
     changes: [

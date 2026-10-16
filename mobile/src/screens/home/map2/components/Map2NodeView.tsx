@@ -10,6 +10,7 @@ import type { Map2Styles } from '../styles';
 import ProgressRing from './ProgressRing';
 import StarRow from './StarRow';
 import NodeLabel from './NodeLabel';
+import FaceOnLip from './FaceOnLip';
 
 // Node colour by state (user's mapping, 2026-10-16): current green, locked
 // grey, done gold. The icon follows the level type: a star for normal levels
@@ -66,7 +67,7 @@ function NodeIcon({ look, review, s }: { look: NodeLook; review: boolean; s: num
 function Map2NodeView({
   S, s, section, node, cx, cy, look, label, isShaking, shakeAnim, isFetching, onPress,
 }: Props) {
-  const w = 70 * s, faceH = 57 * s, lip = 8 * s, r = 28.5 * s;
+  const w = 70 * s, faceH = 57 * s, lip = 8 * s;
   const colors = FACE[look];
   const translateX = isShaking ? shakeAnim.interpolate({ inputRange: [-1, 1], outputRange: [-6 * s, 6 * s] }) : 0;
   return (
@@ -84,14 +85,9 @@ function Map2NodeView({
       )}
       <Pressable onPress={() => onPress(section, node)} hitSlop={6}>
         {({ pressed }) => (
-          <View style={{ width: w, height: faceH + lip }}>
-            <View style={{ position: 'absolute', top: lip, width: w, height: faceH, borderRadius: r, backgroundColor: colors.lip }} />
-            {/* Pressed: the face sinks halfway onto its lip, like a real button. */}
-            <View style={{ position: 'absolute', top: 0, width: w, height: faceH, transform: [{ translateY: pressed ? lip / 2 : 0 }] }}>
-              <View style={{ position: 'absolute', top: 0, width: w, height: faceH, borderRadius: r, backgroundColor: colors.face }} />
-              <NodeIcon look={look} review={!!node.isSpecial} s={s} />
-            </View>
-          </View>
+          <FaceOnLip width={w} faceHeight={faceH} lip={lip} face={colors.face} lipColour={colors.lip} pressed={pressed}>
+            <NodeIcon look={look} review={!!node.isSpecial} s={s} />
+          </FaceOnLip>
         )}
       </Pressable>
       {look === 'completed' && (
