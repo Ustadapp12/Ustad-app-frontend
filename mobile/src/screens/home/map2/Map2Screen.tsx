@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
-  Animated, FlatList, Platform, Text, TouchableOpacity, View, useWindowDimensions,
+  Animated, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions,
   type CellRendererProps, type ViewToken, type ListRenderItemInfo,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,7 +32,7 @@ import Map2Header from './components/Map2Header';
 import Map2Band from './components/Map2Band';
 import Map2BottomBar, { BOTTOM_BAR_H, type BottomBarKey } from './components/Map2BottomBar';
 import Map2FeedbackButton from './components/Map2FeedbackButton';
-import BackToLevelButton from './components/BackToLevelButton';
+import BackToLevelButton, { BACK_TO_LEVEL_H, BACK_TO_LEVEL_W } from './components/BackToLevelButton';
 
 interface Props { navigation: MapNavProp }
 
@@ -129,6 +129,14 @@ export default function Map2Screen({ navigation }: Props) {
     [updateArrow],
   );
   const backToLevel = useCallback(() => { setArrowDir(null); jumpToActive(); }, [jumpToActive]);
+  // While the back button shows, Feedback slides up by exactly its height plus
+  // a 12pt gap (one short slide, not a loop), and back down when it hides.
+  const showBackTo = arrowDir != null && nodesReady;
+  const feedbackLiftBy = (BACK_TO_LEVEL_H + 12) * s;
+  const feedbackLift = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(feedbackLift, { toValue: showBackTo ? -feedbackLiftBy : 0, duration: 180, useNativeDriver: true }).start();
+  }, [showBackTo, feedbackLiftBy, feedbackLift]);
   // The jump hook also brings the view back on these; the arrow follows.
   useEffect(() => { setArrowDir(null); }, [activeId, returnedFromLevelTick]);
 
@@ -363,9 +371,12 @@ export default function Map2Screen({ navigation }: Props) {
         onJourney={onJourney}
         onReview={onReview}
       />
-      <Map2FeedbackButton S={S} s={s} bottom={bottomBarH + 21 * s} onPress={onFeedback} />
-      {arrowDir != null && nodesReady && (
-        <BackToLevelButton s={s} bottom={bottomBarH + 21 * s} direction={arrowDir} onPress={backToLevel} />
+      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: feedbackLift }] }]} pointerEvents="box-none">
+        <Map2FeedbackButton S={S} s={s} bottom={bottomBarH + 21 * s} onPress={onFeedback} />
+      </Animated.View>
+      {showBackTo && arrowDir != null && (
+        // In Feedback's own spot, centred under it (Feedback is 60.7pt wide).
+        <BackToLevelButton s={s} right={(23 + (60.7 - BACK_TO_LEVEL_W) / 2) * s} bottom={bottomBarH + 21 * s} direction={arrowDir} onPress={backToLevel} />
       )}
       <Map2BottomBar S={S} s={s} bottomClearance={bottomClearance} active="home" onPress={onBottomBar} />
 

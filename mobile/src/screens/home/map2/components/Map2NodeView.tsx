@@ -77,7 +77,8 @@ function Map2NodeView({
       }}
     >
       {look === 'current' && (
-        <View style={{ position: 'absolute', left: -14 * s, top: -12.85 * s }} pointerEvents="none">
+        // Centred on the whole node (57pt face + 8pt lip), so the gap inside the ring is even all round.
+        <View style={{ position: 'absolute', left: -14 * s, top: -16.5 * s }} pointerEvents="none">
           <ProgressRing size={98 * s} />
         </View>
       )}
@@ -101,7 +102,7 @@ function Map2NodeView({
       {label != null && look === 'current' && (
         // Sits just clear of the progress ring's top edge.
         <View
-          style={{ position: 'absolute', left: -100 * s, right: -100 * s, bottom: 80 * s, alignItems: 'center' }}
+          style={{ position: 'absolute', left: -100 * s, right: -100 * s, bottom: 84 * s, alignItems: 'center' }}
           pointerEvents="none"
         >
           <NodeLabel S={S} text={label} />
