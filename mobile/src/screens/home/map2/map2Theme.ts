@@ -23,7 +23,8 @@ export const DAY = {
   starOn: '#FFC800',
   starOff: '#D8D8D8',
   ringTrack: '#E5E5E5',
-  ringFill: '#FFC800',
+  // Same green as the current node (Figma's gold ring was a placeholder).
+  ringFill: '#42A46E',
 } as const;
 
 export const FONTS = {
