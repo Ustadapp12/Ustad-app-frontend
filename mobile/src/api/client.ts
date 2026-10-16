@@ -1,6 +1,6 @@
 import { addBreadcrumb, captureError } from '../services/crashReporter';
 import { API_BASE, API_PREFIX } from '../config';
-import { getTokens, setTokens } from '../utils/storage';
+import { getTokens, getTokensStrict, setTokens, TokenStoreUnavailableError } from '../utils/storage';
 import { messageForStatus } from './formatError';
 import { redirectToVerifyEmail } from '../navigation/navigationRef';
 import { connectivity } from '../store/connectivityStore';
@@ -73,8 +73,30 @@ function fetchWithTimeout(url: string, opts: RequestInit): Promise<Response> {
   );
 }
 
+// Set only when a refresh attempt failed WITHOUT a definitive answer — either
+// no response arrived at all, or the server returned something other than a
+// clean 400/401/403 (a 5xx, a 429, a timeout). In both cases the token on this
+// device might still be good; we just couldn't confirm it. Cleared the moment
+// a refresh succeeds, or the server gives a real rejection (nothing left to
+// retry either way). Read by retryRefreshIfOwed(), fired from
+// services/connectivity.ts the instant the device reconnects, so a session
+// that only ever failed because the network dropped recovers on its own
+// instead of waiting for the user to notice and reopen the app.
+let refreshOwed = false;
+
 async function refreshAccess(): Promise<string> {
-  const tokens = await getTokens();
+  let tokens: Tokens | null;
+  try {
+    tokens = await getTokensStrict();
+  } catch (err) {
+    if (!(err instanceof TokenStoreUnavailableError)) throw err;
+    // The Keychain couldn't be read (e.g. the device is locked). That is NOT
+    // the server rejecting the session, and nothing has been wiped, so it must
+    // not surface as 401. Status 0 = "couldn't ask", same as a network failure:
+    // callers keep the session. Deliberately not throwUnreachable() — the
+    // backend is fine, so no "can't reach server" banner.
+    throw new ApiError('Secure storage is unavailable: try again in a moment.', 0, null);
+  }
   if (!tokens?.refresh_token) {
     throw new ApiError('Session expired', 401, null);
   }
@@ -93,13 +115,33 @@ async function refreshAccess(): Promise<string> {
     // and this function's own caller just below) don't mistake a network
     // hiccup during refresh for an actual invalid session and log the user
     // out over it.
+    //
+    // A response never arrived, so we don't actually know whether the token
+    // on the server has already moved past this one — mark a refresh as
+    // "owed" so retryRefreshIfOwed() (fired from connectivity.ts the instant
+    // the device reconnects) picks it back up without waiting for the user to
+    // notice and reopen the app. See that function for why this is safe.
+    refreshOwed = true;
     throwUnreachable(err instanceof Error && err.name === 'AbortError');
   }
   markReachable();
   if (!res.ok) {
-    await setTokens(null);
-    throw new ApiError('Session expired', 401, null);
+    // Only the server saying "this refresh token is no good" ends the session.
+    // Anything else — a 500/502/503 from a cold-starting serverless instance or
+    // a database hiccup, a 429, a 408 — means the server couldn't answer right
+    // now, not that the session is invalid. Wiping the tokens on those used to
+    // turn one bad response into a permanent logout. Keep them; the next
+    // request retries the refresh. A non-401 status here also keeps hydrate()
+    // from treating it as a real rejection (it only wipes on 401).
+    if (res.status === 400 || res.status === 401 || res.status === 403) {
+      refreshOwed = false; // a definitive rejection — nothing left to retry
+      await setTokens(null);
+      throw new ApiError('Session expired', 401, null);
+    }
+    refreshOwed = true; // the server couldn't adjudicate the token either way
+    throw new ApiError('Could not refresh your session: please try again in a moment.', res.status, null);
   }
+  refreshOwed = false;
   const pair = (await res.json()) as Tokens;
   await setTokens(pair);
   return pair.access_token;
@@ -119,6 +161,49 @@ function refreshAccessOnce(): Promise<string> {
     refreshInFlight = refreshAccess().finally(() => { refreshInFlight = null; });
   }
   return refreshInFlight;
+}
+
+// Spaced (doubling) delays between reconnect-triggered retry attempts — NOT
+// instant repeats. If the server (or the connection) is still shaky right when
+// we reconnect, hammering it back-to-back helps nobody; waiting longer each
+// time gives a cold start or a flaky link a chance to actually clear before
+// the next attempt.
+const RECONNECT_RETRY_DELAYS_MS = [1_000, 2_000, 4_000];
+
+/**
+ * Picks a refresh back up after the device reconnects, if one was left owed.
+ *
+ * Call this from a network-reconnect listener, not on a timer — it should
+ * fire the instant the device comes back online, not on a poll. Never throws;
+ * a caller firing this speculatively on every reconnect must not have to
+ * handle a rejection for the common case of "nothing was owed".
+ */
+export async function retryRefreshIfOwed(): Promise<void> {
+  if (!refreshOwed) return;
+  // "Was a session genuinely there" — a user who has since logged out, or was
+  // never signed in, has no refresh_token to retry with. getTokens() never
+  // caches a failed read as "no tokens" (see utils/storage.ts), so this is
+  // safe to call speculatively without risking a false negative here.
+  const tokens = await getTokens();
+  if (!tokens?.refresh_token) {
+    refreshOwed = false;
+    return;
+  }
+  for (const delay of RECONNECT_RETRY_DELAYS_MS) {
+    try {
+      await refreshAccessOnce();
+      return; // refreshAccess() already cleared refreshOwed on success
+    } catch (err) {
+      // A real response arrived and wasn't a network/adjudication failure —
+      // refreshAccess() already resolved refreshOwed either way (cleared it
+      // on a genuine rejection, left it set on another undecided failure).
+      // Nothing more for THIS retry pass to do with a definitive answer.
+      if (err instanceof ApiError && err.status !== 0 && !refreshOwed) return;
+      await new Promise(res => setTimeout(res, delay));
+    }
+  }
+  // Still undecided after every spaced attempt. Leave refreshOwed set — the
+  // next reconnect (or the next ordinary API call hitting a 401) tries again.
 }
 
 export async function api<T>(

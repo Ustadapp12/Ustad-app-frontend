@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { captureError } from '../services/crashReporter';
 import { getSecureTokens, setSecureTokens } from '../services/secureTokens';
 import { useScriptStore } from '../store/scriptStore';
 import type { OnboardingAnswers, ScriptPreference, Tokens, User } from '../types/api';
@@ -37,41 +38,80 @@ function safeJsonParse<T>(raw: string | null): T | null {
   }
 }
 
+/**
+ * The token store could not be READ (as opposed to being read and found empty).
+ * Callers that decide "signed out" from a missing token must treat this as
+ * "don't know", never as "signed out": nothing has been wiped, and a later read
+ * can succeed (iOS Keychain refuses reads while the device is locked).
+ */
+export class TokenStoreUnavailableError extends Error {
+  original: unknown;
+  constructor(original: unknown) {
+    super('Secure token storage could not be read');
+    this.name = 'TokenStoreUnavailableError';
+    this.original = original;
+  }
+}
+
 // In-memory cache + in-flight dedup: getTokens() is called once per parallel
 // API request (e.g. the Map screen fires one per surah via Promise.allSettled).
 // Without this, each call hits the OS Keystore independently, which isn't
 // reliably safe under concurrent access and can silently return null for
 // some of them, dropping those requests as unauthenticated.
+//
+// Only a SUCCESSFUL read is ever cached. A failed read used to be cached as
+// "no tokens", which un-authenticated every request until the app was
+// force-closed even though the tokens were sitting safely in the Keychain.
 let tokensCache: Tokens | null | undefined;
 let tokensInFlight: Promise<Tokens | null> | null = null;
+let readFailureReported = false;
 
-export async function getTokens(): Promise<Tokens | null> {
+/**
+ * Like getTokens(), but throws TokenStoreUnavailableError when storage could
+ * not be read, so the caller can tell "signed out" from "couldn't look".
+ * hydrate() and the refresh path use this; everything else uses getTokens().
+ */
+export async function getTokensStrict(): Promise<Tokens | null> {
   if (tokensCache !== undefined) return tokensCache;
   if (!tokensInFlight) {
     tokensInFlight = (async () => {
       try {
-        let tokens = await getSecureTokens();
-        if (!tokens) {
-          const legacy = await AsyncStorage.getItem(KEYS.tokensLegacy);
-          if (legacy) {
-            // A half-written or truncated legacy value must not take the whole
-            // app down with it: this runs on the hydrate() critical path, and a
-            // throw here leaves isHydrated false forever (permanent Splash).
-            // Treat unparseable as "no legacy tokens" and drop it.
-            tokens = safeJsonParse<Tokens>(legacy);
-            if (tokens) {
-              await setSecureTokens(tokens);
-            }
-            await AsyncStorage.removeItem(KEYS.tokensLegacy);
-          }
+        // A pair parked in AsyncStorage (see setTokens) is by construction
+        // newer than whatever the Keychain holds: it is only written when the
+        // Keychain refused the update. So it wins, and is moved home if it can.
+        // (This is also the old plain-AsyncStorage → Keychain migration path.)
+        const parkedRaw = await AsyncStorage.getItem(KEYS.tokensLegacy);
+        // A half-written or truncated value must not take the whole app down
+        // with it: this runs on the hydrate() critical path, and a throw here
+        // leaves isHydrated false forever (permanent Splash). Treat unparseable
+        // as "nothing parked" and drop it.
+        const parked = safeJsonParse<Tokens>(parkedRaw);
+        if (parkedRaw && !parked) await AsyncStorage.removeItem(KEYS.tokensLegacy);
+
+        let secure: Tokens | null = null;
+        let secureReadError: unknown = null;
+        try {
+          secure = await getSecureTokens();
+        } catch (e) {
+          secureReadError = e;
         }
+
+        let tokens = secure;
+        if (parked) {
+          tokens = parked;
+          if (await setSecureTokens(parked)) await AsyncStorage.removeItem(KEYS.tokensLegacy);
+        } else if (secureReadError) {
+          throw secureReadError;
+        }
+        readFailureReported = false;
         tokensCache = tokens;
         return tokens;
-      } catch {
-        // Keystore/AsyncStorage unavailable. Report "signed out" rather than
-        // rejecting — a rejection would be cached in tokensInFlight below and
-        // re-thrown to every later caller for the rest of the process.
-        return null;
+      } catch (e) {
+        if (!readFailureReported) {
+          readFailureReported = true; // once per outage, not once per API call
+          captureError(e, { where: 'getTokensStrict' });
+        }
+        throw e instanceof TokenStoreUnavailableError ? e : new TokenStoreUnavailableError(e);
       } finally {
         // MUST be in `finally`: leaving this to the success path meant any
         // throw above stranded a rejected promise in tokensInFlight, and every
@@ -84,10 +124,42 @@ export async function getTokens(): Promise<Tokens | null> {
   return tokensInFlight;
 }
 
+export async function getTokens(): Promise<Tokens | null> {
+  try {
+    return await getTokensStrict();
+  } catch {
+    // Unreadable right now. Report "no token" for THIS call only — nothing is
+    // cached, so the next call looks again. The request goes out
+    // unauthenticated, gets a 401, and the refresh path re-reads (strictly).
+    return null;
+  }
+}
+
 export async function setTokens(tokens: Tokens | null): Promise<void> {
   tokensCache = tokens;
-  await setSecureTokens(tokens);
-  if (!tokens) await AsyncStorage.removeItem(KEYS.tokensLegacy);
+  // One retry: Keychain/Keystore writes fail transiently (busy, device locking).
+  const stored = (await setSecureTokens(tokens)) || (await setSecureTokens(tokens));
+  if (stored || !tokens) {
+    // Safe to drop any parked copy: either the Keychain now holds this pair,
+    // or we're signing out and nothing should survive.
+    await AsyncStorage.removeItem(KEYS.tokensLegacy);
+    return;
+  }
+  // The Keychain refused twice. Do NOT carry on from memory alone: the server
+  // has already rotated its refresh token, so a relaunch would read the OLD,
+  // now-revoked pair from the Keychain and log the user out. Park the new pair
+  // in AsyncStorage instead — getTokensStrict() prefers it over the Keychain
+  // and moves it back as soon as the Keychain cooperates.
+  captureError(new Error('Keychain write failed twice; parking tokens in AsyncStorage'), {
+    where: 'setTokens',
+  });
+  try {
+    await AsyncStorage.setItem(KEYS.tokensLegacy, JSON.stringify(tokens));
+  } catch (e) {
+    // Nowhere to persist them at all. The session still works from memory;
+    // the next relaunch will need a fresh sign-in. Say so rather than hide it.
+    captureError(e, { where: 'setTokens.park' });
+  }
 }
 
 export async function getStoredUser(): Promise<User | null> {

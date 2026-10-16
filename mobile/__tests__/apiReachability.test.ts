@@ -12,7 +12,9 @@
  */
 jest.mock('../src/utils/storage', () => ({
   getTokens: jest.fn(() => Promise.resolve(null)),
+  getTokensStrict: jest.fn(() => Promise.resolve(null)),
   setTokens: jest.fn(() => Promise.resolve()),
+  TokenStoreUnavailableError: class TokenStoreUnavailableError extends Error {},
 }));
 
 jest.mock('../src/navigation/navigationRef', () => ({

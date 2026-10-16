@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { authApi, learningApi, usersApi, syncDeviceTimezone } from '../api';
 import { ApiError } from '../api/client';
 import {
-  getTokens, setTokens, setStoredUser, getStoredUser, resetTourOffered, getLastActiveLocalDate,
-  getStoredStreakSnapshot, setStoredStreakSnapshot,
+  getTokens, getTokensStrict, TokenStoreUnavailableError, setTokens, setStoredUser, getStoredUser,
+  resetTourOffered, getLastActiveLocalDate, getStoredStreakSnapshot, setStoredStreakSnapshot,
 } from '../utils/storage';
 import { refreshLocalNotifications } from '../services/localNotifications';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
@@ -19,7 +19,7 @@ import {
 import { checkStreakLoss } from '../utils/streak';
 import { signInWithGoogle, signOutFromGoogle } from '../services/googleAuth';
 import { signInWithApple } from '../services/appleAuth';
-import type { AccountAction, AuthResponse, LearningMe, User, UserProfile } from '../types/api';
+import type { AccountAction, AuthResponse, LearningMe, Tokens, User, UserProfile } from '../types/api';
 
 interface AuthState {
   user: User | null;
@@ -167,7 +167,31 @@ export const useAuthStore = create<AuthState>((set, get) => {
   // the try/catch that guarantees isHydrated always ends up true — see the
   // comment on hydrate() below for why that matters.
   const hydrateInner = async (): Promise<void> => {
-    const tokens = await getTokens();
+    // Reading the token store can fail (iOS refuses Keychain reads while the
+    // device is locked, the Android Keystore can be briefly unavailable). That
+    // is not "signed out": nothing was wiped and the tokens are still there.
+    // Look again a couple of times, and if it still won't open, keep the cached
+    // session — exactly as a network failure does below — instead of showing
+    // the login screen. Nothing is cleared, and getTokens() doesn't cache a
+    // failed read, so the next request (or launch) re-reads and carries on.
+    let tokens: Tokens | null = null;
+    let storeUnavailable = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        tokens = await getTokensStrict();
+        storeUnavailable = false;
+        break;
+      } catch (e) {
+        if (!(e instanceof TokenStoreUnavailableError)) throw e;
+        storeUnavailable = true;
+        if (attempt < 2) await new Promise(res => setTimeout(res, 400 * (attempt + 1)));
+      }
+    }
+    if (storeUnavailable) {
+      addBreadcrumb('hydrate: token store unreadable, keeping cached session');
+      set({ isHydrated: true, user: (await getStoredUser()) ?? null, learning: null });
+      return;
+    }
     if (!tokens) {
       set({ isHydrated: true, user: null, learning: null });
       return;

@@ -1,4 +1,5 @@
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
+import { retryRefreshIfOwed } from '../api/client';
 import { connectivity } from '../store/connectivityStore';
 import { addBreadcrumb } from './crashReporter';
 
@@ -102,7 +103,15 @@ function subscribe(): () => void {
     // stale: it was almost certainly a symptom of being offline, and leaving
     // it set would keep a banner up on a device that now has a network. The
     // next failing request re-sets it if the backend really is down.
-    if (!offline && was) connectivity.setServerUnreachable(false);
+    if (!offline && was) {
+      connectivity.setServerUnreachable(false);
+      // If a refresh was left unresolved by the very outage that just ended
+      // (lost response, or the server couldn't adjudicate it), pick it back
+      // up right away instead of waiting for the user to notice they were
+      // logged out and reopen the app. Fire-and-forget: never throws, and
+      // must not block this listener.
+      void retryRefreshIfOwed();
+    }
   });
 }
 
