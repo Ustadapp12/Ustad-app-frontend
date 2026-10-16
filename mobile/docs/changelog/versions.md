@@ -815,3 +815,16 @@ mono + default 128kbps made iOS refuse to start recording ("Could not start
 recording"); now AAC mono 44.1kHz 64kbps with two AAC fallbacks. Also carries
 the efficiency pass and device_model in usage sessions. Not yet verified on
 an iPhone. Map reload star loader (dfc4415) is NOT in this build.
+
+**20049** / 1.0.40 — IPA (TestFlight) — 2026-10-16 — commit `cf64179`, GitHub
+Actions run 38873045676 (#49), `ios-testflight.yml` on `Ahmad/dev`, green in
+about 7 minutes. EAS build `648bd6af`, production profile. Backend:
+**production**. The Figma day map is now Home (one continuous scroll through
+all 4,744 levels, no chapters), with the new 5-tab bottom bar on every tab
+(star tab = "Building your exercises"), Journey / Review pages, Lumo at the
+first level, a back-to-my-level arrow, and JUMP HERE? on every surah. New
+fonts Nunito ExtraBold / Black and Inter Bold. Also carries the four
+unbuilt 2026-10-13 commits (ResumeLevelModal, Progress closed surahs, and
+two old-map reload fixes the new map doesn't use). The old map is not in
+this build, and the guided tour is not offered. Release notes 1.0.40
+approved by the user 2026-10-16. Not yet verified on an iPhone.
