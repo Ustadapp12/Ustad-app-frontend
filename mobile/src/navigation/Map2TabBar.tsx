@@ -9,6 +9,7 @@ import type { TabParamList } from './types';
 const KEY_OF: Partial<Record<keyof TabParamList, BottomBarKey>> = {
   Map: 'home', DailyQuest: 'chest', Building: 'star', Leaderboard: 'trophy', Profile: 'profile',
 };
+const CORNER_OVERLAP = 13;
 const ROUTE_OF: Record<BottomBarKey, keyof TabParamList> = {
   home: 'Map', chest: 'DailyQuest', star: 'Building', trophy: 'Leaderboard', profile: 'Profile',
 };
@@ -33,7 +34,10 @@ export default function Map2TabBar({ state, navigation, insets }: BottomTabBarPr
 
   if (current === 'Map') return null;
   return (
-    <View style={{ height: BOTTOM_BAR_H * s + bottomClearance }}>
+    // The bar's top corners curve down 12.3pt. Pulling it up over the screen's
+    // last 13pt puts the screen's own background behind those corners; without
+    // it they showed the navigator's dark backdrop.
+    <View style={{ height: BOTTOM_BAR_H * s + bottomClearance, marginTop: -CORNER_OVERLAP * s }}>
       <Map2BottomBar S={S} s={s} bottomClearance={bottomClearance} active={KEY_OF[current] ?? 'home'} solid onPress={onPress} />
     </View>
   );
