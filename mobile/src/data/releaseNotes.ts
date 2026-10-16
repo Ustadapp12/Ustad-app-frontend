@@ -29,6 +29,20 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Reviewed and approved by the user 2026-10-16, before the build that
+    // carries it.
+    version: '1.0.40',
+    date: '2026-10-16',
+    changes: [
+      { category: 'New', text: 'A brand new home map. The whole Quran is now one path you scroll, from An-Nas all the way to Al-Fatihah.' },
+      { category: 'New', text: 'Tap Jump here on any surah to go straight to its first level.' },
+      { category: 'New', text: 'A new bottom bar with five tabs.' },
+      { category: 'New', text: 'Scrolled away from your level? Tap the green arrow to go right back.' },
+      { category: 'New', text: 'Coming back to a level you left now asks whether to continue or start over.' },
+      { category: 'Improved', text: "On the Progress screen, surahs you haven't started show an empty bar with the chest at 0%." },
+    ],
+  },
+  {
     // First two lines approved by the user 2026-10-12; the rest added and
     // approved 2026-10-13, before the build that carries it.
     version: '1.0.39',

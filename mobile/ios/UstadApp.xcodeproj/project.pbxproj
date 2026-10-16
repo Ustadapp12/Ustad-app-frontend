@@ -20,6 +20,9 @@
 		A9268A410B221F7B9383684A /* AmiriQuran.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 419411F824406AA2C10B7AF8 /* AmiriQuran.ttf */; };
 		C356D0B158B477118BDDA832 /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7E190A811ABDB1D928FDC20A /* Nunito-Regular.ttf */; };
 		F6D2DE8882DD672A7DF17C14 /* NotoNastaliqUrdu.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 07ACEC82197F1148EE0CC2D6 /* NotoNastaliqUrdu.ttf */; };
+		9F1A2B3C4D5E6F7081920B01 /* Nunito-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9F1A2B3C4D5E6F7081920A01 /* Nunito-ExtraBold.ttf */; };
+		9F1A2B3C4D5E6F7081920B02 /* Nunito-Black.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9F1A2B3C4D5E6F7081920A02 /* Nunito-Black.ttf */; };
+		9F1A2B3C4D5E6F7081920B03 /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9F1A2B3C4D5E6F7081920A03 /* Inter-Bold.ttf */; };
 		DEFAFF021E15F8E180AF36A9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C8437614D9AD6D3470579952 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
@@ -41,6 +44,9 @@
 		7E190A811ABDB1D928FDC20A /* Nunito-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Nunito-Regular.ttf"; path = "Nunito-Regular.ttf"; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = UstadApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		C7C434C831E75ED24940B1C6 /* NotoNaskhArabic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = NotoNaskhArabic.ttf; path = NotoNaskhArabic.ttf; sourceTree = "<group>"; };
+		9F1A2B3C4D5E6F7081920A01 /* Nunito-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Nunito-ExtraBold.ttf"; path = "Nunito-ExtraBold.ttf"; sourceTree = "<group>"; };
+		9F1A2B3C4D5E6F7081920A02 /* Nunito-Black.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Nunito-Black.ttf"; path = "Nunito-Black.ttf"; sourceTree = "<group>"; };
+		9F1A2B3C4D5E6F7081920A03 /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-Bold.ttf"; path = "Inter-Bold.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		C8437614D9AD6D3470579952 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "UstadApp/GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -90,6 +96,9 @@
 				419411F824406AA2C10B7AF8 /* AmiriQuran.ttf */,
 				C7C434C831E75ED24940B1C6 /* NotoNaskhArabic.ttf */,
 				07ACEC82197F1148EE0CC2D6 /* NotoNastaliqUrdu.ttf */,
+				9F1A2B3C4D5E6F7081920A01 /* Nunito-ExtraBold.ttf */,
+				9F1A2B3C4D5E6F7081920A02 /* Nunito-Black.ttf */,
+				9F1A2B3C4D5E6F7081920A03 /* Inter-Bold.ttf */,
 			);
 			name = Fonts;
 			path = UstadApp/Fonts;
@@ -213,6 +222,9 @@
 				A9268A410B221F7B9383684A /* AmiriQuran.ttf in Resources */,
 				45AB66FCC0D4FBAF5395D62E /* NotoNaskhArabic.ttf in Resources */,
 				F6D2DE8882DD672A7DF17C14 /* NotoNastaliqUrdu.ttf in Resources */,
+				9F1A2B3C4D5E6F7081920B01 /* Nunito-ExtraBold.ttf in Resources */,
+				9F1A2B3C4D5E6F7081920B02 /* Nunito-Black.ttf in Resources */,
+				9F1A2B3C4D5E6F7081920B03 /* Inter-Bold.ttf in Resources */,
 				B677B5452C74860AB3823717 /* correct.wav in Resources */,
 				3CA13BE18B61A54E7AE29239 /* wrong.wav in Resources */,
 				2507B0DCA558C0D952E2E79A /* PrivacyInfo.xcprivacy in Resources */,
@@ -354,7 +366,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.39;
+				MARKETING_VERSION = 1.0.40;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -386,7 +398,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.39;
+				MARKETING_VERSION = 1.0.40;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

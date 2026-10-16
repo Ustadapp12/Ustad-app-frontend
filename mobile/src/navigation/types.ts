@@ -23,6 +23,8 @@ export type RootStackParamList = {
   // WIP clone of the map for the new Figma-driven theme — see
   // MapScreenV2.tsx's own header comment. Not in any real nav flow yet.
   MapV2: undefined;
+  // "Building your exercises" page, opened by the map's Journey and Review buttons.
+  ComingSoon: { title: string };
   // Full 114-surah browse/search list, opened from the map's search button.
   // Confirming "Start" there navigates back to MainTabs/Map with
   // params.jumpToSurah set (see TabParamList.Map below).
@@ -76,13 +78,14 @@ export type RootStackParamList = {
 };
 
 export type TabParamList = {
-  // jumpToSurah: set once by SearchSurahsScreen's "Start" confirm. MapScreen
-  // reads and clears it to scroll to (and unlock, if needed) that surah's
-  // first level — see MapScreen.tsx's search-jump effect.
+  // jumpToSurah: set once by SearchSurahsScreen's "Start" confirm. The map
+  // reads and clears it to scroll to that surah's first level.
   // jumpToGroupId/jumpToLevelIdx (optional, set together by
   // SurahProgressScreen) target a specific level instead of the opener.
   Map: { jumpToSurah?: number; jumpToGroupId?: string; jumpToLevelIdx?: number } | undefined;
   DailyQuest: undefined;
+  // The 8-point star tab: the "Building your exercises" page for now.
+  Building: undefined;
   Leaderboard: undefined;
   Profile: undefined;
   Help: undefined;
