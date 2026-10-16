@@ -171,15 +171,12 @@ export function buildMap2Layout({ width, headerH, bottomBarH, activeSlot }: Layo
     x: cx[i] - 52 * s, y: cy[i] - (NODE_FACE_H / 2 + lift + 30) * s, w: 104 * s, h: 30 * s,
   });
 
-  // Lumo, standing still on the sand: beside the very first level, and beside
-  // the current level on its open side, clear of the ring. Once if they coincide.
+  // Lumo, standing still on the sand beside the current level only, on its
+  // open side and clear of the ring.
   const lumoW = LUMO_W * s;
   const lumoH = lumoW * LUMO_ASPECT;
   const lumoFoot = (i: number) => cy[i] + (NODE_FACE_H / 2 + NODE_LIP) * s - lumoH;
   const lumos: LumoSpot[] = [];
-  if (activeSlot !== 0) {
-    lumos.push({ slot: 0, x: cx[0] - (NODE_W / 2 + 10) * s - lumoW, y: lumoFoot(0), w: lumoW, h: lumoH });
-  }
   if (activeSlot != null) {
     const gapFromCentre = (RING_R + 6) * s;
     const leftX = cx[activeSlot] - gapFromCentre - lumoW;
