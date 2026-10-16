@@ -52,5 +52,5 @@ export default function LoadingSpinner({ size = 40, color, label }: Props) {
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center' },
-  label: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText, marginTop: 8 },
+  label: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.midText, marginTop: 8 },
 });

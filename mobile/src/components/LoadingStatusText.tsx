@@ -35,5 +35,5 @@ export default function LoadingStatusText({
 }
 
 const styles = StyleSheet.create({
-  text: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center' },
+  text: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center' },
 });

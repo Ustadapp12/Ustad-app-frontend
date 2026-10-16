@@ -47,6 +47,22 @@ let activeSound: SoundLike | null = null;
 // for staleness to develop.
 let playToken = 0;
 
+// ── Recording lock ───────────────────────────────────────────────────
+// While the mic is recording a recitation, nothing may play: any reference
+// audio (word chips, "Hear", the hint modal's "Hear the Ayah") would be
+// picked up by the mic and scored as the learner's own recitation. Set by
+// services/audioRecorder.ts around every recording, so every button on every
+// screen is covered at this one choke point instead of per call site. It also
+// keeps the per-play iOS setCategory('Playback') from switching the shared
+// audio session out of PlayAndRecord mid-recording.
+let playbackBlocked = false;
+
+/** Stop anything playing and refuse new playback until unblocked. */
+export function setPlaybackBlocked(blocked: boolean): void {
+  playbackBlocked = blocked;
+  if (blocked) stopAudio();
+}
+
 // ── System-audio playing state ──────────────────────────────────────
 // A simple pub-sub so UI (e.g. the wave animation) can react to actual
 // playback start/stop without every call site having to thread state
@@ -138,7 +154,8 @@ export async function preloadAudioUrls(urls: string[]): Promise<void> {
   try {
     const SoundModule = require('react-native-sound');
     const Sound = SoundModule.default ?? SoundModule;
-    Sound.setCategory('Playback');
+    // Mid-recording this would pull the session out of PlayAndRecord.
+    if (!playbackBlocked) Sound.setCategory('Playback');
 
     const pending = urls.filter(url => url && !preloadedSounds.has(url));
     const BATCH = 4;
@@ -185,7 +202,7 @@ export function pauseAudio(): void {
 
 /** Resume a paused sound (no-op if nothing paused). */
 export function resumeAudio(): void {
-  if (!activeSound) return;
+  if (!activeSound || playbackBlocked) return;
   ensurePlaybackCategory();
   try { activeSound.play(() => {}); } catch { /* ignore */ }
   setSystemPlaying(true);
@@ -235,7 +252,7 @@ function safeDurationMs(sound: SoundLike): number {
  * starts.
  */
 export async function playAudioUrl(url: string, onStart?: () => void): Promise<void> {
-  if (!url) return;
+  if (!url || playbackBlocked) return;
   // Stamped before ANY async work (including preloadedSounds.get, which is
   // sync, but the point is this must be the very first thing that happens)
   // so a later call -- or an explicit stopAudio() -- can invalidate this one

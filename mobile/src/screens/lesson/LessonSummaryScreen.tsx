@@ -117,20 +117,26 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
     void addPendingGuestProgress(xp);
   }, [isGuestUser, xp, currentStreak]);
 
-  const grade = scorePct >= 90 ? 'Excellent!' : scorePct >= 70 ? 'Great job!' : scorePct >= 50 ? 'Good effort!' : 'Keep practicing!';
-  const gradeColor = scorePct >= 90 ? colors.gold : scorePct >= 70 ? colors.primary : scorePct >= 50 ? colors.blue : colors.mutedText;
+  // Same tiers as the stars (utils/stars.ts), so the heading never praises
+  // a run the stars don't.
+  const grade = stars >= 3 ? 'Excellent!' : stars === 2 ? 'Great job!' : scorePct >= 33 ? 'Good effort!' : 'Keep practicing!';
+  const gradeColor = stars >= 3 ? colors.gold : stars === 2 ? colors.primary : scorePct >= 33 ? colors.blue : colors.mutedText;
 
-  // paddingBottom, not a shorter gradient — see StreakCelebrationScreen's
-  // identical comment: padding is inside the border box, so the gradient
-  // still bleeds to the true edge and only the centered content lifts.
+  // Background split from content — see StreakCelebrationScreen's identical
+  // comment: a full-bleed LinearGradient sibling (no insets dependency)
+  // guarantees the screen's own color always reaches the true edge, instead
+  // of a possibly-stale insets.bottom (0 on this screen's very first render,
+  // a known React Navigation timing gap on a freshly-pushed 'fade' screen)
+  // leaving a gap that exposed the Stack.Navigator's own fallback color.
   return (
-    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <View style={{ flex: 1 }}>
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={StyleSheet.absoluteFill} />
+    <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
 
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         {/* Medal animation — big and continuously looping. */}
         <LottieView
-          renderMode="SOFTWARE"
           source={require('../../../assets/animations/congrats.json')}
           autoPlay
           loop
@@ -211,7 +217,8 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
           <Text style={styles.continueBtnText}>Continue  →</Text>
         </TouchableOpacity>
       </Animated.View>
-    </LinearGradient>
+    </View>
+    </View>
   );
 }
 
@@ -221,20 +228,20 @@ const styles = StyleSheet.create({
   medal:        { width: '100%', aspectRatio: 300 / 180, marginBottom: -10 },
   starsRow:     { flexDirection: 'row', gap: 12, marginBottom: 16 },
   star:         { fontSize: 52 },
-  grade:        { fontFamily: 'Nunito_700Bold', fontSize: 30, marginBottom: 14 },
+  grade:        { fontFamily: 'Nunito-Bold', fontSize: 30, marginBottom: 14 },
   streakSavedBadge: {
     backgroundColor: 'rgba(0,0,0,0.40)', borderRadius: 20, borderWidth: 2, borderColor: STREAK_FROZEN_COLOR,
     paddingHorizontal: 18, paddingVertical: 8, marginBottom: 14, maxWidth: '100%',
   },
   streakSavedBadgeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   streakSavedBadgeIcon: { width: 18, height: 18 },
-  streakSavedBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: STREAK_FROZEN_COLOR, textAlign: 'center' },
+  streakSavedBadgeText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: STREAK_FROZEN_COLOR, textAlign: 'center' },
   lumaImg:      { width: 84, height: 84, marginBottom: 12 },
   statsRow:     { flexDirection: 'row', width: '100%', gap: 10, marginBottom: 14 },
   statBox:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.40)',
                   borderRadius: 16, borderWidth: 2, borderColor: colors.gold, paddingVertical: 12, paddingHorizontal: 4 },
-  statValue:    { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.gold, lineHeight: 26 },
-  statLabel:    { fontFamily: 'Nunito_700Bold', fontSize: 10.5, color: colors.gold, letterSpacing: 0.5, marginTop: 3, opacity: 0.85 },
+  statValue:    { fontFamily: 'Nunito-Bold', fontSize: 22, color: colors.gold, lineHeight: 26 },
+  statLabel:    { fontFamily: 'Nunito-Bold', fontSize: 10.5, color: colors.gold, letterSpacing: 0.5, marginTop: 3, opacity: 0.85 },
   continueBtn:  { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
 });

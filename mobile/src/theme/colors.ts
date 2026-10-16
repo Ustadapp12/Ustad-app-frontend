@@ -27,8 +27,8 @@ export const colors = {
 
   // Backgrounds
   lightBg: '#F2F4F8',
-  white: '#FFFFFF',
-  cardBg: '#FFFFFF',
+  white: '#F5F7FA',
+  cardBg: '#F5F7FA',
 
   // Borders
   border: '#E5E7EB',

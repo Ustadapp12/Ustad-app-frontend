@@ -15,12 +15,30 @@ const iosFontsDir = path.join(root, 'ios', 'UstadApp', 'Fonts');
 const infoPlistPath = path.join(root, 'ios', 'UstadApp', 'Info.plist');
 const pbxprojPath = path.join(root, 'ios', 'UstadApp.xcodeproj', 'project.pbxproj');
 
-/** Remote sources for fonts that were previously saved as GitHub HTML pages. */
+/**
+ * Remote sources for fonts that were previously saved as GitHub HTML pages.
+ *
+ * Nunito-Regular.ttf/Nunito-Bold.ttf are deliberately NOT listed here.
+ * cdn.jsdelivr.net/fontsource/fonts/nunito@5.2.5's latin-400-normal.ttf and
+ * latin-700-normal.ttf both ship with a wrong internal name-table (Family
+ * "Nunito ExtraLight" / PostScript "NunitoExtraLight-Regular"/"-Bold" instead
+ * of "Nunito"/"Nunito-Regular"/"Nunito-Bold") — confirmed 2026-09-10 by
+ * re-fetching that exact URL fresh, so it's an upstream packaging bug in that
+ * Fontsource version, not a one-off bad download. Since fontFamily on iOS
+ * resolves against that embedded name (not the filename), every JS
+ * `fontFamily: 'Nunito_400Regular'/'Nunito_700Bold'` string using it silently
+ * fell back to the system font, and even a filename-only fix would still
+ * render the wrong (extra-light) weight. If these ever need re-sourcing,
+ * pull directly from Google's own fonts.gstatic.com (fetch
+ * https://fonts.googleapis.com/css2?family=Nunito:wght@400;700 with an old
+ * User-Agent, e.g. "Mozilla/5.0 ... Chrome/9.1.0.0", to get .woff URLs
+ * instead of .woff2 — Google's static per-weight files carry correct
+ * Family/PostScript names — then unwrap the WOFF container back to a raw
+ * TTF: it's just the sfnt tables zlib-compressed behind a small header, per
+ * the WOFF spec, no external tool needed). Don't go back to Fontsource for
+ * this specific font without re-checking its name table first.
+ */
 const DOWNLOADS = {
-  'Nunito-Regular.ttf':
-    'https://cdn.jsdelivr.net/fontsource/fonts/nunito@5.2.5/latin-400-normal.ttf',
-  'Nunito-Bold.ttf':
-    'https://cdn.jsdelivr.net/fontsource/fonts/nunito@5.2.5/latin-700-normal.ttf',
   'AmiriQuran.ttf':
     'https://raw.githubusercontent.com/aliftype/amiri/master/fonts/AmiriQuran.ttf',
 };

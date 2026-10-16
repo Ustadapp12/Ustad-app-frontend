@@ -10,7 +10,7 @@
  * it describes — step 8 is a plain lead-in card, shown before navigating
  * into the lesson half so that screen never just appears without warning.
  * Steps 9 to 18 happen on TourLessonScreen, which renders the genuine lesson
- * components (see LessonHeader in LessonSessionScreen) against fixed Surah
+ * components (see components/lesson/LessonHeader) against fixed Surah
  * An-Nas content, so what a new user is shown is the thing they'll actually
  * meet, not a mock up that quietly rots as the lesson UI changes. Step 19
  * lands back on the map.

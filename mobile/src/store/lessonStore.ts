@@ -11,12 +11,50 @@ import { invalidateLevels } from '../services/bootCache';
 import {
   abandonActiveLessonSession,
   abandonLessonSessionById,
-  abandonPendingLessonSessionFromStorage,
   clearPendingLessonSession,
   setPendingLessonSession,
 } from '../services/lessonSession';
+import {
+  refreshLocalNotifications,
+  requestLocalNotificationPermission,
+  toLocalDateString,
+} from '../services/localNotifications';
+import {
+  setLastActiveLocalDate,
+  setLocalNotifPermissionAsked,
+  wasLocalNotifPermissionAsked,
+} from '../utils/storage';
 import type { ExerciseStep } from '../lesson/types';
 import type { ExerciseDict, LessonGroupDetail, SessionCompleteOut } from '../types/api';
+
+// Stamps today as practised (the client-side fact services/localNotifications.ts needs
+// but the backend doesn't return — see utils/storage.ts's getLastActiveLocalDate comment),
+// reschedules the streak/freeze local notifications against the freshly-completed streak
+// state, and — once, ever, the first time a lesson is completed — asks for local
+// notification permission. Never awaited by a caller; never throws.
+async function refreshLocalNotificationsAfterComplete(completed: SessionCompleteOut): Promise<void> {
+  try {
+    const today = toLocalDateString(new Date());
+    await setLastActiveLocalDate(today);
+    await refreshLocalNotifications(
+      {
+        currentStreak: completed.current_streak,
+        state: completed.streak_state ?? 'active',
+        freezeDaysRemaining: completed.freeze_days_remaining ?? 0,
+        lastActiveLocalDate: today,
+      },
+      // No onboarding picker for this yet — see services/localNotifications.ts header.
+      { reminderHour: null },
+    );
+    if (!(await wasLocalNotifPermissionAsked())) {
+      await setLocalNotifPermissionAsked();
+      await requestLocalNotificationPermission();
+    }
+  } catch {
+    // Same discipline as analytics/crash reporting elsewhere in this store: never let
+    // this affect the lesson-completion flow the user is actually waiting on.
+  }
+}
 
 let startSessionInFlight: Promise<void> | null = null;
 // Incremented every time loadGroup() is called. Any async work that started
@@ -33,12 +71,23 @@ interface LessonState {
   heartsAtStart: number;
   mistakes: number;
   correctCount: number;
+  // Wrong graded attempts so far (backend wrong_count), for accuracy on a
+  // resumed session. `mistakes` above is heart units, a different thing.
+  wrongCount: number;
   loading: boolean;
   error: string | null;
   result: SessionCompleteOut | null;
   stepStartedAt: number;
   firstExercise: ExerciseDict | null;
   progressPct: number;
+  // Resume support (see startSession): when the backend reconnects to an
+  // already-in-progress session instead of starting a fresh one, these carry
+  // what LessonSessionScreen should seed its local XP/timer state with —
+  // otherwise a session interrupted by the app being killed or backgrounded
+  // silently restarted its accuracy/XP/timer counters from zero on reopen.
+  resumed: boolean;
+  sessionStartedAt: number | null;
+  xpEarnedSoFar: number;
   // Surah number of the level just completed, for MapScreen to pick up on its
   // next focus — MapScreen only remounts once for the app's lifetime (it sits
   // underneath the lesson screens in the same stack), so its own cached level
@@ -75,12 +124,16 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   heartsAtStart: 10,
   mistakes: 0,
   correctCount: 0,
+  wrongCount: 0,
   loading: false,
   error: null,
   result: null,
   stepStartedAt: Date.now(),
   firstExercise: null,
   progressPct: 0,
+  resumed: false,
+  sessionStartedAt: null,
+  xpEarnedSoFar: 0,
   lastCompletedSurah: null,
   lastVisitedSurah: null,
 
@@ -155,11 +208,13 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     startSessionInFlight = (async () => {
       set({ loading: true, error: null });
       try {
-        await abandonPendingLessonSessionFromStorage();
-        if (myGen !== storeGeneration) {
-          addBreadcrumb('startSession: superseded before request', { groupId: group.id });
-          return; // a newer loadGroup already took over
-        }
+        // No longer abandons any existing session before asking the backend
+        // to start one: start_session() now resumes an already-in-progress
+        // session for this exact group by itself (see its own comment) when
+        // one exists, so abandoning here first would destroy the very
+        // progress a resume is meant to preserve. Abandoning a DIFFERENT
+        // group's leftover session is still handled server-side too.
+        //
         // Use the groupId the caller passed to loadGroup(), not group.id from the
         // backend response, which may still carry the old "114_stg1_g1" format.
         const canonicalId = get().groupId ?? group.id;
@@ -180,19 +235,26 @@ export const useLessonStore = create<LessonState>((set, get) => ({
           addBreadcrumb('startSession: superseded after request', { groupId: canonicalId });
           return; // superseded while awaiting backend
         }
-        addBreadcrumb('startSession: session created', { groupId: canonicalId, sessionId: session.session_id, hasFirstExercise: !!session.first_exercise });
+        addBreadcrumb('startSession: session created', { groupId: canonicalId, sessionId: session.session_id, resumed: !!session.resumed, hasFirstExercise: !!session.first_exercise });
         await setPendingLessonSession({ sessionId: session.session_id, groupId: canonicalId, mistakes: 0, stepIndex: initialStepIndex });
         set({
           sessionId: session.session_id,
           heartsAtStart: session.hearts_at_start,
           loading: false,
           stepStartedAt: Date.now(),
-          mistakes: 0,
-          correctCount: 0,
+          // On a resumed session these come back non-zero from the server
+          // (see start_session's resume branch) instead of always 0 — a
+          // fresh session still sends 0s, so this is correct either way.
+          mistakes: session.hearts_lost_half ?? 0,
+          correctCount: session.correct_count ?? 0,
+          wrongCount: session.wrong_count ?? 0,
           result: null,
           stepIndex: initialStepIndex,
           firstExercise: session.first_exercise ?? null,
           progressPct: session.progress_pct ?? 0,
+          resumed: !!session.resumed,
+          sessionStartedAt: session.started_at ? new Date(session.started_at).getTime() : Date.now(),
+          xpEarnedSoFar: session.xp_earned_so_far ?? 0,
         });
         void logAnalyticsEvent(AnalyticsEvents.LESSON_START, { lesson_group_id: group.id, surah_number: group.surah_number });
       } catch (e) {
@@ -231,6 +293,9 @@ export const useLessonStore = create<LessonState>((set, get) => ({
       set({ lastCompletedSurah: group.surah_number, lastVisitedSurah: group.surah_number });
     }
     void logAnalyticsEvent(AnalyticsEvents.LESSON_COMPLETE, { passed: passed ? 1 : 0, score_pct, mistakes });
+    // Fire-and-forget, same as the analytics call above: local notifications must
+    // never slow down or fail the completion flow the user is actually waiting on.
+    void refreshLocalNotificationsAfterComplete(completed);
     return completed;
   },
 
@@ -262,7 +327,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
 
   reset: () => {
     clearPreloadedAudio();
-    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0, lastCompletedSurah: null, lastVisitedSurah: null });
+    set({ group: null, groupId: null, steps: [], stepIndex: 0, sessionId: null, mistakes: 0, correctCount: 0, wrongCount: 0, result: null, error: null, loading: false, stepStartedAt: Date.now(), firstExercise: null, progressPct: 0, resumed: false, sessionStartedAt: null, xpEarnedSoFar: 0, lastCompletedSurah: null, lastVisitedSurah: null });
   },
 }));
 

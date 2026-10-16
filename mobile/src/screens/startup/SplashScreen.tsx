@@ -32,7 +32,7 @@ const SPLASH_MESSAGES = [
   'Preparing your journey…',
   'Almost there…',
 ];
-const SPLASH_MESSAGE_MS = 1200;
+const SPLASH_MESSAGE_MS = 3200;
 
 interface Props {
   navigation: RootNavProp;
@@ -40,7 +40,9 @@ interface Props {
 
 export default function SplashScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { user, isHydrated, startGuestSession, profile } = useAuthStore();
+  const {
+    user, isHydrated, startGuestSession, profile,
+  } = useAuthStore();
 
   const lumaY = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -65,8 +67,20 @@ export default function SplashScreen({ navigation }: Props) {
     loop.start();
 
     // Warm the (serverless, cold-start-prone) backend the instant Splash
-    // mounts, well before the user reaches Login/Lesson and actually needs
-    // a real response. Fire-and-forget — result doesn't matter here.
+    // mounts, well before the user reaches Login/Lesson and actually needs a
+    // real response. Warming is now its ONLY job: the result is deliberately
+    // discarded.
+    //
+    // It used to also drive the offline banner via setOffline(!ok), which was
+    // the main cause of the banner appearing on a working app. healthCheck()
+    // aborts at 5s, which is shorter than the cold start it exists to hide,
+    // so it reported "offline" while hydrate() reached the same backend fine
+    // on its 30s timeout. Last writer won, so a cold start reliably stuck the
+    // banner on.
+    //
+    // Device connectivity is now answered by the OS, once, in
+    // services/connectivity.ts — no HTTP request, nothing to race, and it
+    // covers the signed-out and guest launches this probe was reaching for.
     void healthCheck();
 
     const timer = setTimeout(() => setMinDelayDone(true), 1000);
@@ -215,11 +229,11 @@ const styles = StyleSheet.create({
   },
   decorLetter: {
     position: 'absolute',
-    fontFamily: 'NotoNaskhArabic_400Regular',
-    color: 'white',
+    fontFamily: 'NotoNaskhArabic-Regular',
+    color: '#F5F7FA',
   },
   bismillah: {
-    fontFamily: 'NotoNaskhArabic_400Regular',
+    fontFamily: 'NotoNaskhArabic-Regular',
     fontSize: 27,
     color: '#C4A84C',
     letterSpacing: 1,
@@ -231,7 +245,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
   },
   status: {
-    fontFamily: 'Nunito_400Regular',
+    fontFamily: 'Nunito-Regular',
     fontSize: 14,
     color: 'rgba(255,255,255,0.75)',
     letterSpacing: 0.3,

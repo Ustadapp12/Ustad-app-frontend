@@ -10,6 +10,7 @@ import { ApiError } from '../../api/client';
 import { setTokens } from '../../utils/storage';
 import { getPasswordChecklist, getPasswordStrength, isPasswordValid } from '../../utils/validators';
 import { colors } from '../../theme/colors';
+import BackButton from '../../components/BackButton';
 import PasswordInput from '../../components/PasswordInput';
 import MascotShadow from '../../components/MascotShadow';
 import { LoadingRing } from '../../components/LoadingSpinner';
@@ -83,14 +84,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={[styles.backBtn, { top: insets.top + 12 }]}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Back"
-      >
-        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 12 }]} />
 
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
         <View style={{ width: 110, height: 110, marginBottom: 8 }}>
@@ -161,7 +155,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
           onPress={handleSubmit}
           disabled={!canSubmit || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Reset password</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Reset password</Text>}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -174,7 +168,6 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
   successContent: { justifyContent: 'center' },
   luma: { width: 110, height: 110, marginBottom: 8 },
@@ -184,31 +177,31 @@ const styles = StyleSheet.create({
     borderRadius: 18, paddingHorizontal: 22, paddingVertical: 18, marginBottom: 32,
   },
   successBubbleText: {
-    fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText,
+    fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText,
     textAlign: 'center', lineHeight: 23,
   },
-  heading: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 8 },
-  sub: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.mutedText, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  heading: { fontFamily: 'Nunito-Bold', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 8 },
+  sub: { fontFamily: 'Nunito-Regular', fontSize: 14, color: colors.mutedText, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
   fieldWrap: { width: '100%', marginBottom: 16 },
-  fieldLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.midText, marginBottom: 5, letterSpacing: 0.4 },
+  fieldLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.midText, marginBottom: 5, letterSpacing: 0.4 },
   inputBox: {
     backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
     borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
   },
   checklistWrap: { marginTop: 8, marginBottom: 4 },
-  checklistItem: { fontFamily: 'Nunito_400Regular', fontSize: 12, marginBottom: 2 },
+  checklistItem: { fontFamily: 'Nunito-Regular', fontSize: 12, marginBottom: 2 },
   checklistMet: { color: colors.success },
   checklistUnmet: { color: colors.red },
-  strengthText: { fontFamily: 'Nunito_700Bold', fontSize: 12, marginTop: 4 },
+  strengthText: { fontFamily: 'Nunito-Bold', fontSize: 12, marginTop: 4 },
   strengthWeak: { color: colors.red },
   strengthMedium: { color: colors.warning },
   strengthStrong: { color: colors.success },
-  error: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
+  error: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
   btn: {
     width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
     alignItems: 'center', marginTop: 8, marginBottom: 16,
     shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
   },
   btnDisabled: { opacity: 0.45 },
-  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
+  btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
 });

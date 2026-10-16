@@ -1,14 +1,14 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Animated, Easing, ActivityIndicator, Platform, Modal, Alert, Image, Pressable,
-  useWindowDimensions, BackHandler, type ImageSourcePropType,
+  BackHandler, type ImageSourcePropType,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   playAudioUrl, pauseAudio, resumeAudio, stopAudio,
-  preloadAudioUrls, evictPreloadedUrls, onPlayingChange, playFeedbackSound,
+  preloadAudioUrls, evictPreloadedUrls, onPlayingChange, playFeedbackSound, isAudioPlaying,
 } from '../../services/audioPlayer';
 import {
   requestMicPermission, startRecording as startRecordingSvc, stopRecording as stopRecordingSvc,
@@ -19,51 +19,34 @@ import { learningApi, progressApi } from '../../api';
 import { captureError } from '../../services/crashReporter';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
 import { safeBottomInset } from '../../utils/responsive';
+import { starsFromAccuracy } from '../../utils/stars';
 import { colors } from '../../theme/colors';
 import PredictedProgressBar from '../../components/PredictedProgressBar';
 import PlayPauseIcon from '../../components/PlayPauseIcon';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
+import ResumeLevelModal from '../../components/ResumeLevelModal';
 import LoadingStatusText from '../../components/LoadingStatusText';
 import type { ExerciseDict, ExpectedWordResult, FormulaAttemptOut, SegmentStatus } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
+import { TOUR_GLOW } from '../../components/tour/tourGlow';
+import LessonHeader, { MAX_MISTAKES } from '../../components/lesson/LessonHeader';
+import AyahText from '../../components/lesson/AyahText';
+import ExerciseLayout from '../../components/lesson/ExerciseLayout';
+import ExerciseFooterButton from '../../components/lesson/ExerciseFooterButton';
+import UstadSays from '../../components/lesson/UstadSays';
+import AyahWithBlank from '../../components/lesson/AyahWithBlank';
+import HearButton from '../../components/lesson/HearButton';
 
 // The speaker/audio-playback icon used everywhere a "tap to hear" control
 // shows a handheld speaker — replaces the old 🔊 emoji.
 const SPEAKER_ICON = require('../../../assets/map/speaker.png');
 
-// ── Tour-only glow ───────────────────────────────────────────────────
-// The guided tour highlights a real element by asking that element to glow
-// itself, rather than drawing a separate ring on top of it at measured
-// coordinates (see TourOverlay's own comment for why: a drawn ring can
-// disagree with the real shape, drift out of sync with a timing race, or
-// simply be wrong). Every glow-capable prop below defaults to falsy and is
-// only ever set by TourLessonScreen/TourOfferModal call sites — a normal
-// lesson never passes them, so this is invisible outside the tour.
-//
-// Two variants:
-// - TOUR_GLOW has no radius of its own, so it inherits whatever the host
-//   element already declares (Check's borderRadius:16, the mic's 54, the
-//   feedback sheet's top-only 24) — same pattern EX.optionGlow already used
-//   for the pre-picked option, just generalised.
-// - TOUR_GLOW_ROUND is for the handful of targets whose ref sits on a bare
-//   wrapper View with no shape of its own (the hint icon, the hearts row,
-//   the progress slot) — borderRadius: 999 clamps to a perfect circle/pill
-//   at whatever size that wrapper actually renders, on any device.
-export const TOUR_GLOW = {
-  borderWidth: 2, borderColor: colors.gold,
-  shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
-  elevation: 8,
-} as const;
-export const TOUR_GLOW_ROUND = { ...TOUR_GLOW, borderRadius: 999 } as const;
-// Same spotlight, thinner halo — TOUR_GLOW_ROUND's shadowRadius:10 is a soft
-// blur bigger than the 10px-tall progress bar it's meant to outline, so the
-// gold blur reads as the bar's own color instead of a highlight around a
-// green bar. Every other TOUR_GLOW_ROUND target (hearts row, hint icon) is
-// tall enough that the same blur stays a thin rim; only the progress bar
-// needs the lighter version.
-export const TOUR_GLOW_ROUND_THIN = { ...TOUR_GLOW_ROUND, shadowRadius: 3, shadowOpacity: 0.7 } as const;
+// ── Tour-only glow ─────────────────────────────────
+// Moved to components/tour/tourGlow.ts: MainTabs, MapScreen and MapScreenV2
+// all import TOUR_GLOW, and that one named import was pulling this entire
+// screen into the tab bundle at splash. See that file for the full rationale.
 
 // ── Audio helper ───────────────────────────────────────────────────
 // Thin wrappers around services/audioPlayer.ts (react-native-sound) that
@@ -231,7 +214,7 @@ const PP = StyleSheet.create({
   btn:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(42,125,79,0.12)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'center', marginBottom: 14 },
   btnDark: { backgroundColor: 'rgba(224,188,78,0.15)' },
   btnDisabled: { opacity: 0.4 },
-  text:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  text:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
   textDark:{ color: '#E0BC4E' },
 });
 
@@ -262,168 +245,6 @@ const HANDLED_EXERCISE_TYPES = new Set([
   'read_ayah_and_speak', 'read_and_speak',
 ]);
 
-// ── Bismillah stripping ───────────────────────────────────────────
-// The hint modal receives ayah_ar which sometimes includes the Bismillah
-// (بسم الله الرحمن الرحيم) as a leading prefix from the backend or group data.
-// This function removes it so the hint shows only the actual ayah text with ۝.
-// Matches any diacritisation variant via the optional-harakat character class.
-
-const _D = '[ً-ٰٟ]*'; // any Arabic diacritics (harakat / dagger alif)
-const BISMILLAH_RE = new RegExp(
-  '^[\\s﷽]*' +              // leading whitespace or ﷽ glyph
-  `ب${_D}س${_D}م${_D}` + // بسم
-  `\\s+ا${_D}ل${_D}ل${_D}[هة]${_D}` + // الله
-  `\\s+ا${_D}ل${_D}ر${_D}ح${_D}م${_D}[نا]${_D}` + // الرحمن
-  `\\s+ا${_D}ل${_D}ر${_D}ح${_D}[يى]${_D}م${_D}` + // الرحيم
-  '[\\s\\n]*',
-);
-
-function stripBismillahPrefix(text: string | null | undefined): string {
-  if (!text) return text ?? '';
-  const stripped = text.replace(BISMILLAH_RE, '').trim();
-  // Guard: if stripping would empty the string (i.e. the ayah IS Bismillah,
-  // like Surah 1:1), return the original unchanged.
-  return stripped || text;
-}
-
-// ── Ayah text with matching-size ۝ end-marker ────────────────────
-function AyahText({ text, style }: { text: string; style: any }) {
-  if (!text.includes('۝')) return <Text style={style}>{text}</Text>;
-  const parts = text.split('۝');
-  const circleSize = style.fontSize ?? 20;
-  return (
-    <Text style={style}>
-      {parts.map((part, i) => (
-        <React.Fragment key={i}>
-          {part}
-          {i < parts.length - 1 && (
-            <Text style={{ fontSize: circleSize }}>۝</Text>
-          )}
-        </React.Fragment>
-      ))}
-    </Text>
-  );
-}
-
-// ── Hint button (glowing lightbulb, top-right) with Lumo modal ─────
-export function HintButton({
-  url, ayahAr, ayahTranslation,
-}: { url?: string | null; ayahAr?: string | null; ayahTranslation?: string | null }) {
-  const arabicFont = useArabicFont();
-  const glowAnim   = useRef(new Animated.Value(0.5)).current;
-  const [visible, setVisible]   = useState(false);
-  const [playing, setPlaying]   = useState(false);
-  const mountedRef = useRef(true);
-
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(glowAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-      Animated.timing(glowAnim, { toValue: 0.5, duration: 900, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, []);
-
-  // Stop audio whenever the modal closes
-  useEffect(() => {
-    if (!visible && playing) {
-      void pauseCurrentAudio();
-      if (mountedRef.current) setPlaying(false);
-    }
-  }, [visible]);
-
-  const handlePlayPause = async () => {
-    if (!url) return;
-    if (playing) {
-      setPlaying(false);
-      await pauseCurrentAudio();
-    } else {
-      setPlaying(true); // set before awaiting — playUrl only resolves once playback finishes
-      await playUrl(url, () => { if (mountedRef.current) setPlaying(false); });
-    }
-  };
-
-  // A hint is worth showing if there's either audio or text — previously an
-  // exercise that carried the ayah and its translation but no audio url hid the
-  // button entirely, throwing away a perfectly good hint.
-  if (!url && !ayahAr) return null;
-
-  return (
-    <>
-      <TouchableOpacity style={HB.container} onPress={() => setVisible(true)}>
-        <Animated.View style={[HB.glow, { opacity: glowAnim }]} />
-        <Text style={HB.icon}>💡</Text>
-        <Text style={HB.label}>Hint</Text>
-      </TouchableOpacity>
-
-      <Modal transparent animationType="fade" visible={visible} onRequestClose={() => setVisible(false)}>
-        <View style={HB.backdrop}>
-          <View style={HB.modal}>
-            <View style={{ width: 100, height: 100, marginBottom: 8 }}>
-              <Image
-                source={require('../../../assets/images/lumo_hint.png')}
-                style={[HB.lumo, { marginBottom: 0 }]}
-                resizeMode="contain"
-              />
-              <MascotShadow width={100} />
-            </View>
-            <Text style={HB.modalTitle}>Hint</Text>
-
-            {ayahAr ? (
-              <View style={HB.ayahBox}>
-                {/* Strip Bismillah so only the actual ayah with ۝ is shown */}
-                <AyahText text={stripBismillahPrefix(ayahAr)} style={arabicTextStyle(HB.ayahAr as any, arabicFont) as any} />
-                {ayahTranslation ? (
-                  <Text style={HB.ayahTrans}>"{ayahTranslation}"</Text>
-                ) : null}
-              </View>
-            ) : null}
-
-            {/* Play / Pause button — omitted when the hint is text-only */}
-            {url ? (
-              <TouchableOpacity
-                style={[HB.playBtn, playing && HB.playBtnActive]}
-                onPress={handlePlayPause}
-              >
-                <View style={HB.pauseRow}>
-                  <PlayPauseIcon playing={playing} size={16} color="white" />
-                  <Text style={HB.playText}>  {playing ? 'Pause' : 'Hear the Ayah'}</Text>
-                </View>
-              </TouchableOpacity>
-            ) : null}
-
-            <TouchableOpacity style={HB.cancelBtn} onPress={() => setVisible(false)}>
-              <Text style={HB.cancelText}>Got it</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </>
-  );
-}
-
-const HB = StyleSheet.create({
-  container:    { alignItems: 'center', justifyContent: 'center', width: 52, height: 52 },
-  glow:         { position: 'absolute', width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFF59D' },
-  icon:         { fontSize: 22 },
-  label:        { fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#A07C00', marginTop: 1 },
-  backdrop:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
-  modal:        { backgroundColor: 'white', borderRadius: 24, padding: 24, alignItems: 'center', width: '88%', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
-  lumo:         { width: 100, height: 100, marginBottom: 8 },
-  modalTitle:   { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, marginBottom: 12 },
-  ayahBox:      { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 14, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 16, alignItems: 'center', marginBottom: 16 },
-  ayahAr:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 38 },
-  ayahTrans:    { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginTop: 8, fontStyle: 'italic', lineHeight: 18 },
-  playBtn:      { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
-  playBtnActive:{ backgroundColor: '#1A5C3A' },
-  playText:     { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
-  pauseRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cancelBtn:    { width: '100%', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
-  cancelText:   { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
-});
-
 // ── Character rotation ────────────────────────────────────────────
 export interface Character { src: ImageSourcePropType; name: string }
 export const CHARACTERS: Character[] = [
@@ -447,29 +268,16 @@ export function characterForIndex(shuffled: number[], idx: number): Character {
   return CHARACTERS[shuffled[idx % shuffled.length]];
 }
 
-// ── Hearts ─────────────────────────────────────────────────────────
-// 5 heart icons, each worth 2 half-heart units (full -> half -> empty), so
-// the session actually ends at 10 total mistakes, not 5 — these two numbers
-// must move together or the "out of hearts" trigger silently drifts out of
-// sync with what the heart icons are visually showing.
-const MAX_HEARTS = 5;
-const MAX_MISTAKES = MAX_HEARTS * 2;
-
-// Stars shown on the completion screen, derived from real accuracy (not the
-// hardcoded 3 this used to be) — kept in sync with the backend's own
-// _stars_from_score() thresholds (app/learning/service.py) so the number
-// shown here never disagrees with the stars persisted for the level on the map.
-function starsFromAccuracy(scorePct: number): number {
-  if (scorePct >= 90) return 3;
-  if (scorePct >= 60) return 2;
-  return 1; // floor of 1 star for any completed attempt, including <30%
+function accuracyPct(a: { correct: number; wrong: number }): number {
+  const total = a.correct + a.wrong;
+  return total > 0 ? Math.round((a.correct / total) * 100) : 100;
 }
 
 // Back button used as a safety net on the blank loading state below.
 const LL = StyleSheet.create({
   backBtn: { position: 'absolute', left: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
   backArrowIcon: { width: 14, height: 14, tintColor: colors.midText, marginRight: 6 },
-  backText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
+  backText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.midText },
 });
 
 // ── Between-exercise loading — a spinning green dial + "Loading" label,
@@ -533,7 +341,7 @@ export function SegmentPlayBtn({ url, urls }: { url?: string | null; urls?: stri
   return (
     <TouchableOpacity style={SPB.row} onPress={handle} disabled={!hasAudio}>
       <View style={[SPB.btn, !hasAudio && { opacity: 0.4 }]}>
-        <PlayPauseIcon playing={playing} size={11} color="white" />
+        <PlayPauseIcon playing={playing} size={11} color="#F5F7FA" />
       </View>
       {/* Waveform signal bars — always visible, animate when playing */}
       <View style={SPB.waveform}>
@@ -600,136 +408,13 @@ const BI = StyleSheet.create({
     alignItems: 'center', width: '100%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.55, shadowRadius: 14, elevation: 10,
   },
-  surahLabel: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: 'rgba(224,188,78,0.8)', marginBottom: 12, letterSpacing: 0.5 },
-  bismillah: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 32, color: '#E0BC4E', textAlign: 'center', lineHeight: 52 },
-  translation: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 10, lineHeight: 18 },
+  surahLabel: { fontFamily: 'Nunito-Bold', fontSize: 12, color: 'rgba(224,188,78,0.8)', marginBottom: 12, letterSpacing: 0.5 },
+  bismillah: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 32, color: '#E0BC4E', textAlign: 'center', lineHeight: 52 },
+  translation: { fontFamily: 'Nunito-Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 10, lineHeight: 18 },
   listenBtn: { marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(224,188,78,0.15)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20 },
-  listenBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#E0BC4E' },
+  listenBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#E0BC4E' },
   beginBtn: { marginTop: 28, backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 18, paddingHorizontal: 60, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 6 },
-  beginBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
-});
-
-// ── Segment progress dots ─────────────────────────────────────────
-
-// ── Exercise progress bar ─────────────────────────────────────────
-
-export function ProgressBar({ fraction }: { fraction: number }) {
-  const animW = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(animW, { toValue: Math.max(0, Math.min(fraction, 1)), duration: 600, useNativeDriver: false }).start();
-  }, [fraction]);
-  return (
-    <View style={PBR.track}>
-      <Animated.View style={[PBR.fill, {
-        width: animW.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-      }]} />
-    </View>
-  );
-}
-
-// ── Exercise header ───────────────────────────────────────────────
-// The ✕ / progress bar / hearts / hint strip that sits above every exercise.
-//
-// Extracted (rather than left inline in the main screen) so the guided tour can
-// render the genuine article instead of a mock-up of it. The tour is meant to
-// show new users what the real lesson screen looks like, and a hand-copied
-// lookalike would start lying the first time this changed. Same component, same
-// hearts, same bar, same hint modal — they cannot drift apart.
-export interface LessonHeaderTargets {
-  progress?: React.Ref<View>;
-  hearts?: React.Ref<View>;
-  hint?: React.Ref<View>;
-}
-
-export function LessonHeader({
-  mistakes,
-  progressFraction,
-  hintUrl,
-  hintAyahAr,
-  hintAyahTranslation,
-  onExit,
-  targets,
-  glowTarget,
-  hideHearts,
-}: {
-  /** In half-heart units — see MAX_MISTAKES. */
-  mistakes: number;
-  progressFraction: number;
-  hintUrl?: string | null;
-  hintAyahAr?: string | null;
-  hintAyahTranslation?: string | null;
-  onExit: () => void;
-  /** Optional refs so the tour can measure what it's about to spotlight. */
-  targets?: LessonHeaderTargets;
-  /** Tour-only: which of this header's own elements should glow itself. */
-  glowTarget?: 'hint' | 'hearts' | 'progress' | null;
-  /** Special (merged/review) levels — hearts aren't shown at all, not just
-   * exempted from loss (see isNoMistake in submitAnswer). */
-  hideHearts?: boolean;
-}) {
-  const heartsLeftHalf = MAX_MISTAKES - mistakes;
-
-  return (
-    <View style={LH.header}>
-      <TouchableOpacity style={LH.backBtn} onPress={onExit}>
-        <Text style={LH.backText}>✕</Text>
-      </TouchableOpacity>
-
-      <View
-        ref={targets?.progress}
-        collapsable={false}
-        style={[LH.progressSlot, glowTarget === 'progress' && TOUR_GLOW_ROUND_THIN]}
-      >
-        <ProgressBar fraction={progressFraction} />
-      </View>
-
-      {!hideHearts && (
-        <View
-          ref={targets?.hearts}
-          collapsable={false}
-          style={[LH.heartsRow, glowTarget === 'hearts' && TOUR_GLOW_ROUND]}
-        >
-          {Array.from({ length: MAX_HEARTS }).map((_, i) => {
-            const heartsFromThisIcon = heartsLeftHalf - i * 2; // each icon is worth 2 half-hearts
-            const src =
-              heartsFromThisIcon >= 2 ? require('../../../assets/map/redh.png') :
-              heartsFromThisIcon === 1 ? require('../../../assets/map/halfh.png') :
-              require('../../../assets/map/whiteh.png');
-            return (
-              <View key={i} style={LH.heartWrapper}>
-                <Image source={src} style={LH.heartImage} resizeMode="contain" />
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      <View ref={targets?.hint} collapsable={false} style={glowTarget === 'hint' ? TOUR_GLOW_ROUND : undefined}>
-        <HintButton url={hintUrl} ayahAr={hintAyahAr} ayahTranslation={hintAyahTranslation} />
-      </View>
-    </View>
-  );
-}
-
-const LH = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
-  backText: { fontSize: 14, color: colors.mutedText },
-  // ProgressBar itself carries flex:1; this wrapper only exists so the tour has
-  // something measurable to point at, so it has to pass that through. Needs its
-  // own flexDirection:'row' — a plain View defaults to column, which put
-  // ProgressBar's flex:1 on the vertical axis instead of the horizontal one
-  // it had when it sat directly in this row-direction header, before this
-  // wrapper existed.
-  progressSlot: { flex: 1, flexDirection: 'row' },
-  heartsRow: { flexDirection: 'row', gap: 3 },
-  heartImage: { width: 20, height: 20 },
-  heartWrapper: { alignItems: 'center', justifyContent: 'center', width: 20, height: 20 },
-});
-
-const PBR = StyleSheet.create({
-  track: { flex: 1, height: 10, backgroundColor: '#E5E7EB', borderRadius: 6, overflow: 'hidden', marginHorizontal: 10 },
-  fill:  { height: '100%', backgroundColor: colors.primary, borderRadius: 6 },
+  beginBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
 });
 
 // ── Exercise renderers ─────────────────────────────────────────────
@@ -760,7 +445,10 @@ export function AyahDisplay({
   };
 
   return (
-    <ScrollView contentContainerStyle={AD.container} showsVerticalScrollIndicator={false}>
+    <ExerciseLayout
+      contentStyle={AD.container}
+      footer={<ExerciseFooterButton label="Got it  →" onPress={onContinue} />}
+    >
       {showLumo && (
         <View style={AD.lumoRow}>
           <Image
@@ -789,8 +477,12 @@ export function AyahDisplay({
       ) : null}
 
       {/* Big play button */}
-      <TouchableOpacity style={[AD.playBtn, playing && AD.playBtnActive]} onPress={handlePlayPause}>
-        <PlayPauseIcon playing={playing} size={26} color="white" />
+      <TouchableOpacity
+        style={[AD.playBtn, playing && AD.playBtnActive]}
+        onPress={handlePlayPause}
+        accessibilityLabel={playing ? 'Pause audio' : 'Play audio'}
+      >
+        <PlayPauseIcon playing={playing} size={26} color="#F5F7FA" />
       </TouchableOpacity>
 
       {/* Tip */}
@@ -798,50 +490,32 @@ export function AyahDisplay({
         <Text style={AD.tipIcon}>💡</Text>
         <Text style={AD.tipText}>Tip: Listen 3 times before continuing to help it stick in memory.</Text>
       </View>
-
-      {/* Continue */}
-      <TouchableOpacity style={AD.continueBtn} onPress={onContinue}>
-        <Text style={AD.continueBtnText}>Got it  →</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
 const AD = StyleSheet.create({
-  container: { padding: 20, paddingBottom: 40, alignItems: 'center' },
+  container: { alignItems: 'center' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF8E7', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 16, borderWidth: 1, borderColor: '#E0BC4E' },
   badgeIcon: { fontSize: 14 },
-  badgeText: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#9A7A20', letterSpacing: 0.8 },
-  verseTitle: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, marginBottom: 4, textAlign: 'center' },
-  subInstruction: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginBottom: 20 },
+  badgeText: { fontFamily: 'Nunito-Bold', fontSize: 11, color: '#9A7A20', letterSpacing: 0.8 },
+  verseTitle: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText, marginBottom: 4, textAlign: 'center' },
+  subInstruction: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginBottom: 20 },
   ayahCard: { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 18, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 24, alignItems: 'center', marginBottom: 24 },
-  ayahAr: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 30, color: colors.darkText, textAlign: 'center', lineHeight: 54, marginBottom: 12 },
-  transliteration: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#9A7A20', textAlign: 'center', marginBottom: 6 },
-  translation: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', fontStyle: 'italic' },
+  ayahAr: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 30, color: colors.darkText, textAlign: 'center', lineHeight: 54, marginBottom: 12 },
+  transliteration: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#9A7A20', textAlign: 'center', marginBottom: 6 },
+  translation: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', fontStyle: 'italic' },
   playBtn: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 24, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
   playBtnActive: { backgroundColor: '#1A5C3A' },
   lumoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10, width: '100%' },
   lumoImg: { width: 70, height: 70 },
   lumoBubble: { flex: 1, backgroundColor: '#E8F5EE', borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, position: 'relative' },
   lumoBubbleTail: { position: 'absolute', left: -9, top: 14, width: 0, height: 0, borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: colors.primary },
-  lumoBubbleText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
-  tipCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFFBEC', borderRadius: 14, padding: 14, width: '100%', marginBottom: 24, borderWidth: 1, borderColor: '#FDE68A' },
+  lumoBubbleText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
+  tipCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFFBEC', borderRadius: 14, padding: 14, width: '100%', borderWidth: 1, borderColor: '#FDE68A' },
   tipIcon: { fontSize: 16 },
-  tipText: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: '#92400E', flex: 1, lineHeight: 18 },
-  continueBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
+  tipText: { fontFamily: 'Nunito-Regular', fontSize: 12, color: '#92400E', flex: 1, lineHeight: 18 },
 });
-
-// EX.blankBox has a fixed size tuned for the default Naskh font. Nastaliq
-// needs a narrower box (scale shrinks glyph width) but a taller one
-// (lineHeightScale — its letterforms stack vertically) — see arabicFont.ts
-// for why these can't be the same single factor.
-function scaledBlankBox(font: { scale: number; lineHeightScale: number }): { height: number; minWidth: number } {
-  return {
-    height: Math.round(40 * font.scale * font.lineHeightScale),
-    minWidth: Math.round(70 * font.scale),
-  };
-}
 
 export function FillBlankOrNextWord({
   ex, surahName, character, locked, onSubmit, previewSelected, checkButtonRef, selectedOptionRef,
@@ -879,53 +553,31 @@ export function FillBlankOrNextWord({
   const isCorner = blankIdx === 0 || (ex.tokens != null && blankIdx === ex.tokens.length - 1);
   const wordAudioUrls = isCorner && ex.segment_audio_urls?.length ? ex.segment_audio_urls : null;
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}>
-          <Text style={EX.reviewBannerText}>🔁  Try again</Text>
-        </View>
-      )}
-
-      {/* Character + speech bubble */}
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT[ex.type] ?? ex.instruction}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={
+        <ExerciseFooterButton
+          onPress={() => { if (selected) onSubmit(selected); }}
+          disabled={!selected || locked}
+          buttonRef={checkButtonRef}
+          glow={glowCheck}
+        />
+      }
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT[ex.type] ?? ex.instruction}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Word-by-word speaker — only when blank is in corner position */}
       {wordAudioUrls && (
-        <TouchableOpacity style={EX.wordAudioBtn} onPress={() => void playUrlSequence(wordAudioUrls)}>
-          <Image source={SPEAKER_ICON} style={EX.wordAudioIcon} resizeMode="contain" />
-          <Text style={EX.wordAudioLabel}>Hear words</Text>
-        </TouchableOpacity>
+        <HearButton label="Hear words" onPress={() => void playUrlSequence(wordAudioUrls)} />
       )}
 
-      {/* Question card: context + tokens */}
+      {/* Question card: the whole ayah on one line, blank inline */}
       <View style={EX.questionCard}>
-        {ex.context_before?.length ? (
-          <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_before.join(' ')}</Text>
-        ) : null}
-
-        {ex.tokens?.length ? (
-          <View style={EX.tokensRow}>
-            {ex.tokens.map((t, i) =>
-              t.blank
-                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont), selected && EX.blankFilled]}>
-                    {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>{selected}</Text> : null}
-                  </View>
-                : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
-            )}
-          </View>
-        ) : null}
-
-        {ex.context_after?.length ? (
-          <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_after.join(' ')}</Text>
-        ) : null}
+        <AyahWithBlank before={ex.context_before} tokens={ex.tokens} after={ex.context_after} blankText={selected} />
       </View>
 
       {/* Options: tap once = select, long-press = audio; locked after Check */}
@@ -941,7 +593,7 @@ export function FillBlankOrNextWord({
           // directly is stable from the very first render.
           const isPreviewPick = previewSelected != null && o.ar === previewSelected;
           return (
-            <TouchableOpacity
+            <Pressable
               key={i}
               ref={isPreviewPick ? selectedOptionRef : undefined}
               style={[
@@ -952,36 +604,28 @@ export function FillBlankOrNextWord({
                 isPreviewPick && EX.optionGlow,
                 locked && { opacity: 0.7 },
               ]}
-              // onLongPress used to double as "hear this option's audio,"
-              // but pairing it with onPress on the same element makes RN's
-              // responder wait to see whether a touch becomes a long-press
-              // before firing onPress AT ALL -- on a real device that
-              // disambiguation delay is exactly what read as "I press them
-              // and one of the 4 sometimes doesn't move." A misclassified
-              // tap fired the audio instead of selecting, colliding with
-              // whatever else was tracking play state. Nothing in this
-              // screen ever told the user "hold to hear," so it cost
-              // reliability on the one gesture that matters (selecting) for
-              // a hidden feature nobody could discover. Removed outright,
-              // not reduced -- onPress alone fires immediately, no wait.
+              // Re-enabled 2026-09-13 (was removed 2026-08-28 — see git
+              // history for the original comment). The original removal was
+              // real: pairing onLongPress with onPress on the legacy
+              // TouchableOpacity (Touchable.Mixin) made a real device
+              // occasionally drop/delay the select tap while the responder
+              // waited to disambiguate. Pressable is a different, purpose-
+              // built responder implementation — onPress fires on release
+              // exactly like before, and onLongPress only preempts it once
+              // the press has genuinely been held past delayLongPress — but
+              // since that earlier bug was only ever confirmed on-device,
+              // not reproduced in code, this still needs a real-device check
+              // before shipping, same as before.
+              onLongPress={() => { if (!locked && o.audio_url) void playUrl(o.audio_url); }}
+              delayLongPress={350}
               onPress={() => { if (!locked) setSelected(o.ar); }}
             >
               <Text style={[arabicTextStyle(EX.optionText as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
-
-      <View ref={checkButtonRef} collapsable={false}>
-        <TouchableOpacity
-          style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled, glowCheck && TOUR_GLOW]}
-          onPress={() => { if (selected && !locked) onSubmit(selected); }}
-          disabled={!selected || locked}
-        >
-          <Text style={EX.continueBtnText}>Check</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1024,23 +668,13 @@ export function ReorderOrSequence({
   const ready = placed.length === answerLen;
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}>
-          <Text style={EX.reviewBannerText}>🔁  Try again</Text>
-        </View>
-      )}
-
-      {/* Character + speech bubble */}
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT[ex.type] ?? ex.instruction}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout footer={<ExerciseFooterButton onPress={() => onSubmit(placed)} disabled={!ready || locked} />}>
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT[ex.type] ?? ex.instruction}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Context before */}
       {ex.context_before?.length ? <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_before.join(' ')}</Text> : null}
@@ -1078,15 +712,7 @@ export function ReorderOrSequence({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!ready || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (ready && !locked) onSubmit(placed); }}
-        disabled={!ready || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1106,23 +732,15 @@ export function SegmentRecall({
   useEffect(() => { setSelected(null); }, [ex.ex_id]);
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}>
-          <Text style={EX.reviewBannerText}>🔁  Try again</Text>
-        </View>
-      )}
-
-      {/* Character + speech bubble */}
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT[ex.type] ?? ex.instruction}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={<ExerciseFooterButton onPress={() => { if (selected) onSubmit(selected); }} disabled={!selected || locked} />}
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT[ex.type] ?? ex.instruction}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Options: single tap = select; locked after Check */}
       <View style={EX.optionsColumn}>
@@ -1136,15 +754,7 @@ export function SegmentRecall({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (selected && !locked) onSubmit(selected); }}
-        disabled={!selected || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1184,20 +794,15 @@ export function SequenceExercise({
   const ready = placed.every(p => p !== null);
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}><Text style={EX.reviewBannerText}>🔁  Try again</Text></View>
-      )}
-
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT[ex.type] ?? ex.instruction}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={<ExerciseFooterButton onPress={() => onSubmit(placed.filter(Boolean) as string[])} disabled={!ready || locked} />}
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT[ex.type] ?? ex.instruction}
+        label={`Surah ${surahName}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Answer zone — same-size boxes side by side */}
       <View style={EX.seqAnswerZone}>
@@ -1228,15 +833,7 @@ export function SequenceExercise({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!ready || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (ready && !locked) onSubmit(placed.filter(Boolean) as string[]); }}
-        disabled={!ready || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -1255,7 +852,6 @@ export function AudioFill({
   const [selected, setSelected] = useState<string | null>(null);
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
   const mountedRef = useRef(true);
-  const arabicFont = useArabicFont();
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
@@ -1272,9 +868,16 @@ export function AudioFill({
     setPlayingIdx(null);
 
     // Preload all audio for this exercise in the background so taps play instantly.
+    // Options first, segment audio after: preloadAudioUrls loads BATCH=4 at a
+    // time in array order, and the options are what the user actually taps —
+    // putting segment_audio_urls ahead of them meant whichever option someone
+    // reached for first (almost always option 1) routinely lost the preload
+    // race and fell through to a cold on-demand load, while later options
+    // (tapped after the race had more time to finish) felt instant by
+    // comparison. Reported as "the first option is always really slow."
     const allUrls = [
-      ...(ex.segment_audio_urls ?? []),
       ...(ex.options?.map(o => o.audio_url).filter(Boolean) ?? []),
+      ...(ex.segment_audio_urls ?? []),
     ] as string[];
     void preloadAudioUrls(allUrls);
 
@@ -1298,43 +901,24 @@ export function AudioFill({
   const wordAudioUrls = isCorner && ex.segment_audio_urls?.length ? ex.segment_audio_urls : null;
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}><Text style={EX.reviewBannerText}>🔁  Try again</Text></View>
-      )}
-
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT['audio_fill']}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={<ExerciseFooterButton onPress={() => { if (selected) onSubmit(selected); }} disabled={!selected || locked} />}
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT.audio_fill}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* "Hear the word" button — user must press to hear; not auto-played */}
       {ex.segment_audio_urls?.length ? (
-        <TouchableOpacity style={AF.hearBtn} onPress={() => void playUrlSequence(ex.segment_audio_urls!)}>
-          <Image source={SPEAKER_ICON} style={AF.hearBtnIcon} resizeMode="contain" />
-          <Text style={AF.hearBtnLabel}>Hear the word</Text>
-        </TouchableOpacity>
+        <HearButton label="Hear the word" onPress={() => void playUrlSequence(ex.segment_audio_urls!)} />
       ) : null}
 
+      {/* Options are audio-only, so a pick shows "?" rather than the word */}
       <View style={EX.questionCard}>
-        {ex.context_before?.length ? <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_before.join(' ')}</Text> : null}
-        {ex.tokens?.length ? (
-          <View style={EX.tokensRow}>
-            {ex.tokens.map((t, i) =>
-              t.blank
-                ? <View key={i} style={[EX.blankBox, scaledBlankBox(arabicFont), selected ? EX.blankFilled : null]}>
-                    {selected ? <Text style={arabicTextStyle(EX.blankText as any, arabicFont) as any}>?</Text> : null}
-                  </View>
-                : <Text key={i} style={arabicTextStyle(EX.tokenWord as any, arabicFont) as any}>{t.ar}</Text>
-            )}
-          </View>
-        ) : null}
-        {ex.context_after?.length ? <Text style={arabicTextStyle(EX.contextText as any, arabicFont) as any}>{ex.context_after.join(' ')}</Text> : null}
+        <AyahWithBlank before={ex.context_before} tokens={ex.tokens} after={ex.context_after} blankText={selected ? '?' : null} />
       </View>
 
       {/* Audio-only options — numbered play circles, no Arabic text shown */}
@@ -1349,39 +933,28 @@ export function AudioFill({
             <View style={[AF.playCircle, selected === o.ar && AF.playCircleSelected, playingIdx === i && AF.playCirclePlaying]}>
               {playingIdx === i
                 ? <View style={AF.pauseRow}><View style={AF.pauseBar} /><View style={AF.pauseBar} /></View>
-                : <Text style={[AF.playIcon, selected === o.ar && { color: 'white' }]}>▶</Text>
+                : <Text style={[AF.playIcon, selected === o.ar && { color: '#F5F7FA' }]}>▶</Text>
               }
             </View>
             <Text style={[AF.optionNum, selected === o.ar && { color: colors.primary }]}>{i + 1}</Text>
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (selected && !locked) onSubmit(selected); }}
-        disabled={!selected || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
 const AF = StyleSheet.create({
-  hearBtn:           { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 22, marginBottom: 10, borderWidth: 1.5, borderColor: colors.primary },
-  hearBtnIcon:       { width: 18, height: 18 },
-  hearBtnLabel:      { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
-  optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 12 },
-  optionBtn:         { width: '45%', backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 12, alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  optionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  optionBtn:         { flexBasis: '45%', flexGrow: 1, backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 12, alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   optionSelected:    { borderColor: colors.primary, backgroundColor: colors.primaryBg },
   playCircle:        { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primaryBg, borderWidth: 2, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   playCircleSelected:{ backgroundColor: colors.primary },
   playCirclePlaying: { backgroundColor: colors.primaryDark },
   playIcon:          { fontSize: 18, color: colors.primary },
   pauseRow:          { flexDirection: 'row', gap: 4 },
-  pauseBar:          { width: 4, height: 14, backgroundColor: 'white', borderRadius: 2 },
-  optionNum:         { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.mutedText },
+  pauseBar:          { width: 4, height: 14, backgroundColor: '#F5F7FA', borderRadius: 2 },
+  optionNum:         { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.mutedText },
 });
 
 // ── Ayat Then Order exercise ──────────────────────────────────────
@@ -1415,20 +988,13 @@ export function AyatThenOrder({
   const ready = placed.length === answerLen;
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}><Text style={EX.reviewBannerText}>🔁  Try again</Text></View>
-      )}
-
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>{BUBBLE_TEXT['ayat_then_order']}</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
-        </View>
-      </View>
+    <ExerciseLayout footer={<ExerciseFooterButton onPress={() => onSubmit(placed)} disabled={!ready || locked} />}>
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT.ayat_then_order}
+        label={`Surah ${surahName}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* First ayah — read-only header with play button */}
       {ex.first_ayah_text ? (
@@ -1472,22 +1038,14 @@ export function AyatThenOrder({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!ready || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (ready && !locked) onSubmit(placed); }}
-        disabled={!ready || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
 const ATO = StyleSheet.create({
   firstAyahCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 16, marginBottom: 8, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
-  firstAyahAr:   { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 26, color: colors.darkText, textAlign: 'center', lineHeight: 44, marginBottom: 8 },
-  divider:       { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 12, marginTop: 4 },
+  firstAyahAr:   { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 26, color: colors.darkText, textAlign: 'center', lineHeight: 44, marginBottom: 8 },
+  divider:       { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 12, marginTop: 4 },
 });
 
 // ── Shared result banner for speak exercises ───────────────────────
@@ -1541,6 +1099,19 @@ function SpeakResultBanner({ result, onAdvance, onRetry }: { result: SpeakResult
   // Show the correction whenever any word was marked wrong — not only on
   // fail. A 75% pass still has mistakes worth pointing out.
   const hasMistakes = !!expectedWords?.some(w => !w.correct);
+
+  // The reference-recitation audio (SegmentPlayBtn below) has no cleanup of
+  // its own when this banner is replaced by a new attempt — Try Again keeps
+  // the same exercise (same ex_id), so the main screen's own
+  // `stopAudio()` on ex_id-change (which handles every other exercise type's
+  // advance) never fires here, and the old attempt's audio played straight
+  // into the new one. Stopping it explicitly on both buttons closes that;
+  // disabling them while it's playing is a separate, deliberately-requested
+  // safeguard against the same race (2026-09-13).
+  const [audioPlaying, setAudioPlaying] = useState(isAudioPlaying());
+  useEffect(() => onPlayingChange(setAudioPlaying), []);
+  const handleRetry = () => { stopAudio(); onRetry?.(); };
+  const handleAdvance = () => { stopAudio(); onAdvance(); };
   return (
     // The sheet itself stays pinned to bottom: 0 — its colour is meant to
     // bleed all the way to the true screen edge, same as the feedback
@@ -1611,15 +1182,27 @@ function SpeakResultBanner({ result, onAdvance, onRetry }: { result: SpeakResult
 
       {onRetry ? (
         <View style={SRB.btnRow}>
-          <TouchableOpacity style={[SRB.btn, SRB.btnSecondary, SRB.btnFlex]} onPress={onRetry}>
+          <TouchableOpacity
+            style={[SRB.btn, SRB.btnSecondary, SRB.btnFlex, audioPlaying && SRB.btnDisabled]}
+            onPress={handleRetry}
+            disabled={audioPlaying}
+          >
             <Text style={[SRB.btnText, SRB.btnTextSecondary]} allowFontScaling={false}>Try Again</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[SRB.btn, SRB.btnFail, SRB.btnFlex]} onPress={onAdvance}>
+          <TouchableOpacity
+            style={[SRB.btn, SRB.btnFail, SRB.btnFlex, audioPlaying && SRB.btnDisabled]}
+            onPress={handleAdvance}
+            disabled={audioPlaying}
+          >
             <Text style={SRB.btnText} allowFontScaling={false}>Next  →</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <TouchableOpacity style={[SRB.btn, { marginTop: 18 }, !passed && SRB.btnFail]} onPress={onAdvance}>
+        <TouchableOpacity
+          style={[SRB.btn, { marginTop: 18 }, !passed && SRB.btnFail, audioPlaying && SRB.btnDisabled]}
+          onPress={handleAdvance}
+          disabled={audioPlaying}
+        >
           <Text style={SRB.btnText} allowFontScaling={false}>Continue  →</Text>
         </TouchableOpacity>
       )}
@@ -1641,35 +1224,38 @@ const SRB = StyleSheet.create({
   scroll:          { flexShrink: 1 },
   badge:           { width: 44, height: 44, borderRadius: 22, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
   badgeFail:       { backgroundColor: '#F97316' },
-  badgeText:       { fontSize: 20, color: 'white', fontWeight: '700' },
+  badgeText:       { fontSize: 20, color: '#F5F7FA', fontWeight: '700' },
   topText:         { flex: 1 },
-  title:           { fontFamily: 'Nunito_700Bold', fontSize: 22, color: '#14532D' },
+  title:           { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#14532D' },
   titleFail:       { color: '#7C2D12' },
-  sub:             { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
+  sub:             { fontFamily: 'Nunito-Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
   subFail:         { color: '#9A3412' },
   // XP pill — full width, content centered, matching FeedbackBanner xpPill
-  xpPill:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'white', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  xpPill:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F5F7FA', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   xpLumo:          { width: 32, height: 32 },
-  xpText:          { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText },
+  xpText:          { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText },
   // The CORRECT AYAH / YOU SAID boxes. Sized to hug the text they hold:
   // lineHeight was 38 on a 22px font (1.73×), which reserved most of a
   // blank extra line per row and made a one-line ayah's box read as an
   // oversized empty card. 1.55× still leaves real headroom for Naskh's
   // ascenders and harakat — the reason it can't simply hug the glyph box
   // — without the padding being visibly larger than the type.
-  transcriptBox:   { backgroundColor: 'white', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, alignItems: 'center' },
-  transcriptLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 6 },
-  ayahText:        { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 34 },
+  transcriptBox:   { backgroundColor: '#F5F7FA', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, alignItems: 'center' },
+  transcriptLabel: { fontFamily: 'Nunito-Bold', fontSize: 10, color: colors.mutedText, letterSpacing: 1.2, marginBottom: 6 },
+  ayahText:        { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', lineHeight: 34 },
   wrongWord:       { color: '#DC2626', textDecorationLine: 'underline' },
   btn:             { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   btnFail:         { backgroundColor: '#F97316', shadowColor: '#F97316' },
-  btnText:         { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
+  // While the reference-recitation audio is playing — dimmed so it's clear
+  // why the tap does nothing, back to normal the instant playback ends.
+  btnDisabled:     { opacity: 0.4, shadowOpacity: 0 },
+  btnText:         { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#F5F7FA' },
   // Clear gap from the scrollable content above (transcript boxes) — was
   // sitting right against it with nothing but the last box's own
   // marginBottom, which read as the buttons crowding/interfering with it.
   btnRow:          { flexDirection: 'row', gap: 10, marginTop: 14 },
   btnFlex:         { flex: 1 },
-  btnSecondary:    { backgroundColor: 'white', borderWidth: 2, borderColor: '#F97316', shadowOpacity: 0 },
+  btnSecondary:    { backgroundColor: '#F5F7FA', borderWidth: 2, borderColor: '#F97316', shadowOpacity: 0 },
   btnTextSecondary:{ color: '#F97316' },
 });
 
@@ -1843,22 +1429,70 @@ function ReadAyahAndSpeak({
     onFinalize(pendingResult);
   };
 
-  return (
-    // Outer wrapper: scrollable content at top, mic pinned at bottom.
-    // This ensures the mic button is always reachable regardless of screen size.
-    <View style={RAS.outer}>
-      <ScrollView contentContainerStyle={RAS.container} showsVerticalScrollIndicator={false}>
+  // Pinned below the content so the mic is always reachable on every screen size.
+  const micArea = speakState !== 'done' && speakState !== 'retry_choice' ? (
+    <View style={RAS.micArea}>
+      <Text style={RAS.micInstruction}>
+        {speakState === 'recording'
+          ? 'Recording… tap to stop'
+          : speakState === 'scoring'
+          ? 'Scoring your recitation…'
+          : 'Tap the mic to start, tap again to stop and check'}
+      </Text>
 
-        {/* Character speech bubble */}
-        <View style={EX.characterRow}>
-          <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-          <View style={EX.verseInfoCard}>
-            <View style={EX.bubbleTail} />
-            <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-            <Text style={EX.bubbleText}>{speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT['read_ayah_and_speak']}</Text>
-            <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
-          </View>
+      {speakState === 'scoring' ? (
+        <RecitationScoringFeedback />
+      ) : (
+        <Pressable
+          onPress={handleMicTap}
+          style={({ pressed }) => [RAS.micBtn, pressed && RAS.micBtnActive]}
+        >
+          {speakState === 'recording' ? (
+            <LottieView
+              source={require('../../../assets/animations/listen.json')}
+              autoPlay
+              loop
+              style={RAS.listenAnim}
+            />
+          ) : (
+            <Image
+              source={require('../../../assets/images/mic.png')}
+              style={RAS.micImage}
+              resizeMode="contain"
+            />
+          )}
+        </Pressable>
+      )}
+
+      {/* Every recitation question is skippable — for people who don't
+          want to attempt speaking at all. Only offered before a
+          recording is made; once there's an attempt in flight/scored,
+          the retry-choice's own Next button covers "move on" instead. */}
+      {speakState === 'idle' && (
+        <TouchableOpacity style={RAS.skipBtn} onPress={onSkip}>
+          <Text style={RAS.skipBtnText}>Skip</Text>
+        </TouchableOpacity>
+      )}
+
+      {!!error && (
+        <View style={RAS.errorBox}>
+          <Text style={RAS.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => { setError(null); setSpeakState('idle'); }}>
+            <Text style={RAS.retryLink}>Try again</Text>
+          </TouchableOpacity>
         </View>
+      )}
+    </View>
+  ) : null;
+
+  return (
+    <View style={RAS.outer}>
+      <ExerciseLayout footer={micArea}>
+        <UstadSays
+          character={character}
+          text={speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT.read_ayah_and_speak}
+          label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        />
 
         {/* Ayah card — the text the user will recite */}
         <View style={RAS.ayahCard}>
@@ -1881,65 +1515,7 @@ function ReadAyahAndSpeak({
           disabled={speakState !== 'idle'}
         />
 
-      </ScrollView>
-
-      {/* Mic area pinned below the scroll content so it never gets
-          pushed off-screen by the ayah text on short devices */}
-      {speakState !== 'done' && speakState !== 'retry_choice' && (
-        <View style={RAS.micArea}>
-          <Text style={RAS.micInstruction}>
-            {speakState === 'recording'
-              ? 'Recording… tap to stop'
-              : speakState === 'scoring'
-              ? 'Scoring your recitation…'
-              : 'Tap the mic to start, tap again to stop and check'}
-          </Text>
-
-          {speakState === 'scoring' ? (
-            <RecitationScoringFeedback />
-          ) : (
-            <Pressable
-              onPress={handleMicTap}
-              style={({ pressed }) => [RAS.micBtn, pressed && RAS.micBtnActive]}
-            >
-              {speakState === 'recording' ? (
-                <LottieView
-        renderMode="SOFTWARE"
-                  source={require('../../../assets/animations/listen.json')}
-                  autoPlay
-                  loop
-                  style={RAS.listenAnim}
-                />
-              ) : (
-                <Image
-                  source={require('../../../assets/images/mic.png')}
-                  style={RAS.micImage}
-                  resizeMode="contain"
-                />
-              )}
-            </Pressable>
-          )}
-
-          {/* Every recitation question is skippable — for people who don't
-              want to attempt speaking at all. Only offered before a
-              recording is made; once there's an attempt in flight/scored,
-              the retry-choice's own Next button covers "move on" instead. */}
-          {speakState === 'idle' && (
-            <TouchableOpacity style={RAS.skipBtn} onPress={onSkip}>
-              <Text style={RAS.skipBtnText}>Skip</Text>
-            </TouchableOpacity>
-          )}
-
-          {!!error && (
-            <View style={RAS.errorBox}>
-              <Text style={RAS.errorText}>{error}</Text>
-              <TouchableOpacity onPress={() => { setError(null); setSpeakState('idle'); }}>
-                <Text style={RAS.retryLink}>Try again</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
+      </ExerciseLayout>
 
       {/* Retry-choice bottom sheet — same visual treatment as the final
           result banner, just with Try Again / Next instead of Continue. */}
@@ -1952,26 +1528,24 @@ function ReadAyahAndSpeak({
 
 const RAS = StyleSheet.create({
   outer:          { flex: 1 },
-  container:      { padding: 20, paddingBottom: 8 },
   ayahCard:       { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 18, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 24, alignItems: 'center', marginBottom: 16 },
-  ayahText:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 28, color: colors.darkText, textAlign: 'center', lineHeight: 52 },
+  ayahText:       { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 28, color: colors.darkText, textAlign: 'center', lineHeight: 52 },
   // Fixed bottom area — always visible above the result sheet
-  micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
-  micInstruction: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
+  micArea:        { alignItems: 'center', paddingTop: 12, paddingBottom: 16 },
+  micInstruction: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
   // White background with green border makes the mic.png icon clearly visible
   // against the button surface. Press → slight scale-down.
   micBtn:         { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
   micBtnActive:   { transform: [{ scale: 0.93 }], shadowOpacity: 0.25 },
   micBtnRecorded: { width: 76, height: 76, borderRadius: 38, opacity: 0.7 },
-  micImage:       { width: 52, height: 52, tintColor: 'white' },
+  micImage:       { width: 52, height: 52, tintColor: '#F5F7FA' },
   listenAnim:     { width: 88, height: 88 },
-  checkBtn:       { width: '100%', marginTop: 20 },
   skipBtn:        { marginTop: 18, paddingVertical: 4, paddingHorizontal: 10 },
-  skipBtnText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
+  skipBtnText:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
-  errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
-  retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  errorText:      { fontFamily: 'Nunito-Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
+  retryLink:      { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
 });
 
 // ── Read and Speak exercise ────────────────────────────────────────
@@ -2145,20 +1719,72 @@ export function ReadAndSpeak({
   // Collect all audio URLs for the "hear them all" sequential playback
   const allAudioUrls = tokens.map(t => t.audio_url).filter(Boolean) as string[];
 
+  // Pinned below the content so the mic is always reachable on every screen size.
+  const micArea = speakState !== 'done' && speakState !== 'retry_choice' ? (
+    <View style={RANS.micArea}>
+      {speakState !== 'scoring' && (
+        <Text style={RANS.micInstruction}>
+          {speakState === 'recording'
+            ? 'Recording… tap to stop'
+            : 'Tap the mic to start, tap again to stop and check'}
+        </Text>
+      )}
+
+      {speakState === 'scoring' ? (
+        <RecitationScoringFeedback />
+      ) : (
+        <View ref={micButtonRef} collapsable={false}>
+          <Pressable
+            onPress={handleMicTap}
+            style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive, glowMic && TOUR_GLOW]}
+          >
+            {speakState === 'recording' ? (
+              <LottieView
+                source={require('../../../assets/animations/listen.json')}
+                autoPlay
+                loop
+                style={RANS.listenAnim}
+              />
+            ) : (
+              <Image
+                source={require('../../../assets/images/mic.png')}
+                style={RANS.micImage}
+                resizeMode="contain"
+              />
+            )}
+          </Pressable>
+        </View>
+      )}
+
+      {/* Every recitation question is skippable — for people who don't
+          want to attempt speaking at all. Only offered before a
+          recording is made; once there's an attempt in flight/scored,
+          the retry-choice's own Next button covers "move on" instead. */}
+      {speakState === 'idle' && (
+        <TouchableOpacity style={RANS.skipBtn} onPress={onSkip}>
+          <Text style={RANS.skipBtnText}>Skip</Text>
+        </TouchableOpacity>
+      )}
+
+      {!!error && (
+        <View style={RANS.errorBox}>
+          <Text style={RANS.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => { setError(null); setSpeakState('idle'); }}>
+            <Text style={RANS.retryLink}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  ) : null;
+
   return (
     <View style={RANS.outer}>
-      <ScrollView contentContainerStyle={RANS.container} showsVerticalScrollIndicator={false}>
-
-        {/* Character speech bubble */}
-        <View style={EX.characterRow}>
-          <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-          <View style={EX.verseInfoCard}>
-            <View style={EX.bubbleTail} />
-            <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-            <Text style={EX.bubbleText}>{speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT['read_and_speak']}</Text>
-            <Text style={EX.bubbleLabel}>Surah {surahName}</Text>
-          </View>
-        </View>
+      <ExerciseLayout footer={micArea}>
+        <UstadSays
+          character={character}
+          text={speakState === 'retry_choice' ? RETRY_BUBBLE_TEXT : BUBBLE_TEXT.read_and_speak}
+          label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        />
 
         {/* Word chips — displayed RTL (right-to-left, Arabic reading order).
             Always stay visible; only disabled from the moment recording
@@ -2185,79 +1811,17 @@ export function ReadAndSpeak({
             Disabled from the moment recording starts through scoring/done,
             same as the word chips, and while its own playback is in flight. */}
         {allAudioUrls.length > 0 && (
-          <TouchableOpacity
-            style={[RANS.hearAllBtn, (speakState !== 'idle' || hearingAll) && RANS.hearAllBtnDisabled]}
+          <HearButton
+            label="Hear"
             onPress={() => {
               setHearingAll(true);
               void playUrlSequenceFast(allAudioUrls, () => { if (mountedRef.current) setHearingAll(false); });
             }}
             disabled={speakState !== 'idle' || hearingAll}
-          >
-            <Image source={SPEAKER_ICON} style={RANS.hearAllIcon} resizeMode="contain" />
-            <Text style={RANS.hearAllText}>Hear</Text>
-          </TouchableOpacity>
+          />
         )}
 
-      </ScrollView>
-
-      {/* Mic area pinned below scroll — always visible on all screen sizes */}
-      {speakState !== 'done' && speakState !== 'retry_choice' && (
-        <View style={RANS.micArea}>
-          {speakState !== 'scoring' && (
-            <Text style={RANS.micInstruction}>
-              {speakState === 'recording'
-                ? 'Recording… tap to stop'
-                : 'Tap the mic to start, tap again to stop and check'}
-            </Text>
-          )}
-
-          {speakState === 'scoring' ? (
-            <RecitationScoringFeedback />
-          ) : (
-            <View ref={micButtonRef} collapsable={false}>
-              <Pressable
-                onPress={handleMicTap}
-                style={({ pressed }) => [RANS.micBtn, pressed && RANS.micBtnActive, glowMic && TOUR_GLOW]}
-              >
-                {speakState === 'recording' ? (
-                  <LottieView
-          renderMode="SOFTWARE"
-                    source={require('../../../assets/animations/listen.json')}
-                    autoPlay
-                    loop
-                    style={RANS.listenAnim}
-                  />
-                ) : (
-                  <Image
-                    source={require('../../../assets/images/mic.png')}
-                    style={RANS.micImage}
-                    resizeMode="contain"
-                  />
-                )}
-              </Pressable>
-            </View>
-          )}
-
-          {/* Every recitation question is skippable — for people who don't
-              want to attempt speaking at all. Only offered before a
-              recording is made; once there's an attempt in flight/scored,
-              the retry-choice's own Next button covers "move on" instead. */}
-          {speakState === 'idle' && (
-            <TouchableOpacity style={RANS.skipBtn} onPress={onSkip}>
-              <Text style={RANS.skipBtnText}>Skip</Text>
-            </TouchableOpacity>
-          )}
-
-          {!!error && (
-            <View style={RANS.errorBox}>
-              <Text style={RANS.errorText}>{error}</Text>
-              <TouchableOpacity onPress={() => { setError(null); setSpeakState('idle'); }}>
-                <Text style={RANS.retryLink}>Try again</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
+      </ExerciseLayout>
 
       {/* Retry-choice bottom sheet — same visual treatment as the final
           result banner, just with Try Again / Next instead of Continue. */}
@@ -2270,32 +1834,25 @@ export function ReadAndSpeak({
 
 const RANS = StyleSheet.create({
   outer:          { flex: 1 },
-  container:      { padding: 20, paddingBottom: 8 },
   // Words wrap into multiple lines for longer ayahs
   wordRow:        { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 16, width: '100%' },
   wordChip:       { backgroundColor: '#FFFBF0', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1.5, borderColor: '#E8D8A0' },
   wordChipDisabled: { opacity: 0.4 },
-  wordText:       { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText },
-  // "Hear them all" button — plays the full phrase sequence
-  hearAllBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 18, marginBottom: 8, borderWidth: 1, borderColor: colors.primary },
-  hearAllBtnDisabled: { opacity: 0.4 },
-  hearAllIcon:    { width: 14, height: 14 },
-  hearAllText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
-  micArea:        { alignItems: 'center', paddingVertical: 20, paddingBottom: 32 },
-  micInstruction: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
+  wordText:       { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText },
+  micArea:        { alignItems: 'center', paddingTop: 12, paddingBottom: 16 },
+  micInstruction: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, marginBottom: 20, textAlign: 'center' },
   spinner:        { marginTop: 16, marginBottom: 16 },
   // White background with green border makes mic.png clearly visible
   micBtn:         { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
   micBtnActive:   { transform: [{ scale: 0.93 }], shadowOpacity: 0.25 },
   micBtnRecorded: { width: 76, height: 76, borderRadius: 38, opacity: 0.7 },
-  micImage:       { width: 52, height: 52, tintColor: 'white' },
+  micImage:       { width: 52, height: 52, tintColor: '#F5F7FA' },
   listenAnim:     { width: 88, height: 88 },
-  checkBtn:       { width: '100%', marginTop: 20 },
   skipBtn:        { marginTop: 18, paddingVertical: 4, paddingHorizontal: 10 },
-  skipBtnText:    { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
+  skipBtnText:    { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText, textDecorationLine: 'underline' },
   errorBox:       { marginTop: 20, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 14, alignItems: 'center', width: '100%' },
-  errorText:      { fontFamily: 'Nunito_400Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
-  retryLink:      { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  errorText:      { fontFamily: 'Nunito-Regular', fontSize: 13, color: '#991B1B', textAlign: 'center', marginBottom: 8 },
+  retryLink:      { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
 });
 
 // ── Recitation Scoring Feedback ───────────────────────────────────
@@ -2324,7 +1881,6 @@ function RecitationScoringFeedback() {
         autoPlay
         loop
         style={RSF.hourglass}
-        renderMode="SOFTWARE"
       />
       <Text style={RSF.text}>Scoring your recitation please</Text>
     </View>
@@ -2335,7 +1891,7 @@ const RSF = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16, marginBottom: 16 },
   lumo: { width: 90, height: 90 },
   hourglass: { width: 70, height: 70 },
-  text: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText, marginTop: 4 },
+  text: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.mutedText, marginTop: 4 },
 });
 
 // ── Hear and Select exercise ──────────────────────────────────────
@@ -2398,23 +1954,15 @@ export function HearAndSelect({
   }, [ex.ex_id]);
 
   return (
-    <ScrollView contentContainerStyle={EX.scrollContent} showsVerticalScrollIndicator={false}>
-      {ex.phase === 'mistakes_review' && (
-        <View style={EX.reviewBanner}>
-          <Text style={EX.reviewBannerText}>🔁  Try again</Text>
-        </View>
-      )}
-
-      {/* Character + speech bubble */}
-      <View style={EX.characterRow}>
-        <Image source={character.src} style={EX.characterImg} resizeMode="contain" />
-        <View style={EX.verseInfoCard}>
-          <View style={EX.bubbleTail} />
-          <Text style={EX.characterName}>Ustad {character.name} says:</Text>
-          <Text style={EX.bubbleText}>Hear the sound and select</Text>
-          <Text style={EX.bubbleLabel}>Surah {surahName} · Verse {ex.ayah_no}</Text>
-        </View>
-      </View>
+    <ExerciseLayout
+      footer={<ExerciseFooterButton onPress={() => { if (selected) onSubmit(selected); }} disabled={!selected || locked} />}
+    >
+      <UstadSays
+        character={character}
+        text={BUBBLE_TEXT.hear_and_select}
+        label={`Surah ${surahName} · Verse ${ex.ayah_no}`}
+        retry={ex.phase === 'mistakes_review'}
+      />
 
       {/* Big speaker button */}
       <TouchableOpacity
@@ -2435,28 +1983,23 @@ export function HearAndSelect({
       {/* Option cards */}
       <View style={EX.optionsColumn}>
         {(ex.options ?? []).map((o, i) => (
-          <TouchableOpacity
+          <Pressable
             key={i}
             style={[EX.optionBtnFull, selected === o.ar && EX.optionSelected, locked && { opacity: 0.7 }]}
-            // See the identical fix (and its full comment) in
-            // FillBlankOrNextWord's option TouchableOpacity above -- same
-            // onPress/onLongPress ambiguity, same fix: drop onLongPress so
-            // onPress fires immediately instead of waiting to disambiguate.
+            // Re-enabled 2026-09-13 alongside the identical change in
+            // FillBlankOrNextWord's options above — see that one's full
+            // comment. Switched to Pressable (rather than restoring
+            // onLongPress on TouchableOpacity) since that's the specific
+            // pairing that was reported unreliable on-device.
+            onLongPress={() => { if (!locked && o.audio_url) void playUrl(o.audio_url); }}
+            delayLongPress={350}
             onPress={() => { if (!locked) setSelected(o.ar); }}
           >
             <Text style={[arabicTextStyle(EX.optionTextArabic as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[EX.continueBtn, (!selected || locked) && EX.continueBtnDisabled]}
-        onPress={() => { if (selected && !locked) onSubmit(selected); }}
-        disabled={!selected || locked}
-      >
-        <Text style={EX.continueBtnText}>Check</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ExerciseLayout>
   );
 }
 
@@ -2471,87 +2014,56 @@ const HAS = StyleSheet.create({
   },
   speakerBtnActive: { backgroundColor: colors.primary },
   speakerIcon:  { width: 36, height: 36 },
-  speakerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.primary, marginTop: 6, textAlign: 'center' },
+  speakerLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.primary, marginTop: 6, textAlign: 'center' },
   pauseIcon:    { flexDirection: 'row', gap: 7, alignItems: 'center' },
-  pauseBar:     { width: 7, height: 30, backgroundColor: 'white', borderRadius: 3 },
+  pauseBar:     { width: 7, height: 30, backgroundColor: '#F5F7FA', borderRadius: 3 },
 });
 
 const EX = StyleSheet.create({
-  // Trimmed from padding:20/paddingBottom:40 — this is a compact-fit
-  // screen (see characterImg etc. below), not a scrolling one; the outer
-  // exercise container already reserves the nav-bar inset on its own (see
-  // exerciseArea in the main render), so this only needs a modest bottom
-  // margin, not a scroll safety cushion.
-  scrollContent: { padding: 16, paddingBottom: 20 },
-  instruction: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 12 },
-  // Character + speech bubble — sized to fit every exercise on one screen
-  // without scrolling on a typical phone, not to showcase the mascot.
-  characterRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10, overflow: 'visible' },
-  characterImg: { width: 80, height: 80 },
-  // padding 12->8, gap 3->2 (2026-08-28): shared by FillBlankOrNextWord and
-  // HearAndSelect's "Ustad says" clue bubble -- 12px of padding around 10-14px
-  // text read as disproportionate ("a LOT of padding for such a small font").
-  verseInfoCard: { flex: 1, backgroundColor: 'white', borderRadius: 16, padding: 8, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2, gap: 2 },
-  bubbleTail: { position: 'absolute', left: -10, top: 18, width: 0, height: 0, borderTopWidth: 8, borderBottomWidth: 8, borderRightWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: 'white' },
-  characterName: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary, letterSpacing: 0.8 },
-  bubbleLabel: { fontFamily: 'Nunito_400Regular', fontSize: 10, color: colors.mutedText },
-  bubbleText:  { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText },
-  // Word-by-word speaker (above question card)
-  wordAudioBtn:   { alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8, backgroundColor: colors.primaryBg, borderRadius: 14, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.primary },
-  wordAudioIcon:  { width: 13, height: 13 },
-  wordAudioLabel: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.primary },
-  // Review (wrong-answer replay) banner
-  reviewBanner: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 10, alignItems: 'center' as const, borderWidth: 1, borderColor: '#F59E0B' },
-  reviewBannerText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: '#92400E' },
+  instruction: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 12 },
   // Question card
   questionCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
-  ayahCard: { backgroundColor: 'white', borderRadius: 18, padding: 22, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  ayahAr: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 28, color: colors.darkText, textAlign: 'right', lineHeight: 52, marginBottom: 10 },
-  ayahTrans: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
-  contextText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
-  tokensRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 },
-  tokenWord: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 24, color: colors.darkText },
-  blankBox: { borderBottomWidth: 2.5, borderColor: colors.primary, minWidth: 70, height: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  blankFilled: { borderColor: colors.primary },
-  blankText:        { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 24, color: colors.primary },
-  blankSpeaker:     { alignItems: 'center', justifyContent: 'center', padding: 4 },
-  blankSpeakerIcon: { fontSize: 20 },
+  ayahCard: { backgroundColor: '#F5F7FA', borderRadius: 18, padding: 22, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  ayahAr: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 28, color: colors.darkText, textAlign: 'right', lineHeight: 52, marginBottom: 10 },
+  ayahTrans: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
+  // lineHeight is required: Naskh harakat sit outside the font's own
+  // ascent/descent box, so with no reserved clearance the diacritics get
+  // clipped by the row above or below. Ratio matches ayahAr/ayahText's
+  // ~1.55-1.6x convention.
+  contextText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 4, lineHeight: 36 },
   // Options
-  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 8 },
-  optionBtn: { backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', minWidth: '45%', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
-  optionBtnFull: { backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, marginBottom: 10, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  optionBtn: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', flexBasis: '45%', flexGrow: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  optionBtnFull: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, marginBottom: 10, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   optionSelected: { borderColor: colors.primary, backgroundColor: colors.primaryBg },
   optionGlow: {
     borderColor: colors.gold, borderWidth: 2,
     shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
     elevation: 8,
   },
-  optionText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: colors.darkText },
-  optionTextArabic: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 18, color: colors.darkText, textAlign: 'center' },
+  optionText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: colors.darkText },
+  optionTextArabic: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 18, color: colors.darkText, textAlign: 'center' },
   optionTextSelected: { color: colors.primary },
-  optionsColumn: { gap: 10, marginBottom: 24 },
-  answerZone: { minHeight: 60, backgroundColor: 'white', borderRadius: 14, borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed', flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, padding: 10, marginBottom: 16, alignItems: 'center', justifyContent: 'center' },
-  answerPlaceholder: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText },
-  tileBank: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 24 },
-  bankTile: { backgroundColor: 'white', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
+  optionsColumn: { gap: 10 },
+  answerZone: { minHeight: 60, backgroundColor: '#F5F7FA', borderRadius: 14, borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed', flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, padding: 10, marginBottom: 16, alignItems: 'center', justifyContent: 'center' },
+  answerPlaceholder: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText },
+  tileBank: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+  bankTile: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
   placedTile: { backgroundColor: colors.primaryBg, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
-  tileText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: colors.darkText },
+  tileText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: colors.darkText },
   listenBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 16 },
-  listenBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.primary },
-  continueBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 14, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  continueBtnDisabled: { opacity: 0.35 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
+  listenBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.primary },
   // Sequence (ayah ordering) exercise styles
   seqAnswerZone: { flexDirection: 'column' as const, gap: 12, marginVertical: 20, paddingHorizontal: 16 },
-  seqBank:       { flexDirection: 'column' as const, gap: 12, marginBottom: 24, paddingHorizontal: 16 },
+  seqBank:       { flexDirection: 'column' as const, gap: 12, paddingHorizontal: 16 },
   seqBox:        { minHeight: 64, borderRadius: 16,
                    alignItems: 'center' as const, justifyContent: 'center' as const,
                    paddingHorizontal: 16, paddingVertical: 14,
-                   backgroundColor: 'white', borderWidth: 2, borderColor: colors.primary },
+                   backgroundColor: '#F5F7FA', borderWidth: 2, borderColor: colors.primary },
   seqBoxFilled:  { backgroundColor: 'rgba(55,161,104,0.1)' },
   seqBoxEmpty:   { borderStyle: 'dashed' as const, borderColor: 'rgba(55,161,104,0.4)', backgroundColor: 'rgba(55,161,104,0.03)' },
-  seqSlotNum:    { fontFamily: 'Nunito_700Bold', fontSize: 18, color: 'rgba(55,161,104,0.25)' },
-  seqTileText:   { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 20, color: '#1A3A2A', textAlign: 'right' as const, lineHeight: 32 },
+  seqSlotNum:    { fontFamily: 'Nunito-Bold', fontSize: 18, color: 'rgba(55,161,104,0.25)' },
+  seqTileText:   { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: '#1A3A2A', textAlign: 'right' as const, lineHeight: 32 },
 });
 
 // ── Feedback overlay ───────────────────────────────────────────────
@@ -2622,34 +2134,58 @@ const FB = StyleSheet.create({
   wrongSheet: { backgroundColor: '#FEE2E2' },
   correctRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   correctBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
-  correctBadgeText: { fontSize: 20, color: 'white', fontWeight: '700' },
-  correctTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: '#14532D' },
-  correctSub: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
-  xpPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'white', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  correctBadgeText: { fontSize: 20, color: '#F5F7FA', fontWeight: '700' },
+  correctTitle: { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#14532D' },
+  correctSub: { fontFamily: 'Nunito-Bold', fontSize: 11, color: '#16A34A', letterSpacing: 0.5 },
+  xpPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F5F7FA', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   xpLumo: { width: 32, height: 32 },
-  xpText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText },
+  xpText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText },
   continueBtn: { backgroundColor: '#16A34A', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#16A34A', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#F5F7FA' },
   wrongRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   wrongBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' },
-  wrongBadgeText: { fontSize: 18, color: 'white', fontWeight: '700' },
-  wrongTitle: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: '#7F1D1D' },
-  correctAnswerLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: '#991B1B', letterSpacing: 1.2, marginBottom: 8 },
-  correctAnswerBox: { backgroundColor: 'white', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', marginBottom: 20 },
-  correctAnswerText: { fontFamily: 'NotoNaskhArabic_400Regular', fontSize: 22, color: colors.darkText, textAlign: 'center' },
+  wrongBadgeText: { fontSize: 18, color: '#F5F7FA', fontWeight: '700' },
+  wrongTitle: { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#7F1D1D' },
+  correctAnswerLabel: { fontFamily: 'Nunito-Bold', fontSize: 10, color: '#991B1B', letterSpacing: 1.2, marginBottom: 8 },
+  correctAnswerBox: { backgroundColor: '#F5F7FA', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', marginBottom: 20 },
+  correctAnswerText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center' },
   gotItBtn: { backgroundColor: '#DC2626', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#DC2626', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  gotItBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: 'white', letterSpacing: 0.5 },
+  gotItBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#F5F7FA', letterSpacing: 0.5 },
 });
 
 // ── Exercise slide-in — mounts fresh (via the `key={exercise.ex_id}` on its
 // parent) every time the current exercise changes, so each new exercise
-// animates in from the right instead of just popping into place. ──
+// animates in from the right instead of just popping into place.
+//
+// This used to start translateX at the full screen `width` (i.e. the new
+// exercise's content was mounted completely off-screen) and only kick the
+// slide-in animation off from a `useEffect`, which React/RN only runs AFTER
+// the first frame has already been committed and painted. That guaranteed at
+// least one fully-off-screen frame on every single exercise transition —
+// LessonHeader (the X/progress bar/hearts/Hint row) sits outside this
+// component as a sibling, so it kept rendering normally while the entire
+// exercise body beneath it was blank/white. On iOS that gap was consistently
+// visible (reported "goes to a white screen... then it loads again," present
+// since the iOS build existed); Android's compositor apparently holds the
+// previous frame through the same gap, which is why this never showed up
+// there — same JS/animation code, no platform branch, so the discrepancy was
+// timing, not logic.
+//
+// Fixed two ways, together: `useLayoutEffect` instead of `useEffect` so the
+// native `.start()` command is queued in the same commit as the view's
+// mount (before that first frame is handed to the native side to paint)
+// instead of one JS-thread round-trip later; and a much smaller starting
+// offset (40px, not a full screen width) so that even if the animation start
+// is ever delayed by a frame or two regardless, the exercise content is
+// already sitting almost exactly where it belongs instead of fully
+// off-screen — worst case a barely-noticeable shift, never a blank screen.
 export function ExerciseSlide({ children }: { children: React.ReactNode }) {
-  const { width } = useWindowDimensions();
-  const translateX = useRef(new Animated.Value(width)).current;
-  useEffect(() => {
+  const SLIDE_OFFSET = 40;
+  const translateX = useRef(new Animated.Value(SLIDE_OFFSET)).current;
+  useLayoutEffect(() => {
+    translateX.setValue(SLIDE_OFFSET);
     Animated.timing(translateX, {
-      toValue: 0, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+      toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true,
     }).start();
   }, []);
   return <Animated.View style={{ flex: 1, transform: [{ translateX }] }}>{children}</Animated.View>;
@@ -2667,7 +2203,15 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
 
-  const { sessionId, firstExercise, error, loading, group, reset, loadGroup, startSession, completeSession, abandonSession, groupId: storeGroupId, progressPct: storeProgressPct } = useLessonStore();
+  const {
+    sessionId, firstExercise, error, loading, group, reset, loadGroup, startSession, completeSession, abandonSession,
+    groupId: storeGroupId, progressPct: storeProgressPct,
+    // Resume support: non-zero only when startSession() reconnected to an
+    // already-in-progress session (app killed/backgrounded mid-level) — see
+    // that seeding effect below and lessonStore.startSession's own comment.
+    resumed: storeResumed, correctCount: storeCorrectCount, mistakes: storeMistakes, wrongCount: storeWrongCount,
+    sessionStartedAt: storeSessionStartedAt, xpEarnedSoFar: storeXpEarnedSoFar,
+  } = useLessonStore();
   const { user } = useAuthStore();
 
   const [exercise, setExercise] = useState<ExerciseDict | null>(null);
@@ -2680,6 +2224,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const [feedback, setFeedback] = useState<FormulaAttemptOut | null>(null);
   const [mistakes, setMistakes] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
+  // Accuracy tally, deliberately separate from `mistakes` (hearts): every
+  // wrong graded attempt counts here, including "Try again" rounds,
+  // remediation and review levels, which cost no hearts. Mirrors the
+  // backend's correct_count/wrong_count, the same numbers stored for the map.
+  const accuracyRef = useRef({ correct: 0, wrong: 0 });
   const [submitting, setSubmitting] = useState(false);
   // Tracks real system-audio play/pause/stop state (audioPlayer.ts pub-sub)
   // so the wave animation shows exactly while audio is audibly playing.
@@ -2690,7 +2239,24 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   // from starting late on the next exercise, but a clip already partway
   // through needs this to stop audibly rather than finish out on its own.
   useEffect(() => { stopAudio(); }, [exercise?.ex_id]);
+  // Clears the submitting spinner only once the NEW exercise has actually
+  // committed and rendered, rather than synchronously the instant advanceFn
+  // calls setExercise(next). That synchronous clear (the original fix for a
+  // 2-3s frozen-spinner bug) just swapped which thing sat blank on screen
+  // for the same real mount cost — a spinner disappearing early doesn't make
+  // the next exercise render any faster, it just uncovers whatever's behind
+  // it (nothing) until the mount finishes. Reported 2026-09-05 as "the
+  // screen stays white" recurring ~6 times in a single level — i.e. on most
+  // question transitions, not just the final one. iOS-only because its main
+  // thread blocks visibly on the mount instead of holding the previous
+  // frame the way Android's compositor does. This ties the spinner's
+  // lifetime to a real signal (the exercise that's now on screen) instead of
+  // guessing the mount is fast enough not to matter.
+  useEffect(() => { setSubmitting(false); }, [exercise?.ex_id]);
   const [noHeartsVisible, setNoHeartsVisible] = useState(false);
+  // "Continue where you left off?" for a resumed session (see the seeding
+  // effect below and handleStartOver).
+  const [resumePromptVisible, setResumePromptVisible] = useState(false);
   const [exitConfirmVisible, setExitConfirmVisible] = useState(false);
   const [heartRefillInfoVisible, setHeartRefillInfoVisible] = useState(false);
   const [loadErrorFeedbackVisible, setLoadErrorFeedbackVisible] = useState(false);
@@ -2724,6 +2290,74 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const ayahDisplayCountRef = useRef(0);
   const totalXpRef = useRef(0); // accumulates xp_awarded across all formulaAttempt calls
   const confettiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards the resumed-with-nothing-left effect below against firing twice —
+  // sessionId eventually goes null once finishLevel succeeds (completeSession
+  // clears it), which would otherwise re-satisfy that effect's own condition.
+  const autoFinishTriggeredRef = useRef(false);
+
+  // Tell the backend this level is done and show the summary screen — shared
+  // by submitAnswer's advanceFn (right after the last real answer) and the
+  // resumed-with-nothing-left effect below (the app died, or the request
+  // failed, in the gap between the last answer and this call actually
+  // landing — the session is still active with these exact final counts
+  // sitting in Redis, see start_session's resume branch, so calling this
+  // again is always safe and never re-awards anything twice).
+  //
+  // Never fakes a celebration screen on failure. Before the session-resume
+  // fix existed, a failed /complete usually meant the session was lost
+  // outright, so showing SOME "done" screen with a guessed XP value was the
+  // least-bad option available. Now that resuming is real, that's no longer
+  // true — the session stays exactly this resumable until /complete actually
+  // succeeds, so lying about it here only cost the user a level that never
+  // actually got marked done on the map, for no benefit.
+  const finishLevel = useCallback(async (scorePct: number) => {
+    setSubmitting(true);
+    try {
+      const summary = await completeSession();
+      console.warn('[Lesson] completeSession OK. totalXpRef:', totalXpRef.current, 'summary:', JSON.stringify(summary));
+      // Merge the fresh streak/XP straight from this response into the
+      // shared learning store — refreshLearning() is throttled and nothing
+      // else calls it after a lesson, so without this the Map HUD's
+      // flame/XP silently stayed stale until the next cold launch.
+      if (typeof summary.current_streak === 'number') {
+        const currentLearning = useAuthStore.getState().learning;
+        if (currentLearning) {
+          useAuthStore.setState({
+            learning: {
+              ...currentLearning,
+              current_streak: summary.current_streak,
+              xp_total: currentLearning.xp_total + (totalXpRef.current || summary.xp_awarded),
+              streak_state: summary.streak_state ?? currentLearning.streak_state,
+              freeze_days_remaining: summary.freeze_days_remaining ?? currentLearning.freeze_days_remaining,
+              repair_levels_required: summary.repair_levels_required ?? currentLearning.repair_levels_required,
+              repair_levels_completed: summary.repair_levels_completed ?? currentLearning.repair_levels_completed,
+            },
+          });
+        }
+      }
+      navigation.replace('LessonComplete', {
+        xp: totalXpRef.current || summary.xp_awarded,
+        scorePct,
+        stars: starsFromAccuracy(scorePct),
+        durationSec: Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
+        streakIncremented: summary.streak_incremented ?? false,
+        currentStreak: summary.current_streak,
+        streakRepaired: summary.streak_repaired ?? false,
+        streakState: summary.streak_state,
+        repairLevelsCompleted: summary.repair_levels_completed,
+        repairLevelsRequired: summary.repair_levels_required,
+      });
+    } catch (e) {
+      console.warn('[Lesson] completeSession FAILED. totalXpRef:', totalXpRef.current, 'error:', e);
+      captureError(e, { where: 'finishLevel' });
+      setSubmitting(false);
+      Alert.alert(
+        'Could not save your completion',
+        'Your progress is safe. Please check your connection, then reopen this level to pick up right where you left off.',
+        [{ text: 'OK', onPress: () => navigation.navigate('MainTabs') }],
+      );
+    }
+  }, [completeSession, navigation]);
 
   // Mount: reset store, load group, start session
   useEffect(() => {
@@ -2768,11 +2402,53 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (firstExercise && !exercise && storeGroupId === groupId) {
       setExercise(firstExercise);
-      setShowBismillah(true);
       startedAt.current = Date.now();
       setProgressPct(storeProgressPct);
+      if (storeResumed) {
+        // Reconnecting to a session the app already made progress in (it was
+        // killed or backgrounded mid-level, see lessonStore.startSession) —
+        // pick up accuracy/XP/timer where the backend says they left off
+        // instead of restarting them at zero, and skip the "Begin Lesson"
+        // splash since this isn't actually the start of the level.
+        setCorrectCount(storeCorrectCount);
+        setMistakes(storeMistakes);
+        accuracyRef.current = { correct: storeCorrectCount, wrong: storeWrongCount };
+        totalXpRef.current = storeXpEarnedSoFar;
+        sessionStartedAtRef.current = storeSessionStartedAt ?? Date.now();
+        // The app can die in the gap between hearts hitting 0 and the user
+        // tapping through the No Hearts modal (which is what normally calls
+        // abandonSession) — that leaves the session resumable instead of
+        // ended. Re-run the same MAX_MISTAKES check submitAnswer uses so a
+        // resume into an already-exhausted session shows the existing
+        // "Retry Level" modal instead of letting play continue unchecked.
+        if (storeMistakes >= MAX_MISTAKES) {
+          setNoHeartsVisible(true);
+        } else {
+          // Ask before dropping the learner back mid-level (user, 2026-10-13:
+          // reopening a level after an app update landed on an old exercise
+          // with no intro and no explanation).
+          setResumePromptVisible(true);
+        }
+      } else {
+        setShowBismillah(true);
+      }
     }
   }, [firstExercise, storeGroupId]);
+
+  // Resumed into a session that already answered every exercise before the
+  // app died (or the /complete call itself failed) — start_session's resume
+  // branch hands this back as resumed=True with first_exercise=None rather
+  // than restarting the whole level, so there's nothing to seed `exercise`
+  // with; just finish completing it with the real final counts.
+  useEffect(() => {
+    if (
+      storeResumed && sessionId && !firstExercise && !exercise && !loading
+      && !autoFinishTriggeredRef.current
+    ) {
+      autoFinishTriggeredRef.current = true;
+      void finishLevel(accuracyPct({ correct: storeCorrectCount, wrong: storeWrongCount }));
+    }
+  }, [storeResumed, sessionId, firstExercise, exercise, loading, storeCorrectCount, storeWrongCount, finishLevel]);
 
   const submitAnswer = useCallback(async (
     userAnswer: string | string[] | number[] | null,
@@ -2855,64 +2531,34 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         return;
       }
 
-      // Capture score snapshot at submit time (state updates are async)
-      const totalAnswerable = snapCorrect + snapMistakes;
-      const scorePct = totalAnswerable > 0 ? Math.round((snapCorrect / totalAnswerable) * 100) : 100;
+      // Accuracy: the backend's running counts when it sends them (it grades
+      // every attempt, so this matches the score stored for the map); a local
+      // tally of graded, non-skipped attempts as a fallback.
+      if (typeof result.correct_count === 'number' && typeof result.wrong_count === 'number') {
+        accuracyRef.current = { correct: result.correct_count, wrong: result.wrong_count };
+      } else if (exercise.type !== 'ayah_display' && speakOutcome !== 'skipped') {
+        if (effectiveCorrect) accuracyRef.current.correct += 1;
+        else accuracyRef.current.wrong += 1;
+      }
+      const scorePct = accuracyPct(accuracyRef.current);
 
       const advanceFn = async () => {
         setFeedback(null);
         if (result.done) {
-          try {
-            const summary = await completeSession();
-            console.warn('[Lesson] completeSession OK. totalXpRef:', totalXpRef.current, 'summary:', JSON.stringify(summary));
-            // Merge the fresh streak/XP straight from this response into the
-            // shared learning store — refreshLearning() is throttled and
-            // nothing else calls it after a lesson, so without this the Map
-            // HUD's flame/XP silently stayed stale until the next cold launch.
-            // Includes the freeze/repair fields (2026-08-05) for the same
-            // reason: a repair on this exact completion should flip the HUD
-            // pill back to its active color immediately, not after the next
-            // 60s poll or foreground event.
-            if (typeof summary.current_streak === 'number') {
-              const currentLearning = useAuthStore.getState().learning;
-              if (currentLearning) {
-                useAuthStore.setState({
-                  learning: {
-                    ...currentLearning,
-                    current_streak: summary.current_streak,
-                    xp_total: currentLearning.xp_total + (totalXpRef.current || summary.xp_awarded),
-                    // Backend fields not deployed yet fall back to the
-                    // previous value rather than clobbering it with undefined.
-                    streak_state: summary.streak_state ?? currentLearning.streak_state,
-                    freeze_days_remaining: summary.freeze_days_remaining ?? currentLearning.freeze_days_remaining,
-                    repair_levels_required: summary.repair_levels_required ?? currentLearning.repair_levels_required,
-                    repair_levels_completed: summary.repair_levels_completed ?? currentLearning.repair_levels_completed,
-                  },
-                });
-              }
-            }
-            navigation.replace('LessonComplete', {
-              xp: totalXpRef.current || summary.xp_awarded,
-              scorePct,
-              stars: starsFromAccuracy(scorePct),
-              durationSec: Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
-              // Backend fields not deployed yet fall back safely to "no
-              // celebration" rather than crashing on an undefined summary field.
-              streakIncremented: summary.streak_incremented ?? false,
-              currentStreak: summary.current_streak,
-              streakRepaired: summary.streak_repaired ?? false,
-              streakState: summary.streak_state,
-              repairLevelsCompleted: summary.repair_levels_completed,
-              repairLevelsRequired: summary.repair_levels_required,
-            });
-          } catch (e) {
-            console.warn('[Lesson] completeSession FAILED. totalXpRef:', totalXpRef.current, 'error:', e);
-            navigation.replace('LessonComplete', {
-              xp: totalXpRef.current || 20, scorePct,
-              stars: starsFromAccuracy(scorePct),
-              durationSec: Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
-            });
-          }
+          // Re-arm the spinner specifically for this branch: completeSession()
+          // is a real network round-trip (unlike next_exercise, which just
+          // mounts an already-loaded component), and by the time advanceFn
+          // runs here `submitting` has already been cleared — either by the
+          // immediateAdvance call site below (fired right after void
+          // advanceFn()) or, on the feedback-banner Continue path, long
+          // before that when the original answer was first submitted. Without
+          // this, the screen shows nothing at all for the full duration of
+          // the request — reported 2026-09-05 as "the screen stays white and
+          // then goes on to next level," iOS only (Android's UI thread
+          // apparently keeps enough painted mid-navigation to hide the same
+          // gap). finishLevel re-sets it itself either way, so nothing extra
+          // needed here beyond calling it.
+          await finishLevel(scorePct);
         } else if (result.next_exercise) {
           const next = result.next_exercise;
           // Never go back to a card the user has already cleared. The backend
@@ -2934,7 +2580,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           }
         }
         submitLockRef.current = false;
-        setSubmitting(false);
       };
 
       // Speak exercises handle their own result UI internally; advance
@@ -2947,6 +2592,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
 
       if (immediateAdvance) {
         void advanceFn();
+        // Not cleared here at all anymore. For next_exercise, the ex_id
+        // effect above clears it once the new exercise actually renders; for
+        // result.done, advanceFn's own branch keeps it true through
+        // completeSession(). Clearing it synchronously here raced ahead of
+        // both.
       } else {
         // Show feedback banner; user presses Continue / GOT IT to advance
         pendingAdvanceFn.current = advanceFn;
@@ -3012,11 +2662,21 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         );
       }
     }
-  }, [sessionId, exercise, submitting, correctCount, mistakes, isSpecial]);
+  }, [sessionId, exercise, submitting, correctCount, mistakes, isSpecial, finishLevel]);
 
   const handleBack = () => {
     abandonSession({ silent: true }).catch(() => {});
     navigation.goBack();
+  };
+
+  // Resume prompt's "Start over": end the unfinished session on the server
+  // first (awaited, or the server would just resume it again), then reopen
+  // this same level as a fresh screen, which starts a new session with the
+  // Bismillah intro and fresh hearts/score.
+  const handleStartOver = async () => {
+    setResumePromptVisible(false);
+    await abandonSession({ silent: true }).catch(() => {});
+    navigation.replace('LessonSession', { groupId, surahName, surahNumber, isSpecial });
   };
 
   // Hardware back during a live exercise must ask before throwing progress
@@ -3051,7 +2711,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
-        renderMode="SOFTWARE"
           source={require('../../../assets/animations/404.json')}
           autoPlay loop
           style={{ width: 200, height: 200 }}
@@ -3065,10 +2724,10 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           <Text style={S.retryBtnText}>Try again</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
-          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito_400Regular' }}>Go back</Text>
+          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito-Regular' }}>Go back</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setLoadErrorFeedbackVisible(true)} style={{ marginTop: 16 }}>
-          <Text style={{ color: colors.primary, fontFamily: 'Nunito_700Bold', fontSize: 13 }}>Give feedback</Text>
+          <Text style={{ color: colors.primary, fontFamily: 'Nunito-Bold', fontSize: 13 }}>Give feedback</Text>
         </TouchableOpacity>
         <LumoInfoModal
           visible={loadErrorFeedbackVisible}
@@ -3086,7 +2745,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
-        renderMode="SOFTWARE"
           source={require('../../../assets/animations/loading.json')}
           autoPlay loop
           style={{ width: 140, height: 140 }}
@@ -3106,7 +2764,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           onPress={() => { abandonSession({ silent: true }).catch(() => {}); navigation.goBack(); }}
           style={{ marginTop: 12 }}
         >
-          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito_400Regular' }}>Back to Map</Text>
+          <Text style={{ color: colors.mutedText, fontFamily: 'Nunito-Regular' }}>Back to Map</Text>
         </TouchableOpacity>
       </View>
     );
@@ -3144,7 +2802,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           <Text style={LL.backText}>Map</Text>
         </TouchableOpacity>
         <LottieView
-          renderMode="SOFTWARE"
           source={require('../../../assets/animations/loading.json')}
           autoPlay loop
           style={{ width: 140, height: 140 }}
@@ -3327,7 +2984,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       {showConfetti && (
         <View style={S.confettiOverlay} pointerEvents="none">
           <LottieView
-        renderMode="SOFTWARE"
             source={require('../../../assets/animations/celebration.json')}
             autoPlay
             loop={false}
@@ -3418,6 +3074,12 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         </View>
       </Modal>
 
+      <ResumeLevelModal
+        visible={resumePromptVisible}
+        onContinue={() => setResumePromptVisible(false)}
+        onStartOver={() => { void handleStartOver(); }}
+      />
+
       <LumoInfoModal
         visible={heartRefillInfoVisible}
         onClose={() => setHeartRefillInfoVisible(false)}
@@ -3439,7 +3101,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       {systemPlaying && exercise?.type !== 'read_ayah_and_speak' && exercise?.type !== 'read_and_speak' && exercise?.type !== 'audio_fill' && exercise?.type !== 'hear_and_select' && (
         <View pointerEvents="none" style={[S.waveBar, { bottom: insets.bottom + 8 }]}>
           <LottieView
-            renderMode="SOFTWARE"
             source={require('../../../assets/animations/wave.json')}
             autoPlay loop
             style={S.waveLottie}
@@ -3459,20 +3120,20 @@ const S = StyleSheet.create({
   spinnerOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,244,248,0.6)' },
   confettiOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
   confettiAnim:    { width: '100%', height: 320 },
-  errorTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
-  errorMsg: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
+  errorTitle: { fontFamily: 'Nunito-Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
+  errorMsg: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
   retryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 },
-  retryBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white' },
+  retryBtnText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#F5F7FA' },
   // No-hearts overlay
   noHeartsOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', zIndex: 100, paddingHorizontal: 28 },
-  noHeartsCard: { backgroundColor: 'white', borderRadius: 28, padding: 28, alignItems: 'center', width: '100%', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 20 },
-  noHeartsTitle: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: colors.darkText, marginBottom: 10 },
-  noHeartsBody: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.midText, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  noHeartsCard: { backgroundColor: '#F5F7FA', borderRadius: 28, padding: 28, alignItems: 'center', width: '100%', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 20 },
+  noHeartsTitle: { fontFamily: 'Nunito-Bold', fontSize: 26, color: colors.darkText, marginBottom: 10 },
+  noHeartsBody: { fontFamily: 'Nunito-Regular', fontSize: 14, color: colors.midText, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   buyHeartsBtn: { width: '100%', backgroundColor: '#F0F4FF', borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginBottom: 12, borderWidth: 1.5, borderColor: '#C7D2FE' },
-  buyHeartsBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#4338CA' },
-  buyHeartsSubText: { fontFamily: 'Nunito_400Regular', fontSize: 11, color: '#818CF8', marginTop: 2 },
+  buyHeartsBtnText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#4338CA' },
+  buyHeartsSubText: { fontFamily: 'Nunito-Regular', fontSize: 11, color: '#818CF8', marginTop: 2 },
   noHeartsRetryBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  noHeartsRetryText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: 'white' },
+  noHeartsRetryText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#F5F7FA' },
   noHeartsLumo: { width: 120, height: 120, marginBottom: 8 },
   // Exit-level confirmation
   exitConfirmLumo: { width: 90, height: 90, marginBottom: 8 },
@@ -3482,9 +3143,9 @@ const S = StyleSheet.create({
   // cancel/destructive convention so an impulsive or accidental tap keeps
   // the user on the level instead of throwing progress away.
   exitConfirmCancelBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
-  exitConfirmCancelText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white' },
+  exitConfirmCancelText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#F5F7FA' },
   exitConfirmLeaveBtn: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
-  exitConfirmLeaveText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.midText },
+  exitConfirmLeaveText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.midText },
   waveBar: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   waveLottie: { width: 220, height: 60 },
 });

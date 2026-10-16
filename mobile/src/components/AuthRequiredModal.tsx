@@ -61,10 +61,10 @@ export default function AuthRequiredModal({
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   card: { backgroundColor: colors.white, borderRadius: 20, padding: 24, width: '100%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
-  title: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8 },
-  body: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 20 },
+  title: { fontFamily: 'Nunito-Bold', fontSize: 18, color: colors.darkText, marginBottom: 8 },
+  body: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 20 },
   button: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  buttonText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.white },
+  buttonText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
   dismissButton: { paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-  dismissText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText },
+  dismissText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText },
 });

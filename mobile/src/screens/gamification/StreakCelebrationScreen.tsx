@@ -106,7 +106,24 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
   }, [breakDone]);
 
   return (
-    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={[styles.container, { paddingBottom: insets.bottom }]}>
+    // Background split from content: a full-bleed LinearGradient sibling
+    // (StyleSheet.absoluteFill, no dependency on insets at all) guarantees
+    // the screen's own color always reaches every true edge, regardless of
+    // whether useSafeAreaInsets() has resolved its real value yet on this
+    // screen's first render — a known React Navigation timing gap (a
+    // freshly-pushed 'fade' screen can briefly read insets.bottom as 0
+    // before context catches up) that previously left a gap the size of the
+    // Home Indicator's reserved zone at the true bottom edge, exposing the
+    // Stack.Navigator's own fallback contentStyle color underneath instead
+    // of this screen's own gradient. Reported 2026-09-05 as a differently-
+    // colored "gradient leak," and explicitly NOT the tab bar's Home-
+    // Indicator-overlap bug (that one is about content sitting too close to
+    // the edge; this one is about the background itself falling short of
+    // the edge) — content below still uses insets.bottom for its own
+    // clearance, that part is unaffected by this split.
+    <View style={{ flex: 1 }}>
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={StyleSheet.absoluteFill} />
+    <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
 
       {!breakDone && (
@@ -140,7 +157,6 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
       {breakDone && (
         <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <LottieView
-            renderMode="SOFTWARE"
             source={animationSource}
             autoPlay
             loop
@@ -175,7 +191,8 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </Animated.View>
       )}
-    </LinearGradient>
+    </View>
+    </View>
   );
 }
 
@@ -183,15 +200,15 @@ const styles = StyleSheet.create({
   container:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content:        { alignItems: 'center', paddingHorizontal: 28, width: '100%' },
   animation:      { width: '100%', height: 340, marginBottom: -10 },
-  streakNumber:   { fontFamily: 'Nunito_700Bold', fontSize: 72, color: '#EA580C', lineHeight: 78 },
-  streakLabel:    { fontFamily: 'Nunito_700Bold', fontSize: 22, color: 'white', marginBottom: 28 },
+  streakNumber:   { fontFamily: 'Nunito-Bold', fontSize: 72, color: '#EA580C', lineHeight: 78 },
+  streakLabel:    { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#F5F7FA', marginBottom: 28 },
   iceStage:       { width: 200, height: 200, alignItems: 'center', justifyContent: 'center' },
   bloom:          { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: STREAK_FROZEN_COLOR },
   iceImg:         { width: 96, height: 96 },
   repairedRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.30)', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 24, maxWidth: '100%' },
   repairedLuma:   { width: 56, height: 56 },
   repairedBubble: { flexShrink: 1 },
-  repairedBubbleText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white', lineHeight: 19 },
+  repairedBubbleText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#F5F7FA', lineHeight: 19 },
   continueBtn:    { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
 });

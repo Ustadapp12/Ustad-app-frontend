@@ -64,11 +64,16 @@ export default function StreakRepairProgressScreen({ navigation, route }: Props)
     ]).start();
   }, []);
 
-  // paddingBottom, not a shorter gradient — see StreakCelebrationScreen's
-  // identical comment: padding is inside the border box, so the gradient
-  // still bleeds to the true edge and only the centered content lifts.
+  // Background split from content — see StreakCelebrationScreen's identical
+  // comment: a full-bleed LinearGradient sibling (no insets dependency)
+  // guarantees the screen's own color always reaches the true edge, instead
+  // of a possibly-stale insets.bottom (0 on this screen's very first render,
+  // a known React Navigation timing gap on a freshly-pushed 'fade' screen)
+  // leaving a gap that exposed the Stack.Navigator's own fallback color.
   return (
-    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <View style={{ flex: 1 }}>
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={StyleSheet.absoluteFill} />
+    <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
 
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
@@ -99,7 +104,8 @@ export default function StreakRepairProgressScreen({ navigation, route }: Props)
           <Text style={styles.continueBtnText}>Continue  →</Text>
         </TouchableOpacity>
       </Animated.View>
-    </LinearGradient>
+    </View>
+    </View>
   );
 }
 
@@ -109,9 +115,9 @@ const styles = StyleSheet.create({
   animation:      { width: '100%', height: 340, marginBottom: -10, alignItems: 'center', justifyContent: 'center' },
   snowflake:      { position: 'absolute' },
   iceImg:         { width: 128, height: 128 },
-  streakNumber:   { fontFamily: 'Nunito_700Bold', fontSize: 72, lineHeight: 78 },
-  streakLabel:    { fontFamily: 'Nunito_700Bold', fontSize: 22, color: 'white', marginBottom: 14 },
-  hint:           { fontFamily: 'Nunito_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 20, marginBottom: 28, paddingHorizontal: 12 },
+  streakNumber:   { fontFamily: 'Nunito-Bold', fontSize: 72, lineHeight: 78 },
+  streakLabel:    { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#F5F7FA', marginBottom: 14 },
+  hint:           { fontFamily: 'Nunito-Regular', fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 20, marginBottom: 28, paddingHorizontal: 12 },
   continueBtn:    { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
+  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
 });

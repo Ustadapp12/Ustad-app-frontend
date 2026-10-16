@@ -1,10 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import { Alert, BackHandler } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { BackHandler } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../store/authStore';
 import SplashScreen from '../screens/startup/SplashScreen';
 import StreakLostModal from '../components/StreakLostModal';
+import ExitAppModal from '../components/ExitAppModal';
+import OfflineBanner from '../components/OfflineBanner';
+import SlowNetworkModal from '../components/SlowNetworkModal';
 import { navigationRef } from './navigationRef';
 import { logScreenView } from '../services/analytics';
 import { recordScreenView } from '../services/screenHistory';
@@ -59,6 +62,15 @@ import LessonSummaryScreen from '../screens/lesson/LessonSummaryScreen';
 import MainTabs from './MainTabs';
 import LessonSessionScreen from '../screens/lesson/LessonSessionScreen';
 import TourLessonScreen from '../screens/tour/TourLessonScreen';
+import SearchSurahsScreen from '../screens/home/SearchSurahsScreen';
+import SurahProgressScreen from '../screens/home/SurahProgressScreen';
+import ComingSoonScreen from '../screens/comingSoon/ComingSoonScreen';
+
+// WIP MapV2 clone, dev only. A static import evaluates this 188 KB module
+// body at bundle init on every cold start, including release builds where the
+// only door into it (MainTabs' __DEV__ 'V2' button) never renders. A guarded
+// require keeps the module factory from ever running in production.
+const MapScreenV2 = __DEV__ ? require('../screens/home/MapScreenV2').default : null;
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -98,13 +110,13 @@ export default function RootNavigator() {
   // fires, since BackHandler calls listeners most-recently-added-first and
   // stops at the first one returning true). At that point Android's default
   // behavior would exit the app immediately with no confirmation — ask first.
+  // Uses the app's own ExitAppModal (Lumo card, Leave/Stay) instead of the
+  // bare native Alert, matching every other confirm dialog in the app.
+  const [exitConfirmVisible, setExitConfirmVisible] = useState(false);
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (navigationRef.current?.canGoBack()) return false;
-      Alert.alert('Exit app', 'Do you want to close the app?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() },
-      ]);
+      setExitConfirmVisible(true);
       return true;
     });
     return () => sub.remove();
@@ -150,9 +162,16 @@ export default function RootNavigator() {
         routeNameRef.current = currentRouteName;
       }}
     >
+      <OfflineBanner />
+      <SlowNetworkModal />
       {streakJustLost !== null && (
         <StreakLostModal priorStreak={streakJustLost} onDismiss={clearStreakJustLost} />
       )}
+      <ExitAppModal
+        visible={exitConfirmVisible}
+        onStay={() => setExitConfirmVisible(false)}
+        onLeave={() => BackHandler.exitApp()}
+      />
       <Stack.Navigator
         initialRouteName="Splash"
         screenOptions={{
@@ -180,6 +199,14 @@ export default function RootNavigator() {
         <Stack.Screen name="OnboardPath" component={OnboardPathScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="OnboardAssessment" component={OnboardAssessmentScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
+        {/* WIP preview only — see MapScreenV2.tsx's header comment. Not
+            registered at all in release; the module isn't loaded there. */}
+        {__DEV__ && MapScreenV2 && (
+          <Stack.Screen name="MapV2" component={MapScreenV2} options={{ animation: 'slide_from_right' }} />
+        )}
+        <Stack.Screen name="ComingSoon" component={ComingSoonScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="SearchSurahs" component={SearchSurahsScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="SurahProgress" component={SurahProgressScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ animation: 'slide_from_right' }} />

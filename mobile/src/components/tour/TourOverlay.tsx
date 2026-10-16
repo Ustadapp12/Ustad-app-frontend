@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   counter: {
     position: 'absolute',
     top: 15, right: 12,
-    fontFamily: 'Nunito_400Regular', fontSize: 11, color: colors.mutedText,
+    fontFamily: 'Nunito-Regular', fontSize: 11, color: colors.mutedText,
   },
   frame: {
     // 40, not 26: the back button occupies y 10..38 inside the card's own
@@ -525,15 +525,15 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   lumo: { width: 32, height: 34, marginBottom: 6 },
-  body: { fontFamily: 'Nunito_400Regular', fontSize: 12.5, color: colors.midText, lineHeight: 18 },
+  body: { fontFamily: 'Nunito-Regular', fontSize: 12.5, color: colors.midText, lineHeight: 18 },
   actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   skipBtn: { paddingVertical: 8, paddingRight: 12 },
-  skipText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText },
+  skipText: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.mutedText },
   nextBtn: {
     backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 22,
   },
-  nextText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.white },
+  nextText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.white },
 });

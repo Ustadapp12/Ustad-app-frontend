@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { authApi, learningApi, usersApi, syncDeviceTimezone } from '../api';
-import { getTokens, setTokens, setStoredUser, getStoredUser, resetTourOffered } from '../utils/storage';
+import { ApiError } from '../api/client';
+import {
+  getTokens, getTokensStrict, TokenStoreUnavailableError, setTokens, setStoredUser, getStoredUser,
+  resetTourOffered, getLastActiveLocalDate, getStoredStreakSnapshot, setStoredStreakSnapshot,
+} from '../utils/storage';
+import { refreshLocalNotifications } from '../services/localNotifications';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
 import { setCrashUser, addBreadcrumb, captureError } from '../services/crashReporter';
 import { setPendingEntryMethod } from '../services/usageSession';
@@ -13,7 +18,8 @@ import {
 } from '../utils/guest';
 import { checkStreakLoss } from '../utils/streak';
 import { signInWithGoogle, signOutFromGoogle } from '../services/googleAuth';
-import type { AccountAction, LearningMe, User, UserProfile } from '../types/api';
+import { signInWithApple } from '../services/appleAuth';
+import type { AccountAction, AuthResponse, LearningMe, Tokens, User, UserProfile } from '../types/api';
 
 interface AuthState {
   user: User | null;
@@ -24,6 +30,16 @@ interface AuthState {
   // extra round-trip.
   profile: UserProfile | null;
   isHydrated: boolean;
+  // Connectivity used to live here as a single `isOffline` boolean with five
+  // write sites across three uncoordinated call paths, which raced and left
+  // the banner stuck on a working app. It now lives in
+  // store/connectivityStore.ts as two flags with one owner each — see that
+  // file's header for the full reasoning. Nothing in authStore writes
+  // connectivity any more: api/client.ts owns "backend didn't answer" and
+  // services/connectivity.ts owns "device has no network".
+  //
+  // hydrateInner's own comment on why a network failure must never by itself
+  // log anyone out still stands, and is unaffected by that move.
   // One-shot: set the instant refreshLearning() observes a frozen/active
   // streak silently expire to "none" (see utils/streak.ts's checkStreakLoss).
   // A listener mounted once in RootNavigator shows StreakLostModal off this,
@@ -38,6 +54,8 @@ interface AuthState {
   /** Resolves to what the server did, so the caller can explain a `restored`
    *  outcome to the user. Returns null if they cancelled the Google sheet. */
   loginWithGoogle: () => Promise<AccountAction | null>;
+  /** Same contract as loginWithGoogle, for Sign in with Apple (iOS only). */
+  loginWithApple: () => Promise<AccountAction | null>;
   logout: () => Promise<void>;
   /** Password is optional: Google-only accounts have none to confirm with, and
    *  the server accepts the authenticated session as proof in that case. */
@@ -66,6 +84,50 @@ export const useAuthStore = create<AuthState>((set, get) => {
     void prefetchAll(learning.mvp_surah_numbers ?? []);
   };
 
+  // Everything after the server answered a Google or Apple sign-in. Shared so
+  // the two providers can never drift apart on the guest/tour/analytics rules.
+  const completeSocialSignIn = async (
+    res: AuthResponse,
+    provider: 'google' | 'apple',
+  ): Promise<AccountAction> => {
+    await setTokens(res.tokens);
+    setCrashUser(res.user.id, res.user.email);
+    // Cleared on every outcome, not just a successful claim: on `restored` the
+    // parked totals belong to a guest row that no longer exists, so keeping
+    // them would credit them to the wrong account on some later upgrade.
+    await clearPendingGuestProgress();
+
+    const action = res.account_action ?? 'created';
+    // Same rule as every other entry point: login() never resets the tour.
+    // `restored` is a returning user signing back into a real account with
+    // real history — resetting the tour here made it reappear, which is
+    // wrong. `claimed` converts the SAME guest row this session may have
+    // already been shown/dismissed the tour offer on — same reasoning as
+    // upgradeGuest() above, so it must not reset either, or the offer fires
+    // again right after signup. Only `created` (genuinely no prior guest row)
+    // is this account's actual first run.
+    if (action === 'created') await resetTourOffered();
+    setPendingEntryMethod(action === 'restored' ? `${provider}_login` : `${provider}_signup`);
+    void logAnalyticsEvent(
+      action === 'restored' ? AnalyticsEvents.LOGIN : AnalyticsEvents.SIGN_UP,
+      { method: provider },
+    );
+
+    const user: User = { ...res.user, name: displayNameFor(res.user) };
+    await setStoredUser(user);
+    set({ user, learning: null });
+    void syncDeviceTimezone();
+
+    // Unlike register(), there is no verify-email detour: the server sets
+    // email_verified because Google/Apple already asserted the address. The guard
+    // stays anyway so a future backend change can't silently 403 the setup.
+    if (res.user.email_verified) {
+      const learning = await learningApi.me();
+      await finishAuthSetup(user, learning);
+    }
+    return action;
+  };
+
   // Every fresh learningApi.me() result (here and in refreshLearning below)
   // runs through this so a silent frozen/active -> "none" transition (the
   // freeze window expiring — the backend has no event for it, see
@@ -74,13 +136,62 @@ export const useAuthStore = create<AuthState>((set, get) => {
   const applyFreshLearning = async (learning: LearningMe) => {
     const lost = await checkStreakLoss(learning.streak_state ?? 'active', learning.current_streak);
     set({ learning, ...(lost !== null ? { streakJustLost: lost } : {}) });
+    // Fire-and-forget: a launch/refresh has no "just completed a lesson" signal of its
+    // own, unlike lessonStore.completeSession(), so lastActiveLocalDate comes from
+    // storage instead of being stamped fresh here.
+    void (async () => {
+      try {
+        // Cached for hydrateInner's offline fallback below — see
+        // getStoredStreakSnapshot's own comment in utils/storage.ts.
+        void setStoredStreakSnapshot({
+          currentStreak: learning.current_streak,
+          state: learning.streak_state ?? 'active',
+          freezeDaysRemaining: learning.freeze_days_remaining ?? 0,
+        });
+        await refreshLocalNotifications(
+          {
+            currentStreak: learning.current_streak,
+            state: learning.streak_state ?? 'active',
+            freezeDaysRemaining: learning.freeze_days_remaining ?? 0,
+            lastActiveLocalDate: await getLastActiveLocalDate(),
+          },
+          { reminderHour: null }, // no onboarding picker yet — see services/localNotifications.ts
+        );
+      } catch {
+        // Never let this affect auth/learning hydration.
+      }
+    })();
   };
 
   // The real body of hydrate(). Split out so hydrate() itself is nothing but
   // the try/catch that guarantees isHydrated always ends up true — see the
   // comment on hydrate() below for why that matters.
   const hydrateInner = async (): Promise<void> => {
-    const tokens = await getTokens();
+    // Reading the token store can fail (iOS refuses Keychain reads while the
+    // device is locked, the Android Keystore can be briefly unavailable). That
+    // is not "signed out": nothing was wiped and the tokens are still there.
+    // Look again a couple of times, and if it still won't open, keep the cached
+    // session — exactly as a network failure does below — instead of showing
+    // the login screen. Nothing is cleared, and getTokens() doesn't cache a
+    // failed read, so the next request (or launch) re-reads and carries on.
+    let tokens: Tokens | null = null;
+    let storeUnavailable = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        tokens = await getTokensStrict();
+        storeUnavailable = false;
+        break;
+      } catch (e) {
+        if (!(e instanceof TokenStoreUnavailableError)) throw e;
+        storeUnavailable = true;
+        if (attempt < 2) await new Promise(res => setTimeout(res, 400 * (attempt + 1)));
+      }
+    }
+    if (storeUnavailable) {
+      addBreadcrumb('hydrate: token store unreadable, keeping cached session');
+      set({ isHydrated: true, user: (await getStoredUser()) ?? null, learning: null });
+      return;
+    }
     if (!tokens) {
       set({ isHydrated: true, user: null, learning: null });
       return;
@@ -114,15 +225,62 @@ export const useAuthStore = create<AuthState>((set, get) => {
       return null;
     };
 
+    let meError: unknown = null;
     const [me, learning, previouslyStored] = await Promise.all([
-      authApi.me().catch(() => null),
+      authApi.me().catch(e => { meError = e; return null; }),
       fetchLearningWithRetry(),
       getStoredUser(),
     ]);
     if (!me) {
-      await setTokens(null);
-      await setStoredUser(null);
-      set({ isHydrated: true, user: null, learning: null });
+      // Only a genuine "this session is no longer valid" response (a real
+      // 401 — authApi.me() already tried refreshing the access token once
+      // internally, see api/client.ts, so this means the refresh token
+      // itself was rejected) should wipe tokens and sign the user out. A
+      // network failure — no connectivity, a DNS/TLS blip, our own 30s
+      // timeout, all surfaced as ApiError status 0 — means we simply
+      // couldn't ASK the server, which is not the same as the server saying
+      // no. Treating them the same used to log a still-valid session out the
+      // instant the app was opened offline, and it stayed logged out even
+      // once the network came back, because by then there was nothing left
+      // to hydrate from. Fall back to the locally cached user instead, so a
+      // purely offline failure leaves the session intact; the very next
+      // successful hydrate (or refreshLearning poll) re-verifies it for real.
+      const isRealAuthRejection = meError instanceof ApiError && meError.status === 401;
+      if (isRealAuthRejection) {
+        await setTokens(null);
+        await setStoredUser(null);
+        set({ isHydrated: true, user: null, learning: null });
+        return;
+      }
+      addBreadcrumb('hydrate: authApi.me() unreachable, keeping cached session', {
+        error: meError instanceof Error ? meError.message : String(meError),
+      });
+      set({ isHydrated: true, user: previouslyStored ?? null, learning: null });
+      // Local notifications are documented as needing no network at all (see
+      // services/localNotifications.ts's own header) — they shouldn't go
+      // stale just because THIS launch couldn't reach the server. Reschedule
+      // from the last snapshot applyFreshLearning cached, so an offline open
+      // still keeps streak/freeze reminders on track instead of silently
+      // skipping the refresh every fresh-fetch path relies on.
+      if (previouslyStored) {
+        void (async () => {
+          try {
+            const snapshot = await getStoredStreakSnapshot();
+            if (!snapshot) return;
+            await refreshLocalNotifications(
+              {
+                currentStreak: snapshot.currentStreak,
+                state: snapshot.state,
+                freezeDaysRemaining: snapshot.freezeDaysRemaining,
+                lastActiveLocalDate: await getLastActiveLocalDate(),
+              },
+              { reminderHour: null },
+            );
+          } catch {
+            // Best-effort — same discipline as applyFreshLearning above.
+          }
+        })();
+      }
       return;
     }
     // Prefer profile.display_name, but fall back to whatever name this same
@@ -158,6 +316,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
   streakJustLost: null,
 
   clearStreakJustLost: () => set({ streakJustLost: null }),
+
 
   hydrate: async () => {
     // Nothing in here may be allowed to reject. RootNavigator calls this as a
@@ -307,42 +466,28 @@ export const useAuthStore = create<AuthState>((set, get) => {
       pending_streak: 0,
     });
 
-    await setTokens(res.tokens);
-    setCrashUser(res.user.id, res.user.email);
-    // Cleared on every outcome, not just a successful claim: on `restored` the
-    // parked totals belong to a guest row that no longer exists, so keeping
-    // them would credit them to the wrong account on some later upgrade.
-    await clearPendingGuestProgress();
+    return completeSocialSignIn(res, 'google');
+  },
 
-    const action = res.account_action ?? 'created';
-    // Same rule as every other entry point: login() never resets the tour.
-    // `restored` is a returning user signing back into a real account with
-    // real history — resetting the tour here made it reappear, which is
-    // wrong. `claimed` converts the SAME guest row this session may have
-    // already been shown/dismissed the tour offer on — same reasoning as
-    // upgradeGuest() above, so it must not reset either, or the offer fires
-    // again right after signup. Only `created` (genuinely no prior guest row)
-    // is this account's actual first run.
-    if (action === 'created') await resetTourOffered();
-    setPendingEntryMethod(action === 'restored' ? 'google_login' : 'google_signup');
-    void logAnalyticsEvent(
-      action === 'restored' ? AnalyticsEvents.LOGIN : AnalyticsEvents.SIGN_UP,
-      { method: 'google' },
-    );
+  // Sign in with Apple. Exists because App Store Guideline 4.8 requires it
+  // whenever Google Sign-In is offered on iOS. Same one-endpoint design as
+  // Google above; the server matches on Apple's stable user ID first, since
+  // the email may be a private relay address.
+  loginWithApple: async () => {
+    const credential = await signInWithApple();
+    if (credential === null) return null;  // user backed out of the Apple sheet
 
-    const user: User = { ...res.user, name: displayNameFor(res.user) };
-    await setStoredUser(user);
-    set({ user, learning: null });
-    void syncDeviceTimezone();
-
-    // Unlike register(), there is no verify-email detour: the server sets
-    // email_verified because Google already asserted the address. The guard
-    // stays anyway so a future backend change can't silently 403 the setup.
-    if (res.user.email_verified) {
-      const learning = await learningApi.me();
-      await finishAuthSetup(user, learning);
-    }
-    return action;
+    const pending = await getPendingGuestProgress();
+    const res = await authApi.apple({
+      identity_token: credential.identityToken,
+      nonce: credential.nonce,
+      authorization_code: credential.authorizationCode,
+      full_name: credential.fullName,
+      pending_xp: pending.xp,
+      // Always 0 — see the matching comment on upgradeGuest above.
+      pending_streak: 0,
+    });
+    return completeSocialSignIn(res, 'apple');
   },
 
   // Called by VerifyEmailScreen right after a successful authApi.verifyEmail()
@@ -392,7 +537,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       profile: {
         display_name: null, avatar_url: null, learner_mode: null, script_preference: null,
         daily_goal_minutes: null, streak_goal_days: null, motivation: null, gender: null, age: null,
-        timezone: null, onboarding_completed: false,
+        timezone: null, onboarding_completed: false, avatar_variant: null,
         ...state.profile,
         ...patch,
       },
@@ -409,7 +554,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const profileDefaults: UserProfile = {
         display_name: null, avatar_url: null, learner_mode: null, script_preference: null,
         daily_goal_minutes: null, streak_goal_days: null, motivation: null, gender: null, age: null,
-        timezone: null, onboarding_completed: false,
+        timezone: null, onboarding_completed: false, avatar_variant: null,
       };
       return {
         user,
@@ -438,8 +583,22 @@ export const useAuthStore = create<AuthState>((set, get) => {
       lastLearningMeFetchAt = now;
       await applyFreshLearning(learning);
     } catch (e) {
+      // No connectivity flag is written here any more. This used to read
+      // `if (!(e instanceof ApiError && e.status === 401)) setOffline(true)`,
+      // i.e. "anything that isn't an expired session means the device is
+      // offline" — so a 503 during a backend deploy, a 500, a 404, or even a
+      // 200 whose body wasn't valid JSON all raised "You're offline. Changes
+      // will sync once you're back online." on a device with perfect WiFi,
+      // where all three clauses were false.
+      //
+      // api/client.ts now owns that call: it flags unreachability only for
+      // status 0 (no HTTP response at all) and clears it the moment any
+      // response arrives, whatever its status. A server error is a server
+      // error, and surfaces through the normal per-call error path instead of
+      // a connectivity banner.
       addBreadcrumb('refreshLearning: learningApi.me() failed', {
         error: e instanceof Error ? e.message : String(e),
+        status: e instanceof ApiError ? String(e.status) : 'n/a',
       });
     }
   },

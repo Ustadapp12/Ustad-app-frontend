@@ -17,7 +17,7 @@ cd ios && bundle install && bundle exec pod install && cd ..
 npm run link:fonts
 ```
 
-Windows setup: [SETUP_WINDOWS.md](./SETUP_WINDOWS.md)
+Windows setup: [SETUP_WINDOWS.md](./docs/SETUP_WINDOWS.md)
 
 ## Run locally
 

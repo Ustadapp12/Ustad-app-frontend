@@ -67,3 +67,10 @@ export function useResponsiveScale(): (n: number) => number {
   const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, width / BASELINE_W));
   return (n: number) => Math.round(n * scale);
 }
+
+// The newer Figma screens (Leaderboard, Progress) are drawn on a 440pt
+// iPhone Pro Max frame, not this file's 393pt baseline. designScale(sc) lets a
+// screen read numbers straight off that frame: d(19) is "19pt in Figma".
+const FIGMA_FRAME_W = 440;
+export type Scale = (n: number) => number;
+export const designScale = (sc: Scale): Scale => (n: number) => sc((n * BASELINE_W) / FIGMA_FRAME_W);

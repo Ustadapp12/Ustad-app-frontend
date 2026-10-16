@@ -11,7 +11,9 @@ import { colors } from '../../theme/colors';
 import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import BackButton from '../../components/BackButton';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
+import AppleSignInButton from '../../components/AppleSignInButton';
 import WelcomeBackModal from '../../components/WelcomeBackModal';
 import { PRIVACY_URL, TERMS_URL } from '../../config';
 import { isGuest } from '../../utils/guest';
@@ -214,9 +216,7 @@ export default function SignUpScreen({ navigation }: Props) {
       <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.stepScroll} keyboardShouldPersistTaps="handled">
           <View style={styles.headerRow}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => setStep('email')}>
-              <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
-            </TouchableOpacity>
+            <BackButton onPress={() => setStep('email')} style={styles.backBtn} size={18} />
             <View style={styles.dots}>
               <View style={styles.dot} />
               <View style={[styles.dot, styles.dotActive]} />
@@ -300,7 +300,7 @@ export default function SignUpScreen({ navigation }: Props) {
             onPress={handleRegister}
             disabled={!canSubmit || loading}
           >
-            {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Create Account</Text>}
+            {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Create Account</Text>}
           </TouchableOpacity>
         </View>
 
@@ -395,10 +395,18 @@ export default function SignUpScreen({ navigation }: Props) {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Still gated on the terms checkbox — signing up through Google still
+        {/* Still gated on the terms checkbox — signing up through Apple or Google still
             creates an account, so skipping the agreement here would lose the
             consent the form deliberately collects. Tapping while unchecked
             now points at the checkbox instead of doing nothing. */}
+        <AppleSignInButton
+          label="Sign up with Apple"
+          onSuccess={handleGoogleSuccess}
+          onError={setFormError}
+          disabled={loading || !agreedTerms}
+          onBlocked={() => setTermsError(true)}
+        />
+
         <GoogleSignInButton
           label="Sign up with Google"
           onSuccess={handleGoogleSuccess}
@@ -433,28 +441,28 @@ export default function SignUpScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg },
   statusBar: { paddingHorizontal: 24, paddingBottom: 6 },
-  time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
+  time: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText },
   scroll: { paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' },
   lumaWrap: { alignItems: 'center', paddingVertical: 20 },
   luma: { width: 150, height: 150 },
-  heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
-  sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
+  heading: { fontFamily: 'Nunito-Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
+  sub: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
   fieldWrap: { width: '100%', marginBottom: 11 },
-  fieldLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.midText, marginBottom: 5, letterSpacing: 0.4 },
+  fieldLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.midText, marginBottom: 5, letterSpacing: 0.4 },
   inputBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
     borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
   },
   inputIcon: { width: 18, height: 18 },
-  input: { flex: 1, fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText },
-  fieldError: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.red, marginTop: 4 },
-  error: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
+  input: { flex: 1, fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.darkText },
+  fieldError: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.red, marginTop: 4 },
+  error: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
   checklistWrap: { marginTop: 8, marginBottom: 4 },
-  checklistItem: { fontFamily: 'Nunito_400Regular', fontSize: 12, marginBottom: 2 },
+  checklistItem: { fontFamily: 'Nunito-Regular', fontSize: 12, marginBottom: 2 },
   checklistMet: { color: colors.success },
   checklistUnmet: { color: colors.red },
-  strengthText: { fontFamily: 'Nunito_700Bold', fontSize: 12, marginTop: 4 },
+  strengthText: { fontFamily: 'Nunito-Bold', fontSize: 12, marginTop: 4 },
   strengthWeak: { color: colors.red },
   strengthMedium: { color: colors.warning },
   strengthStrong: { color: colors.success },
@@ -465,28 +473,28 @@ const styles = StyleSheet.create({
   },
   checkboxActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkboxError: { borderColor: colors.red },
-  checkmark: { color: 'white', fontSize: 12, fontWeight: '700' },
-  termsText: { flex: 1, fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20 },
-  termsLink: { fontFamily: 'Nunito_700Bold', color: colors.primary },
+  checkmark: { color: '#F5F7FA', fontSize: 12, fontWeight: '700' },
+  termsText: { flex: 1, fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20 },
+  termsLink: { fontFamily: 'Nunito-Bold', color: colors.primary },
   btn: {
     backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
     alignItems: 'center', marginBottom: 16, marginTop: 14,
     shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
   },
   btnDisabled: { opacity: 0.45 },
-  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
+  btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText },
+  dividerText: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText },
   switchRow: { flexDirection: 'row', justifyContent: 'center' },
-  switchText: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText },
-  switchLink: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
+  switchText: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText },
+  switchLink: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
   loadingOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center', justifyContent: 'center',
   },
-  loadingText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText, marginTop: 4 },
+  loadingText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText, marginTop: 4 },
 
   // ── Password step — matches the onboarding pages (OnboardUsernameScreen
   // etc.): header with back arrow + progress dots, centered content, CTA
@@ -497,14 +505,13 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
     backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
   },
-  backArrow: { width: 18, height: 18, tintColor: colors.darkText },
   dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
   stepContent: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 8 },
   stepLuma: { width: 120, height: 120, marginBottom: 0 },
   badge: {
-    fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.primary,
+    fontFamily: 'Nunito-Bold', fontSize: 10, color: colors.primary,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',
   },
   footer: { paddingHorizontal: 22, paddingTop: 12, backgroundColor: colors.lightBg },

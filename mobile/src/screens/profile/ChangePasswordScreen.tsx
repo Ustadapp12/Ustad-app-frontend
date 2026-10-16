@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Image,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authApi } from '../../api';
@@ -9,6 +9,7 @@ import { ApiError } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import { LoadingRing } from '../../components/LoadingSpinner';
+import BackButton from '../../components/BackButton';
 import { maskEmail } from '../../utils/validators';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
@@ -58,14 +59,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={[styles.backBtn, { top: insets.top + 12 }]}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Back"
-      >
-        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 12 }]} />
 
       <View style={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom }]}>
         <View style={styles.iconBadge}>
@@ -100,7 +94,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
               onPress={handleSendCode}
               disabled={!email || loading}
             >
-              {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Send code</Text>}
+              {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Send code</Text>}
             </TouchableOpacity>
           </>
         )}
@@ -115,27 +109,26 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
   iconBadge: {
     width: 76, height: 76, borderRadius: 38, backgroundColor: colors.primaryBg,
     alignItems: 'center', justifyContent: 'center', marginBottom: 18,
   },
   iconGlyph: { fontSize: 34 },
-  heading: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: colors.darkText, textAlign: 'center', marginBottom: 8 },
-  sub: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.mutedText, lineHeight: 20, textAlign: 'center', marginBottom: 28 },
+  heading: { fontFamily: 'Nunito-Bold', fontSize: 26, color: colors.darkText, textAlign: 'center', marginBottom: 8 },
+  sub: { fontFamily: 'Nunito-Regular', fontSize: 14, color: colors.mutedText, lineHeight: 20, textAlign: 'center', marginBottom: 28 },
   emailBox: {
     width: '100%', backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
     borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, alignItems: 'center', marginBottom: 20,
   },
-  emailLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.midText, letterSpacing: 0.4, marginBottom: 5 },
-  emailValue: { fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText },
-  error: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
+  emailLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.midText, letterSpacing: 0.4, marginBottom: 5 },
+  emailValue: { fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.darkText },
+  error: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
   btn: {
     width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
     alignItems: 'center', marginBottom: 16,
     shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
   },
   btnDisabled: { opacity: 0.45 },
-  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
+  btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
 });

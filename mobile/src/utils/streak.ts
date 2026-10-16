@@ -37,6 +37,16 @@ export function streakColor(state: StreakState | undefined): string {
   return STREAK_ACTIVE_COLOR;
 }
 
+// The Streak page hero card's background (2026-09-16, Duolingo reference).
+// Was state-dependent (blue for frozen, gray for none, orange for active) —
+// changed 2026-09-20 per explicit request to always show the orange/yellow
+// gradient regardless of streak_state. `state` is kept as a parameter (even
+// though unused) so the call site and its signature don't need to change if
+// this becomes state-dependent again.
+export function streakGradientColors(_state: StreakState | undefined): [string, string, string] {
+  return ['#FFF3E8', '#FDBA74', '#F97316'];
+}
+
 // "1 day left to save your streak" / "2 days left to save your streak".
 export function freezeDaysLabel(daysRemaining: number): string {
   return `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left to save your streak`;

@@ -42,6 +42,6 @@ export default function PasswordInput({ value, onChangeText, inputStyle, contain
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
-  input: { flex: 1, fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText },
+  input: { flex: 1, fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.darkText },
   icon: { width: 20, height: 20, marginLeft: 10 },
 });

@@ -10,8 +10,9 @@ import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import BackButton from '../../components/BackButton';
 import { validateName } from '../../utils/validators';
-import { characterSrcFor, GENDER_PREVIEW_SRCS } from '../../utils/avatar';
+import { characterSrcFor, currentAvatarVariantIndex, GENDER_PREVIEW_SRCS } from '../../utils/avatar';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
 
@@ -51,7 +52,12 @@ export default function EditProfileScreen({ navigation }: Props) {
     : !hasChanges ? 'Make a change to save.'
     : null;
 
-  const avatarSrc = characterSrcFor(user?.id ?? '', gender);
+  // Same gender as saved: their saved pick. Gender switched: the saved pick
+  // indexes the other gender's folder, so preview (and, on save, grant) the
+  // stable hash pick from the new gender's pool instead.
+  const genderChanged = !!gender && gender !== initialGender;
+  const regrantedVariant = gender ? currentAvatarVariantIndex(user?.id ?? '', null, gender) : null;
+  const avatarSrc = characterSrcFor(user?.id ?? '', gender, genderChanged ? regrantedVariant : profile?.avatar_variant);
 
   async function handleSave() {
     if (!canSubmit || loading) return;
@@ -65,6 +71,10 @@ export default function EditProfileScreen({ navigation }: Props) {
       if (gender && gender !== initialGender) {
         await usersApi.updateGender(gender);
         updateProfileFields({ gender });
+        if (regrantedVariant != null) {
+          await usersApi.updateAvatarVariant(regrantedVariant);
+          updateProfileFields({ avatar_variant: regrantedVariant });
+        }
       }
       if (ageNum && ageNum !== initialAge) {
         await usersApi.updateAge(ageNum);
@@ -81,14 +91,7 @@ export default function EditProfileScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={[styles.backBtn, { top: insets.top + 12 }]}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Back"
-      >
-        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 12 }]} />
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 }]}
@@ -169,7 +172,7 @@ export default function EditProfileScreen({ navigation }: Props) {
           onPress={handleSave}
           disabled={!canSubmit || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Save changes</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Save changes</Text>}
         </TouchableOpacity>
         {!canSubmit && !loading && disabledReason && (
           <Text style={styles.disabledHint}>{disabledReason}</Text>
@@ -185,19 +188,18 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
   content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 28 },
-  heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 18 },
+  heading: { fontFamily: 'Nunito-Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 18 },
   fieldWrap: { width: '100%', marginBottom: 14 },
-  fieldLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.midText, letterSpacing: 0.4, marginBottom: 5 },
+  fieldLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.midText, letterSpacing: 0.4, marginBottom: 5 },
   inputBox: {
     backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
     borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
   },
   inputBoxDisabled: { backgroundColor: colors.lightBg },
-  input: { fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText },
-  readOnlyValue: { fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.mutedText },
-  fieldError: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.red, marginTop: 4 },
+  input: { fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.darkText },
+  readOnlyValue: { fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.mutedText },
+  fieldError: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.red, marginTop: 4 },
   genderRow: { flexDirection: 'row', gap: 10 },
   genderCard: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -206,17 +208,17 @@ const styles = StyleSheet.create({
   },
   genderCardActive: { borderColor: colors.primary, backgroundColor: '#F0FAF5' },
   genderCutout: { width: 44, height: 44 },
-  genderLabel: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.darkText },
-  error: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
+  genderLabel: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.darkText },
+  error: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
   btn: {
     width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
     alignItems: 'center', marginTop: 8,
     shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
   },
   btnDisabled: { opacity: 0.45 },
-  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
+  btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
   disabledHint: {
-    fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText,
+    fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText,
     textAlign: 'center', marginTop: 8,
   },
 });
