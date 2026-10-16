@@ -14,7 +14,7 @@ import { isGuest } from '../../../utils/guest';
 import { getCachedRecommended, subscribeRecommended } from '../../../services/bootCache';
 import { addBreadcrumb, setCrashContext } from '../../../services/crashReporter';
 import type { MapNavProp, TabParamList } from '../../../navigation/types';
-import { SURAH_TO_SEASON, buildMapModel, estimateAyahRange, trustedLevels, type Section, type SectionNode } from '../map/mapModel';
+import { SURAH_TO_SEASON, buildMapModel, estimateAyahRange, type Section, type SectionNode } from '../map/mapModel';
 import { makeStyles as makeLegacyStyles } from '../map/mapStyles';
 import { useMapData } from '../map/useMapData';
 import { createLevelLaunchHandlers, type StartPrompt } from '../map/levelLaunch';
@@ -89,15 +89,6 @@ export default function Map2Screen({ navigation }: Props) {
   const [visibleSurahs, setVisibleSurahs] = useState('');
   const { sections, nodesBySlot, activeSlot } = useEnrichedSections(fullLevels, firstLevel, setFullLevels, recommended, visibleSurahs);
   const activeId = activeSlot != null ? nodesBySlot[activeSlot]?.node.id ?? null : null;
-  const activeSectionIdx = activeSlot == null ? -1 : sections.findIndex(sec => sec.surahNum === SLOT_SURAH[activeSlot]);
-  // Share of the current surah's levels completed, from backend data only.
-  const activeSurah = activeSectionIdx >= 0 ? sections[activeSectionIdx].surahNum : null;
-  const ringProgress = useMemo(() => {
-    if (activeSurah == null) return 0;
-    const levels = trustedLevels(activeSurah, fullLevels[activeSurah]);
-    if (!levels?.length) return 0;
-    return levels.filter(l => l.status === 'completed').length / levels.length;
-  }, [activeSurah, fullLevels]);
 
   const layout = useMemo(
     () => buildMap2Layout({ width, headerH, bottomBarH, activeSlot }),
@@ -153,8 +144,11 @@ export default function Map2Screen({ navigation }: Props) {
     const groupId = route.params?.jumpToGroupId;
     const levelIdx = route.params?.jumpToLevelIdx;
     navigation.setParams({ jumpToSurah: undefined, jumpToGroupId: undefined, jumpToLevelIdx: undefined });
-    setArrowDir(null);
     jumpToSurahStart(jumpSurah, groupId != null && levelIdx != null ? { groupId, levelIdx } : undefined);
+    // Lands on that surah's first level (its JUMP HERE? tag) or the given level;
+    // the arrow then points back to the learner's own level if it's off screen.
+    const slot = SLOT_OF[`${jumpSurah}:${levelIdx ?? 0}`];
+    if (slot != null) updateArrow(Math.max(0, layoutRef.current.cy[slot] - height / 2));
   }, [jumpSurah]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch first-level status for surahs as their bands come on screen.
@@ -316,14 +310,13 @@ export default function Map2Screen({ navigation }: Props) {
       band={item}
       nodesBySlot={nodesBySlot}
       activeSlot={activeSlot}
-      ringProgress={ringProgress}
       shakingNodeId={shakingNodeId}
       shakeAnim={shakeAnim}
       fetchingSurah={fetchingSurah}
       onNodePress={onNodePress}
       overlay={item === overlayBand ? overlay : undefined}
     />
-  ), [S, layout, nodesBySlot, activeSlot, ringProgress, shakingNodeId, shakeAnim, fetchingSurah, onNodePress, overlayBand, overlay]);
+  ), [S, layout, nodesBySlot, activeSlot, shakingNodeId, shakeAnim, fetchingSurah, onNodePress, overlayBand, overlay]);
 
   const getItemLayout = useCallback((_: ArrayLike<number> | null | undefined, index: number) => ({
     length: Math.min(layout.bandH, layout.contentH - index * layout.bandH),

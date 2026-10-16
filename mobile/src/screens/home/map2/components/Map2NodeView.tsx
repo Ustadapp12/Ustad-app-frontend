@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated, TouchableOpacity, View } from 'react-native';
+import { Animated, Pressable, TouchableOpacity, View } from 'react-native';
 import IconStarArt from '../art/IconStarArt';
 import IconLockArt from '../art/IconLockArt';
 import IconBookArt from '../art/IconBookArt';
@@ -46,7 +46,6 @@ interface Props {
   cx: number;
   cy: number;
   look: NodeLook;
-  ringProgress: number;
   label?: string;
   isShaking: boolean;
   shakeAnim: Animated.Value;
@@ -65,7 +64,7 @@ function NodeIcon({ look, review, s }: { look: NodeLook; review: boolean; s: num
 }
 
 function Map2NodeView({
-  S, s, section, node, cx, cy, look, ringProgress, label, isShaking, shakeAnim, isFetching, onPress,
+  S, s, section, node, cx, cy, look, label, isShaking, shakeAnim, isFetching, onPress,
 }: Props) {
   const w = 70 * s, faceH = 57 * s, lip = 8 * s, r = 28.5 * s;
   const colors = FACE[look];
@@ -79,16 +78,21 @@ function Map2NodeView({
     >
       {look === 'current' && (
         <View style={{ position: 'absolute', left: -14 * s, top: -12.85 * s }} pointerEvents="none">
-          <ProgressRing size={98 * s} progress={ringProgress} />
+          <ProgressRing size={98 * s} />
         </View>
       )}
-      <TouchableOpacity activeOpacity={0.8} onPress={() => onPress(section, node)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-        <View style={{ width: w, height: faceH + lip }}>
-          <View style={{ position: 'absolute', top: lip, width: w, height: faceH, borderRadius: r, backgroundColor: colors.lip }} />
-          <View style={{ position: 'absolute', top: 0, width: w, height: faceH, borderRadius: r, backgroundColor: colors.face }} />
-          <NodeIcon look={look} review={!!node.isSpecial} s={s} />
-        </View>
-      </TouchableOpacity>
+      <Pressable onPress={() => onPress(section, node)} hitSlop={6}>
+        {({ pressed }) => (
+          <View style={{ width: w, height: faceH + lip }}>
+            <View style={{ position: 'absolute', top: lip, width: w, height: faceH, borderRadius: r, backgroundColor: colors.lip }} />
+            {/* Pressed: the face sinks halfway onto its lip, like a real button. */}
+            <View style={{ position: 'absolute', top: 0, width: w, height: faceH, transform: [{ translateY: pressed ? lip / 2 : 0 }] }}>
+              <View style={{ position: 'absolute', top: 0, width: w, height: faceH, borderRadius: r, backgroundColor: colors.face }} />
+              <NodeIcon look={look} review={!!node.isSpecial} s={s} />
+            </View>
+          </View>
+        )}
+      </Pressable>
       {look === 'completed' && (
         <View style={{ position: 'absolute', left: -1.5 * s, top: 68.5 * s }} pointerEvents="none">
           <StarRow width={73 * s} earned={node.stars} />

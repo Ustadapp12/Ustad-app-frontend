@@ -14,7 +14,6 @@ interface Props {
   band: number;
   nodesBySlot: { section: Map2Section; node: Map2NodeData }[];
   activeSlot: number | null;
-  ringProgress: number;
   shakingNodeId: string | null;
   shakeAnim: Animated.Value;
   fetchingSurah: number | null;
@@ -27,10 +26,10 @@ interface Props {
 // keeps it near the screen; everything inside is positioned map-wide and
 // shifted up by the band's top.
 function Map2Band({
-  S, layout, band, nodesBySlot, activeSlot, ringProgress, shakingNodeId, shakeAnim, fetchingSurah, onNodePress, overlay,
+  S, layout, band, nodesBySlot, activeSlot, shakingNodeId, shakeAnim, fetchingSurah, onNodePress, overlay,
 }: Props) {
   const c = useMemo(() => bandContent(layout, band), [layout, band]);
-  const { s, lumo } = layout;
+  const { s } = layout;
   const nodes: React.ReactNode[] = [];
   for (let slot = c.from; slot <= c.to; slot++) {
     const entry = nodesBySlot[slot];
@@ -47,7 +46,6 @@ function Map2Band({
         cx={layout.cx[slot]}
         cy={layout.cy[slot] - c.top}
         look={look}
-        ringProgress={look === 'current' ? ringProgress : 0}
         label={look === 'current' ? 'START' : look === 'jump' ? 'JUMP HERE?' : undefined}
         isShaking={shakingNodeId === node.id}
         shakeAnim={shakeAnim}
@@ -63,14 +61,16 @@ function Map2Band({
       {c.boards.map(b => (
         <SurahBoardView key={b.surahNum} S={S} s={s} board={b} w={layout.boardW} h={layout.boardH} offsetY={c.top} />
       ))}
-      {c.hasLumo && (
+      {c.lumos.map(l => (
+        // Static: no glow, no animation.
         <Image
+          key={`lumo-${l.slot}`}
           source={MAP2_IMAGES.lumo}
-          style={{ position: 'absolute', left: lumo.x, top: lumo.y - c.top, width: lumo.w, height: lumo.h }}
+          style={{ position: 'absolute', left: l.x, top: l.y - c.top, width: l.w, height: l.h }}
           resizeMode="contain"
-          accessibilityLabel="Lumo at the start of your journey"
+          accessibilityLabel={l.slot === activeSlot ? 'Lumo next to your level' : 'Lumo at the start of your journey'}
         />
-      )}
+      ))}
       {nodes}
       {overlay}
     </View>

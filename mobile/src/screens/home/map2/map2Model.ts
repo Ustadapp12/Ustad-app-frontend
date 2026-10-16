@@ -99,6 +99,10 @@ const DECOR_CYCLE: { k: number; kind: DecorKind; x: number; dy: number; w?: numb
 ];
 
 interface Box { x: number; y: number; w: number; h: number }
+// Where a static Lumo stands, and the level he stands beside.
+export interface LumoSpot extends Box { slot: number }
+// Outer radius of the current level's ring (98pt across).
+const RING_R = 49;
 export interface Dash { x: number; y: number; angle: number }
 export interface Decor extends Box { key: string; kind: DecorKind; flip: boolean }
 export interface Board {
@@ -120,7 +124,7 @@ export interface Map2Layout {
   boardW: number;
   boardH: number;
   boards: Board[];
-  lumo: Box;
+  lumos: LumoSpot[];
   bandH: number;
   bandCount: number;
   baseY: number;
@@ -167,15 +171,26 @@ export function buildMap2Layout({ width, headerH, bottomBarH, activeSlot }: Layo
     x: cx[i] - 52 * s, y: cy[i] - (NODE_FACE_H / 2 + lift + 30) * s, w: 104 * s, h: 30 * s,
   });
 
-  // Lumo stands on the sand left of the very first level.
+  // Lumo, standing still on the sand: beside the very first level, and beside
+  // the current level on its open side, clear of the ring. Once if they coincide.
   const lumoW = LUMO_W * s;
   const lumoH = lumoW * LUMO_ASPECT;
-  const lumo: Box = {
-    x: cx[0] - (NODE_W / 2 + 10) * s - lumoW,
-    y: cy[0] + (NODE_FACE_H / 2 + NODE_LIP) * s - lumoH,
-    w: lumoW,
-    h: lumoH,
-  };
+  const lumoFoot = (i: number) => cy[i] + (NODE_FACE_H / 2 + NODE_LIP) * s - lumoH;
+  const lumos: LumoSpot[] = [];
+  if (activeSlot !== 0) {
+    lumos.push({ slot: 0, x: cx[0] - (NODE_W / 2 + 10) * s - lumoW, y: lumoFoot(0), w: lumoW, h: lumoH });
+  }
+  if (activeSlot != null) {
+    const gapFromCentre = (RING_R + 6) * s;
+    const leftX = cx[activeSlot] - gapFromCentre - lumoW;
+    const rightX = cx[activeSlot] + gapFromCentre;
+    const preferLeft = cycleX(activeSlot) > FIGMA_W / 2;
+    const fitsLeft = leftX >= 4 * s;
+    const fitsRight = rightX + lumoW <= width - 4 * s;
+    const x = (preferLeft && fitsLeft) || !fitsRight ? leftX : rightX;
+    lumos.push({ slot: activeSlot, x, y: lumoFoot(activeSlot), w: lumoW, h: lumoH });
+  }
+  const lumosNear = (i: number) => lumos.filter(l => Math.abs(l.slot - i) <= 4);
 
   const boardW = BOARD_W * s;
   const boardH = BOARD_H * s;
@@ -187,7 +202,7 @@ export function buildMap2Layout({ width, headerH, bottomBarH, activeSlot }: Layo
     const f = sec.nodes[0].slot;
     const near: Box[] = [];
     for (let j = Math.max(0, f - 3); j <= Math.min(n - 1, f + 3); j++) near.push(nodeBox(j));
-    if (f < 4) near.push(lumo);
+    near.push(...lumosNear(f));
     // The "JUMP HERE?" tag above this surah's first level, and START + ring
     // when the active level is close by.
     near.push(labelBox(f));
@@ -222,7 +237,7 @@ export function buildMap2Layout({ width, headerH, bottomBarH, activeSlot }: Layo
   const bandH = BAND_PT * s;
   return {
     s, mapW: width, contentH, nodeW: NODE_W * s, nodeFaceH: NODE_FACE_H * s, cx, cy,
-    dashLen: DASH_LEN * s, dashThick: DASH_THICK * s, boardW, boardH, boards, lumo,
+    dashLen: DASH_LEN * s, dashThick: DASH_THICK * s, boardW, boardH, boards, lumos,
     bandH, bandCount: Math.ceil(contentH / bandH), baseY,
   };
 }
@@ -238,7 +253,7 @@ export interface BandContent {
   dashes: Dash[];
   decor: Decor[];
   boards: Board[];
-  hasLumo: boolean;
+  lumos: LumoSpot[];
 }
 
 // Index of the first slot whose centre is at or above y (cy falls as slot grows).
@@ -326,7 +341,7 @@ export function bandContent(L: Map2Layout, band: number): BandContent {
       const w = (d.w ?? nw) * s;
       const box = { x: d.x * s, y: L.cy[i] + d.dy * s, w, h: w * (nh / nw) };
       if (boardBoxes.some(b => overlaps(box, b))) continue;
-      if (i < 4 && overlaps(box, L.lumo)) continue;
+      if (L.lumos.some(l => Math.abs(l.slot - i) <= 4 && overlaps(box, l))) continue;
       if (d.kind === 'grassRock' || d.kind === 'grass') {
         let hit = false;
         for (let j = Math.max(0, i - 3); j <= Math.min(SLOT_COUNT - 1, i + 3) && !hit; j++) hit = overlaps(box, nodeBox(j));
@@ -336,7 +351,6 @@ export function bandContent(L: Map2Layout, band: number): BandContent {
     }
   }
 
-  const lumoMidY = L.lumo.y + L.lumo.h / 2;
   return {
     top,
     height,
@@ -345,7 +359,7 @@ export function bandContent(L: Map2Layout, band: number): BandContent {
     dashes,
     decor,
     boards: L.boards.filter(b => b.cy >= top && b.cy < bottom),
-    hasLumo: lumoMidY >= top && lumoMidY < bottom,
+    lumos: L.lumos.filter(l => l.y + l.h / 2 >= top && l.y + l.h / 2 < bottom),
   };
 }
 
