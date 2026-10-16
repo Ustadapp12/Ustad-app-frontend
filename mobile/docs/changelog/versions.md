@@ -841,3 +841,28 @@ bottom bar's corner strip fixed on the other tabs. Release notes 1.0.41
 approved by the user 2026-10-16. Pre-flight run on the exact commit
 (tsc, jest 56/56, export:embed). Uncommitted login / token / connectivity work
 is not in this build. Not yet verified on an iPhone.
+
+**26101601** / 1.0.41 — AAB (Play production) — 2026-10-16 — built in
+`C:\BuildProjects\ustadapp-mobile` from commit `690f6ca` (same app code as
+iOS 20050). The source was synced from a `git archive HEAD` export, not the
+OneDrive tree, so the uncommitted login / token / connectivity work is not in
+it. Backend: **production** (`ustad-app-backend-six`). Contents: the new
+Figma day map as Home (continuous scroll), the new 5-tab bar, the Journey /
+Review / Building pages, the new node mapping, Lumo by the current level,
+pressed nodes, and the new fonts (Nunito ExtraBold / Black, Inter Bold).
+
+Sync gap found and fixed: the build folder's `App.tsx` (the root file, not
+covered by the usual `src/` + `assets/` sync) was stale. It lacked the
+connectivity watcher, the Android keyboard "Done" bar and the newer
+lesson-resume behaviour, so earlier AABs most likely shipped without them.
+This build has the committed `App.tsx`, `app.json` and `package.json`.
+
+Verified inside the AAB: JS bundle has the new map, tab bar, Building page and
+1.0.41 notes. All 3 new fonts are in `base/assets/fonts`. The 7 map2 PNGs
+and Lumo are in `res`, with byte sizes matching the sources. versionCode
+26101601 / versionName 1.0.41 / `com.ustadapp`. The file was written after
+the build started, so it is not stale. Release notes 1.0.41 approved
+2026-10-16. Not yet verified on a device.
+
+Output: `C:\BuildProjects\app-release-1.0.41-26101601.aab` (also at
+`android\app\build\outputs\bundle\release\app-release.aab`).
