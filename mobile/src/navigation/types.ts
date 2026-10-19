@@ -63,6 +63,8 @@ export type RootStackParamList = {
   // Modals
   Streak: { justIncremented?: boolean; currentStreak?: number } | undefined;
   XP: undefined;
+  Gems: undefined;
+  Hearts: undefined;
   // Post-lesson streak celebration — see StreakCelebrationScreen.
   // streakRepaired: true only on the exact completion that unfroze a frozen
   // streak — plays the ice-break-then-fire sequence instead of the plain loop.

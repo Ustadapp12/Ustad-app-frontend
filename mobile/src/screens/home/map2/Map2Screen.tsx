@@ -208,6 +208,9 @@ export default function Map2Screen({ navigation }: Props) {
 
   const onStreak = useCallback(() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('Streak')), [isGuestUser, navigation]);
   const onXp = useCallback(() => (isGuestUser ? setGuestPromptVisible(true) : navigation.navigate('XP')), [isGuestUser, navigation]);
+  // Explainer pages, not account data — open for guests too, unlike Streak/XP.
+  const onHearts = useCallback(() => navigation.navigate('Hearts'), [navigation]);
+  const onGems = useCallback(() => navigation.navigate('Gems'), [navigation]);
   const onSearch = useCallback(() => navigation.navigate('SearchSurahs'), [navigation]);
   const onProgress = useCallback(() => navigation.navigate('SurahProgress'), [navigation]);
   const onJourney = useCallback(() => navigation.navigate('ComingSoon', { title: 'Journey' }), [navigation]);
@@ -245,10 +248,20 @@ export default function Map2Screen({ navigation }: Props) {
   if (cardSlot != null && overlayBand != null) {
     const { ACTION_CARD_W: cw, ACTION_CARD_H: ch } = legacy.M;
     const nx = layout.cx[cardSlot];
-    const margin = 14 * s;
-    const right = nx + layout.nodeW / 2 + margin;
-    const left = right + cw <= width ? right : Math.max(8 * s, Math.min(width - cw - 8 * s, nx - layout.nodeW / 2 - margin - cw));
-    const top = layout.cy[cardSlot] - overlayBand * layout.bandH - ch / 2;
+    const hMargin = 8 * s;
+    const vMargin = 14 * s;
+    // Centered over the node horizontally, clamped to stay on screen.
+    const left = Math.max(hMargin, Math.min(width - cw - hMargin, nx - cw / 2));
+    // Always placed in the empty space above the node (bottom edge of the
+    // card sits vMargin above the node's own top edge), never parallel to
+    // or overlapping it — falls back to below the node only when there
+    // isn't room above within this band (e.g. the node is the first thing
+    // in it).
+    const nodeCenterYInBand = layout.cy[cardSlot] - overlayBand * layout.bandH;
+    const nodeTopInBand = nodeCenterYInBand - layout.nodeFaceH / 2;
+    const nodeBottomInBand = nodeCenterYInBand + layout.nodeFaceH / 2;
+    const fitsAbove = nodeTopInBand - vMargin - ch >= 0;
+    const top = fitsAbove ? nodeTopInBand - vMargin - ch : nodeBottomInBand + vMargin;
     if (startPrompt) {
       overlay = (
         <View style={{ position: 'absolute', left, top, zIndex: 5 }}>
@@ -259,7 +272,6 @@ export default function Map2Screen({ navigation }: Props) {
             ayahTo={startPrompt.ayahTo}
             isSpecial={startPrompt.node.isSpecial}
             onConfirm={handleStartConfirm}
-            onDismiss={() => setStartPrompt(null)}
             S={legacy.S}
           />
         </View>
@@ -276,7 +288,6 @@ export default function Map2Screen({ navigation }: Props) {
             ayahTo={node.endAyah ?? estimate.to}
             isSpecial={node.isSpecial}
             onConfirm={() => handleRetryConfirm(section, node)}
-            onDismiss={() => setRetryNodeId(null)}
             S={legacy.S}
           />
         </View>
@@ -323,8 +334,9 @@ export default function Map2Screen({ navigation }: Props) {
       fetchingSurah={fetchingSurah}
       onNodePress={onNodePress}
       overlay={item === overlayBand ? overlay : undefined}
+      onBackgroundPress={item === overlayBand ? dismissActionCards : undefined}
     />
-  ), [S, layout, nodesBySlot, activeSlot, shakingNodeId, shakeAnim, fetchingSurah, onNodePress, overlayBand, overlay]);
+  ), [S, layout, nodesBySlot, activeSlot, shakingNodeId, shakeAnim, fetchingSurah, onNodePress, overlayBand, overlay, dismissActionCards]);
 
   const getItemLayout = useCallback((_: ArrayLike<number> | null | undefined, index: number) => ({
     length: Math.min(layout.bandH, layout.contentH - index * layout.bandH),
@@ -365,6 +377,8 @@ export default function Map2Screen({ navigation }: Props) {
         learning={learning}
         isGuestUser={isGuestUser}
         onStreak={onStreak}
+        onHearts={onHearts}
+        onGems={onGems}
         onXp={onXp}
         onSearch={onSearch}
         onProgress={onProgress}

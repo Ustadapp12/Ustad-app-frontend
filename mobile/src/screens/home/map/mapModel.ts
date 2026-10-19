@@ -591,14 +591,13 @@ export interface MapModel {
 }
 
 // Fixed aspect ratio for the "start a new level" / "repeat the lesson" cards —
-// height as a fraction of width, measured off the source design's card rect
-// (392×179, i.e. the rounded-rect shape itself, not its viewBox — the
-// viewBox padding is just drop-shadow bleed, which an RN shadow doesn't need
-// extra canvas for). Every internal element (title, subtitle, button) is then
-// positioned as a percentage of this fixed box in makeStyles/LevelActionCard,
-// so scaling ACTION_CARD_W scales the whole card uniformly instead of each
-// piece being sized off its own independent sc() constant.
-export const ACTION_CARD_ASPECT = 179 / 392;
+// height as a fraction of width, measured off the Figma playcard redesign's
+// card rect (309×180, node 1090:4964 in the Landing-Page file). Every
+// internal element (title, subtitle, button) is then positioned as a
+// percentage of this fixed box in makeStyles/LevelActionCard, so scaling
+// ACTION_CARD_W scales the whole card uniformly instead of each piece being
+// sized off its own independent sc() constant.
+export const ACTION_CARD_ASPECT = 180 / 309;
 
 // ── ONE function: real device width (+ viewport height) in → every pixel of
 // the map's layout out. Nothing derived here is a module-level constant

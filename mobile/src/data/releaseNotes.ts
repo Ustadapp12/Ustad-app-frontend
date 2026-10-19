@@ -29,6 +29,20 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Drafted 2026-10-19 and shown to the user in the same session as the
+    // build that carries it, per their own request ("give me release notes
+    // here") — not a prior separate review round-trip like other entries.
+    version: '1.0.42',
+    date: '2026-10-19',
+    changes: [
+      { category: 'New', text: "Tap Gems or Hearts in the top bar to see what they do, and exactly how hearts work during a level." },
+      { category: 'Improved', text: 'The level start/repeat card has a fresh new look, and always opens in the open space above the level instead of sitting on top of it.' },
+      { category: 'Improved', text: 'Tap anywhere else on the map to close an open level card.' },
+      { category: 'Improved', text: 'The guided tour has been rebuilt to match the new map, its five tabs, and your streak and XP.' },
+      { category: 'Fixed', text: 'The tab bar no longer overlaps your Profile or Leaderboard screens.' },
+    ],
+  },
+  {
     // Reviewed and approved by the user 2026-10-16, before the build that
     // carries it.
     version: '1.0.41',

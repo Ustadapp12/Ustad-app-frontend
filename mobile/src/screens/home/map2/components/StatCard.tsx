@@ -10,9 +10,11 @@ interface Props {
   value: string;
   label: string;
   onPress?: () => void;
+  /** Tour-only: lets the guided tour measure this card for its cutout. */
+  targetRef?: React.Ref<View>;
 }
 
-function StatCard({ S, s, icon, value, label, onPress }: Props) {
+function StatCard({ S, s, icon, value, label, onPress, targetRef }: Props) {
   const body = (
     <>
       <View style={S.statPill}>
@@ -22,9 +24,21 @@ function StatCard({ S, s, icon, value, label, onPress }: Props) {
       <Text style={S.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
     </>
   );
-  if (!onPress) return <View style={S.statCard} accessibilityLabel={`${label} ${value}`}>{body}</View>;
+  if (!onPress) {
+    return (
+      <View ref={targetRef} collapsable={false} style={S.statCard} accessibilityLabel={`${label} ${value}`}>
+        {body}
+      </View>
+    );
+  }
   return (
-    <TouchableOpacity style={S.statCard} activeOpacity={0.7} onPress={onPress} accessibilityLabel={`${label} ${value}`}>
+    <TouchableOpacity
+      ref={targetRef}
+      style={S.statCard}
+      activeOpacity={0.7}
+      onPress={onPress}
+      accessibilityLabel={`${label} ${value}`}
+    >
       {body}
     </TouchableOpacity>
   );

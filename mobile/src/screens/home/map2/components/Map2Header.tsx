@@ -9,6 +9,7 @@ import type { Map2Styles } from '../styles';
 import type { LearningMe } from '../../../../types/api';
 import StatCard from './StatCard';
 import FeatureButton, { type FeatureSpec } from './FeatureButton';
+import { useTourTarget } from '../../../../components/tour/useTourTarget';
 
 // Left column: Search, Progress. Right column: Journey, Review.
 const SEARCH: FeatureSpec = {
@@ -47,6 +48,8 @@ interface Props {
   learning: LearningMe | null;
   isGuestUser: boolean;
   onStreak: () => void;
+  onHearts: () => void;
+  onGems: () => void;
   onXp: () => void;
   onSearch: () => void;
   onProgress: () => void;
@@ -56,9 +59,13 @@ interface Props {
 
 // Pinned over the scrolling map: sky, sun and hill never move; nodes and sand
 // slide underneath and fade out under the hill's edge.
-function Map2Header({ S, s, topInset, learning, isGuestUser, onStreak, onXp, onSearch, onProgress, onJourney, onReview }: Props) {
+function Map2Header({
+  S, s, topInset, learning, isGuestUser, onStreak, onHearts, onGems, onXp, onSearch, onProgress, onJourney, onReview,
+}: Props) {
   const banked = (n: number | undefined) => (learning ? (isGuestUser ? '—' : String(n ?? 0)) : '…');
   const hillBottom = topInset + SKY_HILL_H * s;
+  const streakTarget = useTourTarget('hudStreak', 'round');
+  const xpTarget = useTourTarget('hudXp', 'round');
   return (
     <View style={[S.header, { height: topInset + HEADER_REACH * s }]}>
       <View style={[S.headerSkyFill, { height: topInset + 1 }]} />
@@ -69,11 +76,13 @@ function Map2Header({ S, s, topInset, learning, isGuestUser, onStreak, onXp, onS
         style={{ position: 'absolute', left: 0, right: 0, top: hillBottom - 1, height: FADE_H * s }}
       />
       <View style={[S.statRow, { top: topInset + 3 * s }]} pointerEvents="box-none">
-        <StatCard S={S} s={s} icon={MAP2_IMAGES.streak} label="Streak" value={banked(learning?.current_streak)} onPress={onStreak} />
-        {/* Hearts and gems aren't live in the backend yet: a dash until they are. */}
-        <StatCard S={S} s={s} icon={MAP2_IMAGES.hearts} label="Hearts" value="—" />
-        <StatCard S={S} s={s} icon={MAP2_IMAGES.gems} label="Gems" value="—" />
-        <StatCard S={S} s={s} icon={MAP2_IMAGES.xp} label="XP" value={banked(learning?.xp_total)} onPress={onXp} />
+        <StatCard S={S} s={s} icon={MAP2_IMAGES.streak} label="Streak" value={banked(learning?.current_streak)} onPress={onStreak} targetRef={streakTarget.ref} />
+        {/* Hearts and gems aren't live in the backend yet: a dash until they
+            are. Still tappable -- both open an explainer page rather than a
+            live balance. */}
+        <StatCard S={S} s={s} icon={MAP2_IMAGES.hearts} label="Hearts" value="—" onPress={onHearts} />
+        <StatCard S={S} s={s} icon={MAP2_IMAGES.gems} label="Gems" value="—" onPress={onGems} />
+        <StatCard S={S} s={s} icon={MAP2_IMAGES.xp} label="XP" value={banked(learning?.xp_total)} onPress={onXp} targetRef={xpTarget.ref} />
       </View>
       <FeatureButton S={S} s={s} topInset={topInset} spec={SEARCH} onPress={onSearch} />
       <FeatureButton S={S} s={s} topInset={topInset} spec={PROGRESS} onPress={onProgress} />

@@ -195,7 +195,7 @@ function ProfileContent({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         {/* Avatar card */}
         <View style={styles.avatarCard}>
           <View style={styles.avatarWrap}>

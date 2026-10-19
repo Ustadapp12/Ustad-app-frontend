@@ -14,6 +14,13 @@ export function makeStyles(M: MapModel) {
   // layout box positions below (top/left/width/height) use real percentage
   // strings since RN resolves those against the card's own fixed dimensions.
   const acw = (fraction: number) => Math.round(ACTION_CARD_W * fraction);
+  // Same idea as acw() but off the card's height — needed wherever a piece
+  // (the button's lip thickness, the mascot's height) is measured in the
+  // source design as a fraction of height rather than width. Since
+  // ACTION_CARD_H is always ACTION_CARD_W * ACTION_CARD_ASPECT, acw and ach
+  // fractions stay in the same proportion the source design used no matter
+  // how ACTION_CARD_W itself scales.
+  const ach = (fraction: number) => Math.round(ACTION_CARD_H * fraction);
   // Total diameter of the feedback button's outer ring — also used, as the
   // same sc(54) literal, at the JSX call site below to compute its
   // horizontal position (that call site has its own `sc` from the same
@@ -230,47 +237,55 @@ export function makeStyles(M: MapModel) {
       paddingHorizontal: sc(16), paddingVertical: sc(8),
     },
     unlockDismissText: { fontFamily: 'Nunito-Bold', fontSize: sc(13), color: colors.midText },
+    // Figma's playcard (node 1090:4964, "Landing-Page" file) — one solid
+    // green card for both the "start a new level" and "repeat the lesson"
+    // taps (the old off-white/yellow variant split is gone). No close
+    // button in the source design — dismissed by tapping the map background
+    // instead, see Map2Band's onBackgroundPress.
     actionCard: {
       width: ACTION_CARD_W, height: ACTION_CARD_H,
-      borderRadius: acw(0.087), borderWidth: 1.5,
-      shadowColor: '#000', shadowOffset: { width: 0, height: acw(0.043) }, shadowOpacity: 0.25, shadowRadius: acw(0.061), elevation: 10,
+      borderRadius: acw(0.087), backgroundColor: colors.levelStartAccent,
+      shadowColor: '#000', shadowOffset: { width: 0, height: acw(0.013) }, shadowOpacity: 0.25, shadowRadius: acw(0.006), elevation: 4,
     },
-    actionCardStart: { backgroundColor: colors.levelStartAccent, borderColor: colors.levelStartAccent },
-    actionCardRepeat: { backgroundColor: colors.levelRepeatBg, borderColor: colors.levelRepeatBorder },
-    actionCardClose: {
-      position: 'absolute', top: '5%', right: '5%', width: acw(0.09), height: acw(0.09),
-      alignItems: 'center', justifyContent: 'center', zIndex: 1,
-    },
-    actionCardCloseText: { fontSize: acw(0.05), fontFamily: 'Nunito-Bold' },
-    // Title/subtitle/button all sit in absolutely-positioned percentage boxes
+    // Title/subtitle sit in absolutely-positioned percentage boxes
     // (percentages resolved against the fixed actionCard width/height above)
     // instead of normal flex flow, so their position stays locked to the
     // card's proportions no matter how long the surah name or ayah range is.
-    // Title is narrower than subtitle/button (78% vs 92%) so a long surah
-    // name shrinks-to-fit within its own lane instead of running under the
-    // close button sitting in the top-right corner.
-    actionCardTitleBox: { position: 'absolute', left: '4%', top: '14%', width: '78%' },
-    actionCardTitle: { fontFamily: 'Nunito-Bold', fontSize: acw(0.07) },
+    // Both are capped to 58% width to stay clear of the mascot art, which
+    // occupies the card's top-right quadrant.
+    actionCardTitleBox: { position: 'absolute', left: '5%', top: '13%', width: '58%' },
+    actionCardTitle: { fontFamily: 'Nunito-Bold', fontSize: acw(0.078), color: colors.levelCardOffWhite },
     actionCardSubtitleBox: {
-      position: 'absolute', left: '4%', top: '34%', width: '92%',
+      position: 'absolute', left: '5%', top: '37%', width: '58%',
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     },
-    actionCardSubtitle: { fontFamily: 'Nunito-Bold', fontSize: acw(0.052), opacity: 0.7 },
+    actionCardSubtitle: {
+      fontFamily: 'Nunito-Bold', fontSize: acw(0.039), opacity: 0.7,
+      color: colors.levelCardOffWhite, textTransform: 'uppercase', letterSpacing: 0.6,
+    },
     // Estimated time to clear the level — parallel to the ayah range on the
     // opposite side of the same row (4-5 min normal / 6-8 min special,
     // review levels covering more ground). marginLeft is a safety gap on
     // top of space-between, in case both strings run long on a narrow card.
     actionCardTimeEstimate: { marginLeft: acw(0.02) },
+    // Mascot art in the top-right quadrant, sized/positioned off the source
+    // design's 82×79 rect on its 309-wide card.
+    actionCardMascot: { position: 'absolute', left: '64%', top: '12%', width: acw(0.265), height: ach(0.439) },
+    // Bottom-shadow "lip" button (the pressed/3D look): the outer rect IS
+    // the shadow color and doubles as the full tap target; the white face
+    // sits on top, inset from the bottom by the lip's thickness so the
+    // shadow color peeks out as a solid flat strip instead of a blurred
+    // shadow — RN shadow props can't produce a flat offset shadow directly.
     actionCardBtn: {
-      // top nudged down from 51% (height trimmed to match, 31%→28%, so the
-      // bottom edge — and the card's own bottom margin — stays put) to open
-      // up more breathing room under the ayah-range subtitle, which sat
-      // right on top of the button before.
-      position: 'absolute', left: '4%', top: '54%', width: '92%', height: '28%',
-      borderRadius: acw(0.052), alignItems: 'center', justifyContent: 'center',
-      shadowColor: '#000', shadowOffset: { width: 0, height: acw(0.017) }, shadowOpacity: 0.2, shadowRadius: acw(0.026), elevation: 4,
+      position: 'absolute', left: '6%', top: '51%', width: '88%', height: ach(0.311),
+      borderRadius: acw(0.039), backgroundColor: colors.levelStartAccentShadow,
     },
-    actionCardBtnText: { fontFamily: 'Nunito-Bold', fontSize: acw(0.057), letterSpacing: 0.3 },
+    actionCardBtnFace: {
+      position: 'absolute', left: 0, right: 0, top: 0, height: ach(0.311) - ach(0.044),
+      borderRadius: acw(0.039), backgroundColor: colors.levelCardOffWhite,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    actionCardBtnText: { fontFamily: 'Nunito-Bold', fontSize: acw(0.052), letterSpacing: 0.3, color: colors.levelStartAccentText },
   });
   const SL = StyleSheet.create({
     // width:'100%' + alignItems:'stretch' (not 'center') is required, not

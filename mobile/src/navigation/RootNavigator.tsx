@@ -55,6 +55,8 @@ import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
 import FeedbackScreen from '../screens/feedback/FeedbackScreen';
 import StreakScreen from '../screens/gamification/StreakScreen';
 import XPScreen from '../screens/gamification/XPScreen';
+import GemsScreen from '../screens/gamification/GemsScreen';
+import HeartsScreen from '../screens/gamification/HeartsScreen';
 import StreakCelebrationScreen from '../screens/gamification/StreakCelebrationScreen';
 import StreakRepairProgressScreen from '../screens/gamification/StreakRepairProgressScreen';
 import GuestStreakPitchScreen from '../screens/gamification/GuestStreakPitchScreen';
@@ -219,6 +221,16 @@ export default function RootNavigator() {
         <Stack.Screen
           name="XP"
           component={XPScreen}
+          options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="Gems"
+          component={GemsScreen}
+          options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="Hearts"
+          component={HeartsScreen}
           options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
         />
         <Stack.Screen name="StreakCelebration" component={StreakCelebrationScreen} options={{ animation: 'fade' }} />

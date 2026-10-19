@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
+import { useTourTarget } from '../../../../components/tour/useTourTarget';
 import BottomBarBgArt, { BOTTOM_BAR_BG_H, BOTTOM_BAR_BG_W } from '../art/BottomBarBgArt';
 import BottomBarBgSolidArt from '../art/BottomBarBgSolidArt';
 import NavHomeArt from '../art/NavHomeArt';
@@ -55,6 +56,18 @@ interface Props {
 
 function Map2BottomBar({ S, s, bottomClearance, active, solid, onPress }: Props) {
   const Bg = solid ? BottomBarBgSolidArt : BottomBarBgArt;
+  // The guided tour measures each tab icon through these — called a fixed
+  // number of times at the top level (Rules of Hooks), not once per item
+  // inside the ITEMS.map() below, so this lookup is what the render loop
+  // uses instead of calling useTourTarget per item.
+  const homeTarget = useTourTarget('tabHome', 'round');
+  const chestTarget = useTourTarget('tabQuests', 'round');
+  const starTarget = useTourTarget('tabBuilding', 'round');
+  const trophyTarget = useTourTarget('tabBoard', 'round');
+  const profileTarget = useTourTarget('tabProfile', 'round');
+  const tourRefOf: Record<BottomBarKey, React.Ref<View>> = {
+    home: homeTarget.ref, chest: chestTarget.ref, star: starTarget.ref, trophy: trophyTarget.ref, profile: profileTarget.ref,
+  };
   return (
     <View style={[S.bottomBar, { height: BOTTOM_BAR_H * s + bottomClearance, backgroundColor: 'transparent' }]}>
       <Bg width={BOTTOM_BAR_BG_W * s} style={{ position: 'absolute', left: -1 * s, top: -1 * s }} />
@@ -70,6 +83,7 @@ function Map2BottomBar({ S, s, bottomClearance, active, solid, onPress }: Props)
         {ITEMS.map(item => (
           <TouchableOpacity
             key={item.key}
+            ref={tourRefOf[item.key]}
             style={[S.navIcon, { left: item.left * s, top: item.top * s }]}
             onPress={() => onPress(item.key)}
             hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}

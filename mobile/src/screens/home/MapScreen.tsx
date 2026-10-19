@@ -822,7 +822,6 @@ export default function MapScreen({ navigation }: Props) {
                   ayahTo={ayahTo}
                   isSpecial={node.isSpecial}
                   onConfirm={() => handleRetryConfirm(section, node)}
-                  onDismiss={() => setRetryNodeId(null)}
                   S={S}
                 />
               </View>
@@ -844,7 +843,6 @@ export default function MapScreen({ navigation }: Props) {
                   ayahTo={ayahTo}
                   isSpecial={node.isSpecial}
                   onConfirm={handleStartConfirm}
-                  onDismiss={() => setStartPrompt(null)}
                   S={S}
                 />
               </View>

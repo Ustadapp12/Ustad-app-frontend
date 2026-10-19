@@ -1,22 +1,25 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, Animated, TouchableOpacity } from 'react-native';
-import { colors } from '../../../../theme/colors';
+import { View, Text, Animated, TouchableOpacity, Image } from 'react-native';
 import { formatAyahRange } from '../mapModel';
 import type { Styles } from '../mapStyles';
 
 // ── Level action card — the on-map popout for "start a new level" (fresh
 // node tap) and "repeat the lesson" (completed node tap), replacing what used
 // to be an instant navigate / a plain text prompt. Fixed width AND height
-// (see ACTION_CARD_ASPECT), with title/subtitle/button/close each positioned
-// as a percentage box of that fixed frame (see makeStyles) — matches the
-// source design's fixed card exactly rather than sizing to content.
+// (see ACTION_CARD_ASPECT), with title/subtitle/button each positioned as a
+// percentage box of that fixed frame (see makeStyles) — matches the Figma
+// playcard redesign (node 1090:4964, "Landing-Page" file) exactly rather
+// than sizing to content. No close button in that design — dismissal is a
+// tap anywhere else on the map, wired up in Map2Band/Map2Screen — so unlike
+// the close button this card used to have, there's no in-card dismiss path.
 //
-// Scales in on mount and scales+fades out before either the close button or
-// the confirm button actually does anything — the parent only clears the
-// state that unmounts this (retryNodeId/startPrompt) once the shrink
-// animation's callback fires, so it never just pops out of existence. ──
+// Scales in on mount and scales+fades out before the confirm button actually
+// does anything — the parent only clears the state that unmounts this
+// (retryNodeId/startPrompt) once the shrink animation's callback fires, so it
+// never just pops out of existence. A background-tap dismissal, by contrast,
+// is immediate (it isn't routed through this component at all). ──
 export function LevelActionCard({
-  variant, surahName, ayahFrom, ayahTo, isSpecial, onConfirm, onDismiss, S,
+  variant, surahName, ayahFrom, ayahTo, isSpecial, onConfirm, S,
 }: {
   variant: 'start' | 'repeat';
   surahName: string;
@@ -27,7 +30,6 @@ export function LevelActionCard({
    *  actual exercise count. */
   isSpecial?: boolean;
   onConfirm: () => void;
-  onDismiss: () => void;
   S: Styles['S'];
 }) {
   const isStart = variant === 'start';
@@ -38,7 +40,6 @@ export function LevelActionCard({
   const timeEstimate = isStart
     ? (isSpecial ? 'Starting review now' : 'Starting now')
     : 'Starting again';
-  const accent = isStart ? colors.levelCardOffWhite : colors.levelRepeatAccent;
 
   const anim = useRef(new Animated.Value(0)).current;
   const closingRef = useRef(false);
@@ -57,38 +58,40 @@ export function LevelActionCard({
   return (
     <Animated.View
       style={[
-        S.actionCard, isStart ? S.actionCardStart : S.actionCardRepeat,
+        S.actionCard,
         { opacity: anim, transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] }) }] },
       ]}
     >
-      <TouchableOpacity
-        style={S.actionCardClose}
-        onPress={() => animateOutThen(onDismiss)}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Text style={[S.actionCardCloseText, { color: accent }]}>✕</Text>
-      </TouchableOpacity>
+      <Image
+        // Not a Figma-exported asset: "luma_transparent" in the design is
+        // an exact match for art already bundled with the app.
+        source={require('../../../../../assets/images/lumo_transparent.png')}
+        style={S.actionCardMascot}
+        resizeMode="contain"
+      />
       <View style={S.actionCardTitleBox}>
-        <Text style={[S.actionCardTitle, { color: accent }]} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={S.actionCardTitle} numberOfLines={1} adjustsFontSizeToFit>
           Surah {surahName}
         </Text>
       </View>
       <View style={S.actionCardSubtitleBox}>
-        <Text style={[S.actionCardSubtitle, { color: accent, flexShrink: 1 }]} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={[S.actionCardSubtitle, { flexShrink: 1 }]} numberOfLines={1} adjustsFontSizeToFit>
           {formatAyahRange(ayahFrom, ayahTo)}
         </Text>
-        <Text style={[S.actionCardSubtitle, S.actionCardTimeEstimate, { color: accent }]} numberOfLines={1}>
+        <Text style={[S.actionCardSubtitle, S.actionCardTimeEstimate]} numberOfLines={1}>
           {timeEstimate}
         </Text>
       </View>
       <TouchableOpacity
-        style={[S.actionCardBtn, { backgroundColor: isStart ? colors.levelCardOffWhite : colors.levelRepeatAccent }]}
+        style={S.actionCardBtn}
         onPress={() => animateOutThen(onConfirm)}
         activeOpacity={0.85}
       >
-        <Text style={[S.actionCardBtnText, { color: isStart ? colors.levelStartAccentText : colors.white }]}>
-          {isStart ? 'START A NEW LEVEL' : 'REPEAT THE LESSON'}
-        </Text>
+        <View style={S.actionCardBtnFace}>
+          <Text style={S.actionCardBtnText} numberOfLines={1} adjustsFontSizeToFit>
+            {isStart ? 'START A NEW LEVEL' : 'REPEAT THE LESSON'}
+          </Text>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );

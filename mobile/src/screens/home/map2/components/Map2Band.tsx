@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Animated, Image, View } from 'react-native';
+import { Animated, Image, Pressable, View } from 'react-native';
 import { MAP2_IMAGES } from '../assets';
 import { bandContent, type Map2Layout, type Map2NodeData, type Map2Section } from '../map2Model';
 import type { Map2Styles } from '../styles';
@@ -20,6 +20,12 @@ interface Props {
   onNodePress: (section: Map2Section, node: Map2NodeData) => void;
   // The open level card, when it belongs to a node in this band.
   overlay?: React.ReactNode;
+  // Fires on a tap that lands on this band's empty background — never on a
+  // node or on the overlay card itself, since those are nested touchables
+  // that claim the responder first. Only passed to the band that currently
+  // holds an open card (see Map2Screen), so the card's own confirm button
+  // and every other band's normal node taps are completely unaffected.
+  onBackgroundPress?: () => void;
 }
 
 // One horizontal slice of the continuous map. Built only while the list
@@ -27,6 +33,7 @@ interface Props {
 // shifted up by the band's top.
 function Map2Band({
   S, layout, band, nodesBySlot, activeSlot, shakingNodeId, shakeAnim, fetchingSurah, onNodePress, overlay,
+  onBackgroundPress,
 }: Props) {
   const c = useMemo(() => bandContent(layout, band), [layout, band]);
   const { s } = layout;
@@ -54,8 +61,8 @@ function Map2Band({
       />,
     );
   }
-  return (
-    <View style={{ width: layout.mapW, height: c.height }}>
+  const content = (
+    <>
       <MapDecor items={c.decor} offsetY={c.top} />
       <MapPath dashes={c.dashes} len={layout.dashLen} thick={layout.dashThick} offsetY={c.top} />
       {c.boards.map(b => (
@@ -73,6 +80,18 @@ function Map2Band({
       ))}
       {nodes}
       {overlay}
+    </>
+  );
+  // A plain View (zero responder involvement) when nothing needs to catch
+  // background taps — only the band holding an open card gets upgraded to a
+  // Pressable, so normal scrolling/tapping elsewhere is untouched.
+  return onBackgroundPress ? (
+    <Pressable style={{ width: layout.mapW, height: c.height }} onPress={onBackgroundPress}>
+      {content}
+    </Pressable>
+  ) : (
+    <View style={{ width: layout.mapW, height: c.height }}>
+      {content}
     </View>
   );
 }
