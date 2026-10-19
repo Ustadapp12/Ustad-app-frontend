@@ -10,7 +10,10 @@ import StreakFrozenModal from '../../../components/StreakFrozenModal';
 import AuthRequiredModal from '../../../components/AuthRequiredModal';
 import StartSurahModal from '../../../components/StartSurahModal';
 import { useAuthStore } from '../../../store/authStore';
+import { useTourStore } from '../../../store/tourStore';
 import { isGuest } from '../../../utils/guest';
+import { setTourOffered, wasTourOffered } from '../../../utils/storage';
+import TourOfferModal from '../../../components/tour/TourOfferModal';
 import { getCachedRecommended, subscribeRecommended } from '../../../services/bootCache';
 import { addBreadcrumb, setCrashContext } from '../../../services/crashReporter';
 import type { MapNavProp, TabParamList } from '../../../navigation/types';
@@ -85,6 +88,39 @@ export default function Map2Screen({ navigation }: Props) {
     fullLevels, setFullLevels, firstLevel, loadingPaths, fetchingSurah, reloading,
     fetchPhase, fetchFirstLevelNow, currentSurahNumRef, returnedFromLevelTick,
   } = useMapData(learning);
+
+  // ── Guided tour ──────────────────────────────────────────────────
+  // Offered once, on a first-time user's first sight of the map. Ported from
+  // MapScreen.tsx (now unrouted) when Map2Screen became Home 2026-10-16 —
+  // this wiring was missed in that switch, so the tour was never offered to
+  // any real user since (2026-10-19, user: "i didnt see it"). Gated on
+  // loadingPaths having actually finished, not just on mount: accepting the
+  // offer while the first levels fetch is still in flight would start the
+  // tour over the loading state instead of the real map.
+  const tourOfferVisible = useTourStore(s => s.offerVisible);
+  const setTourOfferVisible = useTourStore(s => s.setOfferVisible);
+  const startTour = useTourStore(s => s.start);
+  useEffect(() => {
+    if (loadingPaths) return;
+    void (async () => {
+      if (await wasTourOffered()) return;
+      setTourOfferVisible(true);
+    })();
+  }, [loadingPaths, setTourOfferVisible]);
+  function handleAcceptTour() {
+    setTourOfferVisible(false);
+    void setTourOffered();
+    // TourOfferModal is a native Android dialog and is still tearing itself
+    // down for a beat after `visible` flips to false, during which it keeps
+    // eating touches meant for whatever comes next. Waiting out its close
+    // animation before starting the tour avoids that overlap.
+    setTimeout(() => { startTour(); }, 350);
+  }
+  function handleDeclineTour() {
+    setTourOfferVisible(false);
+    void setTourOffered();
+  }
+
   const recommended = getCachedRecommended();
   const [visibleSurahs, setVisibleSurahs] = useState('');
   const { sections, nodesBySlot, activeSlot } = useEnrichedSections(fullLevels, firstLevel, setFullLevels, recommended, visibleSurahs);
@@ -426,6 +462,11 @@ export default function Map2Screen({ navigation }: Props) {
         ayahCount={lockedSurahPrompt?.ayahCount}
         onConfirm={handleLockedSurahConfirm}
         onCancel={() => setLockedSurahPrompt(null)}
+      />
+      <TourOfferModal
+        visible={tourOfferVisible}
+        onAccept={handleAcceptTour}
+        onDecline={handleDeclineTour}
       />
     </View>
   );
