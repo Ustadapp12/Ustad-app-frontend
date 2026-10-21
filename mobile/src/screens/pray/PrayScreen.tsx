@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Linking, StatusBar, View, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
@@ -68,6 +68,9 @@ export default function PrayScreen() {
   // The last GPS fix, cached so the tick below can re-derive "what's next
   // right now" from plain date math without re-reading the GPS every time.
   const coordsRef = useRef<Coords | null>(null);
+  // Whether a real GPS/permission attempt has already happened this mount --
+  // see onRetryPress below.
+  const attemptedRef = useRef(false);
 
   // Cheap: pure date math against an already-resolved coordinate, no GPS or
   // permission call. Safe to run every tick.
@@ -84,6 +87,7 @@ export default function PrayScreen() {
   // tab left open isn't hammering the GPS and the backend every minute for
   // no reason.
   const refetchLocation = useCallback(() => {
+    attemptedRef.current = true;
     setStatus('loading');
     loadPrayerData()
       .then(({ coords, next: n, current: c, qibla: q }) => {
@@ -97,6 +101,21 @@ export default function PrayScreen() {
       .catch(() => { coordsRef.current = null; setCoords(null); setStatus('denied'); });
   }, []);
 
+  // The DateRow "enable location" tap: a real GPS/permission attempt the
+  // first time, but once one has already happened and come back denied,
+  // re-asking is a dead end -- iOS in particular only ever shows its
+  // system permission dialog once per install, so a second call to the
+  // same API silently resolves denied again with no visible prompt at
+  // all. Send the user to the app's Settings page instead, where turning
+  // it on actually does something.
+  const onRetryPress = useCallback(() => {
+    if (attemptedRef.current && status === 'denied') {
+      Linking.openSettings().catch(() => undefined);
+      return;
+    }
+    refetchLocation();
+  }, [refetchLocation, status]);
+
   // Bug (2026-10-20): "next prayer" and the hero card's clock stayed stuck
   // on whatever was computed at first mount -- e.g. still showing "Fajr
   // 4:53" hours later, well past it -- because this tab stays mounted
@@ -107,6 +126,15 @@ export default function PrayScreen() {
   // the coordinate already cached above (recompute(), cheap local math) so
   // it stays correct even if the user just leaves the tab open through a
   // prayer boundary without ever navigating away or re-reading the GPS.
+  // The hero card runs up behind the status bar (Figma), so its icons must
+  // be light here and go back to dark for every other screen.
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('light-content', true);
+      return () => StatusBar.setBarStyle('dark-content', true);
+    }, []),
+  );
+
   useFocusEffect(
     useCallback(() => {
       refetchLocation();
@@ -118,24 +146,31 @@ export default function PrayScreen() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + sc(16) }]}>
-      <HeroSalahCard currentPrayer={status === 'ready' ? current : null} />
+    <View style={styles.container}>
+      <HeroSalahCard
+        currentPrayer={status === 'ready' ? current : null}
+        locationDenied={status === 'denied'}
+        onEnableLocation={onRetryPress}
+      />
 
-      <DateRow status={status} next={next} onRetry={refetchLocation} />
+      <View style={styles.body}>
+        <DateRow status={status} next={next} onRetry={onRetryPress} />
 
-      {status === 'ready' && qibla != null && coords != null && (
-        <QiblaSection qiblaBearing={qibla} coords={coords} />
-      )}
+        {status === 'ready' && qibla != null && coords != null && (
+          <QiblaSection qiblaBearing={qibla} coords={coords} />
+        )}
 
-      <SectionTitle>Learn</SectionTitle>
-      <LearnCard title="Tajweed" />
-      <LearnCard title="Supplications" />
+        <SectionTitle>Learn</SectionTitle>
+        <LearnCard title="Tajweed" />
+        <LearnCard title="Supplications" />
+      </View>
     </View>
   );
 }
 
 function makeStyles(sc: Scale, bottomInset: number) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.lightBg, paddingHorizontal: sc(16), paddingBottom: bottomInset },
+    container: { flex: 1, backgroundColor: colors.lightBg, paddingBottom: bottomInset },
+    body: { paddingHorizontal: sc(16) },
   });
 }

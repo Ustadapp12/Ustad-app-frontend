@@ -1,20 +1,41 @@
 import React, { useEffect, useState } from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useResponsiveScale } from '../../utils/responsive';
+import type { RootNavProp } from '../../navigation/types';
 
-interface Props { currentPrayer: string | null }
+interface Props {
+  currentPrayer: string | null;
+  locationDenied: boolean;
+  onEnableLocation: () => void;
+}
+
+// Figma node 1151:10822 ("namaz Card") is full-bleed: 441x422 at y=0 of the
+// 440-wide frame, running up behind the status bar with only the bottom
+// corners rounded. Every size below is a Figma value scaled by width/440.
+const FIGMA_W = 440;
+const CARD_H = 422;
+// Bottom of the 56pt salah button sits at y=391, 31pt above the card edge.
+const BTN_W = 277;
+const BTN_H = 56;
+const BTN_BOTTOM_GAP = 31;
+// Pill bottom (y=272) to button top (y=335).
+const PILL_TO_BTN = 63;
 
 // Figma `pray_page.zip`'s hero card. Colors sampled from the real Figma
-// node (1151:10822) in a design-review pass (2026-10-20): a vertical navy
-// -> deep blue -> muddy olive -> dusty gold-brown run, not the brighter,
-// flatter gradient first guessed from a PNG crop. "NOW" + the clock time
-// and the current-prayer pill are both real/live; "Tap to log your salah"
-// has no backend endpoint yet, so the button is left out (commented below)
-// rather than shipped as something that does nothing when tapped.
-export default function HeroSalahCard({ currentPrayer }: Props) {
+// node in a design-review pass (2026-10-20): a vertical navy -> deep blue
+// -> muddy olive -> dusty gold-brown run, not the brighter, flatter
+// gradient first guessed from a PNG crop. "NOW" + the clock time and the
+// current-prayer pill are both real/live. "Tap to log your salah" has no
+// backend endpoint yet, so it opens the same "coming soon" page the map's
+// Journey/Review buttons already use, rather than doing nothing when
+// tapped.
+export default function HeroSalahCard({ currentPrayer, locationDenied, onEnableLocation }: Props) {
+  const navigation = useNavigation<RootNavProp>();
   const sc = useResponsiveScale();
-  const styles = React.useMemo(() => makeStyles(sc), [sc]);
+  const { width: screenW } = useWindowDimensions();
+  const styles = React.useMemo(() => makeStyles(sc, screenW / FIGMA_W), [sc, screenW]);
   const [time, setTime] = useState(() => formatClock(new Date()));
 
   useEffect(() => {
@@ -30,14 +51,22 @@ export default function HeroSalahCard({ currentPrayer }: Props) {
     >
       <Text style={styles.now}>NOW</Text>
       <Text style={styles.time}>{time}</Text>
-      {currentPrayer && (
-        <Text style={styles.pill}>{currentPrayer}</Text>
-      )}
-      {/* No backend endpoint for salah-logging yet -- re-enable once one
-          exists:
-      <TouchableOpacity style={styles.btn}>
-        <Text style={styles.btnText}>TAP TO LOG YOUR SALAH</Text>
-      </TouchableOpacity> */}
+      <View style={styles.pillSlot}>
+        {locationDenied ? (
+          <Text style={styles.deniedText}>Enable location for prayer times</Text>
+        ) : currentPrayer ? (
+          <Text style={styles.pill}>{currentPrayer}</Text>
+        ) : null}
+      </View>
+      <TouchableOpacity
+        style={styles.btn}
+        activeOpacity={0.85}
+        onPress={locationDenied
+          ? onEnableLocation
+          : () => navigation.navigate('ComingSoon', { title: 'Log Your Salah' })}
+      >
+        <Text style={styles.btnText} numberOfLines={1} adjustsFontSizeToFit>{locationDenied ? 'ENABLE LOCATION' : 'TAP TO LOG YOUR SALAH'}</Text>
+      </TouchableOpacity>
     </LinearGradient>
   );
 }
@@ -46,22 +75,30 @@ function formatClock(d: Date): string {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function makeStyles(sc: (n: number) => number) {
+function makeStyles(sc: (n: number) => number, f: number) {
   return StyleSheet.create({
     card: {
-      borderRadius: sc(16), paddingVertical: sc(18), paddingHorizontal: sc(16),
-      alignItems: 'center', marginBottom: sc(20), minHeight: sc(130),
+      width: FIGMA_W * f, height: CARD_H * f,
+      borderBottomLeftRadius: 24 * f, borderBottomRightRadius: 24 * f,
+      alignItems: 'center', justifyContent: 'flex-end', paddingBottom: BTN_BOTTOM_GAP * f,
+      marginBottom: sc(20),
     },
-    now: { fontFamily: 'Nunito-Bold', fontSize: sc(10.5), letterSpacing: 2, color: '#8D95A5', textTransform: 'uppercase', marginTop: sc(4) },
+    now: { fontFamily: 'Nunito-Bold', fontSize: sc(10.5), letterSpacing: 2, color: '#8D95A5', textTransform: 'uppercase' },
+    // A denied state has no pill; this keeps the button at the same height.
+    pillSlot: { minHeight: 38 * f, alignItems: 'center', justifyContent: 'flex-start' },
     time: { fontFamily: 'Nunito-Black', fontSize: sc(32), color: '#AFAFAF', letterSpacing: 0.5, marginTop: sc(2) },
     pill: {
       marginTop: sc(9), paddingVertical: sc(7), paddingHorizontal: sc(22), borderRadius: 999,
       backgroundColor: '#E9C468', color: '#FFFFFF', fontFamily: 'Nunito-Bold', fontSize: sc(13), overflow: 'hidden',
     },
-    // Kept defined for when the button above is re-enabled.
+    deniedText: {
+      marginTop: sc(9), fontFamily: 'Nunito-Bold', fontSize: sc(12), color: '#D9DEE3', textAlign: 'center',
+    },
+    // Darker bottom lip, as in Figma and the mockup.
     btn: {
-      width: '100%', marginTop: sc(16), paddingVertical: sc(13), borderRadius: sc(13),
-      alignItems: 'center', backgroundColor: '#E9CE68',
+      width: BTN_W * f, height: BTN_H * f, marginTop: PILL_TO_BTN * f, borderRadius: sc(13),
+      alignItems: 'center', justifyContent: 'center', backgroundColor: '#E9CE68',
+      borderBottomWidth: 5 * f, borderBottomColor: '#B8A350',
     },
     btnText: { fontFamily: 'Nunito-Bold', fontSize: sc(12.5), letterSpacing: 0.4, color: '#F4F5F1' },
   });

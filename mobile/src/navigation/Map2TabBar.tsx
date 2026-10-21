@@ -38,7 +38,14 @@ export default function Map2TabBar({ state, navigation, insets }: BottomTabBarPr
   const s = width / FIGMA_W;
   const S = useMemo(() => makeMap2Styles(s), [s]);
   const current = state.routes[state.index].name as keyof TabParamList;
-  const bottomClearance = Platform.OS === 'ios' ? Math.round(insets.bottom * 0.55) : 0;
+  // Full inset, not a fraction of it (was `* 0.55`, unexplained, 2026-10-21):
+  // this height is both what gets reserved for the tab bar AND how far down
+  // its own light-coloured fill extends (see Map2BottomBar.tsx). Covering
+  // only part of the home-indicator inset left the rest of it outside any
+  // screen's content entirely -- below the navigator's own rendered area,
+  // exposing the Stack's dark contentStyle (#0D1B2A, meant for Splash/auth)
+  // as a solid black strip right at the bottom edge on iOS.
+  const bottomClearance = Platform.OS === 'ios' ? insets.bottom : 0;
 
   const onPress = useCallback((key: BottomBarKey) => {
     const name = ROUTE_OF[key];
