@@ -16,12 +16,13 @@ interface Props {
 // corners rounded. Every size below is a Figma value scaled by width/440.
 const FIGMA_W = 440;
 const CARD_H = 422;
-// Bottom of the 56pt salah button sits at y=391, 31pt above the card edge.
+// Figma puts the 56pt button 31pt above the card edge and 63pt below the
+// pill; moved up 24pt on request (2026-10-21), so the pill stays put and
+// only the button rises.
 const BTN_W = 277;
 const BTN_H = 56;
-const BTN_BOTTOM_GAP = 31;
-// Pill bottom (y=272) to button top (y=335).
-const PILL_TO_BTN = 63;
+const BTN_BOTTOM_GAP = 55;
+const PILL_TO_BTN = 39;
 
 // Figma `pray_page.zip`'s hero card. Colors sampled from the real Figma
 // node in a design-review pass (2026-10-20): a vertical navy -> deep blue
@@ -63,7 +64,7 @@ export default function HeroSalahCard({ currentPrayer, locationDenied, onEnableL
         activeOpacity={0.85}
         onPress={locationDenied
           ? onEnableLocation
-          : () => navigation.navigate('ComingSoon', { title: 'Log Your Salah' })}
+          : () => navigation.navigate('LogSalah')}
       >
         <Text style={styles.btnText} numberOfLines={1} adjustsFontSizeToFit>{locationDenied ? 'ENABLE LOCATION' : 'TAP TO LOG YOUR SALAH'}</Text>
       </TouchableOpacity>
@@ -83,10 +84,10 @@ function makeStyles(sc: (n: number) => number, f: number) {
       alignItems: 'center', justifyContent: 'flex-end', paddingBottom: BTN_BOTTOM_GAP * f,
       marginBottom: sc(20),
     },
-    now: { fontFamily: 'Nunito-Bold', fontSize: sc(10.5), letterSpacing: 2, color: '#8D95A5', textTransform: 'uppercase' },
+    now: { fontFamily: 'Nunito-Bold', fontSize: sc(12), letterSpacing: 2, color: '#8D95A5', textTransform: 'uppercase' },
     // A denied state has no pill; this keeps the button at the same height.
     pillSlot: { minHeight: 38 * f, alignItems: 'center', justifyContent: 'flex-start' },
-    time: { fontFamily: 'Nunito-Black', fontSize: sc(32), color: '#AFAFAF', letterSpacing: 0.5, marginTop: sc(2) },
+    time: { fontFamily: 'Nunito-Black', fontSize: sc(36), color: '#AFAFAF', letterSpacing: 0.5, marginTop: sc(2) },
     pill: {
       marginTop: sc(9), paddingVertical: sc(7), paddingHorizontal: sc(22), borderRadius: 999,
       backgroundColor: '#E9C468', color: '#FFFFFF', fontFamily: 'Nunito-Bold', fontSize: sc(13), overflow: 'hidden',

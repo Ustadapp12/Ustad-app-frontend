@@ -866,3 +866,20 @@ the build started, so it is not stale. Release notes 1.0.41 approved
 
 Output: `C:\BuildProjects\app-release-1.0.41-26101601.aab` (also at
 `android\app\build\outputs\bundle\release\app-release.aab`).
+
+Gap: iOS builds 20052 and 20053 (1.0.42) were never logged here. 20053
+(2026-10-21, run `39581913599`) was the first build with the Pray tab and
+the asset reorganisation.
+
+**20054** / 1.0.43 — IPA (TestFlight) — 2026-10-21 — commit `77d144d`, GitHub
+Actions run `39637872115` (#54), EAS build
+`2af214dc-ee13-470c-a7a9-c9ed26fea566` (FINISHED, real .ipa). Backend:
+**production**. Contents: Pray tab hero card full-bleed like Figma (behind
+the status bar, rounded bottom only, Figma-scaled button with lip), Figma
+compass colours with N/E/S/W ticks and the pointer kept inside its own box,
+salah button restored, location-denied state with Enable Location, Learn
+cards' Coming soon centred, iOS bottom black strip fixed. Release notes 1.0.43
+approved by the user 2026-10-21 (also cover the Pray tab, which 20053's notes
+missed). Pre-flight on a `git archive HEAD` export: tsc clean, jest 103/103,
+export:embed 7.0MB bundle containing the new strings. Sign in with Apple
+rejection fix NOT included. Not yet verified on an iPhone.

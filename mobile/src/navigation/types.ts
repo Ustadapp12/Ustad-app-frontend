@@ -25,6 +25,8 @@ export type RootStackParamList = {
   MapV2: undefined;
   // "Building your exercises" page, opened by the map's Journey and Review buttons.
   ComingSoon: { title: string };
+  // Pray tab's "Tap to log your Salah" page (coming soon, Pray tab highlighted).
+  LogSalah: undefined;
   // Full 114-surah browse/search list, opened from the map's search button.
   // Confirming "Start" there navigates back to MainTabs/Map with
   // params.jumpToSurah set (see TabParamList.Map below).

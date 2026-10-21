@@ -67,6 +67,7 @@ import TourLessonScreen from '../screens/tour/TourLessonScreen';
 import SearchSurahsScreen from '../screens/home/SearchSurahsScreen';
 import SurahProgressScreen from '../screens/home/SurahProgressScreen';
 import ComingSoonScreen from '../screens/comingSoon/ComingSoonScreen';
+import LogSalahScreen from '../screens/pray/LogSalahScreen';
 
 // WIP MapV2 clone, dev only. A static import evaluates this 188 KB module
 // body at bundle init on every cold start, including release builds where the
@@ -207,6 +208,7 @@ export default function RootNavigator() {
           <Stack.Screen name="MapV2" component={MapScreenV2} options={{ animation: 'slide_from_right' }} />
         )}
         <Stack.Screen name="ComingSoon" component={ComingSoonScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="LogSalah" component={LogSalahScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="SearchSurahs" component={SearchSurahsScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="SurahProgress" component={SurahProgressScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />

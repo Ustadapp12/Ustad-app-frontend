@@ -38,6 +38,8 @@ export const RELEASE_NOTES: ReleaseNoteEntry[] = [
       { category: 'New', text: "A new Pray tab: today's Islamic date, the current prayer and the next prayer time, worked out on your phone for where you are." },
       { category: 'New', text: 'A live qibla compass that turns with your phone and points to the Kaaba.' },
       { category: 'Improved', text: 'The prayer card now fills the top of the screen.' },
+      // Added with the user's approval 2026-10-22, for build 20055.
+      { category: 'Improved', text: 'Prayer times now show right away when you open the Pray tab.' },
       { category: 'Improved', text: 'If location is off, the Pray tab shows a button that takes you straight to turn it on.' },
       { category: 'Fixed', text: 'A dark strip no longer shows at the very bottom of the screen on iPhone.' },
     ],

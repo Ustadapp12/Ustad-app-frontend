@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { useResponsiveScale, safeBottomInset, type Scale } from '../../utils/responsive';
-import { getCurrentCoordinates, type Coords } from '../../utils/location';
+import { getCurrentCoordinates, getLastKnownCoordinates, loadSavedCoordinates, type Coords } from '../../utils/location';
 import { nextPrayerFromCoords, currentPrayerFromCoords, type NextPrayer } from '../../utils/prayerTimes';
 import { qiblaBearingFromCoords } from '../../utils/qibla';
 import { usersApi } from '../../api';
@@ -86,20 +86,38 @@ export default function PrayScreen() {
   // see the focus effect below -- never from the frequent tick, so a Pray
   // tab left open isn't hammering the GPS and the backend every minute for
   // no reason.
-  const refetchLocation = useCallback(() => {
+  //
+  // Times we can already work out are shown at once -- from this run's last
+  // fix, or the one saved on the device -- and the fresh fix refreshes them
+  // quietly. "Finding prayer times" only shows when there is truly no fix
+  // yet. A failed read keeps the old times; only a denied permission (which
+  // clears the saved fix, see utils/location.ts) switches to "denied".
+  const refetchLocation = useCallback(async () => {
     attemptedRef.current = true;
-    setStatus('loading');
-    loadPrayerData()
-      .then(({ coords, next: n, current: c, qibla: q }) => {
-        coordsRef.current = coords;
-        setNext(n);
-        setCurrent(c);
-        setQibla(q);
-        setCoords(coords);
-        setStatus(coords ? 'ready' : 'denied');
-      })
-      .catch(() => { coordsRef.current = null; setCoords(null); setStatus('denied'); });
-  }, []);
+    if (!coordsRef.current) {
+      const saved = await loadSavedCoordinates();
+      if (saved && !coordsRef.current) {
+        coordsRef.current = saved;
+        recompute(saved);
+        setStatus('ready');
+      }
+    }
+    if (!coordsRef.current) setStatus('loading');
+    try {
+      const { coords: fresh } = await loadPrayerData();
+      if (fresh) {
+        coordsRef.current = fresh;
+        recompute(fresh);
+        setStatus('ready');
+      } else if (!getLastKnownCoordinates()) {
+        coordsRef.current = null;
+        setCoords(null);
+        setStatus('denied');
+      }
+    } catch {
+      if (!coordsRef.current) setStatus('denied');
+    }
+  }, [recompute]);
 
   // The DateRow "enable location" tap: a real GPS/permission attempt the
   // first time, but once one has already happened and come back denied,

@@ -61,6 +61,13 @@ export default function Map2TabBar({ state, navigation, insets }: BottomTabBarPr
     // last 13pt puts the screen's own background behind those corners; without
     // it they showed the navigator's dark backdrop.
     <View style={{ height: BOTTOM_BAR_H * s + bottomClearance, marginTop: -CORNER_OVERLAP * s, backgroundColor: SCREEN_BG[current] }}>
+      {/* The screen colour is only meant to show in the curved corners. The
+          bar is two light shapes meeting edge to edge (art + home-indicator
+          strip) at fractional pixels, so their anti-aliased seam, plus a 1pt
+          sliver at the right edge, let the backing show through as a hairline
+          -- invisible on light tabs, a black-looking line on DailyQuest's
+          dark green. Light backing below the corners hides every such gap. */}
+      <View style={{ position: 'absolute', left: 0, right: 0, top: CORNER_OVERLAP * s, bottom: 0, backgroundColor: '#F5F7FA' }} />
       <Map2BottomBar S={S} s={s} bottomClearance={bottomClearance} active={KEY_OF[current] ?? 'home'} solid onPress={onPress} />
     </View>
   );
