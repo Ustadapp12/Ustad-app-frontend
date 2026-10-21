@@ -29,6 +29,20 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Reviewed and approved by the user 2026-10-21, before the build that
+    // carries it. Also covers the Pray tab, which first shipped in 20053
+    // without its own notes.
+    version: '1.0.43',
+    date: '2026-10-21',
+    changes: [
+      { category: 'New', text: "A new Pray tab: today's Islamic date, the current prayer and the next prayer time, worked out on your phone for where you are." },
+      { category: 'New', text: 'A live qibla compass that turns with your phone and points to the Kaaba.' },
+      { category: 'Improved', text: 'The prayer card now fills the top of the screen.' },
+      { category: 'Improved', text: 'If location is off, the Pray tab shows a button that takes you straight to turn it on.' },
+      { category: 'Fixed', text: 'A dark strip no longer shows at the very bottom of the screen on iPhone.' },
+    ],
+  },
+  {
     // Drafted 2026-10-19 and shown to the user in the same session as the
     // build that carries it, per their own request ("give me release notes
     // here") — not a prior separate review round-trip like other entries.
