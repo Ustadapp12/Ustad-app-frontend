@@ -1,6 +1,6 @@
 /**
  * Generate the Android status-bar notification icon (ic_notification) from
- * assets/images/lumo_transparent.png.
+ * assets/shared/mascot/lumo_transparent.png.
  *
  * Android masks a notification's small icon to a flat colour (white, or the
  * channel/app accent depending on OS version) and only looks at alpha — any
@@ -18,7 +18,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const src = path.join(root, 'assets', 'images', 'lumo_transparent.png');
+const src = path.join(root, 'assets', 'shared', 'mascot', 'lumo_transparent.png');
 const res = path.join(root, 'android', 'app', 'src', 'main', 'res');
 
 // Android's 24dp base notification-icon size across density buckets.

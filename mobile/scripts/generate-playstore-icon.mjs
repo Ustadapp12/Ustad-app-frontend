@@ -1,5 +1,5 @@
 /**
- * Generate the 512x512 Play Store listing icon from assets/images/lumo_kufi.png.
+ * Generate the 512x512 Play Store listing icon from assets/shared/mascot/lumo_kufi.png.
  * This is the "hi-res icon" uploaded on the Play Console store listing page —
  * separate from the launcher (mipmap/adaptive) icons baked into the APK/AAB.
  * Run: node scripts/generate-playstore-icon.mjs
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const src = path.join(root, 'assets', 'images', 'lumo_kufi.png');
+const src = path.join(root, 'assets', 'shared', 'mascot', 'lumo_kufi.png');
 const out = path.join(root, 'assets', 'images', 'playstore-icon.png');
 
 // Same navy used by the Android adaptive-icon background and the iOS

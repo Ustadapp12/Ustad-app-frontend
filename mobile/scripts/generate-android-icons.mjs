@@ -1,5 +1,5 @@
 /**
- * Generate launcher icons + splash assets from assets/images/lumo_transparent.png
+ * Generate launcher icons + splash assets from assets/shared/mascot/lumo_transparent.png
  * Run: node scripts/generate-android-icons.mjs
  */
 import sharp from 'sharp';
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const src = path.join(root, 'assets', 'images', 'lumo_transparent.png');
+const src = path.join(root, 'assets', 'shared', 'mascot', 'lumo_transparent.png');
 const res = path.join(root, 'android', 'app', 'src', 'main', 'res');
 
 const densities = {
