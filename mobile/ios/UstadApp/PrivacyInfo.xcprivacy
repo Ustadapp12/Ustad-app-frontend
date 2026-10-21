@@ -163,6 +163,27 @@
 				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
+		<!--
+			Precise location (Pray tab), added 2026-10-20. Used on-device only --
+			fed straight into the adhan library to compute that day's prayer
+			times -- and never sent to our backend or any third party, so Linked
+			is false (not tied to the account) and Tracking is false. If this
+			ever starts being sent to the backend (e.g. to cache times server
+			side), this entry must flip to Linked = true and the App Store
+			Connect questionnaire must be updated to match.
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePreciseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
 	</array>
 	<key>NSPrivacyTracking</key>
 	<false/>

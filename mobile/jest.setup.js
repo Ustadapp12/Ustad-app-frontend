@@ -135,3 +135,32 @@ jest.mock('@react-native-community/netinfo', () => {
     },
   };
 });
+
+// Both are native modules: without these, anything importing utils/location.ts
+// or screens/pray/QiblaCompass.tsx (transitively services/usageSession.ts,
+// App.tsx) fails to load under jest, same class of issue as netinfo above.
+jest.mock('@react-native-community/geolocation', () => ({
+  __esModule: true,
+  default: {
+    setRNConfiguration: jest.fn(),
+    requestAuthorization: jest.fn(),
+    getCurrentPosition: jest.fn(),
+    watchPosition: jest.fn(),
+    clearWatch: jest.fn(),
+    stopObserving: jest.fn(),
+  },
+}));
+
+jest.mock('react-native-compass-heading', () => ({
+  __esModule: true,
+  default: { start: jest.fn(), stop: jest.fn() },
+}));
+
+// Ships raw ESM, which transformIgnorePatterns above doesn't transform, so
+// any test importing a screen that renders it (e.g. HeroSalahCard.tsx,
+// DailyQuestScreen.tsx) fails on its `import` syntax without this. A plain
+// View passthrough is enough -- no test asserts on the gradient itself.
+jest.mock('react-native-linear-gradient', () => {
+  const { View } = require('react-native');
+  return { __esModule: true, default: View };
+});

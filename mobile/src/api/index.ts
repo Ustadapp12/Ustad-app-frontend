@@ -201,6 +201,12 @@ export const usersApi = {
       method: 'PATCH',
       body: JSON.stringify({ avatar_variant }),
     }),
+
+  updateLocation: (latitude: number, longitude: number) =>
+    api<{ latitude: number; longitude: number }>('/users/me/location', {
+      method: 'PATCH',
+      body: JSON.stringify({ latitude, longitude }),
+    }),
 };
 
 /** PATCH profile only when logged in — safe during pre-auth onboarding. */
@@ -488,7 +494,7 @@ export const feedbackApi = {
 type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'apple_login' | 'apple_signup' | 'resume';
 
 export const usageApi = {
-  startSession: (body: { platform: string; app_version?: string; device_model?: string; os_version?: string; entry_method?: EntryMethod }) =>
+  startSession: (body: { platform: string; app_version?: string; device_model?: string; os_version?: string; entry_method?: EntryMethod; latitude?: number; longitude?: number }) =>
     api<{ session_id: string }>('/usage/sessions', {
       method: 'POST',
       body: JSON.stringify(body),

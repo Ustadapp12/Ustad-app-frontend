@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <!-- Pray tab (2026-10-20): coordinates go straight into the adhan library
+         to compute that day's prayer times on-device, never to our backend.
+         COARSE is enough for prayer-time accuracy; FINE is declared too since
+         @react-native-community/geolocation requests it by default and Play's
+         Data Safety form must match whatever the app can actually access. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- play-services-measurement (pulled in by Firebase Analytics) merges these
          in by default even though the app never uses Advertising ID — the
          classic GMS permission AND Android 13+'s Privacy Sandbox AdServices

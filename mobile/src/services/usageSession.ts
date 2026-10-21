@@ -11,6 +11,7 @@
 import { Platform } from 'react-native';
 import { usageApi } from '../api';
 import { getLastScreens } from './screenHistory';
+import { getLastKnownCoordinates } from '../utils/location';
 // Shared with the Profile screen's version label, deliberately. This used to
 // read package.json directly while utils/appVersion.ts read the VERSION_NAME
 // env var, so analytics and the UI could report two different versions for
@@ -49,12 +50,18 @@ export async function startUsageSession(): Promise<void> {
   pendingEntryMethod = 'resume';
   starting = (async () => {
     try {
+      // Never trigger a fresh GPS read or permission prompt just to start a
+      // session -- only ever send a coordinate the app already has (e.g.
+      // from the Pray tab, earlier this run). Sessions start on login/
+      // register/guest/hydrate, often before the user has seen that tab.
+      const cached = getLastKnownCoordinates();
       const { session_id } = await usageApi.startSession({
         platform: Platform.OS,
         app_version: APP_VERSION,
         device_model: DEVICE_MODEL || undefined,
         os_version: String(Platform.Version),
         entry_method: entryMethod,
+        ...(cached ? { latitude: cached.latitude, longitude: cached.longitude } : {}),
       });
       activeSessionId = session_id;
     } catch {

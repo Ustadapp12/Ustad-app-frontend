@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Text, View, StyleSheet, TouchableOpacity } from 'react-native';
 import Map2Screen from '../screens/home/map2/Map2Screen';
 import DailyQuestScreen from '../screens/quests/DailyQuestScreen';
-import BuildingTabScreen from '../screens/comingSoon/BuildingTabScreen';
+import PrayScreen from '../screens/pray/PrayScreen';
 import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import AuthRequiredModal from '../components/AuthRequiredModal';
@@ -56,7 +56,7 @@ export default function MainTabs() {
     >
       <Tab.Screen name="Map" component={Map2Screen} />
       <Tab.Screen name="DailyQuest" component={DailyQuestScreen} />
-      <Tab.Screen name="Building" component={BuildingTabScreen} />
+      <Tab.Screen name="Building" component={PrayScreen} />
       <Tab.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
