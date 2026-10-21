@@ -50,7 +50,7 @@ export default function LumoInfoModal({
         <View style={styles.card}>
           <View style={{ width: 105, height: 105, marginBottom: 8 }}>
             <Animated.Image
-              source={require('../../assets/images/lumo_transparent.png')}
+              source={require('../../assets/shared/mascot/lumo_transparent.png')}
               style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatAnim }] }]}
               resizeMode="contain"
             />

@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '../../theme/colors';
 
-const SPEAKER_ICON = require('../../../assets/map/speaker.png');
+const SPEAKER_ICON = require('../../../assets/screens/lesson/speaker.png');
 
 interface Props {
   label: string;

@@ -33,8 +33,8 @@ interface Props { navigation: RootNavProp }
 
 const SIGNUP_MESSAGES = ['Creating your account…', 'Connecting to the server…', 'Almost there…'];
 
-const MAIL_ICON = require('../../../assets/map/mail.png');
-const PASSWORD_ICON = require('../../../assets/map/password.png');
+const MAIL_ICON = require('../../../assets/screens/auth/mail.png');
+const PASSWORD_ICON = require('../../../assets/screens/auth/password.png');
 
 type Step = 'email' | 'password';
 
@@ -225,7 +225,7 @@ export default function SignUpScreen({ navigation }: Props) {
 
           <View style={styles.stepContent}>
             <View style={{ width: 120, height: 120, marginBottom: 10 }}>
-              <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.stepLuma} resizeMode="contain" />
+              <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={styles.stepLuma} resizeMode="contain" />
               <MascotShadow width={120} />
             </View>
             <Text style={styles.badge}>ALMOST THERE</Text>
@@ -318,7 +318,7 @@ export default function SignUpScreen({ navigation }: Props) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.lumaWrap}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
           <MascotShadow width={150} style={{ position: 'relative', marginTop: -15 }} />
         </View>
 

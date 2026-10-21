@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/nav_home.svg
+// Source: assets/screens/home/map2/svg/nav_home.svg
 export const NAV_HOME_W = 40;
 export const NAV_HOME_H = 35;
 

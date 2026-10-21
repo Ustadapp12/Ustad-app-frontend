@@ -221,7 +221,7 @@ function ProfileContent({ navigation }: Props) {
         {isGuestUser && (
           <View style={styles.guestCard}>
             <Image
-              source={require('../../../assets/images/lumo_kufi.png')}
+              source={require('../../../assets/shared/mascot/lumo_kufi.png')}
               style={styles.guestCardLuma}
               resizeMode="contain"
             />
@@ -249,8 +249,8 @@ function ProfileContent({ navigation }: Props) {
             <LottieView
               ref={flameRef}
               source={isStreakFrozen(learning?.streak_state)
-                ? require('../../../assets/animations/streak_frozen.json')
-                : require('../../../assets/animations/streak.json')}
+                ? require('../../../assets/shared/animations/streak_frozen.json')
+                : require('../../../assets/shared/animations/streak.json')}
               autoPlay loop
               style={styles.statStreakAnim}
             />
@@ -455,7 +455,7 @@ function ProfileContent({ navigation }: Props) {
           <View style={styles.modalCard}>
             <View style={{ width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) }}>
               <Image
-                source={require('../../../assets/images/lumo_kufi.png')}
+                source={require('../../../assets/shared/mascot/lumo_kufi.png')}
                 style={[styles.deleteLumo, { marginBottom: 0 }]}
                 resizeMode="contain"
               />
@@ -486,7 +486,7 @@ function ProfileContent({ navigation }: Props) {
           <View style={styles.modalCard}>
             <View style={{ width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) }}>
               <Image
-                source={require('../../../assets/images/lumo_cry.png')}
+                source={require('../../../assets/shared/mascot/lumo_cry.png')}
                 style={[styles.deleteLumo, { marginBottom: 0 }]}
                 resizeMode="contain"
               />

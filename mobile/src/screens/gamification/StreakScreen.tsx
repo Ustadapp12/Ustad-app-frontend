@@ -151,7 +151,7 @@ export default function StreakScreen({ navigation, route }: Props) {
         {justIncremented && (
           <View style={{ width: 105, height: 105, marginBottom: 4 }}>
             <Animated.Image
-              source={require('../../../assets/images/lumo_transparent.png')}
+              source={require('../../../assets/shared/mascot/lumo_transparent.png')}
               style={[styles.celebrationLuma, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
               resizeMode="contain"
             />
@@ -208,8 +208,8 @@ export default function StreakScreen({ navigation, route }: Props) {
             <Animated.View style={{ marginTop: -36, marginBottom: 16, transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
               <LottieView
                 source={frozen
-                  ? require('../../../assets/animations/streak_frozen.json')
-                  : require('../../../assets/animations/streak.json')}
+                  ? require('../../../assets/shared/animations/streak_frozen.json')
+                  : require('../../../assets/shared/animations/streak.json')}
                 autoPlay loop
                 style={styles.streakAnim}
               />
@@ -278,7 +278,7 @@ export default function StreakScreen({ navigation, route }: Props) {
         {guest && (
           <View style={styles.guestCard}>
             <Image
-              source={require('../../../assets/images/lumo_transparent.png')}
+              source={require('../../../assets/shared/mascot/lumo_transparent.png')}
               style={styles.guestCardLuma}
               resizeMode="contain"
             />

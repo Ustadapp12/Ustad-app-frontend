@@ -26,7 +26,7 @@ export default function BackButton({
       accessibilityLabel={accessibilityLabel}
     >
       <Image
-        source={require('../../assets/back_arrow.png')}
+        source={require('../../assets/shared/icons/back_arrow.png')}
         style={{ width: size, height: size, tintColor }}
         resizeMode="contain"
       />

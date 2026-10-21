@@ -115,7 +115,7 @@ function LeaderboardContent() {
 
         <View style={styles.lumoWrap}>
           <Animated.Image
-            source={require('../../../assets/images/lumo_transparent.png')}
+            source={require('../../../assets/shared/mascot/lumo_transparent.png')}
             style={[styles.lumo, { transform: [{ translateY: lumoY }] }]}
             resizeMode="contain"
           />

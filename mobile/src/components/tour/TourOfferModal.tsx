@@ -21,7 +21,7 @@ export default function TourOfferModal({ visible, onAccept, onDecline }: Props) 
         <View style={styles.card}>
           <View style={{ width: 112, height: 112, marginBottom: 4 }}>
             <Image
-              source={require('../../../assets/images/lumo_transparent.png')}
+              source={require('../../../assets/shared/mascot/lumo_transparent.png')}
               style={[styles.lumo, { marginBottom: 0 }]}
               resizeMode="contain"
             />

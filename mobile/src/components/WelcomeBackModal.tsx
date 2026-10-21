@@ -24,7 +24,7 @@ export default function WelcomeBackModal({ visible, onContinue }: Props) {
         <View style={styles.card}>
           <View style={{ width: 110, height: 110, marginBottom: 8 }}>
             <Image
-              source={require('../../assets/images/lumo_xp.png')}
+              source={require('../../assets/shared/mascot/lumo_xp.png')}
               style={styles.luma}
               resizeMode="contain"
             />

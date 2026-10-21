@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/surah_board.svg
+// Source: assets/screens/home/map2/svg/surah_board.svg
 export const SURAH_BOARD_W = 130.443;
 export const SURAH_BOARD_H = 93.6226;
 

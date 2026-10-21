@@ -65,7 +65,7 @@ export function LevelActionCard({
       <Image
         // Not a Figma-exported asset: "luma_transparent" in the design is
         // an exact match for art already bundled with the app.
-        source={require('../../../../../assets/images/lumo_transparent.png')}
+        source={require('../../../../../assets/shared/mascot/lumo_transparent.png')}
         style={S.actionCardMascot}
         resizeMode="contain"
       />

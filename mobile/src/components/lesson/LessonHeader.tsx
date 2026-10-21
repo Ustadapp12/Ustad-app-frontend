@@ -11,9 +11,9 @@ import HintButton from './HintButton';
 export const MAX_HEARTS = 5;
 export const MAX_MISTAKES = MAX_HEARTS * 2;
 
-const HEART_FULL = require('../../../assets/map/redh.png');
-const HEART_HALF = require('../../../assets/map/halfh.png');
-const HEART_EMPTY = require('../../../assets/map/whiteh.png');
+const HEART_FULL = require('../../../assets/screens/gamification/redh.png');
+const HEART_HALF = require('../../../assets/screens/gamification/halfh.png');
+const HEART_EMPTY = require('../../../assets/screens/gamification/whiteh.png');
 
 export interface LessonHeaderTargets {
   progress?: React.Ref<View>;
@@ -81,7 +81,7 @@ export default function LessonHeader({
           Decorative only, unlike the tappable reward chests on
           Search/Progress. */}
       <View style={S.chestBadge}>
-        <Image source={require('../../../assets/images/chest.png')} style={S.chestImage} resizeMode="contain" />
+        <Image source={require('../../../assets/shared/icons/chest.png')} style={S.chestImage} resizeMode="contain" />
       </View>
 
       {!hideHearts && (

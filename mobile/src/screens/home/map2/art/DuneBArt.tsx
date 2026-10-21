@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/dune_b.svg
+// Source: assets/screens/home/map2/svg/dune_b.svg
 export const DUNE_B_W = 162.251;
 export const DUNE_B_H = 50.1348;
 

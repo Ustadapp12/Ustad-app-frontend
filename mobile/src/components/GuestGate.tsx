@@ -48,7 +48,7 @@ export default function GuestGate({ feature, title, body }: Props) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Animated.View style={[styles.inner, { opacity: fadeAnim }]}>
         <Animated.Image
-          source={require('../../assets/images/lumo_transparent.png')}
+          source={require('../../assets/shared/mascot/lumo_transparent.png')}
           style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatAnim }] }]}
           resizeMode="contain"
         />

@@ -281,7 +281,7 @@ function IntroScreen({
         <View style={S.introContent}>
           <View style={{ width: 140, height: 140, marginBottom: 24 }}>
             <Image
-              source={require('../../../assets/images/lumo_transparent.png')}
+              source={require('../../../assets/shared/mascot/lumo_transparent.png')}
               style={[S.lumoIntro, { marginBottom: 0 }]}
               resizeMode="contain"
             />

@@ -107,7 +107,7 @@ export default function VerifyResetCodeScreen({ navigation, route }: Props) {
 
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
         <View style={{ width: 120, height: 120, marginBottom: 8 }}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={120} />
         </View>
 

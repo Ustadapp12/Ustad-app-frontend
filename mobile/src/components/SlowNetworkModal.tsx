@@ -64,7 +64,7 @@ export default function SlowNetworkModal() {
         <View style={styles.card}>
           <View style={{ width: 90, height: 90, marginBottom: 8 }}>
             <Image
-              source={require('../../assets/images/lumo_kufi.png')}
+              source={require('../../assets/shared/mascot/lumo_kufi.png')}
               style={styles.luma}
               resizeMode="contain"
             />

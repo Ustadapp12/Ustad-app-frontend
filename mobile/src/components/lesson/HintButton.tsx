@@ -85,7 +85,7 @@ export default function HintButton({ url, ayahAr, ayahTranslation }: Props) {
     <>
       <TouchableOpacity style={S.container} onPress={() => setVisible(true)} accessibilityLabel="Hint">
         <Animated.Image
-          source={require('../../../assets/images/hint_badge.png')}
+          source={require('../../../assets/shared/icons/hint_badge.png')}
           style={[S.badge, { transform: [{ scale: badgeScale }] }]}
           resizeMode="contain"
         />
@@ -95,7 +95,7 @@ export default function HintButton({ url, ayahAr, ayahTranslation }: Props) {
         <View style={S.backdrop}>
           <View style={S.modal}>
             <View style={S.lumoWrap}>
-              <Image source={require('../../../assets/images/lumo_hint.png')} style={S.lumo} resizeMode="contain" />
+              <Image source={require('../../../assets/shared/mascot/lumo_hint.png')} style={S.lumo} resizeMode="contain" />
               <MascotShadow width={100} />
             </View>
             <Text style={S.modalTitle}>Hint</Text>

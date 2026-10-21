@@ -414,7 +414,7 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
 
           <View style={styles.frame}>
             <Image
-              source={require('../../../assets/images/lumo_kufi.png')}
+              source={require('../../../assets/shared/mascot/lumo_kufi.png')}
               style={styles.lumo}
               resizeMode="contain"
             />

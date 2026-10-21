@@ -71,7 +71,7 @@ export default function FeedbackScreen({ navigation }: Props) {
         <View style={styles.sentWrap}>
           <View style={{ width: 110, height: 110, marginBottom: 18 }}>
             <Image
-              source={require('../../../assets/images/lumo_xp.png')}
+              source={require('../../../assets/shared/mascot/lumo_xp.png')}
               style={{ width: 110, height: 110 }}
               resizeMode="contain"
             />
@@ -99,7 +99,7 @@ export default function FeedbackScreen({ navigation }: Props) {
       >
         <View style={{ width: 100, height: 100, marginBottom: 14 }}>
           <Image
-            source={require('../../../assets/images/lumo_transparent.png')}
+            source={require('../../../assets/shared/mascot/lumo_transparent.png')}
             style={{ width: 100, height: 100 }}
             resizeMode="contain"
           />

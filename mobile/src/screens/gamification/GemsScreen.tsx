@@ -29,7 +29,7 @@ export default function GemsScreen({ navigation }: Props) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Image
-          source={require('../../../assets/map2_assets/stat_gems.png')}
+          source={require('../../../assets/screens/home/map2/images/stat_gems.png')}
           style={styles.gemHero}
           resizeMode="contain"
         />

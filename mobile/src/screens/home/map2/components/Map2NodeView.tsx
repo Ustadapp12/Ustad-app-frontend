@@ -26,11 +26,13 @@ const FACE = {
 } as const;
 
 // Every surah's first level carries "JUMP HERE?" until it's done: every surah
-// is open from the start, so any of them can be begun.
+// is open from the start, so any of them can be begun. Slot 0 (An-Nas level
+// 1) is excluded: it's the very start of the whole map, not a shortcut past
+// anything, so it reads as a plain open node instead.
 export function lookFor(node: Map2NodeData, activeSlot: number | null): NodeLook {
   if (node.slot === activeSlot) return 'current';
   if (node.status === 'completed') return 'completed';
-  if (node.surahLevelIdx === 0) return 'jump';
+  if (node.surahLevelIdx === 0 && node.slot !== 0) return 'jump';
   if (node.status === 'locked') return 'locked';
   return 'open';
 }

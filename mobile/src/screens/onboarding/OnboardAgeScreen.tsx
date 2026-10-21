@@ -51,7 +51,7 @@ export default function OnboardAgeScreen({ navigation }: Props) {
 
       <View style={styles.content}>
         <View style={{ width: 120, height: 120, marginBottom: 10 }}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={120} />
         </View>
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>

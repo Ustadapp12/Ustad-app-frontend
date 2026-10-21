@@ -11,15 +11,17 @@ import StatCard from './StatCard';
 import FeatureButton, { type FeatureSpec } from './FeatureButton';
 import { useTourTarget } from '../../../../components/tour/useTourTarget';
 
-// Left column: Search, Progress. Right column: Journey, Review.
+// Left column: Search, Progress. Right column: Journey, Review. Search/Journey
+// and Progress/Review sit on the same row — the left column's top values are
+// pinned to the right column's so the two line up instead of drifting apart.
 const SEARCH: FeatureSpec = {
-  left: 15, top: 87, w: 60.17, h: 62.68,
+  left: 15, top: 80, w: 60.17, h: 62.68,
   bg: { left: 3, top: 18, w: 57.17, h: 44.68 },
   image: { src: MAP2_IMAGES.search, left: -1, top: -4, size: 55.25, rotate: -0.98 },
   label: { text: 'Search', top: 43 },
 };
 const PROGRESS: FeatureSpec = {
-  left: 18, top: 155, w: 60.89, h: 61.68,
+  left: 18, top: 152, w: 60.89, h: 61.68,
   bg: { left: 3, top: 17, w: 57.17, h: 44.68 },
   image: { src: MAP2_IMAGES.journey, left: 3, top: -4, size: 55.49, rotate: -4.91 },
   label: { text: 'Progress', top: 41 },
@@ -75,7 +77,9 @@ function Map2Header({
         colors={['#F9F0D7', 'rgba(249,240,215,0)']}
         style={{ position: 'absolute', left: 0, right: 0, top: hillBottom - 1, height: FADE_H * s }}
       />
-      <View style={[S.statRow, { top: topInset + 3 * s }]} pointerEvents="box-none">
+      {/* Nudged up by one stat pill's own height (35pt, see StatPillBgArt)
+          on request (2026-10-20), so the row sits tighter against the sky. */}
+      <View style={[S.statRow, { top: topInset + (3 - 35) * s }]} pointerEvents="box-none">
         <StatCard S={S} s={s} icon={MAP2_IMAGES.streak} label="Streak" value={banked(learning?.current_streak)} onPress={onStreak} targetRef={streakTarget.ref} />
         {/* Hearts and gems aren't live in the backend yet: a dash until they
             are. Still tappable -- both open an explainer page rather than a

@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/icon_dumbbell.svg
+// Source: assets/screens/home/map2/svg/icon_dumbbell.svg
 export const ICON_DUMBBELL_W = 35;
 export const ICON_DUMBBELL_H = 25;
 

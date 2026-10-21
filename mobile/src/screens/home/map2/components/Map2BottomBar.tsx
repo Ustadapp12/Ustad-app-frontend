@@ -28,7 +28,7 @@ interface Item {
 const ITEMS: Item[] = [
   { key: 'home', left: 0, top: 11, w: 40, label: 'Home' },
   { key: 'chest', left: 81, top: 1, w: 46, label: 'Quests' },
-  { key: 'star', left: 166, top: 7, w: 40, label: 'Coming soon' },
+  { key: 'star', left: 166, top: 7, w: 40, label: 'Pray' },
   { key: 'trophy', left: 254, top: 9, w: 40, label: 'Leaderboard' },
   { key: 'profile', left: 336, top: 7, w: 40, label: 'Profile' },
 ];

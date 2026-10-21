@@ -13,9 +13,9 @@ interface Props {
 // Same three images LessonHeader actually uses for its heart row (see
 // MAX_HEARTS/MAX_MISTAKES there) — the visualization below is the real
 // full -> half -> empty states, not a redrawn approximation of them.
-const HEART_FULL = require('../../../assets/map/redh.png');
-const HEART_HALF = require('../../../assets/map/halfh.png');
-const HEART_EMPTY = require('../../../assets/map/whiteh.png');
+const HEART_FULL = require('../../../assets/screens/gamification/redh.png');
+const HEART_HALF = require('../../../assets/screens/gamification/halfh.png');
+const HEART_EMPTY = require('../../../assets/screens/gamification/whiteh.png');
 
 export default function HeartsScreen({ navigation }: Props) {
   const rawInsets = useSafeAreaInsets();
@@ -34,7 +34,7 @@ export default function HeartsScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={{ width: 110, height: 110, marginBottom: 4 }}>
           <Image
-            source={require('../../../assets/images/lumo_transparent.png')}
+            source={require('../../../assets/shared/mascot/lumo_transparent.png')}
             style={styles.luma}
             resizeMode="contain"
           />

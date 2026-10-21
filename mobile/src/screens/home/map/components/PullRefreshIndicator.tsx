@@ -68,7 +68,7 @@ export function PullRefreshIndicator({ scrollY, refreshing }: { scrollY: Animate
         </Svg>
       </Animated.View>
       <Animated.Image
-        source={require('../../../../../assets/images/lumo_transparent.png')}
+        source={require('../../../../../assets/shared/mascot/lumo_transparent.png')}
         resizeMode="contain"
         style={[pullRefreshStyles.lumo, { opacity: pullProgress, transform: [{ scale: pullProgress }] }]}
       />

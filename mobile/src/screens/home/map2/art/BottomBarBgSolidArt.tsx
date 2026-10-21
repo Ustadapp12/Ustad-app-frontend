@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/bottom_bar_bg_solid.svg
+// Source: assets/screens/home/map2/svg/bottom_bar_bg_solid.svg
 export const BOTTOM_BAR_BG_SOLID_W = 440;
 export const BOTTOM_BAR_BG_SOLID_H = 71;
 

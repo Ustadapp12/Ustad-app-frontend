@@ -85,7 +85,7 @@ export default function HelpScreen() {
           </View>
           <View>
             <Animated.Image
-              source={require('../../../assets/images/lumo_transparent.png')}
+              source={require('../../../assets/shared/mascot/lumo_transparent.png')}
               style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
               resizeMode="contain"
             />

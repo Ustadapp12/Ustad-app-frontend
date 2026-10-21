@@ -41,7 +41,7 @@ export default function ChestInfoModal({ visible, onClose }: Props) {
         <View style={styles.card}>
           <Text style={styles.label}>TAP TO CLAIM THE REWARD</Text>
           <Animated.Image
-            source={require('../../assets/images/chest.png')}
+            source={require('../../assets/shared/icons/chest.png')}
             style={[styles.chest, { transform: [{ translateY: chestTranslateY }] }]}
             resizeMode="contain"
           />

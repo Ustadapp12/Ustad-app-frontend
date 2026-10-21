@@ -52,7 +52,7 @@ function DailyQuestContent() {
             Same 1.037 aspect as the old lumo_transparent.png, so it fills the
             165x165 contain box identically and MascotShadow still lines up. */}
         <Animated.Image
-          source={require('../../../assets/map/mascot.png')}
+          source={require('../../../assets/screens/quests/mascot.png')}
           style={[styles.luma, { marginBottom: 0, transform: [{ translateY: lumaY }] }]}
           resizeMode="contain"
         />

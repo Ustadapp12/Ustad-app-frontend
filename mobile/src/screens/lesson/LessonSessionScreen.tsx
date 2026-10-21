@@ -41,7 +41,7 @@ import HearButton from '../../components/lesson/HearButton';
 
 // The speaker/audio-playback icon used everywhere a "tap to hear" control
 // shows a handheld speaker — replaces the old 🔊 emoji.
-const SPEAKER_ICON = require('../../../assets/map/speaker.png');
+const SPEAKER_ICON = require('../../../assets/screens/lesson/speaker.png');
 
 // ── Tour-only glow ─────────────────────────────────
 // Moved to components/tour/tourGlow.ts: MainTabs, MapScreen and MapScreenV2
@@ -248,13 +248,13 @@ const HANDLED_EXERCISE_TYPES = new Set([
 // ── Character rotation ────────────────────────────────────────────
 export interface Character { src: ImageSourcePropType; name: string }
 export const CHARACTERS: Character[] = [
-  { src: require('../../../assets/characters/ayesha.png'),   name: 'Ayesha' },
-  { src: require('../../../assets/characters/farah.png'),    name: 'Farah' },
-  { src: require('../../../assets/characters/fatima.png'),   name: 'Fatima' },
-  { src: require('../../../assets/characters/hamza.png'),    name: 'Hamza' },
-  { src: require('../../../assets/characters/muhammad.png'), name: 'Muhammad' },
-  { src: require('../../../assets/characters/umar.png'),     name: 'Umar' },
-  { src: require('../../../assets/characters/waleed.png'),   name: 'Waleed' },
+  { src: require('../../../assets/screens/lesson/legacy-characters/ayesha.png'),   name: 'Ayesha' },
+  { src: require('../../../assets/screens/lesson/legacy-characters/farah.png'),    name: 'Farah' },
+  { src: require('../../../assets/screens/lesson/legacy-characters/fatima.png'),   name: 'Fatima' },
+  { src: require('../../../assets/screens/lesson/legacy-characters/hamza.png'),    name: 'Hamza' },
+  { src: require('../../../assets/screens/lesson/legacy-characters/muhammad.png'), name: 'Muhammad' },
+  { src: require('../../../assets/screens/lesson/legacy-characters/umar.png'),     name: 'Umar' },
+  { src: require('../../../assets/screens/lesson/legacy-characters/waleed.png'),   name: 'Waleed' },
 ];
 export function shuffleIndices(len: number): number[] {
   const arr = Array.from({ length: len }, (_, i) => i);
@@ -382,7 +382,7 @@ function BismillahIntro({
   return (
     <View style={[BI.container, { paddingTop: insetTop }]}>
       <Animated.Image
-        source={require('../../../assets/images/lumo_read.png')}
+        source={require('../../../assets/screens/lesson/lumo_read.png')}
         style={[BI.luma, { transform: [{ translateY: ty }] }]}
         resizeMode="contain"
       />
@@ -452,7 +452,7 @@ export function AyahDisplay({
       {showLumo && (
         <View style={AD.lumoRow}>
           <Image
-            source={require('../../../assets/images/lumo_kufi.png')}
+            source={require('../../../assets/shared/mascot/lumo_kufi.png')}
             style={AD.lumoImg}
             resizeMode="contain"
           />
@@ -1149,7 +1149,7 @@ function SpeakResultBanner({ result, onAdvance, onRetry }: { result: SpeakResult
         {/* XP pill — only shown when the user passed (earned it) */}
         {passed && (
           <View style={SRB.xpPill}>
-            <Image source={require('../../../assets/images/lumo_xp.png')} style={SRB.xpLumo} resizeMode="contain" />
+            <Image source={require('../../../assets/shared/mascot/lumo_xp.png')} style={SRB.xpLumo} resizeMode="contain" />
             <Text style={SRB.xpText} allowFontScaling={false}>+2 XP</Text>
           </View>
         )}
@@ -1449,14 +1449,14 @@ function ReadAyahAndSpeak({
         >
           {speakState === 'recording' ? (
             <LottieView
-              source={require('../../../assets/animations/listen.json')}
+              source={require('../../../assets/shared/animations/listen.json')}
               autoPlay
               loop
               style={RAS.listenAnim}
             />
           ) : (
             <Image
-              source={require('../../../assets/images/mic.png')}
+              source={require('../../../assets/screens/lesson/mic.png')}
               style={RAS.micImage}
               resizeMode="contain"
             />
@@ -1740,14 +1740,14 @@ export function ReadAndSpeak({
           >
             {speakState === 'recording' ? (
               <LottieView
-                source={require('../../../assets/animations/listen.json')}
+                source={require('../../../assets/shared/animations/listen.json')}
                 autoPlay
                 loop
                 style={RANS.listenAnim}
               />
             ) : (
               <Image
-                source={require('../../../assets/images/mic.png')}
+                source={require('../../../assets/screens/lesson/mic.png')}
                 style={RANS.micImage}
                 resizeMode="contain"
               />
@@ -1870,14 +1870,14 @@ function RecitationScoringFeedback() {
     <View style={RSF.container}>
       <View style={{ width: 90, height: 90 }}>
         <Image
-          source={require('../../../assets/images/lumo_kufi.png')}
+          source={require('../../../assets/shared/mascot/lumo_kufi.png')}
           style={RSF.lumo}
           resizeMode="contain"
         />
       </View>
       <LottieView
         ref={lottieRef}
-        source={require('../../../assets/animations/loading.json')}
+        source={require('../../../assets/shared/animations/loading.json')}
         autoPlay
         loop
         style={RSF.hourglass}
@@ -2097,7 +2097,7 @@ export function FeedbackBanner({
         </View>
         {xpAwarded > 0 && (
           <View style={FB.xpPill}>
-            <Image source={require('../../../assets/images/lumo_xp.png')} style={FB.xpLumo} resizeMode="contain" />
+            <Image source={require('../../../assets/shared/mascot/lumo_xp.png')} style={FB.xpLumo} resizeMode="contain" />
             <Text style={FB.xpText}>+{xpAwarded} XP</Text>
           </View>
         )}
@@ -2711,7 +2711,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
-          source={require('../../../assets/animations/404.json')}
+          source={require('../../../assets/shared/animations/404.json')}
           autoPlay loop
           style={{ width: 200, height: 200 }}
         />
@@ -2745,7 +2745,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     return (
       <View style={[S.center, { paddingTop: insets.top }]}>
         <LottieView
-          source={require('../../../assets/animations/loading.json')}
+          source={require('../../../assets/shared/animations/loading.json')}
           autoPlay loop
           style={{ width: 140, height: 140 }}
         />
@@ -2798,11 +2798,11 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           style={[LL.backBtn, { top: insets.top + 10 }]}
           onPress={() => { abandonSession({ silent: true }).catch(() => {}); navigation.goBack(); }}
         >
-          <Image source={require('../../../assets/back_arrow.png')} style={LL.backArrowIcon} resizeMode="contain" />
+          <Image source={require('../../../assets/shared/icons/back_arrow.png')} style={LL.backArrowIcon} resizeMode="contain" />
           <Text style={LL.backText}>Map</Text>
         </TouchableOpacity>
         <LottieView
-          source={require('../../../assets/animations/loading.json')}
+          source={require('../../../assets/shared/animations/loading.json')}
           autoPlay loop
           style={{ width: 140, height: 140 }}
         />
@@ -2984,7 +2984,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       {showConfetti && (
         <View style={S.confettiOverlay} pointerEvents="none">
           <LottieView
-            source={require('../../../assets/animations/celebration.json')}
+            source={require('../../../assets/shared/animations/celebration.json')}
             autoPlay
             loop={false}
             style={S.confettiAnim}
@@ -2998,7 +2998,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           <View style={S.noHeartsCard}>
             <View style={{ width: 120, height: 120, marginBottom: 8 }}>
               <Image
-                source={require('../../../assets/images/lumo_cry.png')}
+                source={require('../../../assets/shared/mascot/lumo_cry.png')}
                 style={[S.noHeartsLumo, { marginBottom: 0 }]}
                 resizeMode="contain"
               />
@@ -3040,7 +3040,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           <View style={S.noHeartsCard}>
             <View style={{ width: 90, height: 90, marginBottom: 8 }}>
               <Image
-                source={require('../../../assets/images/lumo_kufi.png')}
+                source={require('../../../assets/shared/mascot/lumo_kufi.png')}
                 style={[S.exitConfirmLumo, { marginBottom: 0 }]}
                 resizeMode="contain"
               />
@@ -3101,7 +3101,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       {systemPlaying && exercise?.type !== 'read_ayah_and_speak' && exercise?.type !== 'read_and_speak' && exercise?.type !== 'audio_fill' && exercise?.type !== 'hear_and_select' && (
         <View pointerEvents="none" style={[S.waveBar, { bottom: insets.bottom + 8 }]}>
           <LottieView
-            source={require('../../../assets/animations/wave.json')}
+            source={require('../../../assets/shared/animations/wave.json')}
             autoPlay loop
             style={S.waveLottie}
           />

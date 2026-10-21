@@ -112,7 +112,7 @@ export default function LumoLoader({ label = 'Loading ....', backgroundColor = '
             </Animated.View>
           );
         })}
-        <Image source={require('../../assets/images/lumo_sad.png')} style={s.lumo} resizeMode="contain" />
+        <Image source={require('../../assets/shared/mascot/lumo_sad.png')} style={s.lumo} resizeMode="contain" />
       </View>
       <Text style={[s.label, labelColor ? { color: labelColor } : null]}>{label}</Text>
     </View>

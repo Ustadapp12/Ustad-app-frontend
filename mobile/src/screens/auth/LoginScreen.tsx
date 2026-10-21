@@ -25,8 +25,8 @@ interface Props { navigation: RootNavProp }
 
 const LOGIN_MESSAGES = ['Logging in…', 'Connecting to the server…', 'Almost there…'];
 
-const MAIL_ICON = require('../../../assets/map/mail.png');
-const PASSWORD_ICON = require('../../../assets/map/password.png');
+const MAIL_ICON = require('../../../assets/screens/auth/mail.png');
+const PASSWORD_ICON = require('../../../assets/screens/auth/password.png');
 
 export default function LoginScreen({ navigation }: Props) {
   const rawInsets = useSafeAreaInsets();
@@ -130,7 +130,7 @@ export default function LoginScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 40 + insets.bottom }]} keyboardShouldPersistTaps="handled">
         {/* Luma */}
         <View style={styles.lumaWrap}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
           <MascotShadow width={130} style={{ position: 'relative', marginTop: -13 }} />
         </View>
 

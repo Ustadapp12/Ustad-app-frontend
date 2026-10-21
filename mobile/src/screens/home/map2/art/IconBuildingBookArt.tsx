@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/icon_building_book.svg
+// Source: assets/screens/home/map2/svg/icon_building_book.svg
 export const ICON_BUILDING_BOOK_W = 69;
 export const ICON_BUILDING_BOOK_H = 69;
 

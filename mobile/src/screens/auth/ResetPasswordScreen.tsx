@@ -66,7 +66,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
       <View style={styles.container}>
         <View style={[styles.content, styles.successContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
           <View style={{ width: 140, height: 140, marginBottom: 20 }}>
-            <Image source={require('../../../assets/images/lumo_xp.png')} style={[styles.lumaSuccess, { marginBottom: 0 }]} resizeMode="contain" />
+            <Image source={require('../../../assets/shared/mascot/lumo_xp.png')} style={[styles.lumaSuccess, { marginBottom: 0 }]} resizeMode="contain" />
             <MascotShadow width={140} />
           </View>
           <View style={styles.successBubble}>
@@ -88,7 +88,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
 
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
         <View style={{ width: 110, height: 110, marginBottom: 8 }}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={110} />
         </View>
 

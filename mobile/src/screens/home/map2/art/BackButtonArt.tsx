@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/back_button.svg
+// Source: assets/screens/home/map2/svg/back_button.svg
 export const BACK_BUTTON_W = 23;
 export const BACK_BUTTON_H = 23;
 

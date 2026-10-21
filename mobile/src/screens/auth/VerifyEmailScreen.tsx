@@ -131,7 +131,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
       </TouchableOpacity>
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
         <View style={{ width: 130, height: 130, marginBottom: 8 }}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={130} />
         </View>
 
@@ -186,7 +186,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
         <View style={styles.celebCard}>
           <View style={{ width: 84, height: 84, marginBottom: 12 }}>
             <Animated.Image
-              source={require('../../../assets/images/lumo_xp.png')}
+              source={require('../../../assets/shared/mascot/lumo_xp.png')}
               style={[styles.celebLuma, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
               resizeMode="contain"
             />

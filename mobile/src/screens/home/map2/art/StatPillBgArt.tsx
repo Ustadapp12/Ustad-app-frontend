@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/stat_pill_bg.svg
+// Source: assets/screens/home/map2/svg/stat_pill_bg.svg
 export const STAT_PILL_BG_W = 82.5037;
 export const STAT_PILL_BG_H = 34.9999;
 

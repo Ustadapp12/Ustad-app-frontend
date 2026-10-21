@@ -11,7 +11,7 @@ export function LumaFloat({ style, speech, speechTailAngle, S, SB, sc }: { style
       {speech && <SpeechBubble text={speech} SB={SB} tailAngle={speechTailAngle} />}
       <View style={S.lumaGlow}>
         <Image
-          source={require('../../../../../assets/images/lumo_kufi.png')}
+          source={require('../../../../../assets/shared/mascot/lumo_kufi.png')}
           style={S.lumaImg}
           resizeMode="contain"
         />

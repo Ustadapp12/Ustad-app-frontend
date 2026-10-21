@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/sky_hill.svg
+// Source: assets/screens/home/map2/svg/sky_hill.svg
 export const SKY_HILL_W = 500;
 export const SKY_HILL_H = 213.303;
 

@@ -111,7 +111,7 @@ function MapHud({ S, sc, topInset, learning, isGuestUser, onGuestPress, navigati
               accessibilityLabel="Search surahs"
             >
               <Image
-                source={require('../../../../../assets/map/search box (1).png')}
+                source={require('../../../../../assets/screens/home/map-legacy/search box (1).png')}
                 style={{
                   width: (streakPillWidth ?? sc(40)) * 2,
                   height: (streakPillWidth ?? sc(40)) * 2,

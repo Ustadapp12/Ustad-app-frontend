@@ -38,7 +38,7 @@ export default function XPScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={{ width: 110, height: 110, marginBottom: 4 }}>
           <Image
-            source={require('../../../assets/images/lumo_xp.png')}
+            source={require('../../../assets/shared/mascot/lumo_xp.png')}
             style={styles.luma}
             resizeMode="contain"
           />

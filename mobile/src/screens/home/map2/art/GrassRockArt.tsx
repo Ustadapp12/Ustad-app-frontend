@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/grass_rock.svg
+// Source: assets/screens/home/map2/svg/grass_rock.svg
 export const GRASS_ROCK_W = 73;
 export const GRASS_ROCK_H = 43.563;
 

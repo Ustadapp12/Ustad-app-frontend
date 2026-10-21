@@ -78,7 +78,7 @@ export default function OnboardScriptScreen({ navigation }: Props) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={{ width: sc(100), height: sc(100), alignSelf: 'center', marginBottom: sc(4) }}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={sc(100)} />
         </View>
         <Text style={styles.badge}>SETUP · STEP 3 OF 3</Text>

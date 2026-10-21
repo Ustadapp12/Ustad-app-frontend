@@ -10,18 +10,18 @@ export const STREAK_NONE_COLOR = '#9CA3AF';
 export const STREAK_ACTIVE_EMOJI = '🔥';
 // Real ice-cube artwork (product-provided 2026-08-11) — the frozen-streak
 // representation everywhere it's shown, replacing the old 🧊 placeholder.
-export const STREAK_FROZEN_ICON = require('../../assets/map/frozen.png');
+export const STREAK_FROZEN_ICON = require('../../assets/shared/fire/frozen.png');
 
 // Numbered fire icons (product-provided 2026-08-19) — used on the map HUD
 // pill (small) and the Streak page's day grid (large, with the day number
 // overlaid). Kept separate from STREAK_FROZEN_ICON above, which is
 // unchanged everywhere else it renders: the Streak page hero, the freeze
 // popup, and the repair-progress screen.
-export const STREAK_ACTIVE_ICON_SMALL = require('../../assets/map/orange_fire_30.png');
-export const STREAK_ACTIVE_ICON_LARGE = require('../../assets/map/orange_fire_60.png');
-export const STREAK_FROZEN_ICON_SMALL = require('../../assets/map/blue_fire_30.png');
-export const STREAK_FROZEN_ICON_LARGE = require('../../assets/map/blue_fire_60.png');
-export const STREAK_BLANK_ICON = require('../../assets/map/blank_fire.png');
+export const STREAK_ACTIVE_ICON_SMALL = require('../../assets/shared/fire/orange_fire_30.png');
+export const STREAK_ACTIVE_ICON_LARGE = require('../../assets/shared/fire/orange_fire_60.png');
+export const STREAK_FROZEN_ICON_SMALL = require('../../assets/shared/fire/blue_fire_30.png');
+export const STREAK_FROZEN_ICON_LARGE = require('../../assets/shared/fire/blue_fire_60.png');
+export const STREAK_BLANK_ICON = require('../../assets/shared/fire/blank_fire.png');
 
 export function isStreakFrozen(state: StreakState | undefined): boolean {
   return state === 'frozen';

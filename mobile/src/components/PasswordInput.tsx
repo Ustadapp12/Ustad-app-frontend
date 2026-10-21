@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Image, StyleSheet, type TextInputProps, type StyleProp, type ViewStyle, type TextStyle } from 'react-native';
 import { colors } from '../theme/colors';
 
-const EYE_SRC = require('../../assets/images/eye.png');
-const HIDE_SRC = require('../../assets/images/hide.png');
+const EYE_SRC = require('../../assets/shared/icons/eye.png');
+const HIDE_SRC = require('../../assets/shared/icons/hide.png');
 
 interface Props extends Omit<TextInputProps, 'secureTextEntry' | 'style'> {
   value: string;

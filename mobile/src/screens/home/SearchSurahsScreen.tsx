@@ -220,7 +220,7 @@ export default function SearchSurahsScreen({ navigation }: Props) {
           accessibilityLabel="Map"
         >
           <Image
-            source={require('../../../assets/images/map_feature_button.png')}
+            source={require('../../../assets/screens/home/map_feature_button.png')}
             style={styles.mapBtnImage}
             resizeMode="contain"
           />
@@ -299,7 +299,11 @@ export default function SearchSurahsScreen({ navigation }: Props) {
                     </View>
                   </View>
                 ) : (
-                  <Text style={styles.jumpHere}>JUMP HERE ▶</Text>
+                  <Image
+                    source={require('../../../assets/screens/home/jump_search.png')}
+                    style={styles.jumpHere}
+                    resizeMode="contain"
+                  />
                 )}
               </View>
             </TouchableOpacity>
@@ -397,10 +401,8 @@ function makeStyles(sc: (n: number) => number, insets: any) {
     rowNameEn: { flexShrink: 1, fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.darkText },
     rowNameAr: { fontFamily: 'Nunito-Bold', fontSize: sc(15), color: colors.darkText },
     rowMeta: { fontFamily: 'Nunito-Regular', fontSize: sc(10), color: colors.mutedText, marginTop: 2 },
-    jumpHere: {
-      fontFamily: 'Nunito-Bold', fontSize: sc(11), color: colors.success,
-      textAlign: 'right', marginTop: sc(8), letterSpacing: 0.3,
-    },
+    // 124x29 source art (figma_Designs/map2_originals/jump_search.png).
+    jumpHere: { width: sc(64), height: sc(15), alignSelf: 'flex-end', marginTop: sc(8) },
     progressBlock: { marginTop: sc(8) },
     progressPct: { fontFamily: 'Nunito-Bold', fontSize: sc(10), color: colors.success, textAlign: 'right', marginBottom: sc(4) },
     progressBarRow: { flexDirection: 'row', alignItems: 'center', gap: sc(8) },

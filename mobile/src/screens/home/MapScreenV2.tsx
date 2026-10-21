@@ -61,20 +61,20 @@ import type { RootNavProp } from '../../navigation/types';
 const SVG_BG_TILE_H = 3000;
 
 // ── Asset refs (static, so Metro can bundle them) ──────────────────
-const BIRDS_SRC    = require('../../../assets/birds.png');
-const CLOUD_SRC    = require('../../../assets/clouds.png');
-const START_SRC    = require('../../../assets/start.png');
-const SCROLL_SRC   = require('../../../assets/map/scroll2.png');
+const BIRDS_SRC    = require('../../../assets/screens/home/birds.png');
+const CLOUD_SRC    = require('../../../assets/screens/home/clouds.png');
+const START_SRC    = require('../../../assets/screens/home/start.png');
+const SCROLL_SRC   = require('../../../assets/screens/home/map-legacy/scroll2.png');
 // Chapter-paging signs — same wooden-signpost art as the season gates, one
 // pointing forward ("NEXT STAGE") and one back ("PREVIOUS STAGE"), text baked
 // into the art itself. Real aspect ratios (678x767 / 692x756) — close but not
 // identical, so each keeps its own rather than sharing one constant.
-const NEXT_STAGE_SRC     = require('../../../assets/map/NEXT_STAGE.png');
-const PREVIOUS_STAGE_SRC = require('../../../assets/map/PREVIOUS_STAGE.png');
+const NEXT_STAGE_SRC     = require('../../../assets/screens/home/map-legacy/NEXT_STAGE.png');
+const PREVIOUS_STAGE_SRC = require('../../../assets/screens/home/map-legacy/PREVIOUS_STAGE.png');
 const NEXT_STAGE_ASPECT     = 678 / 767;
 const PREVIOUS_STAGE_ASPECT = 692 / 756;
-const GRASS_SRC    = require('../../../assets/map/grass.jpg');
-const BRICK_SRC    = require('../../../assets/map/bricks.jpg');
+const GRASS_SRC    = require('../../../assets/screens/home/map-legacy/grass.jpg');
+const BRICK_SRC    = require('../../../assets/screens/home/map-legacy/bricks.jpg');
 // Pre-engraved signs — the season number is baked into the art itself, one
 // file per season, keyed by season number (1-indexed, matching the label on
 // the sign) rather than composed at runtime from a blank sign + overlaid text.
@@ -84,17 +84,17 @@ const BRICK_SRC    = require('../../../assets/map/bricks.jpg');
 // without matching art. Every other gate renders the sign for the season it
 // unlocks (unlocksSeasonIdx is 0-indexed — see the seasonGates render below).
 const SEASON_SIGN_SRCS: Record<number, ImageSourcePropType> = {
-  1: require('../../../assets/map/s1.png'),
-  2: require('../../../assets/map/s2.png'),
-  3: require('../../../assets/map/s3.png'),
-  4: require('../../../assets/map/s4.png'),
-  5: require('../../../assets/map/s5.png'),
-  6: require('../../../assets/map/s6.png'),
-  7: require('../../../assets/map/s7.png'),
+  1: require('../../../assets/screens/home/map-legacy/s1.png'),
+  2: require('../../../assets/screens/home/map-legacy/s2.png'),
+  3: require('../../../assets/screens/home/map-legacy/s3.png'),
+  4: require('../../../assets/screens/home/map-legacy/s4.png'),
+  5: require('../../../assets/screens/home/map-legacy/s5.png'),
+  6: require('../../../assets/screens/home/map-legacy/s6.png'),
+  7: require('../../../assets/screens/home/map-legacy/s7.png'),
 };
 // Real aspect ratio of the sign art (186x326). All three files share it.
 const SEASON_GATE_ASPECT = 186 / 326;
-const SKY_SRC      = require('../../../assets/map/sky.jpg');
+const SKY_SRC      = require('../../../assets/screens/home/map-legacy/sky.jpg');
 // Cropped from the original mountains.png (1400x443 → 1400x385): the source
 // art's foreground isn't a flat line — a lake dips as low as y≈442 on the
 // left while the right side's tree line ends by y≈387, a 55px wobble in the
@@ -106,12 +106,12 @@ const SKY_SRC      = require('../../../assets/map/sky.jpg');
 // verified across the full width) — keeps every column opaque right to the
 // bottom edge, so the mountain reads as one consistent skyline instead of
 // forcing an oversized safety margin.
-const MOUNTAINS_SRC = require('../../../assets/map/mountains_crop.png');
+const MOUNTAINS_SRC = require('../../../assets/screens/home/map-legacy/mountains_crop.png');
 const NODE_SRCS = {
-  locked: require('../../../assets/map/node_locked.png'),
-  current: require('../../../assets/map/node_current.png'),
-  completed: require('../../../assets/map/node_completed.png'),
-  specialDone: require('../../../assets/map/special_done.png'),
+  locked: require('../../../assets/screens/home/map-legacy/node_locked.png'),
+  current: require('../../../assets/screens/home/map-legacy/node_current.png'),
+  completed: require('../../../assets/screens/home/map-legacy/node_completed.png'),
+  specialDone: require('../../../assets/screens/home/map-legacy/special_done.png'),
   // Green + star — the art for EVERY reachable (unlocked, not yet
   // completed) special/review node, not just the backend's recommended-next
   // one. special.png used to fill that role, but it is byte-for-byte the
@@ -120,7 +120,7 @@ const NODE_SRCS = {
   // marked it as a review. It is no longer referenced anywhere.
   // Still never shown while locked: the star and the 🔒 badge overlap badly
   // on the same small node, so a locked special keeps node_current.png.
-  recommendedSpecial: require('../../../assets/map/recommended_special.png'),
+  recommendedSpecial: require('../../../assets/screens/home/map-legacy/recommended_special.png'),
 } as const;
 
 // Rough heuristic for the loading overlay's progress bar (current-surah
@@ -1521,7 +1521,7 @@ function LumaFloat({ style, speech, speechTailAngle, S, SB, sc }: { style?: obje
       {speech && <SpeechBubble text={speech} SB={SB} tailAngle={speechTailAngle} />}
       <View style={S.lumaGlow}>
         <Image
-          source={require('../../../assets/images/lumo_kufi.png')}
+          source={require('../../../assets/shared/mascot/lumo_kufi.png')}
           style={S.lumaImg}
           resizeMode="contain"
         />
@@ -1602,7 +1602,7 @@ function PullRefreshIndicator({ scrollY, refreshing }: { scrollY: Animated.Value
         </Svg>
       </Animated.View>
       <Animated.Image
-        source={require('../../../assets/images/lumo_transparent.png')}
+        source={require('../../../assets/shared/mascot/lumo_transparent.png')}
         resizeMode="contain"
         style={[pullRefreshStyles.lumo, { opacity: pullProgress, transform: [{ scale: pullProgress }] }]}
       />

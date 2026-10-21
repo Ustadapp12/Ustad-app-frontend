@@ -47,7 +47,7 @@ export default function StreakFrozenModal({
         <View style={styles.card}>
           <View style={{ width: 110, height: 110, marginBottom: 8 }}>
             <Image
-              source={require('../../assets/images/lumo_cry.png')}
+              source={require('../../assets/shared/mascot/lumo_cry.png')}
               style={styles.luma}
               resizeMode="contain"
             />

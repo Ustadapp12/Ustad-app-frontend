@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/icon_dumbbell_shadow.svg
+// Source: assets/screens/home/map2/svg/icon_dumbbell_shadow.svg
 export const ICON_DUMBBELL_SHADOW_W = 37;
 export const ICON_DUMBBELL_SHADOW_H = 28;
 

@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/icon_lock.svg
+// Source: assets/screens/home/map2/svg/icon_lock.svg
 export const ICON_LOCK_W = 42;
 export const ICON_LOCK_H = 34;
 

@@ -21,9 +21,9 @@ interface Props {
 // gets its own art, every multiple of 7 (7/14/21/...) gets the weekly one,
 // everything else gets the plain daily loop.
 function animationFor(streak: number) {
-  if (streak === 1) return require('../../../assets/animations/1day.json');
-  if (streak > 0 && streak % 7 === 0) return require('../../../assets/animations/7thday.json');
-  return require('../../../assets/animations/allday.json');
+  if (streak === 1) return require('../../../assets/shared/animations/1day.json');
+  if (streak > 0 && streak % 7 === 0) return require('../../../assets/shared/animations/7thday.json');
+  return require('../../../assets/shared/animations/allday.json');
 }
 
 // ── Post-lesson streak celebration — replaces the old jump into the full
@@ -171,7 +171,7 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
             <View style={styles.repairedRow}>
               <View style={{ width: 56, height: 56, marginRight: 10 }}>
                 <Image
-                  source={require('../../../assets/images/lumo_xp.png')}
+                  source={require('../../../assets/shared/mascot/lumo_xp.png')}
                   style={styles.repairedLuma}
                   resizeMode="contain"
                 />

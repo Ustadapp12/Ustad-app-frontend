@@ -201,7 +201,7 @@ export default function SplashScreen({ navigation }: Props) {
               and any title text removed per product ask (2026-08-27),
               bigger to fill the space that freed up. */}
           <Animated.Image
-            source={require('../../../assets/images/lumo_kufi.png')}
+            source={require('../../../assets/shared/mascot/lumo_kufi.png')}
             style={[styles.luma, { marginBottom: 0, transform: [{ translateY: lumaY }] }]}
             resizeMode="contain"
           />

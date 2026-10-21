@@ -182,7 +182,7 @@ export default function SurahProgressScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <BackButton onPress={() => navigation.goBack()} style={styles.backBtn} size={d(23)} tintColor={P.backArrow} />
+        <BackButton onPress={() => navigation.goBack()} style={styles.backBtn} />
         <Text style={styles.headerTitle}>Progress</Text>
         <View style={styles.backBtn} />
       </View>
@@ -295,8 +295,12 @@ function makeStyles(d: Scale) {
       position: 'absolute', bottom: d(31),
       fontFamily: 'Nunito-Regular', fontSize: d(9), color: P.pctText,
     },
+    // Negative marginLeft tucks the bar's rounded right end under the
+    // circle instead of stopping flush beside it -- the rim's own inset
+    // (GlowProgressBar's trackRim padding) otherwise reads as a gap between
+    // the bar and the chest (reported 2026-10-20).
     chestCircle: {
-      width: CHEST, height: CHEST, borderRadius: CHEST / 2,
+      width: CHEST, height: CHEST, borderRadius: CHEST / 2, marginLeft: -d(8),
       backgroundColor: P.badgeBg, alignItems: 'center', justifyContent: 'center',
     },
     chestIcon: { width: d(25), height: d(19) },

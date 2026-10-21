@@ -137,7 +137,7 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         {/* Medal animation — big and continuously looping. */}
         <LottieView
-          source={require('../../../assets/animations/congrats.json')}
+          source={require('../../../assets/shared/animations/congrats.json')}
           autoPlay
           loop
           resizeMode="contain"
@@ -170,7 +170,7 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
         {/* Congratulating Lumo — static image, not a second Lottie */}
         <View style={{ width: 84, height: 84, marginBottom: 12 }}>
           <Animated.Image
-            source={require('../../../assets/images/lumo_xp.png')}
+            source={require('../../../assets/shared/mascot/lumo_xp.png')}
             style={[styles.lumaImg, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
             resizeMode="contain"
           />

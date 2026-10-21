@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/icon_jump.svg
+// Source: assets/screens/home/map2/svg/icon_jump.svg
 export const ICON_JUMP_W = 42;
 export const ICON_JUMP_H = 34;
 

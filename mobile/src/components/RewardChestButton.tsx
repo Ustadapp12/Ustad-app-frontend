@@ -22,7 +22,7 @@ export default function RewardChestButton({ onPress, style, iconStyle }: Props) 
       accessibilityLabel="Reward chest"
     >
       <Image
-        source={require('../../assets/images/chest.png')}
+        source={require('../../assets/shared/icons/chest.png')}
         style={iconStyle}
         resizeMode="contain"
       />

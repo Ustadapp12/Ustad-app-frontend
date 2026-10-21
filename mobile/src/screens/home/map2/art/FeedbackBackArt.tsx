@@ -2,7 +2,7 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import type { ArtProps } from './types';
 
-// Source: assets/map2_assets/feedback_back.svg
+// Source: assets/screens/home/map2/svg/feedback_back.svg
 export const FEEDBACK_BACK_W = 46;
 export const FEEDBACK_BACK_H = 45;
 
