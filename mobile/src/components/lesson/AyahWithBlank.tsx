@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
 
 interface Token { ar: string; blank?: boolean }

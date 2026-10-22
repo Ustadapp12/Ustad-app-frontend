@@ -1,18 +1,16 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Linking, StatusBar, View, StyleSheet } from 'react-native';
+import { Linking, ScrollView, StatusBar, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
-import { useResponsiveScale, safeBottomInset, type Scale } from '../../utils/responsive';
-import { getCurrentCoordinates, getLastKnownCoordinates, loadSavedCoordinates, type Coords } from '../../utils/location';
+import { useResponsiveScale } from '../../utils/responsive';
+import { getLastKnownCoordinates, loadSavedCoordinates, type Coords } from '../../utils/location';
 import { nextPrayerFromCoords, currentPrayerFromCoords, type NextPrayer } from '../../utils/prayerTimes';
 import { qiblaBearingFromCoords } from '../../utils/qibla';
-import { usersApi } from '../../api';
+import { loadPrayerData } from './prayerData';
 import HeroSalahCard from './HeroSalahCard';
 import DateRow from './DateRow';
-import QiblaSection from './QiblaSection';
 import LearnCard from './LearnCard';
 import SectionTitle from './SectionTitle';
+import { makeStyles } from './PrayScreen.styles';
 
 // Figma `pray_page.zip` (2026-10-20), the middle tab (the 8-point star icon
 // in the bottom bar). The Islamic date needs no location (see utils/hijri.ts,
@@ -27,39 +25,17 @@ import SectionTitle from './SectionTitle';
 // Split into one component per Figma piece on request (2026-10-20) -- this
 // file is just the data-loading orchestrator now.
 
-interface PrayerData { coords: Coords | null; next: NextPrayer | null; current: string | null; qibla: number | null }
-
-/** Exported separately from the component so it's testable as a plain async
- * function, matching this repo's existing test style (no component-render
- * harness is set up here) -- see __tests__/prayScreen.test.ts. Carries
- * `coords` back out (not just the derived fields) so the component can
- * cache it and re-derive next/current locally as time passes, instead of
- * re-reading the GPS on every tick -- see PrayScreen's recompute(). */
-export async function loadPrayerData(): Promise<PrayerData> {
-  const coords = await getCurrentCoordinates();
-  if (!coords) return { coords: null, next: null, current: null, qibla: null };
-  // Mid-session GPS refresh: independent of session start/end, fires every
-  // time this tab gets a fresh fix. Best-effort -- never blocks or affects
-  // what's shown.
-  usersApi.updateLocation(coords.latitude, coords.longitude).catch(() => undefined);
-  return {
-    coords,
-    next: nextPrayerFromCoords(coords),
-    current: currentPrayerFromCoords(coords),
-    qibla: qiblaBearingFromCoords(coords),
-  };
-}
+// Loading the prayer data (GPS fix + server location ping) lives in
+// prayerData.ts, so this screen never calls the API itself (2026-10-22).
 
 export default function PrayScreen() {
-  const rawInsets = useSafeAreaInsets();
-  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const sc = useResponsiveScale();
-  const styles = useMemo(() => makeStyles(sc, insets.bottom), [sc, insets.bottom]);
+  const styles = useMemo(() => makeStyles(sc), [sc]);
 
   const [next, setNext] = useState<NextPrayer | null>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [qibla, setQibla] = useState<number | null>(null);
-  // Also kept in state (not just coordsRef below) so QiblaSection/
+  // Also kept in state (not just coordsRef below) so HeroSalahCard's
   // QiblaCompass can re-render with it -- they need it to correct the live
   // compass heading for magnetic declination (utils/declination.ts).
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -163,32 +139,28 @@ export default function PrayScreen() {
     }, [refetchLocation, recompute]),
   );
 
+  // Scrolls (2026-10-22): the hero card plus the Learn cards run past one
+  // screen on most phones. No bounce, so pulling down never shows the light
+  // page background above the dark full-bleed card.
   return (
     <View style={styles.container}>
-      <HeroSalahCard
-        currentPrayer={status === 'ready' ? current : null}
-        locationDenied={status === 'denied'}
-        onEnableLocation={onRetryPress}
-      />
+      <ScrollView bounces={false} overScrollMode="never" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <HeroSalahCard
+          currentPrayer={status === 'ready' ? current : null}
+          locationDenied={status === 'denied'}
+          onEnableLocation={onRetryPress}
+          qiblaBearing={status === 'ready' ? qibla : null}
+          coords={status === 'ready' ? coords : null}
+        />
 
-      <View style={styles.body}>
-        <DateRow status={status} next={next} onRetry={onRetryPress} />
+        <View style={styles.body}>
+          <DateRow status={status} next={next} onRetry={onRetryPress} />
 
-        {status === 'ready' && qibla != null && coords != null && (
-          <QiblaSection qiblaBearing={qibla} coords={coords} />
-        )}
-
-        <SectionTitle>Learn</SectionTitle>
-        <LearnCard title="Tajweed" />
-        <LearnCard title="Supplications" />
-      </View>
+          <SectionTitle>Learn</SectionTitle>
+          <LearnCard title="Tajweed" />
+          <LearnCard title="Supplications" />
+        </View>
+      </ScrollView>
     </View>
   );
-}
-
-function makeStyles(sc: Scale, bottomInset: number) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.lightBg, paddingBottom: bottomInset },
-    body: { paddingHorizontal: sc(16) },
-  });
 }

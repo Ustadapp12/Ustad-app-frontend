@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Image, Animated } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import MascotShadow from './MascotShadow';
 import { STREAK_FROZEN_COLOR, STREAK_FROZEN_ICON, freezeDaysLabel, repairProgressLabel } from '../utils/streak';
+import { MASCOT } from '../assets';
 
 interface Props {
   currentStreak: number;
@@ -47,7 +48,7 @@ export default function StreakFrozenModal({
         <View style={styles.card}>
           <View style={{ width: 110, height: 110, marginBottom: 8 }}>
             <Image
-              source={require('../../assets/shared/mascot/lumo_cry.png')}
+              source={MASCOT.lumoCry}
               style={styles.luma}
               resizeMode="contain"
             />

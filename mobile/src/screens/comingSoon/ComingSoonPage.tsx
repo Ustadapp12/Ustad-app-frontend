@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo } from 'react';
-import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootNavProp } from '../../navigation/types';
 import BackButton from '../../components/BackButton';
-import Map2BottomBar, { type BottomBarKey } from '../home/map2/components/Map2BottomBar';
+import Map2BottomBar, { bottomBarClearance, type BottomBarKey } from '../home/map2/components/Map2BottomBar';
 import { FIGMA_W } from '../home/map2/map2Theme';
 import { makeMap2Styles } from '../home/map2/styles';
 import BuildingContent from './BuildingContent';
@@ -25,16 +25,15 @@ export default function ComingSoonPage({ title, active, label }: Props) {
   const { width } = useWindowDimensions();
   const s = width / FIGMA_W;
   const S = useMemo(() => makeMap2Styles(s), [s]);
-  // Full inset, same as Map2TabBar, so the bar sits exactly where the real
-  // tab bar does.
-  const bottomClearance = Platform.OS === 'ios' ? insets.bottom : 0;
+  // Same clearance as the real tab bar, so the bar sits exactly where it does.
+  const bottomClearance = bottomBarClearance(insets.bottom);
 
   const onBar = useCallback((key: BottomBarKey) => {
-    if (key === 'home') navigation.navigate('MainTabs', { screen: 'Map' });
-    else if (key === 'chest') navigation.navigate('MainTabs', { screen: 'DailyQuest' });
-    else if (key === 'star') navigation.navigate('MainTabs', { screen: 'Building' });
-    else if (key === 'trophy') navigation.navigate('MainTabs', { screen: 'Leaderboard' });
-    else navigation.navigate('MainTabs', { screen: 'Profile' });
+    if (key === 'home') navigation.popTo('MainTabs', { screen: 'Map' });
+    else if (key === 'chest') navigation.popTo('MainTabs', { screen: 'DailyQuest' });
+    else if (key === 'star') navigation.popTo('MainTabs', { screen: 'Building' });
+    else if (key === 'trophy') navigation.popTo('MainTabs', { screen: 'Leaderboard' });
+    else navigation.popTo('MainTabs', { screen: 'Profile' });
   }, [navigation]);
 
   return (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, type ImageSourcePropType } from 'react-native';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 
 interface Props {
   character: { src: ImageSourcePropType; name: string };

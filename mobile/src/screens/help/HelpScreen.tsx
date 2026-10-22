@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import MascotShadow from '../../components/MascotShadow';
 import { safeBottomInset } from '../../utils/responsive';
 

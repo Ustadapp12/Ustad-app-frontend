@@ -1,5 +1,5 @@
 ﻿import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Image, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Animated, Image, Modal } from 'react-native';
 import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,19 +8,22 @@ import { useAuthStore } from '../../store/authStore';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
 import MascotShadow from '../../components/MascotShadow';
 import StreakCalendar from '../../components/StreakCalendar';
-import { learningApi } from '../../api';
-import type { StreakCalendar as StreakCalendarData } from '../../types/api';
 import {
-  clearPendingGuestProgress, isGuest, setUpgradePrompted, wasUpgradePrompted,
+  clearPendingGuestProgress, setUpgradePrompted, wasUpgradePrompted,
 } from '../../utils/guest';
-import { colors } from '../../theme/colors';
-import {
-  isStreakFrozen, streakColor, streakGradientColors, freezeDaysLabel, repairProgressLabel,
-  STREAK_FROZEN_COLOR,
-  STREAK_ACTIVE_ICON_SMALL, STREAK_FROZEN_ICON_SMALL,
-} from '../../utils/streak';
+import { colors } from '../../theme';
+import { useFocusedLoop } from '../../hooks/useFocusedLoop';
+import { useLottieWhileVisible } from '../../hooks/useScreenVisible';
+import { isStreakFrozen, streakColor, streakGradientColors, freezeDaysLabel, repairProgressLabel, STREAK_ACTIVE_ICON_SMALL, STREAK_FROZEN_ICON_SMALL } from '../../utils/streak';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
+import {
+  selectCurrentStreak, selectStreakState, selectFreezeDaysRemaining, selectRepairLevelsCompleted,
+  selectRepairLevelsRequired, selectIsGuest,
+} from '../../store/selectors/auth';
+import { styles } from './StreakScreen.styles';
+import { ANIMATIONS, MASCOT } from '../../assets';
+import { useStreakCalendar } from '../../hooks/api';
 
 // Streak Milestones card is wired but hidden for now (2026-09-16 redesign) —
 // flip back on when product wants the reward badges shown again.
@@ -34,8 +37,14 @@ interface Props {
 export default function StreakScreen({ navigation, route }: Props) {
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
-  const { learning, user } = useAuthStore();
-  const streak = route.params?.currentStreak ?? learning?.current_streak ?? 0;
+  // Exact values only (store/selectors/auth.ts), never the whole store.
+  const currentStreak = useAuthStore(selectCurrentStreak);
+  const streakState = useAuthStore(selectStreakState);
+  const storedFreezeDays = useAuthStore(selectFreezeDaysRemaining);
+  const repairLevelsCompleted = useAuthStore(selectRepairLevelsCompleted);
+  const repairLevelsRequired = useAuthStore(selectRepairLevelsRequired);
+  const guest = useAuthStore(selectIsGuest);
+  const streak = route.params?.currentStreak ?? currentStreak ?? 0;
   const justIncremented = route.params?.justIncremented ?? false;
   // Read live, not from route params — unlike the streak number itself
   // (frozen at navigation time via currentStreak), streak_state can flip
@@ -43,10 +52,10 @@ export default function StreakScreen({ navigation, route }: Props) {
   // open (see App.tsx's foreground/poll refresh of `learning`). A missing
   // value (stale cache, field not deployed yet) is treated as "active" —
   // the same default the field's own type comment documents.
-  const frozen = isStreakFrozen(learning?.streak_state);
-  const freezeDaysRemaining = learning?.freeze_days_remaining ?? 0;
-  const repairRequired = learning?.repair_levels_required ?? 0;
-  const repairCompleted = learning?.repair_levels_completed ?? 0;
+  const frozen = isStreakFrozen(streakState);
+  const freezeDaysRemaining = storedFreezeDays ?? 0;
+  const repairRequired = repairLevelsRequired ?? 0;
+  const repairCompleted = repairLevelsCompleted ?? 0;
 
   // The conversion moment. A guest has just watched a streak land that the
   // server deliberately didn't keep — so ask for the account here, while the
@@ -55,26 +64,13 @@ export default function StreakScreen({ navigation, route }: Props) {
   // every level would cheapen it.
   const [upgradePromptVisible, setUpgradePromptVisible] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
-  const guest = isGuest(user);
   const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Real per-day history for the calendar below — only what the backend can
   // actually verify (see StreakCalendar.tsx). Silently absent on failure
   // rather than showing a fabricated grid.
-  const [calendar, setCalendar] = useState<StreakCalendarData | null>(null);
+  const calendar = useStreakCalendar();
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const data = await learningApi.streakCalendar();
-        if (!cancelled) setCalendar(data);
-      } catch {
-        // Leave calendar null — the section just doesn't render.
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     if (!guest || !justIncremented) return;
@@ -98,7 +94,7 @@ export default function StreakScreen({ navigation, route }: Props) {
     await setUpgradePrompted();
     await clearPendingGuestProgress();
     setUpgradePromptVisible(false);
-    navigation.navigate('MainTabs');
+    navigation.popTo('MainTabs');
   }
 
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -114,12 +110,6 @@ export default function StreakScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6 }).start();
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(floatAnim, { toValue: -8, duration: 1200, useNativeDriver: true }),
-      Animated.timing(floatAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
-    ]));
-    loop.start();
-
     if (justIncremented) {
       Animated.spring(lumaScaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6, delay: 300 }).start();
       const timer = setTimeout(() => {
@@ -129,10 +119,16 @@ export default function StreakScreen({ navigation, route }: Props) {
           Animated.spring(numberScaleAnim, { toValue: 1, useNativeDriver: true, tension: 200, friction: 6 }),
         ]).start();
       }, 900);
-      return () => { loop.stop(); clearTimeout(timer); };
+      return () => { clearTimeout(timer); };
     }
-    return () => { loop.stop(); };
+    return undefined;
   }, []);
+  // The bob and the flame run only while this screen is on screen; they used
+  // to keep going under SignUp and under the tabs (2026-10-22 audit).
+  useFocusedLoop(floatAnim, 1200);
+  const floatY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
+  const flameRef = useRef<LottieView>(null);
+  useLottieWhileVisible(flameRef);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -151,7 +147,7 @@ export default function StreakScreen({ navigation, route }: Props) {
         {justIncremented && (
           <View style={{ width: 105, height: 105, marginBottom: 4 }}>
             <Animated.Image
-              source={require('../../../assets/shared/mascot/lumo_transparent.png')}
+              source={MASCOT.lumoTransparent}
               style={[styles.celebrationLuma, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
               resizeMode="contain"
             />
@@ -179,7 +175,7 @@ export default function StreakScreen({ navigation, route }: Props) {
             tint). streakGradientColors() lives next to streakColor() in
             utils/streak.ts so every place a streak renders stays in sync. */}
         <LinearGradient
-          colors={streakGradientColors(learning?.streak_state)}
+          colors={streakGradientColors(streakState)}
           style={styles.heroCard}
         >
           <View style={styles.heroRow}>
@@ -188,8 +184,8 @@ export default function StreakScreen({ navigation, route }: Props) {
                 style={[
                   styles.streakNum,
                   {
-                    color: streakColor(learning?.streak_state),
-                    textShadowColor: streakColor(learning?.streak_state) + '80',
+                    color: streakColor(streakState),
+                    textShadowColor: streakColor(streakState) + '80',
                     transform: [{ scale: numberScaleAnim }],
                   },
                 ]}
@@ -205,11 +201,12 @@ export default function StreakScreen({ navigation, route }: Props) {
                 so it doesn't crowd the card's bottom edge now that it's
                 sitting higher. floatAnim's own bob (0 to -8) rides on top
                 of this. */}
-            <Animated.View style={{ marginTop: -36, marginBottom: 16, transform: [{ translateY: floatAnim }, { scale: scaleAnim }] }}>
+            <Animated.View style={{ marginTop: -36, marginBottom: 16, transform: [{ translateY: floatY }, { scale: scaleAnim }] }}>
               <LottieView
+                ref={flameRef}
                 source={frozen
-                  ? require('../../../assets/shared/animations/streak_frozen.json')
-                  : require('../../../assets/shared/animations/streak.json')}
+                  ? ANIMATIONS.streakFrozen
+                  : ANIMATIONS.streak}
                 autoPlay loop
                 style={styles.streakAnim}
               />
@@ -278,7 +275,7 @@ export default function StreakScreen({ navigation, route }: Props) {
         {guest && (
           <View style={styles.guestCard}>
             <Image
-              source={require('../../../assets/shared/mascot/lumo_transparent.png')}
+              source={MASCOT.lumoTransparent}
               style={styles.guestCardLuma}
               resizeMode="contain"
             />
@@ -359,104 +356,3 @@ export default function StreakScreen({ navigation, route }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.streakBg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 12,
-  },
-  closeBtn: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  closeBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.midText },
-  headerTitle: { fontFamily: 'Nunito-Bold', fontSize: 17, color: colors.darkText },
-  helpBtn: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  helpBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.midText },
-  helpBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center', padding: 24,
-  },
-  helpCard: {
-    width: '100%', maxWidth: 420, backgroundColor: colors.white, borderRadius: 22,
-    paddingHorizontal: 20, paddingTop: 18, paddingBottom: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10,
-  },
-  helpCardHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14,
-  },
-  helpCardTitle: { fontFamily: 'Nunito-Bold', fontSize: 19, color: colors.darkText },
-  helpCloseBtn: {
-    width: 30, height: 30, borderRadius: 15, backgroundColor: colors.lightBg,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  helpCloseBtnText: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.midText },
-  helpSection: { marginBottom: 20 },
-  helpSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  helpSectionIcon: { width: 30, height: 30 },
-  helpSectionTitle: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText },
-  helpSectionSubtitle: {
-    fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.primary,
-    letterSpacing: 0.3, marginTop: 10, marginBottom: 4,
-  },
-  helpSectionBody: { fontFamily: 'Nunito-Regular', fontSize: 13.5, color: colors.mutedText, lineHeight: 20 },
-  helpGotItBtn: {
-    backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14,
-    alignItems: 'center', marginTop: 8,
-  },
-  helpGotItBtnText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
-  scroll: { alignItems: 'center', paddingHorizontal: 22, paddingBottom: 16 },
-  celebrationLuma: { width: 105, height: 105, marginBottom: 4 },
-  // Hero card — gradient panel (Duolingo reference) behind the streak number
-  // and fire animation; heroRow is the row layout inside it.
-  heroCard: { width: '100%', borderRadius: 22, padding: 18, marginBottom: 12 },
-  heroRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heroLeft: { alignItems: 'flex-start', position: 'relative' },
-  // A soft halo behind just the number — see the inline comment above the
-  // JSX for why this (not a gradient fill) is the number's "glamour."
-  streakAnim: { width: 160, height: 160 },
-  streakNum: {
-    fontFamily: 'Nunito-Bold', fontSize: 62, color: '#EA580C', lineHeight: 66,
-    letterSpacing: -1, textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 10,
-  },
-  streakLabel: { fontFamily: 'Nunito-Bold', fontSize: 20, color: colors.darkText, letterSpacing: 0.2 },
-  streakSub: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 19, marginBottom: 14, paddingHorizontal: 16 },
-  freezeCard: {
-    width: '100%', backgroundColor: colors.blueBg, borderRadius: 16,
-    paddingHorizontal: 16, paddingVertical: 12, marginBottom: 16,
-    borderWidth: 1, borderColor: STREAK_FROZEN_COLOR + '33', alignItems: 'center',
-  },
-  freezeCardTitle: { fontFamily: 'Nunito-Bold', fontSize: 14, color: STREAK_FROZEN_COLOR, marginBottom: 2, textAlign: 'center' },
-  freezeCardBody: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.midText, textAlign: 'center' },
-  milestonesCard: {
-    width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
-  },
-  milestonesTitle: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.darkText, marginBottom: 10 },
-  milestoneRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border,
-  },
-  milestoneRowDone: { opacity: 0.9 },
-  milestoneLabel: { flex: 1, fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.midText },
-  milestoneReward: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.primary },
-  milestoneDone: {
-    width: 22, height: 22, borderRadius: 11, backgroundColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  guestCard: {
-    width: '100%', backgroundColor: colors.white, borderRadius: 18, padding: 16, marginTop: 12,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
-  },
-  guestCardLuma: { width: 52, height: 52 },
-  guestCardText: { flex: 1 },
-  guestCardTitle: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.darkText, marginBottom: 2 },
-  guestCardBody: { fontFamily: 'Nunito-Regular', fontSize: 11, color: colors.mutedText, lineHeight: 15 },
-  guestCardBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
-  guestCardBtnText: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.white },
-});
-

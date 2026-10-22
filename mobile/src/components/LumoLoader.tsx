@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, Image, Animated, Easing, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useResponsiveScale, designScale, type Scale } from '../utils/responsive';
+import { useScreenVisible } from '../hooks/useScreenVisible';
+import { MASCOT } from '../assets';
 
 // Full-screen loading state from Figma "loading.png" (440pt frame): the sad
 // Lumo in the middle with eight stars around him. The stars never move: they
@@ -77,13 +79,17 @@ export default function LumoLoader({ label = 'Loading ....', backgroundColor = '
   const s = useMemo(() => makeStyles(d), [d]);
 
   const wave = useRef(new Animated.Value(0)).current;
+  // Only while its screen is on screen (2026-10-22 audit): switching tabs
+  // mid-load used to leave it waving until the load finished.
+  const visible = useScreenVisible();
   useEffect(() => {
+    if (!visible) return;
     const loop = Animated.loop(Animated.timing(wave, {
       toValue: 1, duration: ONE_LAP_MS, easing: Easing.linear, useNativeDriver: true,
     }));
     loop.start();
     return () => loop.stop();
-  }, [wave]);
+  }, [wave, visible]);
   const starAnims = useMemo(() => SLOTS.map((_, i) => ({
     scale: wave.interpolate({ inputRange: WAVE_INPUT, outputRange: waveOutput(i, r => r.w / MAX_W) }),
     opacity: wave.interpolate({ inputRange: WAVE_INPUT, outputRange: waveOutput(i, r => r.opacity) }),
@@ -112,7 +118,7 @@ export default function LumoLoader({ label = 'Loading ....', backgroundColor = '
             </Animated.View>
           );
         })}
-        <Image source={require('../../assets/shared/mascot/lumo_sad.png')} style={s.lumo} resizeMode="contain" />
+        <Image source={MASCOT.lumoSad} style={s.lumo} resizeMode="contain" />
       </View>
       <Text style={[s.label, labelColor ? { color: labelColor } : null]}>{label}</Text>
     </View>

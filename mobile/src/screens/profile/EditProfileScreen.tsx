@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, Image,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usersApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
 import BackButton from '../../components/BackButton';
@@ -15,6 +11,9 @@ import { validateName } from '../../utils/validators';
 import { characterSrcFor, currentAvatarVariantIndex, GENDER_PREVIEW_SRCS } from '../../utils/avatar';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
+import { selectUserId, selectUserEmail, selectUserName, selectAge, selectGender, selectAvatarVariant } from '../../store/selectors/auth';
+import { styles } from './EditProfileScreen.styles';
+import { useProfileActions } from '../../hooks/api';
 
 interface Props { navigation: RootNavProp }
 
@@ -23,11 +22,18 @@ type Gender = 'male' | 'female';
 export default function EditProfileScreen({ navigation }: Props) {
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
-  const { user, profile, updateDisplayName, updateProfileFields } = useAuthStore();
+  // Exact values only (store/selectors/auth.ts), never the whole store.
+  const userId = useAuthStore(selectUserId);
+  const userEmail = useAuthStore(selectUserEmail);
+  const userName = useAuthStore(selectUserName);
+  const profileAge = useAuthStore(selectAge);
+  const profileGender = useAuthStore(selectGender);
+  const profileAvatarVariant = useAuthStore(selectAvatarVariant);
+  const { saveName, saveGender, saveAge, saveAvatarVariant } = useProfileActions();
 
-  const initialName = user?.name ?? '';
-  const initialGender = profile?.gender ?? null;
-  const initialAge = profile?.age ?? null;
+  const initialName = userName ?? '';
+  const initialGender = profileGender ?? null;
+  const initialAge = profileAge ?? null;
 
   const [name, setName] = useState(initialName);
   const [gender, setGender] = useState<Gender | null>(initialGender);
@@ -56,8 +62,8 @@ export default function EditProfileScreen({ navigation }: Props) {
   // indexes the other gender's folder, so preview (and, on save, grant) the
   // stable hash pick from the new gender's pool instead.
   const genderChanged = !!gender && gender !== initialGender;
-  const regrantedVariant = gender ? currentAvatarVariantIndex(user?.id ?? '', null, gender) : null;
-  const avatarSrc = characterSrcFor(user?.id ?? '', gender, genderChanged ? regrantedVariant : profile?.avatar_variant);
+  const regrantedVariant = gender ? currentAvatarVariantIndex(userId ?? '', null, gender) : null;
+  const avatarSrc = characterSrcFor(userId ?? '', gender, genderChanged ? regrantedVariant : profileAvatarVariant);
 
   async function handleSave() {
     if (!canSubmit || loading) return;
@@ -65,20 +71,16 @@ export default function EditProfileScreen({ navigation }: Props) {
     setError(null);
     try {
       if (trimmedName !== initialName) {
-        await usersApi.updateName(trimmedName);
-        updateDisplayName(trimmedName);
+        await saveName(trimmedName);
       }
       if (gender && gender !== initialGender) {
-        await usersApi.updateGender(gender);
-        updateProfileFields({ gender });
+        await saveGender(gender);
         if (regrantedVariant != null) {
-          await usersApi.updateAvatarVariant(regrantedVariant);
-          updateProfileFields({ avatar_variant: regrantedVariant });
+          await saveAvatarVariant(regrantedVariant);
         }
       }
       if (ageNum && ageNum !== initialAge) {
-        await usersApi.updateAge(ageNum);
-        updateProfileFields({ age: ageNum });
+        await saveAge(ageNum);
       }
       navigation.goBack();
     } catch (e) {
@@ -123,7 +125,7 @@ export default function EditProfileScreen({ navigation }: Props) {
         <View style={styles.fieldWrap}>
           <Text style={styles.fieldLabel}>EMAIL</Text>
           <View style={[styles.inputBox, styles.inputBoxDisabled]}>
-            <Text style={styles.readOnlyValue}>{user?.email ?? 'No email on this account'}</Text>
+            <Text style={styles.readOnlyValue}>{userEmail ?? 'No email on this account'}</Text>
           </View>
         </View>
 
@@ -181,44 +183,3 @@ export default function EditProfileScreen({ navigation }: Props) {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg, position: 'relative' },
-  backBtn: {
-    position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
-    alignItems: 'center', justifyContent: 'center', zIndex: 10,
-  },
-  content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 28 },
-  heading: { fontFamily: 'Nunito-Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 18 },
-  fieldWrap: { width: '100%', marginBottom: 14 },
-  fieldLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.midText, letterSpacing: 0.4, marginBottom: 5 },
-  inputBox: {
-    backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
-  },
-  inputBoxDisabled: { backgroundColor: colors.lightBg },
-  input: { fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.darkText },
-  readOnlyValue: { fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.mutedText },
-  fieldError: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.red, marginTop: 4 },
-  genderRow: { flexDirection: 'row', gap: 10 },
-  genderCard: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: 14, paddingVertical: 12,
-  },
-  genderCardActive: { borderColor: colors.primary, backgroundColor: '#F0FAF5' },
-  genderCutout: { width: 44, height: 44 },
-  genderLabel: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.darkText },
-  error: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
-  btn: {
-    width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
-    alignItems: 'center', marginTop: 8,
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
-  },
-  btnDisabled: { opacity: 0.45 },
-  btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
-  disabledHint: {
-    fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText,
-    textAlign: 'center', marginTop: 8,
-  },
-});

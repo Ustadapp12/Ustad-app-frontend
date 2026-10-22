@@ -1,19 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Modal, Animated, KeyboardAvoidingView, Platform, Image,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, Animated, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
-import { authApi } from '../../api';
 import { ApiError } from '../../api/client';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
 import { playFeedbackSound } from '../../services/audioPlayer';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
+import { styles } from './VerifyEmailScreen.styles';
+import { MASCOT } from '../../assets';
+import { useAuthActions } from '../../hooks/api';
 
 interface Props {
   navigation: RootNavProp;
@@ -23,6 +22,7 @@ interface Props {
 const RESEND_COOLDOWN_S = 45;
 
 export default function VerifyEmailScreen({ navigation, route }: Props) {
+  const { fetchOwnEmail, verifyEmail, resendVerification } = useAuthActions();
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const storeUser = useAuthStore(s => s.user);
@@ -46,7 +46,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
     if (email) return;
     // `email` is null only for a guest, who can never reach this screen —
     // claiming the account sets it before we navigate here.
-    authApi.me().then(me => setEmail(me.user.email ?? '')).catch(() => null);
+    void fetchOwnEmail().then(setEmail);
   }, [email]);
 
   useEffect(() => () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); }, []);
@@ -77,7 +77,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await authApi.verifyEmail(email, code);
+      const res = await verifyEmail(email, code);
       await completeEmailVerification();
       if (res.xp_awarded > 0) {
         setCelebXp(res.xp_awarded);
@@ -107,7 +107,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
     setError(null);
     startCooldown(); // starts regardless of the response — backend rate-limits silently (always returns sent:true)
     try {
-      await authApi.resendVerification(email);
+      await resendVerification(email);
     } catch {
       // ignore — nothing meaningful to show the user here
     }
@@ -131,7 +131,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
       </TouchableOpacity>
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
         <View style={{ width: 130, height: 130, marginBottom: 8 }}>
-          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={130} />
         </View>
 
@@ -186,7 +186,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
         <View style={styles.celebCard}>
           <View style={{ width: 84, height: 84, marginBottom: 12 }}>
             <Animated.Image
-              source={require('../../../assets/shared/mascot/lumo_xp.png')}
+              source={MASCOT.lumoXp}
               style={[styles.celebLuma, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
               resizeMode="contain"
             />
@@ -206,41 +206,3 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg, position: 'relative' },
-  closeBtn: {
-    position: 'absolute', right: 20, width: 36, height: 36, borderRadius: 18,
-    alignItems: 'center', justifyContent: 'center', zIndex: 10,
-  },
-  closeIcon: { fontSize: 18, color: colors.mutedText, fontFamily: 'Nunito-Bold' },
-  content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
-  luma: { width: 130, height: 130, marginBottom: 8 },
-  heading: { fontFamily: 'Nunito-Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 6 },
-  sub: { fontFamily: 'Nunito-Regular', fontSize: 14, color: colors.mutedText, textAlign: 'center', marginBottom: 28, lineHeight: 20 },
-  inputBox: {
-    width: '100%', backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: 14, paddingVertical: 16, marginBottom: 12,
-  },
-  codeInput: {
-    fontFamily: 'Nunito-Bold', fontSize: 28, color: colors.darkText, letterSpacing: 12,
-  },
-  error: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.red, textAlign: 'center', marginBottom: 12 },
-  btn: {
-    width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
-    alignItems: 'center', marginTop: 8, marginBottom: 20,
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
-  },
-  btnDisabled: { opacity: 0.45 },
-  btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
-  resendWrap: { marginBottom: 24 },
-  resend: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.primary },
-  resendDisabled: { color: colors.mutedText },
-  celebBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-  celebCard: { backgroundColor: colors.white, borderRadius: 20, padding: 24, width: '100%', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
-  celebLuma: { width: 84, height: 84, marginBottom: 12 },
-  celebTitle: { fontFamily: 'Nunito-Bold', fontSize: 20, color: colors.darkText, textAlign: 'center', marginBottom: 6 },
-  celebXp: { fontFamily: 'Nunito-Bold', fontSize: 22, color: colors.gold, marginBottom: 20 },
-  celebBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  celebBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
-});

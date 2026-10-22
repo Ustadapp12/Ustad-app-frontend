@@ -5,10 +5,14 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { useTourStore } from '../../store/tourStore';
 import { TOUR_STEPS } from './tourSteps';
 import { safeBottomInset } from '../../utils/responsive';
+import {
+  selectTourActive, selectTourStepIndex, selectTourRects, selectTourNext, selectTourPrev, selectTourStop,
+} from '../../store/selectors/tour';
+import { MASCOT } from '../../assets';
 
 // Enough contrast that whatever shows through the cutout below reads as a
 // spotlight, while the rest of the screen stays legible — the point is to
@@ -102,7 +106,13 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
   const window = useWindowDimensions();
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
-  const { active, stepIndex, rects, next, prev, stop } = useTourStore();
+  // Exact values only (store/selectors/tour.ts), never the whole store.
+  const active = useTourStore(selectTourActive);
+  const stepIndex = useTourStore(selectTourStepIndex);
+  const rects = useTourStore(selectTourRects);
+  const next = useTourStore(selectTourNext);
+  const prev = useTourStore(selectTourPrev);
+  const stop = useTourStore(selectTourStop);
 
   // Where this overlay's own top-left sits in window coordinates.
   //
@@ -414,7 +424,7 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
 
           <View style={styles.frame}>
             <Image
-              source={require('../../../assets/shared/mascot/lumo_kufi.png')}
+              source={MASCOT.lumoKufi}
               style={styles.lumo}
               resizeMode="contain"
             />

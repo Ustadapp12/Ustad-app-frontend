@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, TouchableOpacity, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
+import { ICONS } from '../assets';
 
 interface Props {
   onPress: () => void;
@@ -22,7 +23,7 @@ export default function RewardChestButton({ onPress, style, iconStyle }: Props) 
       accessibilityLabel="Reward chest"
     >
       <Image
-        source={require('../../assets/shared/icons/chest.png')}
+        source={ICONS.chest}
         style={iconStyle}
         resizeMode="contain"
       />

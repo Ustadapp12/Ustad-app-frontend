@@ -29,6 +29,28 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Reviewed and approved by the user 2026-10-22, before the build that
+    // carries it.
+    version: '1.0.44',
+    date: '2026-10-22',
+    changes: [
+      { category: 'New', text: 'Your current level on the map now floats gently, so you can always spot where you are.' },
+      { category: 'New', text: 'A new loading screen while your map is being created, with Lumo letting you know what is happening.' },
+      { category: 'Improved', text: 'The qibla compass now sits on the prayer card next to the time and points to the Kaaba.' },
+      { category: 'Improved', text: 'The Pray tab now scrolls, and the Log Your Salah button has more room.' },
+      { category: 'Improved', text: 'Release notes can now be closed by swiping down.' },
+      { category: 'Improved', text: 'The tab bar is now the same size on every screen.' },
+      { category: 'Improved', text: "When your connection drops, the app first says Connecting… and only shows a message if it can't reconnect. It turns green and says Back online once you're connected again." },
+      { category: 'Improved', text: 'In Search, the Jump Here button is bigger, and surahs you have already started open with a tap anywhere on their card.' },
+      { category: 'Improved', text: 'Back arrows now look the same on every screen.' },
+      { category: 'Improved', text: 'Signing in with Apple no longer asks for your name a second time.' },
+      { category: 'Improved', text: 'We now ask about notifications when you first open the app.' },
+      { category: 'Fixed', text: 'Jump Here in Search now takes you straight to that surah on the map.' },
+      { category: 'Fixed', text: 'When you finish a level, you return to the same spot on the map instead of the bottom.' },
+      { category: 'Fixed', text: 'Your current level no longer goes missing from the map after the app has been open for a while.' },
+    ],
+  },
+  {
     // Reviewed and approved by the user 2026-10-21, before the build that
     // carries it. Also covers the Pray tab, which first shipped in 20053
     // without its own notes.

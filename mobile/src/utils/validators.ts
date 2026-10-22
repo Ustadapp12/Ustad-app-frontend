@@ -1,7 +1,11 @@
-// Matches app/auth/validators.py::validate_full_name on the backend exactly
-// (ASCII letters only) — keep in sync so the client never shows a name as
-// valid that the server will then reject with INVALID_NAME.
-const NAME_CHARS_RE = /^[A-Za-z\s'-]+$/;
+// Mirrors app/auth/validators.py::validate_full_name, which since 2026-10-22
+// accepts letters of any script (Arabic, Urdu, Turkish...) plus spaces,
+// hyphens and straight/curly apostrophes. Written without \p{L}, which the
+// JS engine may not support: any ASCII character other than a letter, space,
+// hyphen or apostrophe is refused here, everything non-ASCII passes, and the
+// server makes the final call (e.g. on emoji) with INVALID_NAME.
+const NAME_BAD_ASCII_RE = /[\u0000-\u001f!-&(-,.-@[-`{-\u007f]/;
+const NAME_HAS_LETTER_RE = /[^\s'’-]/;
 const EMAIL_FORMAT_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateName(value: string): string | null {
@@ -9,7 +13,7 @@ export function validateName(value: string): string | null {
   if (!name) return 'Full name is required.';
   if (name.length < 2) return 'Name must be at least 2 characters.';
   if (name.length > 50) return 'Name cannot exceed 50 characters.';
-  if (!NAME_CHARS_RE.test(name)) {
+  if (NAME_BAD_ASCII_RE.test(name) || !NAME_HAS_LETTER_RE.test(name)) {
     return 'Name may only contain letters, spaces, apostrophes and hyphens.';
   }
   return null;

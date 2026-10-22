@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
-  Animated, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions,
+  Animated, FlatList, InteractionManager, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions,
   type CellRendererProps, type ViewToken, type ListRenderItemInfo,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import LumoLoader from '../../../components/LumoLoader';
+import WorldLoading from '../../../components/worldLoading/WorldLoading';
+import { MAP_MESSAGES, MAP_MESSAGE_MS } from '../../../components/worldLoading/messages';
+import { useSlowLoading } from '../../../hooks/useSlowLoading';
 import StreakFrozenModal from '../../../components/StreakFrozenModal';
 import AuthRequiredModal from '../../../components/AuthRequiredModal';
 import StartSurahModal from '../../../components/StartSurahModal';
@@ -14,7 +17,7 @@ import { useTourStore } from '../../../store/tourStore';
 import { isGuest } from '../../../utils/guest';
 import { setTourOffered, wasTourOffered } from '../../../utils/storage';
 import TourOfferModal from '../../../components/tour/TourOfferModal';
-import { getCachedRecommended, subscribeRecommended } from '../../../services/bootCache';
+import { getLastRecommended, subscribeRecommended } from '../../../services/bootCache';
 import { addBreadcrumb, setCrashContext } from '../../../services/crashReporter';
 import type { MapNavProp, TabParamList } from '../../../navigation/types';
 import { SURAH_TO_SEASON, buildMapModel, estimateAyahRange, type Section, type SectionNode } from '../map/mapModel';
@@ -33,7 +36,7 @@ import { useMap2Jump } from './useMap2Jump';
 import { makeMap2Styles } from './styles';
 import Map2Header from './components/Map2Header';
 import Map2Band from './components/Map2Band';
-import Map2BottomBar, { BOTTOM_BAR_H, type BottomBarKey } from './components/Map2BottomBar';
+import Map2BottomBar, { BOTTOM_BAR_H, bottomBarClearance, type BottomBarKey } from './components/Map2BottomBar';
 import Map2FeedbackButton from './components/Map2FeedbackButton';
 import BackToLevelButton, { BACK_TO_LEVEL_H, BACK_TO_LEVEL_W } from './components/BackToLevelButton';
 
@@ -57,7 +60,7 @@ export default function Map2Screen({ navigation }: Props) {
     return { M, ...makeLegacyStyles(M) };
   }, [width, height]);
   const headerH = insets.top + SKY_HILL_H * s;
-  const bottomClearance = Platform.OS === 'ios' ? Math.round(insets.bottom * 0.55) : 0;
+  const bottomClearance = bottomBarClearance(insets.bottom);
   const bottomBarH = BOTTOM_BAR_H * s + bottomClearance;
 
   const user = useAuthStore(st => st.user);
@@ -86,7 +89,7 @@ export default function Map2Screen({ navigation }: Props) {
 
   const {
     fullLevels, setFullLevels, firstLevel, loadingPaths, fetchingSurah, reloading,
-    fetchPhase, fetchFirstLevelNow, currentSurahNumRef, returnedFromLevelTick,
+    fetchPhase, fetchFirstLevelNow, currentSurahNumRef, returnedFromLevelTick, returnedFromSurahRef,
   } = useMapData(learning);
 
   // ── Guided tour ──────────────────────────────────────────────────
@@ -121,7 +124,8 @@ export default function Map2Screen({ navigation }: Props) {
     void setTourOffered();
   }
 
-  const recommended = getCachedRecommended();
+  // Last known, not TTL-gated: see getLastRecommended().
+  const recommended = getLastRecommended();
   const [visibleSurahs, setVisibleSurahs] = useState('');
   const { sections, nodesBySlot, activeSlot } = useEnrichedSections(fullLevels, firstLevel, setFullLevels, recommended, visibleSurahs);
   const activeId = activeSlot != null ? nodesBySlot[activeSlot]?.node.id ?? null : null;
@@ -136,15 +140,32 @@ export default function Map2Screen({ navigation }: Props) {
   // Open on the recommended surah if the boot cache already knows it, else at
   // the very start (An-Nas, bottom of the map). The jump hook then lands exactly.
   const [initialBand] = useState(() => {
-    const rec = getCachedRecommended();
+    const rec = getLastRecommended();
     const slot = rec ? SLOT_OF[`${rec.surah_number}:0`] ?? 0 : 0;
     return bandOfY(layout, layout.cy[slot]);
   });
 
   const nodesReady = !loadingPaths;
+  const slowLoading = useSlowLoading(!nodesReady);
+  // After a lesson: that surah's next unfinished level, or its last one if
+  // it's all done. Read from the map's own nodes, so it is whatever the map
+  // is showing. Null (land on the active level) when no surah is known.
+  const nodesBySlotRef = useRef(nodesBySlot);
+  nodesBySlotRef.current = nodesBySlot;
+  const returnSlot = useCallback((): number | null => {
+    const surah = returnedFromSurahRef.current;
+    if (surah == null) return null;
+    let last: number | null = null;
+    for (let idx = 0; ; idx++) {
+      const slot = SLOT_OF[`${surah}:${idx}`];
+      if (slot == null) return last;
+      if (nodesBySlotRef.current[slot]?.node.status !== 'completed') return slot;
+      last = slot;
+    }
+  }, [returnedFromSurahRef]);
   const { scrollToSlot, jumpToActive, jumpToSurahStart } = useMap2Jump({
     listRef, layout, height, activeSlot, activeId, loading: loadingPaths, returnedFromLevelTick,
-    fetchPhase, currentSurahNumRef, suppressFollowRef,
+    fetchPhase, currentSurahNumRef, suppressFollowRef, returnSlot,
   });
 
   // "Back to my level" arrow: checked when a scroll comes to rest (no
@@ -174,7 +195,15 @@ export default function Map2Screen({ navigation }: Props) {
     Animated.timing(feedbackLift, { toValue: showBackTo ? -feedbackLiftBy : 0, duration: 180, useNativeDriver: true }).start();
   }, [showBackTo, feedbackLiftBy, feedbackLift]);
   // The jump hook also brings the view back on these; the arrow follows.
-  useEffect(() => { setArrowDir(null); }, [activeId, returnedFromLevelTick]);
+  useEffect(() => { setArrowDir(null); }, [activeId]);
+  // After a lesson the view may land on another surah than the learner's
+  // level (see returnSlot), so the arrow is worked out for where it lands.
+  useEffect(() => {
+    if (returnedFromLevelTick === 0) return;
+    const slot = returnSlot();
+    if (slot == null) { setArrowDir(null); return; }
+    updateArrow(Math.max(0, layoutRef.current.cy[slot] - height / 2));
+  }, [returnedFromLevelTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Home pressed from another tab: back to the learner's level.
   useEffect(() => navigation.addListener('tabPress', () => backToLevel()), [navigation, backToLevel]);
@@ -183,16 +212,30 @@ export default function Map2Screen({ navigation }: Props) {
   // there once, then clear them so it never re-fires.
   const route = useRoute<RouteProp<TabParamList, 'Map'>>();
   const jumpSurah = route.params?.jumpToSurah;
+  // Bug (2026-10-22, "jump here from Search goes to the map but stays at my
+  // level"): index.js turns on react-native-screens' enableFreeze, so this
+  // whole tab is frozen and hidden while Search sits on top of it. The
+  // params land as it unfreezes, and a scroll fired a frame later reached a
+  // list that hadn't been laid out again yet, so it was dropped. Waiting for
+  // the navigation transition to finish first means the list is back.
+  // Likely cause, not reproduced on a device. Kept in a ref, not this
+  // effect's cleanup: clearing the params below re-runs the effect, and a
+  // cleanup would cancel the very jump it just scheduled.
+  const jumpTaskRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
+  useEffect(() => () => jumpTaskRef.current?.cancel(), []);
   useEffect(() => {
     if (jumpSurah == null) return;
     const groupId = route.params?.jumpToGroupId;
     const levelIdx = route.params?.jumpToLevelIdx;
     navigation.setParams({ jumpToSurah: undefined, jumpToGroupId: undefined, jumpToLevelIdx: undefined });
-    jumpToSurahStart(jumpSurah, groupId != null && levelIdx != null ? { groupId, levelIdx } : undefined);
-    // Lands on that surah's first level (its JUMP HERE? tag) or the given level;
-    // the arrow then points back to the learner's own level if it's off screen.
-    const slot = SLOT_OF[`${jumpSurah}:${levelIdx ?? 0}`];
-    if (slot != null) updateArrow(Math.max(0, layoutRef.current.cy[slot] - height / 2));
+    jumpTaskRef.current?.cancel();
+    jumpTaskRef.current = InteractionManager.runAfterInteractions(() => {
+      jumpToSurahStart(jumpSurah, groupId != null && levelIdx != null ? { groupId, levelIdx } : undefined);
+      // Lands on that surah's first level (its JUMP HERE? tag) or the given level;
+      // the arrow then points back to the learner's own level if it's off screen.
+      const slot = SLOT_OF[`${jumpSurah}:${levelIdx ?? 0}`];
+      if (slot != null) updateArrow(Math.max(0, layoutRef.current.cy[slot] - height / 2));
+    });
   }, [jumpSurah]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch first-level status for surahs as their bands come on screen.
@@ -431,9 +474,15 @@ export default function Map2Screen({ navigation }: Props) {
       <Map2BottomBar S={S} s={s} bottomClearance={bottomClearance} active="home" onPress={onBottomBar} />
 
       {(!nodesReady || reloading) && <LoadingBar nodesReady={nodesReady} />}
+      {/* While the map is being created: the same "Creating your world…"
+          screen as the splash. The sad Lumo loader only when the connection
+          is slow (no network, server not answering, or still loading after
+          SLOW_LOAD_MS); user, 2026-10-22. */}
       {!nodesReady && (
         <View style={S.overlay} pointerEvents="none">
-          <LumoLoader />
+          {slowLoading
+            ? <LumoLoader label="Slow connection, still loading your map…" />
+            : <WorldLoading insetTop={insets.top} messages={MAP_MESSAGES} intervalMs={MAP_MESSAGE_MS} loop />}
         </View>
       )}
 

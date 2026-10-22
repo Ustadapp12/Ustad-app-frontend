@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { colors } from '../theme/colors';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, View, Text, Modal, PanResponder, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { colors } from '../theme';
 import { RELEASE_NOTES, type ReleaseNoteCategory } from '../data/releaseNotes';
 
 const CATEGORY_STYLE: Record<ReleaseNoteCategory, { bg: string; text: string }> = {
@@ -9,19 +9,49 @@ const CATEGORY_STYLE: Record<ReleaseNoteCategory, { bg: string; text: string }> 
   Fixed: { bg: colors.successBg, text: colors.success },
 };
 
+// Drag distance (or a quick downward flick) past which the sheet closes.
+const DISMISS_DRAG = 80;
+const DISMISS_VELOCITY = 0.5;
+
 export default function ReleaseNotesModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  // Swipe down to close (2026-10-22): dragging the handle/title follows the
+  // finger and closes past DISMISS_DRAG; a short drag springs back. Pulling
+  // the list itself down past its top does the same (iOS overscroll).
+  const dragY = useRef(new Animated.Value(0)).current;
+  useEffect(() => { if (visible) dragY.setValue(0); }, [visible, dragY]);
+  // The header claims the touch as soon as it starts (it holds nothing else
+  // tappable) and won't hand it over mid-drag. Claiming only on move never
+  // fired on device, so the sheet didn't move at all (emulator, 2026-10-22).
+  const pan = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, g) => g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderMove: (_, g) => dragY.setValue(Math.max(0, g.dy)),
+    onPanResponderRelease: (_, g) => {
+      if (g.dy > DISMISS_DRAG || g.vy > DISMISS_VELOCITY) onClose();
+      else Animated.spring(dragY, { toValue: 0, useNativeDriver: true }).start();
+    },
+    onPanResponderTerminate: () => Animated.spring(dragY, { toValue: 0, useNativeDriver: true }).start(),
+  }), [dragY, onClose]);
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <View style={styles.header}>
-            <Text style={styles.title}>What's New</Text>
+        <Animated.View style={[styles.card, { transform: [{ translateY: dragY }] }]}>
+          <View {...pan.panHandlers} collapsable={false} style={styles.header}>
+            <View style={styles.handle} />
+            <Text style={styles.title}>Release Notes Patch {RELEASE_NOTES[0]?.version}</Text>
           </View>
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            onScrollEndDrag={e => { if (e.nativeEvent.contentOffset.y < -DISMISS_DRAG / 2) onClose(); }}
+          >
             {RELEASE_NOTES.map(entry => (
               <View key={entry.version} style={styles.versionBlock}>
                 <View style={styles.versionHeaderRow}>
-                  <Text style={styles.versionLabel}>Version {entry.version}</Text>
+                  <Text style={styles.versionLabel}>Patch {entry.version}</Text>
                   <Text style={styles.versionDate}>{entry.date}</Text>
                 </View>
                 {entry.changes.map((change, i) => {
@@ -41,7 +71,7 @@ export default function ReleaseNotesModal({ visible, onClose }: { visible: boole
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Text style={styles.closeBtnText}>Close</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -51,9 +81,11 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   card: {
     backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, maxHeight: '75%',
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16, maxHeight: '75%',
   },
-  header: { marginBottom: 12 },
+  // Tall enough to be an easy drag target, not just the thin handle.
+  header: { marginBottom: 12, paddingTop: 4 },
+  handle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 12 },
   title: { fontFamily: 'Nunito-Bold', fontSize: 20, color: colors.darkText },
   scroll: { flexGrow: 0 },
   scrollContent: { paddingBottom: 8 },

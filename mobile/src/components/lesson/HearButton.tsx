@@ -1,8 +1,9 @@
 import React from 'react';
 import { Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
+import { LESSON_IMAGES } from '../../assets';
 
-const SPEAKER_ICON = require('../../../assets/screens/lesson/speaker.png');
+const SPEAKER_ICON = LESSON_IMAGES.speaker;
 
 interface Props {
   label: string;

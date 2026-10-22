@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import { useConnectivityStore } from '../store/connectivityStore';
 import MascotShadow from './MascotShadow';
+import { MASCOT } from '../assets';
 
 // How long the backend must stay unreachable, back to back, before this
 // escalates from OfflineBanner's quiet strip to an interrupting popup. Long
@@ -64,7 +65,7 @@ export default function SlowNetworkModal() {
         <View style={styles.card}>
           <View style={{ width: 90, height: 90, marginBottom: 8 }}>
             <Image
-              source={require('../../assets/shared/mascot/lumo_kufi.png')}
+              source={MASCOT.lumoKufi}
               style={styles.luma}
               resizeMode="contain"
             />
@@ -72,7 +73,7 @@ export default function SlowNetworkModal() {
           </View>
           <Text style={styles.title}>Connection trouble</Text>
           <Text style={styles.body}>
-            We can't reach Ustad right now. Please check your connection, come back a bit later, or restart the app.
+            We can't reach UstadApp right now. Please check your connection, come back a bit later, or restart the app.
           </Text>
           <TouchableOpacity style={styles.okBtn} onPress={dismiss}>
             <Text style={styles.okText}>Okay</Text>

@@ -1,16 +1,18 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
 import LottieView from 'lottie-react-native';
+import { useLottieWhileVisible } from '../../hooks/useScreenVisible';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
 import { useAuthStore } from '../../store/authStore';
 import MascotShadow from '../../components/MascotShadow';
 import { isGuest } from '../../utils/guest';
-import { STREAK_FROZEN_ICON, STREAK_FROZEN_COLOR } from '../../utils/streak';
+import { STREAK_FROZEN_ICON } from '../../utils/streak';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 import type { RouteProp } from '@react-navigation/native';
+import { styles } from './StreakCelebrationScreen.styles';
+import { ANIMATIONS, MASCOT } from '../../assets';
 
 interface Props {
   navigation: RootNavProp;
@@ -21,9 +23,9 @@ interface Props {
 // gets its own art, every multiple of 7 (7/14/21/...) gets the weekly one,
 // everything else gets the plain daily loop.
 function animationFor(streak: number) {
-  if (streak === 1) return require('../../../assets/shared/animations/1day.json');
-  if (streak > 0 && streak % 7 === 0) return require('../../../assets/shared/animations/7thday.json');
-  return require('../../../assets/shared/animations/allday.json');
+  if (streak === 1) return ANIMATIONS.n1day;
+  if (streak > 0 && streak % 7 === 0) return ANIMATIONS.n7thday;
+  return ANIMATIONS.allday;
 }
 
 // ── Post-lesson streak celebration — replaces the old jump into the full
@@ -47,6 +49,9 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
   const animationSource = animationFor(displayStreak);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  // Paused whenever this screen isn't on screen (2026-10-22 audit).
+  const celebrationRef = useRef<LottieView>(null);
+  useLottieWhileVisible(celebrationRef);
   const slideAnim = useRef(new Animated.Value(40)).current;
   const countAnim = useRef(new Animated.Value(0)).current;
   const [displayedStreak, setDisplayedStreak] = useState(0);
@@ -157,6 +162,7 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
       {breakDone && (
         <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <LottieView
+            ref={celebrationRef}
             source={animationSource}
             autoPlay
             loop
@@ -171,7 +177,7 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
             <View style={styles.repairedRow}>
               <View style={{ width: 56, height: 56, marginRight: 10 }}>
                 <Image
-                  source={require('../../../assets/shared/mascot/lumo_xp.png')}
+                  source={MASCOT.lumoXp}
                   style={styles.repairedLuma}
                   resizeMode="contain"
                 />
@@ -195,20 +201,3 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content:        { alignItems: 'center', paddingHorizontal: 28, width: '100%' },
-  animation:      { width: '100%', height: 340, marginBottom: -10 },
-  streakNumber:   { fontFamily: 'Nunito-Bold', fontSize: 72, color: '#EA580C', lineHeight: 78 },
-  streakLabel:    { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#F5F7FA', marginBottom: 28 },
-  iceStage:       { width: 200, height: 200, alignItems: 'center', justifyContent: 'center' },
-  bloom:          { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: STREAK_FROZEN_COLOR },
-  iceImg:         { width: 96, height: 96 },
-  repairedRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.30)', borderRadius: 18, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 24, maxWidth: '100%' },
-  repairedLuma:   { width: 56, height: 56 },
-  repairedBubble: { flexShrink: 1 },
-  repairedBubbleText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#F5F7FA', lineHeight: 19 },
-  continueBtn:    { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
-});

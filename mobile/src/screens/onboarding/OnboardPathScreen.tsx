@@ -1,14 +1,15 @@
 ﻿import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
-import { usersApi } from '../../api';
-import { useAuthStore } from '../../store/authStore';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import MascotShadow from '../../components/MascotShadow';
 import BackButton from '../../components/BackButton';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
+import { styles } from './OnboardPathScreen.styles';
+import { MASCOT } from '../../assets';
+import { useProfileActions } from '../../hooks/api';
 
 interface Props { navigation: RootNavProp }
 
@@ -16,6 +17,7 @@ type PathKey = 'beginner' | 'intermediate';
 const PATH_MAP: Record<PathKey, 'fresh' | 'placement'> = { beginner: 'fresh', intermediate: 'placement' };
 
 export default function OnboardPathScreen({ navigation }: Props) {
+  const { saveProfile } = useProfileActions();
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const [selected, setSelected] = useState<PathKey | null>(null);
@@ -40,8 +42,7 @@ export default function OnboardPathScreen({ navigation }: Props) {
       // is tied specifically to picking this path, not to any other
       // profile update.
       try {
-        await usersApi.updateProfile({ onboarding_completed: true, learner_mode: 'beginner' });
-        useAuthStore.getState().updateProfileFields({ onboarding_completed: true, learner_mode: 'beginner' });
+        await saveProfile({ onboarding_completed: true, learner_mode: 'beginner' });
       } catch {
         // ignored — see comment above
       }
@@ -64,7 +65,7 @@ export default function OnboardPathScreen({ navigation }: Props) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={{ width: 100, height: 100, alignSelf: 'center', marginBottom: 4 }}>
-          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={100} />
         </View>
         <Text style={styles.badge}>SETUP · STEP 2 OF 3</Text>
@@ -126,45 +127,3 @@ export default function OnboardPathScreen({ navigation }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg },
-  statusBar: { paddingHorizontal: 24, paddingVertical: 6 },
-  time: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText },
-  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 6, paddingTop: 4 },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
-    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
-  },
-  dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
-  dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
-  dotActive: { backgroundColor: colors.primary },
-  scroll: { paddingHorizontal: 22, paddingBottom: 20 },
-  luma: { width: 100, height: 100, alignSelf: 'center', marginBottom: 4 },
-  badge: {
-    fontFamily: 'Nunito-Bold', fontSize: 10, color: colors.mutedText,
-    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',
-  },
-  heading: { fontFamily: 'Nunito-Bold', fontSize: 24, color: colors.darkText, lineHeight: 30, marginBottom: 6, textAlign: 'center' },
-  sub: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, marginBottom: 24, textAlign: 'center' },
-  card: {
-    backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: 18, padding: 16, marginBottom: 14,
-  },
-  cardActive: { borderColor: colors.primary, backgroundColor: '#F5FBF8' },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 10 },
-  cardIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  cardTitle: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText, marginBottom: 3 },
-  cardDesc: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText, lineHeight: 17 },
-  badge2: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, alignSelf: 'flex-start' },
-  badge2Text: { fontFamily: 'Nunito-Bold', fontSize: 12 },
-  footer: { paddingHorizontal: 22, paddingTop: 12, backgroundColor: colors.lightBg },
-  btn: {
-    backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
-    alignItems: 'center',
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4,
-  },
-  btnDisabled: { opacity: 0.4 },
-  btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
-});
-

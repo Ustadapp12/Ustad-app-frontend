@@ -1,7 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import MascotShadow from './MascotShadow';
+import { MASCOT } from '../assets';
 
 interface Props {
   visible: boolean;
@@ -24,7 +25,7 @@ export default function WelcomeBackModal({ visible, onContinue }: Props) {
         <View style={styles.card}>
           <View style={{ width: 110, height: 110, marginBottom: 8 }}>
             <Image
-              source={require('../../assets/shared/mascot/lumo_xp.png')}
+              source={MASCOT.lumoXp}
               style={styles.luma}
               resizeMode="contain"
             />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Animated } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import { STREAK_ACTIVE_ICON_SMALL, STREAK_FROZEN_ICON_SMALL, STREAK_BLANK_ICON } from '../utils/streak';
 
 const MONTH_NAMES = [

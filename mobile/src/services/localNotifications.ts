@@ -12,9 +12,10 @@
  *   - refreshLocalNotifications() runs on every fresh learning payload
  *     (authStore.applyFreshLearning — login/register/hydrate/refresh) and right after
  *     every completed lesson (lessonStore.completeSession).
- *   - requestLocalNotificationPermission() is asked exactly once, from
- *     lessonStore.completeSession, the first time a lesson is ever completed (gated
- *     by utils/storage.ts's wasLocalNotifPermissionAsked flag) — never at launch.
+ *   - Permission is asked exactly once per install, when the app opens
+ *     (askNotificationPermissionOnce via hooks/useAskNotificationsOnStart,
+ *     since 2026-10-22; was: after the first completed lesson, which is now
+ *     only a fallback). Gated by utils/storage.ts's wasLocalNotifPermissionAsked.
  *
  * NOT done yet, on purpose:
  *   - No reminder-hour picker exists in onboarding, so every call site above passes
@@ -28,6 +29,8 @@
  *   - Not yet verified on a real device/build — android/ hasn't reached
  *     C:\BuildProjects\ustadapp-mobile\ yet, see docs/changelog/changes-2026-09-04.md.
  */
+
+import { setLocalNotifPermissionAsked, wasLocalNotifPermissionAsked } from '../utils/storage';
 
 // ── Notifee lazy-loader (same pattern as analytics.ts / googleAuth.ts) ────────
 type NotifeeModule = typeof import('@notifee/react-native');
@@ -106,6 +109,23 @@ const STREAK_LOST_MESSAGES = [
 ];
 
 /** Call after the first completed lesson (not at launch — see module header). */
+/**
+ * Asks for notification permission the first time it is called on this
+ * install, and never again (utils/storage.ts flag). Called when the app opens
+ * (hooks/useAskNotificationsOnStart, 2026-10-22, user: "ask for notif when
+ * started") and still after the first completed lesson as a fallback, which
+ * is a no-op once asked. Never throws.
+ */
+export async function askNotificationPermissionOnce(): Promise<void> {
+  try {
+    if (await wasLocalNotifPermissionAsked()) return;
+    await setLocalNotifPermissionAsked();
+    await requestLocalNotificationPermission();
+  } catch {
+    // Best-effort: a permission prompt must never break app start.
+  }
+}
+
 export async function requestLocalNotificationPermission(): Promise<boolean> {
   const notifee = getNotifee();
   if (!notifee) return false;

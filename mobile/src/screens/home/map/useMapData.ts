@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { learningApi } from '../../../api';
 import { captureError } from '../../../services/crashReporter';
-import { getCachedRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel } from '../../../services/bootCache';
+import { getCachedRecommended, getLastRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel } from '../../../services/bootCache';
 import { AnalyticsEvents, logAnalyticsEvent } from '../../../services/analytics';
 import { useLessonStore } from '../../../store/lessonStore';
 import type { LearningMe, SurahLevel } from '../../../types/api';
@@ -114,8 +114,12 @@ export function useMapData(learning: LearningMe | null) {
     const setBusy = silent ? setSilentRefreshing : setRefreshing;
     setBusy(true);
     try {
-      const recommended = await learningApi.recommendedNext().catch(() => null);
-      setCachedRecommended(recommended ?? null);
+      // undefined = the request failed (e.g. offline): keep what we had
+      // instead of overwriting it with null, which used to wipe the current
+      // node off the map (2026-10-22). A real null answer is still stored.
+      const fetched = await learningApi.recommendedNext().catch(() => undefined);
+      if (fetched !== undefined) setCachedRecommended(fetched);
+      const recommended = fetched === undefined ? getLastRecommended() : fetched;
       const currentSurah = recommended?.surah_number
         ?? (learning?.mvp_surah_numbers?.[0] ?? SECTIONS_DEF[0]?.surahNum ?? null);
       currentSurahNumRef.current = currentSurah;
@@ -290,10 +294,15 @@ export function useMapData(learning: LearningMe | null) {
   // returns in a row must both trigger a re-scroll even if nothing else
   // about the state changed between them.
   const [returnedFromLevelTick, setReturnedFromLevelTick] = useState(0);
+  // The surah the lesson that just ended belonged to, set alongside each
+  // tick. Map2 lands back on it instead of the recommended level, which for
+  // a jumped-to surah sits back in the learner's main progression (2026-10-22).
+  const returnedFromSurahRef = useRef<number | null>(null);
   useFocusEffect(
     useCallback(() => {
       if (isFirstFocusRef.current) { isFirstFocusRef.current = false; return; }
-      if (useLessonStore.getState().lastVisitedSurah == null) return;
+      const leftSurah = useLessonStore.getState().lastVisitedSurah;
+      if (leftSurah == null) return;
       let cancelled = false;
       (async () => {
         let currentSurah = getCachedRecommended()?.surah_number ?? null;
@@ -361,7 +370,10 @@ export function useMapData(learning: LearningMe | null) {
           useLessonStore.getState().clearLastCompletedSurah();
           useLessonStore.getState().clearLastVisitedSurah();
         }
-        if (!cancelled) setReturnedFromLevelTick(t => t + 1);
+        if (!cancelled) {
+          returnedFromSurahRef.current = leftSurah;
+          setReturnedFromLevelTick(t => t + 1);
+        }
       })();
       return () => { cancelled = true; };
     }, [learning]),
@@ -400,6 +412,6 @@ export function useMapData(learning: LearningMe | null) {
     // Either kind of refresh in flight: drives the loading bar and overlay.
     reloading: refreshing || silentRefreshing,
     handleRefresh, fetchPhase, fetchFirstLevelNow,
-    currentSurahNumRef, fetchedPhasesRef, returnedFromLevelTick,
+    currentSurahNumRef, fetchedPhasesRef, returnedFromLevelTick, returnedFromSurahRef,
   };
 }

@@ -63,6 +63,19 @@ export function getCachedRecommended(): RecommendedNext | null {
   return alive(_recommended) ? _recommended.data : null;
 }
 
+/**
+ * The last recommendation fetched, however old. For DISPLAY (which node is
+ * current, where Lumo stands); the TTL above only says when it's worth
+ * fetching again. The map used to read getCachedRecommended() on every
+ * render, so any redraw more than TTL_MS after the last fetch (a poll, a
+ * connectivity change) dropped the current node, its ring, START and Lumo
+ * until the next fetch (emulator test, 2026-10-22). Null only when nothing
+ * was ever fetched or it was deliberately cleared (lesson completed, logout).
+ */
+export function getLastRecommended(): RecommendedNext | null {
+  return _recommended?.data ?? null;
+}
+
 /** Subscribe to changes to the recommended-next cache. Returns an unsubscribe fn. */
 export function subscribeRecommended(listener: () => void): () => void {
   _recommendedListeners.add(listener);

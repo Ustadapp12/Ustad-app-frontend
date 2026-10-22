@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Image } from 'react-native';
 import { playAudioUrl, pauseAudio } from '../../services/audioPlayer';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import PlayPauseIcon from '../PlayPauseIcon';
 import MascotShadow from '../MascotShadow';
 import AyahText from './AyahText';
+import { useScreenVisible } from '../../hooks/useScreenVisible';
+import { ICONS, MASCOT } from '../../assets';
 
 // The backend sometimes prefixes ayah_ar with the Bismillah; the hint should
 // show only the ayah itself. Matches any diacritisation variant.
@@ -42,14 +44,17 @@ export default function HintButton({ url, ayahAr, ayahTranslation }: Props) {
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
+  // Pulses only while its screen is on screen (2026-10-22 audit).
+  const onScreen = useScreenVisible();
   useEffect(() => {
+    if (!onScreen) return;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
       Animated.timing(pulseAnim, { toValue: 0, duration: 900, useNativeDriver: true }),
     ]));
     loop.start();
-    return () => loop.stop();
-  }, [pulseAnim]);
+    return () => { loop.stop(); pulseAnim.setValue(0); };
+  }, [pulseAnim, onScreen]);
 
   useEffect(() => {
     if (!visible && playing) {
@@ -85,7 +90,7 @@ export default function HintButton({ url, ayahAr, ayahTranslation }: Props) {
     <>
       <TouchableOpacity style={S.container} onPress={() => setVisible(true)} accessibilityLabel="Hint">
         <Animated.Image
-          source={require('../../../assets/shared/icons/hint_badge.png')}
+          source={ICONS.hintBadge}
           style={[S.badge, { transform: [{ scale: badgeScale }] }]}
           resizeMode="contain"
         />
@@ -95,7 +100,7 @@ export default function HintButton({ url, ayahAr, ayahTranslation }: Props) {
         <View style={S.backdrop}>
           <View style={S.modal}>
             <View style={S.lumoWrap}>
-              <Image source={require('../../../assets/shared/mascot/lumo_hint.png')} style={S.lumo} resizeMode="contain" />
+              <Image source={MASCOT.lumoHint} style={S.lumo} resizeMode="contain" />
               <MascotShadow width={100} />
             </View>
             <Text style={S.modalTitle}>Hint</Text>

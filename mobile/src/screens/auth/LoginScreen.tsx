@@ -1,13 +1,10 @@
 ﻿import React, { useEffect, useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, BackHandler,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, BackHandler } from 'react-native';
 import { Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { ApiError } from '../../api/client';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
@@ -20,13 +17,15 @@ import { validateEmail, normalizeEmail } from '../../utils/validators';
 import { setLastEmailHint } from '../../utils/storage';
 import { useCyclingMessage } from '../../hooks/useCyclingMessage';
 import { safeBottomInset } from '../../utils/responsive';
+import { styles } from './LoginScreen.styles';
+import { AUTH_IMAGES, MASCOT } from '../../assets';
 
 interface Props { navigation: RootNavProp }
 
 const LOGIN_MESSAGES = ['Logging in…', 'Connecting to the server…', 'Almost there…'];
 
-const MAIL_ICON = require('../../../assets/screens/auth/mail.png');
-const PASSWORD_ICON = require('../../../assets/screens/auth/password.png');
+const MAIL_ICON = AUTH_IMAGES.mail;
+const PASSWORD_ICON = AUTH_IMAGES.password;
 
 export default function LoginScreen({ navigation }: Props) {
   const rawInsets = useSafeAreaInsets();
@@ -110,7 +109,7 @@ export default function LoginScreen({ navigation }: Props) {
   // verified because Google already asserted the address.
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
 
-  function handleGoogleSuccess(action: AccountAction) {
+  function handleSocialSuccess(action: AccountAction, provider: 'google' | 'apple') {
     if (action === 'restored') {
       setShowWelcomeBack(true);
       return;
@@ -118,8 +117,10 @@ export default function LoginScreen({ navigation }: Props) {
     // 'created' or 'claimed' from the Login screen's Google button means this
     // Google identity had no existing account — the backend just made one,
     // same as SignUpScreen's own Google button does. It needs onboarding too.
+    // Apple's start at Age instead: Apple already shared the name, and App
+    // Review rejected asking for it again (guideline 4, 2026-10-17).
     if (action === 'created' || action === 'claimed') {
-      navigation.replace('OnboardUsername');
+      navigation.replace(provider === 'apple' ? 'OnboardAge' : 'OnboardUsername');
       return;
     }
     navigation.replace('MainTabs');
@@ -130,7 +131,7 @@ export default function LoginScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 40 + insets.bottom }]} keyboardShouldPersistTaps="handled">
         {/* Luma */}
         <View style={styles.lumaWrap}>
-          <Image source={require('../../../assets/shared/mascot/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+          <Image source={MASCOT.lumoTransparent} style={styles.luma} resizeMode="contain" />
           <MascotShadow width={130} style={{ position: 'relative', marginTop: -13 }} />
         </View>
 
@@ -205,17 +206,18 @@ export default function LoginScreen({ navigation }: Props) {
         {/* iOS only (renders nothing elsewhere). Required by App Store
             Guideline 4.8 because Google Sign-In is offered, and placed first
             so it is at least as prominent as Google. Apple accounts are
-            verified by Apple, so they share Google's success routing. */}
+            verified by Apple, so they share Google's success routing, except
+            that a new Apple account skips the name screen. */}
         <AppleSignInButton
           label="Sign in with Apple"
-          onSuccess={handleGoogleSuccess}
+          onSuccess={a => handleSocialSuccess(a, 'apple')}
           onError={setFormError}
           disabled={loading}
         />
 
         <GoogleSignInButton
           label="Sign in with Google"
-          onSuccess={handleGoogleSuccess}
+          onSuccess={a => handleSocialSuccess(a, 'google')}
           onError={setFormError}
           disabled={loading}
         />
@@ -248,48 +250,3 @@ export default function LoginScreen({ navigation }: Props) {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg },
-  statusBar: { paddingHorizontal: 24, paddingBottom: 6, backgroundColor: colors.lightBg },
-  time: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText },
-  scroll: { paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' },
-  lumaWrap: { alignItems: 'center', paddingVertical: 20 },
-  luma: { width: 130, height: 130 },
-  heading: { fontFamily: 'Nunito-Bold', fontSize: 26, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
-  sub: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
-  fieldWrap: { marginBottom: 13 },
-  fieldLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.midText, marginBottom: 5, letterSpacing: 0.4 },
-  inputRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-  },
-  inputIcon: { width: 18, height: 18 },
-  input: { flex: 1, fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.darkText },
-  fieldError: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.red, marginTop: 4 },
-  error: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
-  inlineCreateWrap: { alignItems: 'center', marginBottom: 12 },
-  forgotWrap: { alignItems: 'flex-end', marginBottom: 24 },
-  forgot: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
-  btn: {
-    backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
-    alignItems: 'center', marginBottom: 18,
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
-  },
-  btnDisabled: { opacity: 0.7 },
-  btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText },
-  switchRow: { flexDirection: 'row', justifyContent: 'center' },
-  switchText: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText },
-  switchLink: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
-  loadingOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  loadingText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText, marginTop: 4 },
-});
-

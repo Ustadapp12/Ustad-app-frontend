@@ -1,6 +1,6 @@
 {
   "name": "UstadApp",
-  "version": "1.0.43",
+  "version": "1.0.44",
   "private": true,
   "main": "index.js",
   "scripts": {
@@ -23,7 +23,6 @@
     "test:ci": "jest --ci --no-coverage --maxWorkers=2 --forceExit"
   },
   "dependencies": {
-    "@expo/ngrok": "^4.1.3",
     "@invertase/react-native-apple-authentication": "^2.5.1",
     "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "^3.0.2",
@@ -43,7 +42,6 @@
     "adhan": "^4.4.6",
     "babel-preset-expo": "^56.0.15",
     "expo": "^54.0.35",
-    "expo-dev-client": "^56.0.20",
     "geomagnetism": "^0.2.0",
     "lottie-react-native": "^7.3.8",
     "react": "19.2.3",

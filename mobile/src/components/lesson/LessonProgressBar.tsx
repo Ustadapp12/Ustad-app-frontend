@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 
 // Exercise progress bar: animates toward `fraction` (clamped to 0..1).
 export default function LessonProgressBar({ fraction }: { fraction: number }) {

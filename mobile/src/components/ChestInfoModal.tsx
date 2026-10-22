@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Modal,
 } from 'react-native';
+import { ICONS } from '../assets';
 
 interface Props {
   visible: boolean;
@@ -41,7 +42,7 @@ export default function ChestInfoModal({ visible, onClose }: Props) {
         <View style={styles.card}>
           <Text style={styles.label}>TAP TO CLAIM THE REWARD</Text>
           <Animated.Image
-            source={require('../../assets/shared/icons/chest.png')}
+            source={ICONS.chest}
             style={[styles.chest, { transform: [{ translateY: chestTranslateY }] }]}
             resizeMode="contain"
           />

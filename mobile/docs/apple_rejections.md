@@ -135,3 +135,12 @@ Developer Forums threads 711242, 729250, 751115, 792770.
 
 **Status:** awaiting the user's go on the plan, and a choice for fix 2 (a or
 b). Not implemented yet.
+
+**Update 2026-10-22:** user chose items 1, 2, 3, 6, 7, 8, 9, with the
+server sending the sign-in provider for item 2 (option b; the existing
+`users.provider` column, no migration). All coded; details in
+`changelog/changes-2026-10-22.md` and the backend `CHANGES.md`. Item 7
+checked: Apple keys exist in both Vercel projects. Still to do: deploy the
+backend to both projects, commit/build (next 20055) after release notes are
+approved, and item 4 (Resolution Center reply with an iPad recording,
+Apple ID that has signed in before). Not tested on any Apple device.

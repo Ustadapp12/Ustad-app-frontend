@@ -7,6 +7,9 @@ import type { OnboardingAnswers, ScriptPreference, Tokens, User } from '../types
 const KEYS = {
   tokensLegacy: '@ustadapp/tokens',
   user: '@ustadapp/user',
+  // Apple's per-app user id from the last Sign in with Apple, for the launch
+  // check on whether access was revoked in iOS Settings.
+  appleUserId: '@ustadapp/appleUserId',
   onboarding: '@ustadapp/onboarding/v1',
   onboardingDone: '@ustadapp/onboarding/done',
   reciterId: '@ustadapp/reciter',
@@ -172,6 +175,15 @@ export async function setStoredUser(user: User | null): Promise<void> {
   else await AsyncStorage.removeItem(KEYS.user);
 }
 
+export async function setAppleUserId(id: string | null): Promise<void> {
+  if (id) await AsyncStorage.setItem(KEYS.appleUserId, id);
+  else await AsyncStorage.removeItem(KEYS.appleUserId);
+}
+
+export async function getAppleUserId(): Promise<string | null> {
+  return AsyncStorage.getItem(KEYS.appleUserId);
+}
+
 export async function getOnboarding(): Promise<OnboardingAnswers> {
   const raw = await AsyncStorage.getItem(KEYS.onboarding);
   return safeJsonParse<OnboardingAnswers>(raw) ?? {};
@@ -261,7 +273,10 @@ export async function getReciterId(): Promise<string> {
  */
 export async function getNextOnboardingScreen(
   serverOnboardingCompleted?: boolean,
-): Promise<'OnboardUsername' | 'OnboardPath' | null> {
+  /** Apple accounts: Apple already shared the name, and App Review rejects
+   *  asking for it again (guideline 4, 2026-10-17), so they start at Age. */
+  skipUsername = false,
+): Promise<'OnboardUsername' | 'OnboardAge' | 'OnboardPath' | null> {
   const onboarding = await getOnboarding();
   const isDone = serverOnboardingCompleted ?? await isOnboardingDone();
 
@@ -279,8 +294,9 @@ export async function getNextOnboardingScreen(
   // which is the username question. This used to return 'OnboardAge', which
   // meant a resumed onboarding skipped the name step entirely and the account
   // kept its placeholder display_name ("Learner", or "Guest" on a claimed
-  // guest row) forever.
-  return 'OnboardUsername';
+  // guest row) forever. Apple accounts are the exception (see skipUsername);
+  // their name comes from Apple and stays editable in Edit Profile.
+  return skipUsername ? 'OnboardAge' : 'OnboardUsername';
 }
 
 export async function setReciterId(id: string): Promise<void> {

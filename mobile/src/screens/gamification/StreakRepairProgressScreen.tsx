@@ -2,11 +2,12 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
 import { STREAK_FROZEN_COLOR, STREAK_FROZEN_ICON } from '../../utils/streak';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 import type { RouteProp } from '@react-navigation/native';
+import { useScreenVisible } from '../../hooks/useScreenVisible';
+import { styles } from './StreakRepairProgressScreen.styles';
 
 interface Props {
   navigation: RootNavProp;
@@ -15,14 +16,17 @@ interface Props {
 
 function Snowflake({ left, top, delay, size }: { left: number; top: number; delay: number; size: number }) {
   const floatAnim = useRef(new Animated.Value(0)).current;
+  // Only while this screen is on screen (2026-10-22 audit).
+  const onScreen = useScreenVisible();
   useEffect(() => {
+    if (!onScreen) return;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(floatAnim, { toValue: 1, duration: 2200, delay, useNativeDriver: true }),
       Animated.timing(floatAnim, { toValue: 0, duration: 2200, useNativeDriver: true }),
     ]));
     loop.start();
-    return () => loop.stop();
-  }, []);
+    return () => { loop.stop(); floatAnim.setValue(0); };
+  }, [onScreen]);
   return (
     <Animated.Text
       style={[
@@ -100,7 +104,7 @@ export default function StreakRepairProgressScreen({ navigation, route }: Props)
           Finish {remaining} more level{remaining === 1 ? '' : 's'} today to keep your streak.
         </Text>
 
-        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.navigate('MainTabs')}>
+        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.popTo('MainTabs')}>
           <Text style={styles.continueBtnText}>Continue  →</Text>
         </TouchableOpacity>
       </Animated.View>
@@ -108,16 +112,3 @@ export default function StreakRepairProgressScreen({ navigation, route }: Props)
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content:        { alignItems: 'center', paddingHorizontal: 28, width: '100%' },
-  animation:      { width: '100%', height: 340, marginBottom: -10, alignItems: 'center', justifyContent: 'center' },
-  snowflake:      { position: 'absolute' },
-  iceImg:         { width: 128, height: 128 },
-  streakNumber:   { fontFamily: 'Nunito-Bold', fontSize: 72, lineHeight: 78 },
-  streakLabel:    { fontFamily: 'Nunito-Bold', fontSize: 22, color: '#F5F7FA', marginBottom: 14 },
-  hint:           { fontFamily: 'Nunito-Regular', fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 20, marginBottom: 28, paddingHorizontal: 12 },
-  continueBtn:    { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
-});

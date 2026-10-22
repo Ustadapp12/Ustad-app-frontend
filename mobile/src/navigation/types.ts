@@ -20,9 +20,6 @@ export type RootStackParamList = {
   OnboardPath: undefined;
   OnboardAssessment: undefined;
   MainTabs: NavigatorScreenParams<TabParamList> | undefined;
-  // WIP clone of the map for the new Figma-driven theme — see
-  // MapScreenV2.tsx's own header comment. Not in any real nav flow yet.
-  MapV2: undefined;
   // "Building your exercises" page, opened by the map's Journey and Review buttons.
   ComingSoon: { title: string };
   // Pray tab's "Tap to log your Salah" page (coming soon, Pray tab highlighted).

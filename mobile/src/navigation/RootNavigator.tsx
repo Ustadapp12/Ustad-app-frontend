@@ -69,12 +69,6 @@ import SurahProgressScreen from '../screens/home/SurahProgressScreen';
 import ComingSoonScreen from '../screens/comingSoon/ComingSoonScreen';
 import LogSalahScreen from '../screens/pray/LogSalahScreen';
 
-// WIP MapV2 clone, dev only. A static import evaluates this 188 KB module
-// body at bundle init on every cold start, including release builds where the
-// only door into it (MainTabs' __DEV__ 'V2' button) never renders. A guarded
-// require keeps the module factory from ever running in production.
-const MapScreenV2 = __DEV__ ? require('../screens/home/MapScreenV2').default : null;
-
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
@@ -202,11 +196,6 @@ export default function RootNavigator() {
         <Stack.Screen name="OnboardPath" component={OnboardPathScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="OnboardAssessment" component={OnboardAssessmentScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
-        {/* WIP preview only — see MapScreenV2.tsx's header comment. Not
-            registered at all in release; the module isn't loaded there. */}
-        {__DEV__ && MapScreenV2 && (
-          <Stack.Screen name="MapV2" component={MapScreenV2} options={{ animation: 'slide_from_right' }} />
-        )}
         <Stack.Screen name="ComingSoon" component={ComingSoonScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="LogSalah" component={LogSalahScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="SearchSurahs" component={SearchSurahsScreen} options={{ animation: 'slide_from_right' }} />

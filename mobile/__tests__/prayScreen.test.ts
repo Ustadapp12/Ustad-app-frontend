@@ -11,7 +11,7 @@ jest.mock('../src/api', () => ({
 
 import { getCurrentCoordinates } from '../src/utils/location';
 import { usersApi } from '../src/api';
-import { loadPrayerData } from '../src/screens/pray/PrayScreen';
+import { loadPrayerData } from '../src/screens/pray/prayerData';
 
 const currentCoordinates = getCurrentCoordinates as jest.Mock;
 const updateLocation = usersApi.updateLocation as jest.Mock;

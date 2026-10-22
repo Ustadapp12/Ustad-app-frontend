@@ -11,6 +11,7 @@ import ProgressRing from './ProgressRing';
 import StarRow from './StarRow';
 import NodeLabel from './NodeLabel';
 import FaceOnLip from './FaceOnLip';
+import FloatOnSpot from './FloatOnSpot';
 
 // Node colour by state (user's mapping, 2026-10-16): current green, locked
 // grey, done gold. The icon follows the level type: a star for normal levels
@@ -38,7 +39,9 @@ export function lookFor(node: Map2NodeData, activeSlot: number | null): NodeLook
 }
 
 // Icons are white on the green and gold faces, grey on the grey face.
-const WHITE_BOOK = { '#AFAFAF': '#FFFFFF', '#D8D8D8': 'rgba(255,255,255,0.7)' } as const;
+// Keys must match IconBookArt's current fills: cover #AFAFAF, pages #EDEDE8
+// (the pages key was still the old #D8D8D8, so they never turned white).
+const WHITE_BOOK = { '#AFAFAF': '#FFFFFF', '#EDEDE8': 'rgba(255,255,255,0.7)' } as const;
 const GREY_STAR = { white: '#AFAFAF' } as const;
 
 interface Props {
@@ -72,13 +75,8 @@ function Map2NodeView({
   const w = 70 * s, faceH = 57 * s, lip = 8 * s;
   const colors = FACE[look];
   const translateX = isShaking ? shakeAnim.interpolate({ inputRange: [-1, 1], outputRange: [-6 * s, 6 * s] }) : 0;
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute', left: cx - w / 2, top: cy - faceH / 2, width: w, height: faceH + lip,
-        opacity: isFetching ? 0.6 : 1, transform: [{ translateX }], zIndex: label != null ? 2 : 1,
-      }}
-    >
+  const content = (
+    <>
       {look === 'current' && (
         // Centred on the whole node (57pt face + 8pt lip), so the gap inside the ring is even all round.
         <View style={{ position: 'absolute', left: -14 * s, top: -16.5 * s }} pointerEvents="none">
@@ -117,6 +115,20 @@ function Map2NodeView({
           </TouchableOpacity>
         </View>
       )}
+    </>
+  );
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute', left: cx - w / 2, top: cy - faceH / 2, width: w, height: faceH + lip,
+        opacity: isFetching ? 0.6 : 1, transform: [{ translateX }], zIndex: label != null ? 2 : 1,
+      }}
+    >
+      {/* The current node bobs like Lumo on the Leaderboard, ring and tag
+          with it, so it stands out (user, 2026-10-22). */}
+      {look === 'current'
+        ? <FloatOnSpot amplitude={9 * s} halfCycleMs={1300}>{content}</FloatOnSpot>
+        : content}
     </Animated.View>
   );
 }

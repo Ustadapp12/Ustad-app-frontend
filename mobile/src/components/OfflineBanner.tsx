@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import { useConnectivityStore } from '../store/connectivityStore';
 
 // Mounted once in RootNavigator, above the stack navigator — shows on every
@@ -29,24 +29,56 @@ export default function OfflineBanner() {
   const isServerUnreachable = useConnectivityStore(s => s.isServerUnreachable);
   const insets = useSafeAreaInsets();
 
-  // Neither message promises a sync, and neither claims things still mostly
-  // work. The old copy said "Some things may be out of date", which read as
-  // "it's fine, keep going" when a lot of the app actually won't load at all.
-  // Just say there's a network problem and to come back.
-  const message = isDeviceOffline
-    ? "You're offline. Please come back when you have a connection."
-    : isServerUnreachable
-      ? "Can't reach Ustad right now. Please come back in a bit."
-      : null;
+  // Staged so a brief fluctuation never tells anyone to leave (user,
+  // 2026-10-22): first a calm "Connecting…", and only if the problem is
+  // still there after GIVE_UP_MS the real message asking them to come back.
+  // GIVE_UP_MS sits just under SlowNetworkModal's 9s popup so the two agree.
+  // Neither final message promises a sync or claims things still mostly work.
+  const problem = isDeviceOffline || isServerUnreachable;
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    setGaveUp(false);
+    if (!problem) return;
+    const id = setTimeout(() => setGaveUp(true), GIVE_UP_MS);
+    return () => clearTimeout(id);
+  }, [problem]);
+  const message = !problem
+    ? null
+    : !gaveUp
+      ? 'Connecting…'
+      : isDeviceOffline
+        ? "You're offline. Please come back when you have a connection."
+        : "Can't reach UstadApp right now. Please come back in a bit.";
 
-  if (!message) return null;
+  // When the problem clears, the bar turns green and says "Back online" for
+  // a moment instead of just vanishing, so the user knows it's fixed
+  // (2026-10-22). Only after a real outage, never on a normal app start.
+  const [backOnline, setBackOnline] = useState(false);
+  const wasOffline = useRef(false);
+  useEffect(() => {
+    if (problem) {
+      wasOffline.current = true;
+      setBackOnline(false);
+      return;
+    }
+    if (!wasOffline.current) return;
+    wasOffline.current = false;
+    setBackOnline(true);
+    const id = setTimeout(() => setBackOnline(false), BACK_ONLINE_MS);
+    return () => clearTimeout(id);
+  }, [problem]);
+
+  if (!message && !backOnline) return null;
 
   return (
-    <View style={[styles.bar, { paddingTop: insets.top + 6 }]} pointerEvents="none">
-      <Text style={styles.text}>{message}</Text>
+    <View style={[styles.bar, !message && styles.barOnline, { paddingTop: insets.top + 6 }]} pointerEvents="none">
+      <Text style={[styles.text, !message && styles.textOnline]}>{message ?? 'Back online'}</Text>
     </View>
   );
 }
+
+const BACK_ONLINE_MS = 2500;
+const GIVE_UP_MS = 8000;
 
 const styles = StyleSheet.create({
   bar: {
@@ -60,4 +92,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.warning,
     textAlign: 'center',
   },
+  barOnline: { backgroundColor: colors.success, borderBottomColor: colors.success },
+  textOnline: { color: colors.white },
 });

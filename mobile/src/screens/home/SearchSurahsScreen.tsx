@@ -1,46 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, Image, StyleSheet,
-  FlatList, Platform,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Image, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
 import { ALL_SURAHS, type SurahListing } from '../../data/allSurahs';
 import type { RootNavProp } from '../../navigation/types';
-import { learningApi } from '../../api';
-import type { LevelStatus } from '../../types/api';
 import StartSurahModal from '../../components/StartSurahModal';
 import LumoInfoModal from '../../components/LumoInfoModal';
 import ChestInfoModal from '../../components/ChestInfoModal';
 import BackButton from '../../components/BackButton';
 import RewardChestButton from '../../components/RewardChestButton';
+import { makeStyles } from './SearchSurahsScreen.styles';
+import { HOME_IMAGES } from '../../assets';
+import { useSurahStatuses } from '../../hooks/api';
 
 interface Props { navigation: RootNavProp }
 
-/**
- * What the user sees per row.
- *
- *   done     every level of the surah is complete
- *   open     the first level is complete, so the surah is genuinely underway
- *   closed   the first level is not complete
- *   unknown  we could not load the status
- *
- * "open" deliberately means "first level DONE", not "first level reachable".
- * The backend never locks a surah's first level (see
- * learning/service.py's get_first_levels_for_surahs: "A surah's first group
- * has no cross-surah gate — never locked"), so every surah is technically
- * startable and an availability-based badge would mark all 114 open and tell
- * the user nothing. Keying off completion is what makes the list answer the
- * question actually being asked: which surahs am I already working on?
- *
- * `unknown` is a first-class state and is never rendered as "closed".
- * statusBySurah starts empty and the fetch can fail, so treating absence as
- * closed would label all 114 surahs closed on any network hiccup — telling a
- * user their finished work is gone, which is the one thing this screen must
- * never do.
- */
-type SurahState = 'done' | 'open' | 'closed' | 'unknown';
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/['-]/g, '').replace(/\s+/g, '');
@@ -57,89 +32,8 @@ export default function SearchSurahsScreen({ navigation }: Props) {
   const [rewardInfoVisible, setRewardInfoVisible] = useState(false);
   const [mapInfoVisible, setMapInfoVisible] = useState(false);
 
-  // First-level status for all 114 in one batched call. This alone decides
-  // open vs closed, because open means "first level complete".
-  const [statusBySurah, setStatusBySurah] = useState<Record<number, LevelStatus>>({});
-  // Surahs confirmed fully complete, and the real completed/total fraction for
-  // the progress bar. Needs a second pass: firstLevels returns only the FIRST
-  // level, so it cannot distinguish "started" from "finished" or say how far
-  // in, and there is no per-surah completion endpoint. Resolved lazily and
-  // only for surahs whose first level is already complete, which is bounded
-  // by how many surahs the user has actually started (small) rather than 114.
-  // Never estimated or interpolated — a surah with no entry here simply shows
-  // no progress bar, because there is no real number to show one with.
-  const [doneSurahs, setDoneSurahs] = useState<Set<number>>(new Set());
-  const [progressBySurah, setProgressBySurah] = useState<Record<number, number>>({});
-  // 'loading' until the batched call settles. Drives the retry affordance and
-  // keeps rows unlabelled rather than wrongly "closed" while in flight.
-  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'failed'>('loading');
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoadState('loading');
-
-    (async () => {
-      let levels;
-      try {
-        levels = await learningApi.firstLevels(ALL_SURAHS.map(s => s.surah_number));
-      } catch (e) {
-        if (cancelled) return;
-        // Used to be a bare console.warn, which left every row silently
-        // uncoloured and indistinguishable from a real state. Surfaced now,
-        // with a retry, because a cold backend start is a normal event here.
-        console.warn('[SearchSurahsScreen] first-levels fetch failed:', e);
-        setLoadState('failed');
-        return;
-      }
-      if (cancelled) return;
-
-      const map: Record<number, LevelStatus> = {};
-      for (const lvl of levels) map[lvl.surah_number] = lvl.status;
-      setStatusBySurah(map);
-      setLoadState('ready');
-
-      // Second pass, for the "done" refinement and the real progress fraction.
-      // Sequential rather than parallel: these are extra round-trips against
-      // a cold-start-prone backend and the bar they feed is cosmetic, so they
-      // must never stampede it. A failure just leaves the surah showing no
-      // progress bar, which is less specific but never claims completion or
-      // a percentage it cannot prove.
-      const started = Object.entries(map)
-        .filter(([, st]) => st === 'completed')
-        .map(([n]) => Number(n));
-
-      for (const surahNumber of started) {
-        if (cancelled) return;
-        try {
-          const all = await learningApi.levels(surahNumber);
-          if (cancelled) return;
-          if (all.length > 0) {
-            const completedCount = all.filter(l => l.status === 'completed').length;
-            setProgressBySurah(prev => ({ ...prev, [surahNumber]: completedCount / all.length }));
-            if (completedCount === all.length) {
-              setDoneSurahs(prev => new Set(prev).add(surahNumber));
-            }
-          }
-        } catch {
-          // Best-effort by design — see above.
-        }
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [reloadKey]);
-
-  // The single place a row's badge is decided, so the list and the confirm
-  // dialog can never disagree about what state a surah is in.
-  const stateFor = React.useCallback((surahNumber: number): SurahState => {
-    if (doneSurahs.has(surahNumber)) return 'done';
-    const status = statusBySurah[surahNumber];
-    if (status === undefined) return loadState === 'ready' ? 'closed' : 'unknown';
-    // Anything short of a completed first level is closed: 'available' means
-    // merely reachable, which is true of every surah and so says nothing.
-    return status === 'completed' ? 'open' : 'closed';
-  }, [doneSurahs, statusBySurah, loadState]);
+  // Per-surah open/closed/done state and progress (hooks/api/useSurahStatuses).
+  const { stateFor, progressBySurah, loadState, reload } = useSurahStatuses();
 
   const results = useMemo(() => {
     const q = query.trim();
@@ -170,7 +64,7 @@ export default function SearchSurahsScreen({ navigation }: Props) {
   }
 
   function goToSurah(surahNumber: number) {
-    navigation.navigate('MainTabs', { screen: 'Map', params: { jumpToSurah: surahNumber } });
+    navigation.popTo('MainTabs', { screen: 'Map', params: { jumpToSurah: surahNumber } });
   }
 
   function handleGo() {
@@ -220,7 +114,7 @@ export default function SearchSurahsScreen({ navigation }: Props) {
           accessibilityLabel="Map"
         >
           <Image
-            source={require('../../../assets/screens/home/map_feature_button.png')}
+            source={HOME_IMAGES.mapFeatureButton}
             style={styles.mapBtnImage}
             resizeMode="contain"
           />
@@ -233,7 +127,7 @@ export default function SearchSurahsScreen({ navigation }: Props) {
         <TouchableOpacity
           style={styles.statusErrorRow}
           activeOpacity={0.7}
-          onPress={() => setReloadKey(k => k + 1)}
+          onPress={reload}
           accessibilityLabel="Retry loading surah progress"
         >
           <Text style={styles.statusErrorText}>Couldn't load your progress.</Text>
@@ -261,10 +155,16 @@ export default function SearchSurahsScreen({ navigation }: Props) {
           // unknown while still loading) gets the plain "jump here" card.
           const hasProgress = progress !== undefined && (state === 'open' || state === 'done');
           const pct = hasProgress ? Math.round(progress * 100) : 0;
+          // An open or finished surah opens from anywhere on its card. Any
+          // other (closed, or still loading) opens only from its JUMP HERE
+          // button, so a stray tap on the card can't start a new surah
+          // (2026-10-22, on request).
+          const cardOpens = state === 'open' || state === 'done';
           return (
             <TouchableOpacity
               style={[styles.row, hasProgress ? styles.rowActive : styles.rowDefault]}
               activeOpacity={0.7}
+              disabled={!cardOpens}
               onPress={() => handlePress(item)}
               accessibilityLabel={
                 `${item.name_en}, ${item.ayah_count} ayahs${
@@ -299,11 +199,28 @@ export default function SearchSurahsScreen({ navigation }: Props) {
                     </View>
                   </View>
                 ) : (
-                  <Image
-                    source={require('../../../assets/screens/home/jump_search.png')}
-                    style={styles.jumpHere}
-                    resizeMode="contain"
-                  />
+                  cardOpens ? (
+                    // Open, progress still loading: the whole card is the
+                    // button, so this is just its label.
+                    <View style={styles.jumpHereBtn}>
+                      <Text style={styles.jumpHere} numberOfLines={1}>
+                        JUMP HERE <Text style={styles.jumpArrows}>{'▸▸'}</Text>
+                      </Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.jumpHereBtn}
+                      activeOpacity={0.6}
+                      onPress={() => handlePress(item)}
+                      hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Jump to ${item.name_en}`}
+                    >
+                      <Text style={styles.jumpHere} numberOfLines={1}>
+                        JUMP HERE <Text style={styles.jumpArrows}>{'▸▸'}</Text>
+                      </Text>
+                    </TouchableOpacity>
+                  )
                 )}
               </View>
             </TouchableOpacity>
@@ -335,87 +252,4 @@ export default function SearchSurahsScreen({ navigation }: Props) {
       />
     </View>
   );
-}
-
-function makeStyles(sc: (n: number) => number, insets: any) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.white },
-    header: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: sc(12), paddingBottom: sc(8),
-    },
-    backBtn: {
-      width: sc(36), height: sc(36), borderRadius: sc(18),
-      alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: { fontFamily: 'Nunito-Bold', fontSize: sc(18), color: colors.darkText },
-    toolsRow: {
-      flexDirection: 'row', alignItems: 'center', gap: sc(8),
-      marginHorizontal: sc(16), marginBottom: sc(14),
-    },
-    statusErrorRow: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: sc(8),
-      paddingHorizontal: sc(16), paddingVertical: sc(8), marginHorizontal: sc(16),
-      marginBottom: sc(8), borderRadius: sc(10), backgroundColor: colors.lightBg,
-      borderWidth: 1, borderColor: colors.border,
-    },
-    statusErrorText: { fontFamily: 'Nunito-Regular', fontSize: sc(12), color: colors.mutedText },
-    statusErrorAction: { fontFamily: 'Nunito-Bold', fontSize: sc(12), color: colors.primary },
-    searchWrap: {
-      flex: 1, flexDirection: 'row', alignItems: 'center', gap: sc(8),
-      backgroundColor: colors.white, borderRadius: sc(14),
-      borderWidth: 1.5, borderColor: colors.border,
-      paddingHorizontal: sc(14), paddingVertical: Platform.OS === 'ios' ? sc(12) : sc(6),
-    },
-    searchIcon: { fontSize: sc(14) },
-    searchInput: { flex: 1, fontFamily: 'Nunito-Regular', fontSize: sc(14), color: colors.darkText, padding: 0 },
-    clearIcon: { fontSize: sc(14), color: colors.mutedText, paddingHorizontal: sc(2) },
-    // Sized off the Figma export's own aspect ratio (74x87) -- the card
-    // background, icon and "Map" label are all baked into that asset, so
-    // this button no longer draws its own bg/border/text around it.
-    mapBtn: {
-      width: sc(52), aspectRatio: 74 / 87,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    mapBtnImage: { width: '100%', height: '100%' },
-    listContent: { paddingHorizontal: sc(16), paddingBottom: sc(24) + insets.bottom },
-    emptyWrap: { alignItems: 'center', paddingTop: sc(48) },
-    emptyText: { fontFamily: 'Nunito-Regular', fontSize: sc(13), color: colors.mutedText },
-    row: {
-      flexDirection: 'row', alignItems: 'center', gap: sc(10),
-      borderRadius: sc(14),
-      paddingHorizontal: sc(12), paddingVertical: sc(10), marginBottom: sc(10),
-      borderWidth: 1.5,
-    },
-    rowDefault: { backgroundColor: colors.white, borderColor: colors.border },
-    rowActive: { backgroundColor: colors.successBg, borderColor: colors.success },
-    numBadge: {
-      width: sc(26), height: sc(26), borderRadius: sc(13),
-      backgroundColor: colors.primaryBg, alignItems: 'center', justifyContent: 'center',
-    },
-    numBadgeActive: { backgroundColor: colors.primaryDark },
-    numBadgeText: { fontFamily: 'Nunito-Bold', fontSize: sc(12), color: colors.primary },
-    numBadgeTextActive: { color: colors.white },
-    rowMid: { flex: 1 },
-    rowTopLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sc(8) },
-    rowNameEn: { flexShrink: 1, fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.darkText },
-    rowNameAr: { fontFamily: 'Nunito-Bold', fontSize: sc(15), color: colors.darkText },
-    rowMeta: { fontFamily: 'Nunito-Regular', fontSize: sc(10), color: colors.mutedText, marginTop: 2 },
-    // 124x29 source art (figma_Designs/map2_originals/jump_search.png).
-    jumpHere: { width: sc(64), height: sc(15), alignSelf: 'flex-end', marginTop: sc(8) },
-    progressBlock: { marginTop: sc(8) },
-    progressPct: { fontFamily: 'Nunito-Bold', fontSize: sc(10), color: colors.success, textAlign: 'right', marginBottom: sc(4) },
-    progressBarRow: { flexDirection: 'row', alignItems: 'center', gap: sc(8) },
-    progressTrack: {
-      flex: 1, height: sc(8), borderRadius: sc(4),
-      backgroundColor: colors.border, overflow: 'hidden',
-    },
-    progressFill: { height: '100%', borderRadius: sc(4), backgroundColor: colors.success },
-    rewardBtn: {
-      width: sc(32), height: sc(28), borderRadius: sc(8),
-      backgroundColor: colors.goldBg, borderWidth: 1.5, borderColor: colors.gold,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    rewardChest: { width: sc(22), height: sc(18) },
-  });
 }

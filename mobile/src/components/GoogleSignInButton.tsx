@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuthStore } from '../store/authStore';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import { LoadingRing } from './LoadingSpinner';
 import type { AccountAction } from '../types/api';
 

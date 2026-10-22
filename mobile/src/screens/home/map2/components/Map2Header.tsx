@@ -14,26 +14,28 @@ import { useTourTarget } from '../../../../components/tour/useTourTarget';
 // Left column: Search, Progress. Right column: Journey, Review. Search/Journey
 // and Progress/Review sit on the same row — the left column's top values are
 // pinned to the right column's so the two line up instead of drifting apart.
+// All four moved up 20pt on request (2026-10-22): 80 -> 60, 152 -> 132,
+// still clear of the stat pills, whose row ends near 27.
 const SEARCH: FeatureSpec = {
-  left: 15, top: 80, w: 60.17, h: 62.68,
+  left: 15, top: 60, w: 60.17, h: 62.68,
   bg: { left: 3, top: 18, w: 57.17, h: 44.68 },
   image: { src: MAP2_IMAGES.search, left: -1, top: -4, size: 55.25, rotate: -0.98 },
   label: { text: 'Search', top: 43 },
 };
 const PROGRESS: FeatureSpec = {
-  left: 18, top: 152, w: 60.89, h: 61.68,
+  left: 18, top: 132, w: 60.89, h: 61.68,
   bg: { left: 3, top: 17, w: 57.17, h: 44.68 },
   image: { src: MAP2_IMAGES.journey, left: 3, top: -4, size: 55.49, rotate: -4.91 },
   label: { text: 'Progress', top: 41 },
 };
 const JOURNEY: FeatureSpec = {
-  left: 362, top: 80, w: 60.7, h: 67.68,
+  left: 362, top: 60, w: 60.7, h: 67.68,
   bg: { left: 0, top: 23, w: 57.18, h: 46.5 },
   image: { src: MAP2_IMAGES.review, left: 1, top: 0, size: 59.7, rotate: 4.52 },
   label: { text: 'Journey', top: 51 },
 };
 const REVIEW: FeatureSpec = {
-  left: 364, top: 152, w: 60.7, h: 67.68,
+  left: 364, top: 132, w: 60.7, h: 67.68,
   bg: { left: 0, top: 23, w: 57.18, h: 46.5 },
   image: { src: MAP2_IMAGES.review, left: -2, top: -2.97, size: 59.27, rotate: 3.03 },
   label: { text: 'Review', top: 51 },

@@ -24,6 +24,13 @@ export interface User {
    * asks for confirmation rather than skipping it).
    */
   has_password?: boolean;
+  /**
+   * How the account signs in: the backend's users.provider column. Lets
+   * Apple accounts skip the name screen (App Review guideline 4: Apple already
+   * shared the name). Optional: older backends don't send it, so the store
+   * also remembers it locally from the sign-in itself (see authStore).
+   */
+  provider?: 'password' | 'guest' | 'google' | 'apple' | null;
 }
 
 /** What the server did with a Google or Apple sign-in. Only `/auth/google`

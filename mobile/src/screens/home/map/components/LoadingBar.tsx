@@ -1,11 +1,17 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Animated } from 'react-native';
+import { useScreenVisible } from '../../../../hooks/useScreenVisible';
 
 // ── Indeterminate loading progress bar ────────────────────────────
 export function LoadingBar({ nodesReady }: { nodesReady: boolean }) {
   const anim = useRef(new Animated.Value(0)).current;
+  // JS-driven (percentage translate), so it costs a JS frame every tick: run
+  // it only while the map is on screen. A foreground refresh used to drive it
+  // on other tabs (2026-10-22 audit).
+  const visible = useScreenVisible();
 
   useEffect(() => {
+    if (!visible) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(anim, { toValue: 1, duration: 1500, useNativeDriver: false }),
@@ -14,7 +20,7 @@ export function LoadingBar({ nodesReady }: { nodesReady: boolean }) {
     );
     loop.start();
     return () => loop.stop();
-  }, [anim]);
+  }, [anim, visible]);
 
   const translateX = anim.interpolate({
     inputRange: [0, 1],

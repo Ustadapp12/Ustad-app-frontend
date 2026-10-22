@@ -4,6 +4,7 @@ import { ApiError } from '../api/client';
 import {
   getTokens, getTokensStrict, TokenStoreUnavailableError, setTokens, setStoredUser, getStoredUser,
   resetTourOffered, getLastActiveLocalDate, getStoredStreakSnapshot, setStoredStreakSnapshot,
+  getAppleUserId, setAppleUserId,
 } from '../utils/storage';
 import { refreshLocalNotifications } from '../services/localNotifications';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
@@ -14,14 +15,14 @@ import { prefetchAll, invalidateAll } from '../services/bootCache';
 import { abandonActiveLessonSession, abandonPendingLessonSessionFromStorage } from '../services/lessonSession';
 import { useLessonStore } from './lessonStore';
 import {
-  clearPendingGuestProgress, displayNameFor, getPendingGuestProgress, resetGuestState,
+  clearPendingGuestProgress, displayNameFor, getPendingGuestProgress, isGuest, resetGuestState,
 } from '../utils/guest';
 import { checkStreakLoss } from '../utils/streak';
 import { signInWithGoogle, signOutFromGoogle } from '../services/googleAuth';
-import { signInWithApple } from '../services/appleAuth';
+import { signInWithApple, isAppleCredentialRevoked } from '../services/appleAuth';
 import type { AccountAction, AuthResponse, LearningMe, Tokens, User, UserProfile } from '../types/api';
 
-interface AuthState {
+export interface AuthState {
   user: User | null;
   learning: LearningMe | null;
   // Gender/age (and the rest of UserProfile) — populated at hydrate/login,
@@ -89,6 +90,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
   const completeSocialSignIn = async (
     res: AuthResponse,
     provider: 'google' | 'apple',
+    /** Apple's per-app user id, kept to check on launch whether the user
+     *  revoked access in iOS Settings. */
+    appleUserId?: string | null,
   ): Promise<AccountAction> => {
     await setTokens(res.tokens);
     setCrashUser(res.user.id, res.user.email);
@@ -113,10 +117,29 @@ export const useAuthStore = create<AuthState>((set, get) => {
       { method: provider },
     );
 
-    const user: User = { ...res.user, name: displayNameFor(res.user) };
+    // The saved name, fetched the way hydrate() does on launch, never one built
+    // from the email: an Apple private relay address would otherwise show as
+    // "x7k2pq9..." (App Review guideline 4, 2026-10-22). Best-effort: on
+    // failure displayNameFor() falls back safely.
+    let profileName: string | null | undefined;
+    let profile: UserProfile | null = null;
+    try {
+      const me = await authApi.me();
+      profileName = me.profile?.display_name;
+      profile = me.profile ?? null;
+    } catch { /* fall back below */ }
+
+    const user: User = {
+      ...res.user,
+      // Remembered from the sign-in itself, so a backend without the
+      // `provider` field still routes Apple accounts past the name screen.
+      provider: res.user.provider ?? provider,
+      name: displayNameFor(res.user, profileName),
+    };
     await setStoredUser(user);
-    set({ user, learning: null });
+    set({ user, learning: null, ...(profile ? { profile } : {}) });
     void syncDeviceTimezone();
+    if (provider === 'apple' && appleUserId) void setAppleUserId(appleUserId);
 
     // Unlike register(), there is no verify-email detour: the server sets
     // email_verified because Google/Apple already asserted the address. The guard
@@ -293,8 +316,23 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // every subsequent app launch.
     const user: User = {
       ...me.user,
+      // A backend without the `provider` field: keep what this device saw
+      // at sign-in, so an Apple account isn't sent back to the name screen.
+      provider: me.user.provider ?? previouslyStored?.provider,
       name: displayNameFor(me.user, me.profile?.display_name ?? previouslyStored?.name),
     };
+    // Signed out if the user removed this app from "Sign in with Apple" in
+    // iOS Settings since last launch (Apple's expected behaviour). Only a
+    // definite REVOKED answer signs out; anything unclear keeps the session.
+    if (user.provider === 'apple') {
+      const appleUserId = await getAppleUserId();
+      if (appleUserId && await isAppleCredentialRevoked(appleUserId)) {
+        addBreadcrumb('hydrate: Apple credential revoked, signing out');
+        await get().logout();
+        set({ isHydrated: true });
+        return;
+      }
+    }
     await setStoredUser(user);
     // Crashlytics' user id was set in login/register/guest/upgrade but never
     // here — and hydrate() is the path every returning user takes on every
@@ -303,7 +341,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
     setCrashUser(user.id, user.email);
     set({ isHydrated: true, user, learning: null, profile: me.profile ?? null });
     void syncDeviceTimezone();
-    if (user.email_verified && learning) {
+    // Guests too: they have no email to verify, but finishAuthSetup is also
+    // what loads the recommendation (prefetchAll) that marks the current node.
+    // Gating it on email_verified alone meant a guest who reopened the app saw
+    // no current node, no Lumo and no START (emulator test, 2026-10-22).
+    // startGuestSession already runs it for a brand new guest.
+    if ((user.email_verified || isGuest(user)) && learning) {
       await finishAuthSetup(user, learning);
     }
   };
@@ -487,7 +530,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       // Always 0 — see the matching comment on upgradeGuest above.
       pending_streak: 0,
     });
-    return completeSocialSignIn(res, 'apple');
+    return completeSocialSignIn(res, 'apple', credential.user);
   },
 
   // Called by VerifyEmailScreen right after a successful authApi.verifyEmail()
@@ -514,6 +557,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // Otherwise Google silently re-uses the last account on the next sign in,
     // and someone handing the phone over can't switch to their own.
     await signOutFromGoogle();
+    await setAppleUserId(null);
     invalidateAll();
     lastLearningMeFetchAt = 0;
     set({ user: null, learning: null, profile: null, streakJustLost: null });

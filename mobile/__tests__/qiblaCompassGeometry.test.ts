@@ -12,7 +12,8 @@ function rotatingPoints(size: number, bearing: number): Pt[] {
   const ticks: Pt[] = [];
   for (const deg of [0, 90, 180, 270]) {
     const top = -size / 2 + g.tickInset;
-    for (const p of [[-0.75, top], [0.75, top], [-0.75, top + g.tickLength], [0.75, top + g.tickLength]] as Pt[]) {
+    const w = g.tickWidth / 2;
+    for (const p of [[-w, top], [w, top], [-w, top + g.tickLength], [w, top + g.tickLength]] as Pt[]) {
       ticks.push(rotate(p, deg));
     }
   }
@@ -26,7 +27,7 @@ function rotate([x, y]: Pt, deg: number): Pt {
 
 describe('QiblaCompass geometry', () => {
   for (const size of [56, 70, 84, 105]) {
-    it(`keeps every rotating part inside the ring at every angle (size ${size})`, () => {
+    it(`keeps every rotating part inside the white face at every angle (size ${size})`, () => {
       const inner = size / 2 - compassGeometry(size).ring;
       let worst = 0;
       for (let bearing = 0; bearing < 360; bearing++) {
@@ -41,11 +42,4 @@ describe('QiblaCompass geometry', () => {
     });
   }
 
-  it('reserves layout space for the pointer above the ring', () => {
-    const g = compassGeometry(70);
-    expect(g.pointerOverhang).toBeGreaterThan(0);
-    // The pointer is placed at top = -(ring + overhang) inside the border,
-    // i.e. exactly `overhang` above the outer edge, which the wrapper pads.
-    expect(-g.ring - g.pointerOverhang + g.ring).toBeCloseTo(-g.pointerOverhang);
-  });
 });

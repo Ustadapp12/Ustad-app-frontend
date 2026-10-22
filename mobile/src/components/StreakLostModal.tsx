@@ -1,7 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import MascotShadow from './MascotShadow';
+import { MASCOT } from '../assets';
 
 interface Props {
   priorStreak: number;
@@ -21,7 +22,7 @@ export default function StreakLostModal({ priorStreak, onDismiss }: Props) {
         <View style={styles.card}>
           <View style={{ width: 110, height: 110, marginBottom: 12 }}>
             <Image
-              source={require('../../assets/shared/mascot/lumo_cry.png')}
+              source={MASCOT.lumoCry}
               style={styles.luma}
               resizeMode="contain"
             />

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Keyboard, Platform, type EmitterSubscription } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 
 // Android has no equivalent of iOS's native "Done" accessory bar above the
 // keyboard, and its soft keyboard's own return-key action (next/search/done)

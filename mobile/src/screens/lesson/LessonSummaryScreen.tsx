@@ -1,16 +1,19 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
 import LottieView from 'lottie-react-native';
+import { useLottieWhileVisible } from '../../hooks/useScreenVisible';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
 import { addPendingGuestProgress, isGuest } from '../../utils/guest';
 import { playFeedbackSound } from '../../services/audioPlayer';
-import { STREAK_FROZEN_COLOR, STREAK_FROZEN_ICON } from '../../utils/streak';
+import { STREAK_FROZEN_ICON } from '../../utils/streak';
 import MascotShadow from '../../components/MascotShadow';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
+import { styles } from './LessonSummaryScreen.styles';
+import { ANIMATIONS, MASCOT } from '../../assets';
 
 interface Props {
   navigation: RootNavProp;
@@ -79,6 +82,9 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
     && (repairLevelsCompleted ?? 0) > 0 && (repairLevelsCompleted ?? 0) < (repairLevelsRequired ?? 0);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  // Paused whenever this screen isn't on screen (2026-10-22 audit).
+  const medalRef = useRef<LottieView>(null);
+  useLottieWhileVisible(medalRef);
   const slideAnim = useRef(new Animated.Value(40)).current;
   const lumaScaleAnim = useRef(new Animated.Value(0)).current;
   const xpCountAnim = useRef(new Animated.Value(0)).current;
@@ -137,7 +143,8 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         {/* Medal animation — big and continuously looping. */}
         <LottieView
-          source={require('../../../assets/shared/animations/congrats.json')}
+          ref={medalRef}
+          source={ANIMATIONS.congrats}
           autoPlay
           loop
           resizeMode="contain"
@@ -170,7 +177,7 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
         {/* Congratulating Lumo — static image, not a second Lottie */}
         <View style={{ width: 84, height: 84, marginBottom: 12 }}>
           <Animated.Image
-            source={require('../../../assets/shared/mascot/lumo_xp.png')}
+            source={MASCOT.lumoXp}
             style={[styles.lumaImg, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
             resizeMode="contain"
           />
@@ -210,7 +217,7 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
                 repairLevelsRequired: repairLevelsRequired ?? 0,
               });
             } else {
-              navigation.navigate('MainTabs');
+              navigation.popTo('MainTabs');
             }
           }}
         >
@@ -221,27 +228,3 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content:      { alignItems: 'center', paddingHorizontal: 28, width: '100%' },
-  medal:        { width: '100%', aspectRatio: 300 / 180, marginBottom: -10 },
-  starsRow:     { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  star:         { fontSize: 52 },
-  grade:        { fontFamily: 'Nunito-Bold', fontSize: 30, marginBottom: 14 },
-  streakSavedBadge: {
-    backgroundColor: 'rgba(0,0,0,0.40)', borderRadius: 20, borderWidth: 2, borderColor: STREAK_FROZEN_COLOR,
-    paddingHorizontal: 18, paddingVertical: 8, marginBottom: 14, maxWidth: '100%',
-  },
-  streakSavedBadgeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  streakSavedBadgeIcon: { width: 18, height: 18 },
-  streakSavedBadgeText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: STREAK_FROZEN_COLOR, textAlign: 'center' },
-  lumaImg:      { width: 84, height: 84, marginBottom: 12 },
-  statsRow:     { flexDirection: 'row', width: '100%', gap: 10, marginBottom: 14 },
-  statBox:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.40)',
-                  borderRadius: 16, borderWidth: 2, borderColor: colors.gold, paddingVertical: 12, paddingHorizontal: 4 },
-  statValue:    { fontFamily: 'Nunito-Bold', fontSize: 22, color: colors.gold, lineHeight: 26 },
-  statLabel:    { fontFamily: 'Nunito-Bold', fontSize: 10.5, color: colors.gold, letterSpacing: 0.5, marginTop: 3, opacity: 0.85 },
-  continueBtn:  { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
-});

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
-import { Text, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Map2Screen from '../screens/home/map2/Map2Screen';
 import DailyQuestScreen from '../screens/quests/DailyQuestScreen';
 import PrayScreen from '../screens/pray/PrayScreen';
@@ -12,14 +12,14 @@ import { useAuthStore } from '../store/authStore';
 import { useTourStore } from '../store/tourStore';
 import TourOverlay from '../components/tour/TourOverlay';
 import Map2TabBar from './Map2TabBar';
+import { useAskNotificationsOnStart } from '../hooks/useAskNotificationsOnStart';
 import type { RootNavProp, TabParamList } from './types';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-// Height of the bottom bar's content, for placing the dev-only V2 button above it.
-const TAB_BAR_CONTENT_H = 71;
 
 export default function MainTabs() {
+  useAskNotificationsOnStart();
   // Defense-in-depth: nothing should be able to navigate an unauthenticated
   // user onto the map, but if a future navigation bug ever does, catch it
   // here instead of silently rendering the map for a guest. This only
@@ -61,17 +61,6 @@ export default function MainTabs() {
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
     <AuthRequiredModal visible={showAuthModal} onContinue={handleContinue} />
-    {/* Dev-only door into the WIP MapV2 clone (see MapScreenV2.tsx's header
-        comment) — __DEV__ so it never renders in a release build, same
-        pattern already used for notifications elsewhere in this codebase. */}
-    {__DEV__ && (
-      <TouchableOpacity
-        style={styles.devMapV2Button}
-        onPress={() => navigation.navigate('MapV2')}
-      >
-        <Text style={styles.devMapV2Text}>V2</Text>
-      </TouchableOpacity>
-    )}
     {/* The map half of the tour is hosted here, not in the map screen, for one
         structural reason: it has to be able to dim and cut a hole in the tab
         bar, and the tab bar is the navigator's, rendered as the map's
@@ -88,21 +77,4 @@ export default function MainTabs() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  devMapV2Button: {
-    position: 'absolute',
-    right: 12,
-    bottom: TAB_BAR_CONTENT_H + 96,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#000000cc',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 999,
-  },
-  devMapV2Text: {
-    color: '#fff',
-    fontFamily: 'Nunito-Bold',
-    fontSize: 12,
-  },
 });

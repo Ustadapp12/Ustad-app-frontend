@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
+import { ICONS } from '../assets';
 
 interface Props {
   onPress: () => void;
@@ -8,16 +9,18 @@ interface Props {
    * screen's header shape differs, so that part stays per-screen. */
   style?: StyleProp<ViewStyle>;
   size?: number;
-  tintColor?: string;
   accessibilityLabel?: string;
 }
 
 // The back-arrow icon + require() + resizeMode was copy-pasted across 14+
 // screens; this is the one place that duplication lives now, so swapping
-// the asset or its default styling again only needs one edit.
+// the asset or its default styling again only needs one edit. Always the
+// same charcoal (colors.darkText): no colour override, since per-screen
+// tints are how the arrows ended up mixed (2026-10-22).
 export default function BackButton({
-  onPress, style, size = 20, tintColor = colors.darkText, accessibilityLabel = 'Back',
+  onPress, style, size = 20, accessibilityLabel = 'Back',
 }: Props) {
+  const tintColor = colors.darkText;
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -26,7 +29,7 @@ export default function BackButton({
       accessibilityLabel={accessibilityLabel}
     >
       <Image
-        source={require('../../assets/shared/icons/back_arrow.png')}
+        source={ICONS.backArrow}
         style={{ width: size, height: size, tintColor }}
         resizeMode="contain"
       />

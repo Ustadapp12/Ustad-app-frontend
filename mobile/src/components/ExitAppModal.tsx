@@ -1,7 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import MascotShadow from './MascotShadow';
+import { MASCOT } from '../assets';
 
 interface Props {
   visible: boolean;
@@ -19,7 +20,7 @@ export default function ExitAppModal({ visible, onStay, onLeave }: Props) {
         <View style={styles.card}>
           <View style={{ width: 90, height: 90, marginBottom: 8 }}>
             <Image
-              source={require('../../assets/shared/mascot/lumo_kufi.png')}
+              source={MASCOT.lumoKufi}
               style={styles.luma}
               resizeMode="contain"
             />

@@ -3,6 +3,7 @@ import { View, Image } from 'react-native';
 import MascotShadow from '../../../../components/MascotShadow';
 import type { Styles } from '../mapStyles';
 import { SpeechBubble } from './SpeechBubble';
+import { MASCOT } from '../../../../assets';
 
 // ── Luma mascot ───────────────────────────────────────────────────
 export function LumaFloat({ style, speech, speechTailAngle, S, SB, sc }: { style?: object; speech?: string; speechTailAngle?: number; S: Styles['S']; SB: Styles['SB']; sc: (n: number) => number }) {
@@ -11,7 +12,7 @@ export function LumaFloat({ style, speech, speechTailAngle, S, SB, sc }: { style
       {speech && <SpeechBubble text={speech} SB={SB} tailAngle={speechTailAngle} />}
       <View style={S.lumaGlow}>
         <Image
-          source={require('../../../../../assets/shared/mascot/lumo_kufi.png')}
+          source={MASCOT.lumoKufi}
           style={S.lumaImg}
           resizeMode="contain"
         />

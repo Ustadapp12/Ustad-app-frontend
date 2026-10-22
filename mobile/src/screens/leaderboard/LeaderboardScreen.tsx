@@ -3,8 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Animated } f
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
-import { leaderboardApi } from '../../api';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
 import { isGuest } from '../../utils/guest';
 import { avatarForLeaderboardEntry, characterSrcFor } from '../../utils/avatar';
@@ -16,8 +15,10 @@ import LoadingStatusText from '../../components/LoadingStatusText';
 import MascotShadow from '../../components/MascotShadow';
 import { useFocusedLoop } from '../../hooks/useFocusedLoop';
 import LeaderboardRow from './LeaderboardRow';
-import { makeStyles, designScale, LB } from './styles';
+import { makeStyles, designScale } from './styles';
 import type { LeaderboardEntry } from '../../types/api';
+import { MASCOT } from '../../assets';
+import { useLeaderboard } from '../../hooks/api';
 
 // The Figma design's "Bronze League" title and mic badge card are left out
 // for now (2026-10-11, user: that feature "isn't for now"); one Lumo sits in
@@ -41,29 +42,13 @@ function LeaderboardContent() {
   const d = useMemo(() => designScale(sc), [sc]);
   const styles = useMemo(() => makeStyles(sc, bottomInset), [sc, bottomInset]);
 
-  const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
-  const [me, setMe] = useState<LeaderboardEntry | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { entries, me, loading, error, load } = useLeaderboard();
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(false);
   const [feedbackVisible, setFeedbackVisible] = useState(false);
   // Recomputed on each focus so the date rolls over if the app stays open
   // past midnight on this tab.
   const [hijriDate, setHijriDate] = useState(() => formatHijriDate());
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setLoading(true);
-    setError(false);
-    try {
-      const data = await leaderboardApi.top();
-      setEntries(data.entries);
-      setMe(data.me ?? null);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => { void load(); }, [load]);
   // Cheap refresh on focus — the backend itself caches for 60s (see
@@ -106,7 +91,6 @@ function LeaderboardContent() {
               onPress={() => navigation.navigate('Map')}
               style={styles.backBtn}
               size={d(23)}
-              tintColor={LB.subtle}
             />
             <Text style={styles.title}>Leaderboard</Text>
           </View>
@@ -115,7 +99,7 @@ function LeaderboardContent() {
 
         <View style={styles.lumoWrap}>
           <Animated.Image
-            source={require('../../../assets/shared/mascot/lumo_transparent.png')}
+            source={MASCOT.lumoTransparent}
             style={[styles.lumo, { transform: [{ translateY: lumoY }] }]}
             resizeMode="contain"
           />

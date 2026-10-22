@@ -15,15 +15,11 @@ import {
   setPendingLessonSession,
 } from '../services/lessonSession';
 import {
+  askNotificationPermissionOnce,
   refreshLocalNotifications,
-  requestLocalNotificationPermission,
   toLocalDateString,
 } from '../services/localNotifications';
-import {
-  setLastActiveLocalDate,
-  setLocalNotifPermissionAsked,
-  wasLocalNotifPermissionAsked,
-} from '../utils/storage';
+import { setLastActiveLocalDate } from '../utils/storage';
 import type { ExerciseStep } from '../lesson/types';
 import type { ExerciseDict, LessonGroupDetail, SessionCompleteOut } from '../types/api';
 
@@ -46,10 +42,8 @@ async function refreshLocalNotificationsAfterComplete(completed: SessionComplete
       // No onboarding picker for this yet — see services/localNotifications.ts header.
       { reminderHour: null },
     );
-    if (!(await wasLocalNotifPermissionAsked())) {
-      await setLocalNotifPermissionAsked();
-      await requestLocalNotificationPermission();
-    }
+    // Normally already asked when the app opened; this is the fallback.
+    await askNotificationPermissionOnce();
   } catch {
     // Same discipline as analytics/crash reporting elsewhere in this store: never let
     // this affect the lesson-completion flow the user is actually waiting on.
@@ -62,7 +56,7 @@ let startSessionInFlight: Promise<void> | null = null;
 // it resumes after an await and sees the generation has moved on.
 let storeGeneration = 0;
 
-interface LessonState {
+export interface LessonState {
   group: LessonGroupDetail | null;
   groupId: string | null;   // the ID passed to loadGroup — used in startSession to avoid relying on group.id from backend
   steps: ExerciseStep[];

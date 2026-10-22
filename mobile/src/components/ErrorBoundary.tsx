@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import { captureError } from '../services/crashReporter';
 
 interface Props {

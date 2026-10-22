@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { designScale, type Scale } from '../../utils/responsive';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 
 // Figma "leaderboard iPhone 16 & 17 Pro Max - 8" (node 1121:8311) is drawn on
 // a 440pt frame. Every design number below goes through d() (designScale, in

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import MascotShadow from '../MascotShadow';
+import { MASCOT } from '../../assets';
 
 interface Props {
   visible: boolean;
@@ -21,7 +22,7 @@ export default function TourOfferModal({ visible, onAccept, onDecline }: Props) 
         <View style={styles.card}>
           <View style={{ width: 112, height: 112, marginBottom: 4 }}>
             <Image
-              source={require('../../../assets/shared/mascot/lumo_transparent.png')}
+              source={MASCOT.lumoTransparent}
               style={[styles.lumo, { marginBottom: 0 }]}
               resizeMode="contain"
             />

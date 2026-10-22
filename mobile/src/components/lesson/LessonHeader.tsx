@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { TOUR_GLOW_ROUND, TOUR_GLOW_ROUND_THIN } from '../tour/tourGlow';
 import LessonProgressBar from './LessonProgressBar';
 import HintButton from './HintButton';
+import { GAMIFICATION_IMAGES, ICONS } from '../../assets';
 
 // 5 heart icons, each worth 2 half-heart units (full -> half -> empty), so a
 // session ends at 10 mistakes, not 5. These must move together or the "out of
@@ -11,9 +12,9 @@ import HintButton from './HintButton';
 export const MAX_HEARTS = 5;
 export const MAX_MISTAKES = MAX_HEARTS * 2;
 
-const HEART_FULL = require('../../../assets/screens/gamification/redh.png');
-const HEART_HALF = require('../../../assets/screens/gamification/halfh.png');
-const HEART_EMPTY = require('../../../assets/screens/gamification/whiteh.png');
+const HEART_FULL = GAMIFICATION_IMAGES.redh;
+const HEART_HALF = GAMIFICATION_IMAGES.halfh;
+const HEART_EMPTY = GAMIFICATION_IMAGES.whiteh;
 
 export interface LessonHeaderTargets {
   progress?: React.Ref<View>;
@@ -81,7 +82,7 @@ export default function LessonHeader({
           Decorative only, unlike the tappable reward chests on
           Search/Progress. */}
       <View style={S.chestBadge}>
-        <Image source={require('../../../assets/shared/icons/chest.png')} style={S.chestImage} resizeMode="contain" />
+        <Image source={ICONS.chest} style={S.chestImage} resizeMode="contain" />
       </View>
 
       {!hideHearts && (

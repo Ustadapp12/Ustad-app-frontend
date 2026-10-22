@@ -50,6 +50,8 @@ export interface AppleCredential {
   authorizationCode: string | null;
   /** Apple only sends the name on the very first authorization, never again. */
   fullName: string | null;
+  /** Apple's stable per-app user id, for getCredentialStateForUser(). */
+  user: string | null;
 }
 
 /**
@@ -89,6 +91,7 @@ export async function signInWithApple(): Promise<AppleCredential | null> {
       nonce: response.nonce ?? null,
       authorizationCode: response.authorizationCode ?? null,
       fullName,
+      user: response.user ?? null,
     };
   } catch (e) {
     const code = (e as { code?: string })?.code;
@@ -102,5 +105,23 @@ export async function signInWithApple(): Promise<AppleCredential | null> {
     // capability missing from the provisioning profile, lands here.
     captureError(e, { where: 'signInWithApple', code: code ?? 'unknown' });
     throw new Error('Apple sign in failed. Please try again.');
+  }
+}
+
+/**
+ * True only when Apple definitely says this user revoked the app's access
+ * (removed it under Settings > Apple ID > Sign in with Apple). Not-found,
+ * transferred, errors and non-iOS all return false, so a flaky check can
+ * never sign anyone out.
+ */
+export async function isAppleCredentialRevoked(appleUserId: string): Promise<boolean> {
+  const mod = getModule();
+  if (!mod) return false;
+  try {
+    const state = await mod.appleAuth.getCredentialStateForUser(appleUserId);
+    return state === mod.appleAuth.State.REVOKED;
+  } catch (e) {
+    addBreadcrumb('apple_credential_state_failed', { error: e instanceof Error ? e.message : String(e) });
+    return false;
   }
 }

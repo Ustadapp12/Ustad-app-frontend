@@ -2,8 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Linking,
 } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import MascotShadow from './MascotShadow';
+import { MASCOT } from '../assets';
 
 interface Props {
   visible: boolean;
@@ -50,7 +51,7 @@ export default function LumoInfoModal({
         <View style={styles.card}>
           <View style={{ width: 105, height: 105, marginBottom: 8 }}>
             <Animated.Image
-              source={require('../../assets/shared/mascot/lumo_transparent.png')}
+              source={MASCOT.lumoTransparent}
               style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatAnim }] }]}
               resizeMode="contain"
             />

@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../../theme/colors';
+import { colors } from '../../../theme';
 import type { MapModel } from './mapModel';
 
 // ── Styles that depend on the model's `sc()` — rebuilt via useMemo whenever

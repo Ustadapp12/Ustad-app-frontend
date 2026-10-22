@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { TOUR_GLOW } from '../tour/tourGlow';
 
 interface Props {

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, Easing, Text, StyleSheet } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 
 const PETAL_OPACITIES = [1, 0.85, 0.7, 0.55, 0.4, 0.25, 0.15, 0.08];
 

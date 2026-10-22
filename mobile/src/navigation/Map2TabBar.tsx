@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
-import { Platform, View, useWindowDimensions } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import Map2BottomBar, { BOTTOM_BAR_H, type BottomBarKey } from '../screens/home/map2/components/Map2BottomBar';
+import Map2BottomBar, { BOTTOM_BAR_H, bottomBarClearance, type BottomBarKey } from '../screens/home/map2/components/Map2BottomBar';
 import { FIGMA_W } from '../screens/home/map2/map2Theme';
 import { makeMap2Styles } from '../screens/home/map2/styles';
 import type { TabParamList } from './types';
@@ -38,14 +38,12 @@ export default function Map2TabBar({ state, navigation, insets }: BottomTabBarPr
   const s = width / FIGMA_W;
   const S = useMemo(() => makeMap2Styles(s), [s]);
   const current = state.routes[state.index].name as keyof TabParamList;
-  // Full inset, not a fraction of it (was `* 0.55`, unexplained, 2026-10-21):
-  // this height is both what gets reserved for the tab bar AND how far down
-  // its own light-coloured fill extends (see Map2BottomBar.tsx). Covering
-  // only part of the home-indicator inset left the rest of it outside any
-  // screen's content entirely -- below the navigator's own rendered area,
-  // exposing the Stack's dark contentStyle (#0D1B2A, meant for Splash/auth)
-  // as a solid black strip right at the bottom edge on iOS.
-  const bottomClearance = Platform.OS === 'ios' ? insets.bottom : 0;
+  // Same clearance as the map's own bar (see bottomBarClearance), so the
+  // icons sit at one height on every tab. The full-inset version of this
+  // (2026-10-21, a fix for a black strip under the bar on iOS) raised the
+  // whole bar ~15pt on every tab but Home; the strip is instead covered by
+  // the light fill below the bar's box (see the return below).
+  const bottomClearance = bottomBarClearance(insets.bottom);
 
   const onPress = useCallback((key: BottomBarKey) => {
     const name = ROUTE_OF[key];
@@ -69,6 +67,9 @@ export default function Map2TabBar({ state, navigation, insets }: BottomTabBarPr
           dark green. Light backing below the corners hides every such gap. */}
       <View style={{ position: 'absolute', left: 0, right: 0, top: CORNER_OVERLAP * s, bottom: 0, backgroundColor: '#F5F7FA' }} />
       <Map2BottomBar S={S} s={s} bottomClearance={bottomClearance} active={KEY_OF[current] ?? 'home'} solid onPress={onPress} />
+      {/* Paints past the box's own bottom edge, so nothing dark can ever
+          show beneath the bar whatever the rest of the inset resolves to. */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: -insets.bottom, height: insets.bottom, backgroundColor: '#F5F7FA' }} />
     </View>
   );
 }

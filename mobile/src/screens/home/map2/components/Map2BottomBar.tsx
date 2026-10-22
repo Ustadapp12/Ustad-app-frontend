@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, View } from 'react-native';
+import { Platform, TouchableOpacity, View } from 'react-native';
 import { useTourTarget } from '../../../../components/tour/useTourTarget';
 import BottomBarBgArt, { BOTTOM_BAR_BG_H, BOTTOM_BAR_BG_W } from '../art/BottomBarBgArt';
 import BottomBarBgSolidArt from '../art/BottomBarBgSolidArt';
@@ -14,6 +14,14 @@ import type { Map2Styles } from '../styles';
 
 export const BOTTOM_BAR_H = BOTTOM_BAR_BG_H;
 export type BottomBarKey = 'home' | 'chest' | 'star' | 'trophy' | 'profile';
+
+/** How far above the iOS home indicator the bar's icons sit. Every place that
+ * draws this bar (Map2Screen, Map2TabBar, ComingSoonPage) must use this one
+ * value: Map used 55% of the inset while the other tabs used 100%, so the
+ * icons jumped ~15pt higher on every tab but Home (fixed 2026-10-22). */
+export function bottomBarClearance(insetBottom: number): number {
+  return Platform.OS === 'ios' ? Math.round(insetBottom * 0.55) : 0;
+}
 
 // Selected tab: the grey art turned the Figma green (the green chest in Figma
 // 1151:9846 is exactly this swap). Home has its own drawn selected art.

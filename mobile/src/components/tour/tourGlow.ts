@@ -29,7 +29,7 @@
 //   instead of a highlight around a green bar. Every other
 //   TOUR_GLOW_ROUND target (hearts row, hint icon) is tall enough that the
 //   same blur stays a thin rim; only the progress bar needs this one.
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 
 export const TOUR_GLOW = {
   borderWidth: 2, borderColor: colors.gold,

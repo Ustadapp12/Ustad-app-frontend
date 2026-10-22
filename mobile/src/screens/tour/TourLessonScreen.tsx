@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  CHARACTERS, ExerciseSlide, FeedbackBanner, FillBlankOrNextWord, ReadAndSpeak,
-} from '../lesson/LessonSessionScreen';
+import { CHARACTERS } from '../lesson/lessonShared';
+import { ExerciseSlide } from '../lesson/components/ExerciseSlide';
+import { FeedbackBanner } from '../lesson/components/FeedbackBanner';
+import { FillBlankOrNextWord } from '../lesson/exercises/FillBlankOrNextWord';
+import { ReadAndSpeak } from '../lesson/exercises/ReadAndSpeak';
 import LessonHeader from '../../components/lesson/LessonHeader';
 import TourOverlay from '../../components/tour/TourOverlay';
 import {
@@ -11,9 +13,9 @@ import {
 } from '../../components/tour/tourExercises';
 import { FIRST_LESSON_STEP, TOUR_STEPS } from '../../components/tour/tourSteps';
 import { useTourStore } from '../../store/tourStore';
-import { colors } from '../../theme/colors';
 import type { RootNavProp } from '../../navigation/types';
 import { useTourTarget } from '../../components/tour/useTourTarget';
+import { styles } from './TourLessonScreen.styles';
 
 interface Props { navigation: RootNavProp }
 
@@ -169,8 +171,3 @@ export default function TourLessonScreen({ navigation }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.lightBg },
-  exerciseArea: { flex: 1 },
-});

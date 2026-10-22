@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 
 interface Props {
   visible: boolean;

@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, Animated, TouchableOpacity, Image } from 'react-native';
 import { formatAyahRange } from '../mapModel';
 import type { Styles } from '../mapStyles';
+import { MASCOT } from '../../../../assets';
 
 // ── Level action card — the on-map popout for "start a new level" (fresh
 // node tap) and "repeat the lesson" (completed node tap), replacing what used
@@ -65,7 +66,7 @@ export function LevelActionCard({
       <Image
         // Not a Figma-exported asset: "luma_transparent" in the design is
         // an exact match for art already bundled with the app.
-        source={require('../../../../../assets/shared/mascot/lumo_transparent.png')}
+        source={MASCOT.lumoTransparent}
         style={S.actionCardMascot}
         resizeMode="contain"
       />
