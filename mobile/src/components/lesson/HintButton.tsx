@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Image } from 'react-native';
-import { playAudioUrl, pauseAudio } from '../../services/audioPlayer';
+import { playAudioUrl, pauseAudio, stopAudio } from '../../services/audioPlayer';
 import { useArabicFont, arabicTextStyle } from '../../utils/arabicFont';
 import { colors } from '../../theme';
 import PlayPauseIcon from '../PlayPauseIcon';
@@ -73,6 +73,7 @@ export default function HintButton({ url, ayahAr, ayahTranslation }: Props) {
     // Set before awaiting: playAudioUrl only resolves once playback finishes.
     setPlaying(true);
     try {
+      stopAudio(); // ends any word-by-word sequence still running
       await playAudioUrl(url);
     } catch (e) {
       console.warn('[HintButton] play failed:', e);

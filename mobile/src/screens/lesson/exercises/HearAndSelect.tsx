@@ -7,7 +7,7 @@ import ExerciseLayout from '../../../components/lesson/ExerciseLayout';
 import ExerciseFooterButton from '../../../components/lesson/ExerciseFooterButton';
 import UstadSays from '../../../components/lesson/UstadSays';
 import { EX } from './exerciseStyles';
-import { playUrl } from '../lessonAudio';
+import { playUrl, playUrlSequence } from '../lessonAudio';
 import { SPEAKER_ICON, BUBBLE_TEXT, type Character } from '../lessonShared';
 
 // ── Hear and Select exercise ──────────────────────────────────────
@@ -57,10 +57,7 @@ export function HearAndSelect({
     const gen = seqGenRef.current;
     if (mountedRef.current) setPlaying(true);
     void (async () => {
-      for (const url of urls) {
-        if (seqGenRef.current !== gen) return;
-        await new Promise<void>(resolve => { void playUrl(url, resolve); });
-      }
+      await playUrlSequence(urls);
       if (seqGenRef.current === gen && mountedRef.current) setPlaying(false);
     })();
   };

@@ -41,8 +41,19 @@ export function useMap2Jump({
   // The first landing goes there instead of to the learner's own level,
   // which would otherwise override it.
   const pendingJumpSlotRef = useRef<number | null>(null);
+  // Set by a surah jump and kept until the learner asks to go back (Home,
+  // back-to-level) or a lesson ends. The first visit to a surah loads its
+  // levels, and that can move the active level more than once; the one-shot
+  // suppressFollowRef only absorbed the first move, so the next one pulled
+  // the view back to the learner's level ("first try stayed where I was,
+  // second try worked", 2026-10-22; likely cause, not reproduced).
+  const holdJumpRef = useRef(false);
   useEffect(() => {
     if (loading || activeSlot == null || activeId == null) return;
+    if (holdJumpRef.current && landedRef.current) {
+      followedIdRef.current = activeId;
+      return;
+    }
     if (suppressFollowRef.current && landedRef.current) {
       suppressFollowRef.current = false;
       followedIdRef.current = activeId;
@@ -67,11 +78,13 @@ export function useMap2Jump({
   returnSlotRef.current = returnSlot;
   useEffect(() => {
     if (returnedFromLevelTick === 0) return;
+    holdJumpRef.current = false;
     const target = returnSlotRef.current() ?? activeSlotRef.current;
     if (target != null) scrollToSlot(target, true);
   }, [returnedFromLevelTick, scrollToSlot]);
 
   const jumpToActive = useCallback(() => {
+    holdJumpRef.current = false;
     if (activeSlotRef.current != null) scrollToSlot(activeSlotRef.current, true);
   }, [scrollToSlot]);
 
@@ -81,10 +94,10 @@ export function useMap2Jump({
     void fetchPhase(SURAH_TO_SEASON[surah] ?? 0, currentSurahNumRef.current);
     const slot = SLOT_OF[`${surah}:${level?.levelIdx ?? 0}`];
     if (slot == null) return;
+    holdJumpRef.current = true;
     if (!landedRef.current) { pendingJumpSlotRef.current = slot; return; }
-    suppressFollowRef.current = true;
     scrollToSlot(slot, true);
-  }, [currentSurahNumRef, fetchPhase, scrollToSlot, suppressFollowRef]);
+  }, [currentSurahNumRef, fetchPhase, scrollToSlot]);
 
   return { scrollToSlot, jumpToActive, jumpToSurahStart };
 }

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { onPlayingChange } from '../../../services/audioPlayer';
+import { onPlayingChange, stopAudio } from '../../../services/audioPlayer';
 import { colors } from '../../../theme';
 import PlayPauseIcon from '../../../components/PlayPauseIcon';
-import { playUrl, playUrlSequenceFast, pauseCurrentAudio } from '../lessonAudio';
+import { playUrl, playUrlSequenceFast } from '../lessonAudio';
 
 // ── Segment play button with waveform signal ─────────────────────
 // url: the full segment / ayah audio; urls: word-by-word clips played in
@@ -45,8 +45,10 @@ export function SegmentPlayBtn({ url, urls }: { url?: string | null; urls?: stri
   const handle = async () => {
     if (!hasAudio) return;
     if (playing) {
+      // Stop, not pause: pausing one word of a sequence let the loop carry
+      // on to the next word, and a tap during a slow load did nothing.
       setPlaying(false);
-      await pauseCurrentAudio();
+      stopAudio();
     } else {
       setPlaying(true); // set before awaiting — resolves only once playback finishes
       if (url) {

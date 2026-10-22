@@ -190,7 +190,20 @@ export const playAudio = playAudioUrl;
  * right now stops, but three other buffering clips are still queued up." */
 export function stopAudio(): void {
   playToken++;
+  audioEpoch++;
   stopActiveSound();
+}
+
+// Bumped by every stopAudio(). playToken only cancels the ONE clip loading
+// right now, and each step of a word-by-word sequence takes a fresh token,
+// so a stop used to kill the current word while the sequence's loop simply
+// went on to the next one. Repeated taps on a slow load stacked several such
+// loops, which kept playing through recording, Try Again and screen changes
+// (2026-10-22). Sequence loops capture this when they start and quit as soon
+// as it moves (see lessonAudio.ts runSequence).
+let audioEpoch = 0;
+export function getAudioEpoch(): number {
+  return audioEpoch;
 }
 
 /** Pause currently playing audio (no-op if nothing playing). */

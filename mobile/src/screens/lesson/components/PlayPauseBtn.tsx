@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { onPlayingChange } from '../../../services/audioPlayer';
+import { onPlayingChange, stopAudio } from '../../../services/audioPlayer';
 import { colors } from '../../../theme';
 import PlayPauseIcon from '../../../components/PlayPauseIcon';
 import { playUrl, playUrlSequence, pauseCurrentAudio, resumeCurrentAudio } from '../lessonAudio';
@@ -33,6 +33,11 @@ export function PlayPauseBtn({
       } else if (urls?.length) {
         void playUrlSequence(urls, () => { if (mountedRef.current) setState('idle'); });
       }
+    } else if (state === 'playing' && !url) {
+      // A word-by-word sequence can't pause: its loop would just move on to
+      // the next word. Stop it instead.
+      setState('idle');
+      stopAudio();
     } else if (state === 'playing') {
       setState('paused');
       await pauseCurrentAudio();

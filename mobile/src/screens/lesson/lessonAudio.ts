@@ -1,4 +1,4 @@
-import { playAudioUrl, pauseAudio, resumeAudio, stopAudio, preloadAudioUrls } from '../../services/audioPlayer';
+import { playAudioUrl, pauseAudio, resumeAudio, stopAudio, preloadAudioUrls, getAudioEpoch } from '../../services/audioPlayer';
 import { startRecording as startRecordingSvc, stopRecording as stopRecordingSvc } from '../../services/audioRecorder';
 
 // ── Tour-only glow ─────────────────────────────────
@@ -53,24 +53,38 @@ export function setActiveExerciseId(id: string | null): void {
   activeExerciseId = id;
 }
 
-export async function playUrl(url: string | null | undefined, onDone?: () => void) {
-  if (!url) return;
+async function playOne(url: string): Promise<void> {
   try {
     await playAudioUrl(url);
   } catch (e) {
     console.warn('[audio] playUrl failed:', e);
-  } finally {
-    onDone?.();
+  }
+}
+
+// Only one thing plays at a time: starting any clip or sequence first stops
+// whatever is playing AND every sequence still running (stopAudio bumps the
+// audio epoch), so repeated taps replace each other instead of stacking.
+export async function playUrl(url: string | null | undefined, onDone?: () => void) {
+  if (!url) return;
+  stopAudio();
+  await playOne(url);
+  onDone?.();
+}
+
+// Plays each URL in turn while nothing has stopped audio since `epoch` was
+// taken: recording, Try Again, a new tap, the next exercise or leaving the
+// screen all call stopAudio(), which ends the loop before its next word.
+async function runSequence(urls: string[], epoch: number, forExercise: string | null): Promise<void> {
+  for (const url of urls) {
+    if (getAudioEpoch() !== epoch || forExercise !== activeExerciseId) return;
+    await playOne(url);
   }
 }
 
 // Play a list of URLs one after another (for segment_audio_urls)
 export async function playUrlSequence(urls: string[], onDone?: () => void) {
-  const forExercise = activeExerciseId;
-  for (const url of urls) {
-    if (forExercise !== activeExerciseId) break;
-    await playUrl(url);
-  }
+  stopAudio();
+  await runSequence(urls, getAudioEpoch(), activeExerciseId);
   onDone?.();
 }
 
@@ -78,6 +92,8 @@ export async function playUrlSequence(urls: string[], onDone?: () => void) {
 // the smallest possible gap — used for the "Hear" button in read_and_speak.
 export async function playUrlSequenceFast(urls: string[], onDone?: () => void) {
   if (!urls.length) { onDone?.(); return; }
+  stopAudio();
+  const epoch = getAudioEpoch();
   const forExercise = activeExerciseId;
   try {
     await preloadAudioUrls(urls);
@@ -86,8 +102,8 @@ export async function playUrlSequenceFast(urls: string[], onDone?: () => void) {
   // inside playUrlSequence, since that function captures activeExerciseId
   // fresh at ITS OWN start and would otherwise treat "still current as of
   // right now" as "was still current when this was first requested."
-  if (forExercise !== activeExerciseId) { onDone?.(); return; }
-  await playUrlSequence(urls, onDone);
+  await runSequence(urls, epoch, forExercise);
+  onDone?.();
 }
 
 
