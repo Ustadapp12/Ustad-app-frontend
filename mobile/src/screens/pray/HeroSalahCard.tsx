@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import LinearGradient from 'react-native-linear-gradient';
+import GradientBox from '../../components/GradientBox';
 import { useResponsiveScale } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
 import type { Coords } from '../../utils/location';
@@ -70,7 +70,7 @@ export default function HeroSalahCard({ currentPrayer, locationDenied, onEnableL
   );
 
   return (
-    <LinearGradient
+    <GradientBox
       colors={['#0F1B2A', '#122134', '#172A42', '#243850', '#545345', '#6A6040']}
       locations={[0, 0.22, 0.45, 0.68, 0.85, 0.96]}
       style={styles.card}
@@ -98,7 +98,7 @@ export default function HeroSalahCard({ currentPrayer, locationDenied, onEnableL
       >
         <Text style={styles.btnText} numberOfLines={1} adjustsFontSizeToFit>{locationDenied ? 'ENABLE LOCATION' : 'TAP TO LOG YOUR SALAH'}</Text>
       </TouchableOpacity>
-    </LinearGradient>
+    </GradientBox>
   );
 }
 

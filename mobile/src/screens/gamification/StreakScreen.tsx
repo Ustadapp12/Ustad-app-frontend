@@ -1,7 +1,7 @@
 ﻿import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Animated, Image, Modal } from 'react-native';
 import LottieView from 'lottie-react-native';
-import LinearGradient from 'react-native-linear-gradient';
+import GradientBox from '../../components/GradientBox';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
@@ -174,7 +174,7 @@ export default function StreakScreen({ navigation, route }: Props) {
             streak is active than while it's frozen/broken, not a flat
             tint). streakGradientColors() lives next to streakColor() in
             utils/streak.ts so every place a streak renders stays in sync. */}
-        <LinearGradient
+        <GradientBox
           colors={streakGradientColors(streakState)}
           style={styles.heroCard}
         >
@@ -212,7 +212,7 @@ export default function StreakScreen({ navigation, route }: Props) {
               />
             </Animated.View>
           </View>
-        </LinearGradient>
+        </GradientBox>
 
         <Text style={styles.streakSub}>
           {frozen
