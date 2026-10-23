@@ -1,5 +1,5 @@
 /**
- * Generate the iOS AppIcon set from assets/images/lumo_kufi.png.
+ * Generate the iOS AppIcon set from assets/shared/mascot/lumo_kufi.png.
  * Run: node scripts/generate-ios-icons.mjs
  */
 import sharp from 'sharp';
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const src = path.join(root, 'assets', 'images', 'lumo_kufi.png');
+const src = path.join(root, 'assets', 'shared', 'mascot', 'lumo_kufi.png');
 const appIconSet = path.join(
   root, 'ios', 'UstadApp', 'Images.xcassets', 'AppIcon.appiconset',
 );

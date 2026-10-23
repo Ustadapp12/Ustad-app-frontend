@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuthStore } from '../store/authStore';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import { LoadingRing } from './LoadingSpinner';
 import type { AccountAction } from '../types/api';
 
@@ -108,5 +108,5 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   content: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  text: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
+  text: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText },
 });

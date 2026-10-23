@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import MascotShadow from '../../components/MascotShadow';
 import { safeBottomInset } from '../../utils/responsive';
 
@@ -27,7 +27,7 @@ const FAQS = [
   },
   {
     q: 'How does roadmap progression work?',
-    a: 'The map shows all surahs from Juz 30. Each surah has one or more levels. Complete Level 1 to unlock Level 2. Stars show how well you did: aim for 3 stars by getting at least 90% correct.',
+    a: 'The map shows all surahs from Juz 30. Each surah has one or more levels. Complete Level 1 to unlock Level 2. Stars show how well you did: 1 star for finishing, 2 stars at 66% or more, and 3 stars for a perfect 100%.',
   },
 ];
 
@@ -85,7 +85,7 @@ export default function HelpScreen() {
           </View>
           <View>
             <Animated.Image
-              source={require('../../../assets/images/lumo_transparent.png')}
+              source={require('../../../assets/shared/mascot/lumo_transparent.png')}
               style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
               resizeMode="contain"
             />
@@ -114,27 +114,27 @@ export default function HelpScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: { paddingHorizontal: 22, paddingBottom: 12 },
-  topLabel: { fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.gold, letterSpacing: 1.5, marginBottom: 2 },
-  topTitle: { fontFamily: 'Nunito_700Bold', fontSize: 26, color: 'white' },
+  topLabel: { fontFamily: 'Nunito-Bold', fontSize: 10, color: colors.gold, letterSpacing: 1.5, marginBottom: 2 },
+  topTitle: { fontFamily: 'Nunito-Bold', fontSize: 26, color: '#F5F7FA' },
   scroll: { paddingHorizontal: 18, paddingTop: 4 },
 
   lumaSection: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 28, paddingLeft: 4 },
   speechBubble: {
-    flex: 1, backgroundColor: 'white', borderRadius: 16, padding: 14,
+    flex: 1, backgroundColor: '#F5F7FA', borderRadius: 16, padding: 14,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 5,
     position: 'relative',
   },
-  speechText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#374151', lineHeight: 20 },
+  speechText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: '#374151', lineHeight: 20 },
   speechTail: {
     position: 'absolute', right: -9, bottom: 20,
     width: 0, height: 0,
     borderTopWidth: 8, borderBottomWidth: 8, borderLeftWidth: 10,
-    borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: 'white',
+    borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: '#F5F7FA',
   },
   lumaImg: { width: 105, height: 105 },
 
   sectionLabel: {
-    fontFamily: 'Nunito_700Bold', fontSize: 10, color: 'rgba(255,255,255,0.5)',
+    fontFamily: 'Nunito-Bold', fontSize: 10, color: 'rgba(255,255,255,0.5)',
     letterSpacing: 1.5, marginBottom: 12,
   },
 
@@ -144,11 +144,11 @@ const styles = StyleSheet.create({
     padding: 18, marginBottom: 12,
   },
   faqHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  faqQ: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: 'white', flex: 1, lineHeight: 20 },
+  faqQ: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#F5F7FA', flex: 1, lineHeight: 20 },
   chevron: { fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 },
   chevronOpen: { color: colors.gold },
   faqA: {
-    fontFamily: 'Nunito_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.75)',
+    fontFamily: 'Nunito-Regular', fontSize: 13, color: 'rgba(255,255,255,0.75)',
     lineHeight: 21, marginTop: 12,
   },
 
@@ -158,5 +158,5 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(224,188,78,0.25)',
     padding: 16, marginTop: 8,
   },
-  tipText: { flex: 1, fontFamily: 'Nunito_700Bold', fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 20 },
+  tipText: { flex: 1, fontFamily: 'Nunito-Bold', fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 20 },
 });

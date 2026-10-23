@@ -36,32 +36,69 @@ function makeId(seed) {
 
 function linkBundleResource() {
   let pbx = fs.readFileSync(pbxprojPath, 'utf8');
-  const marker = '/* GoogleService-Info.plist */';
-  if (pbx.includes(marker)) {
-    console.log('- Xcode project already references GoogleService-Info.plist');
-    return;
+  const name = 'GoogleService-Info.plist';
+  // Checked independently, not as one "already linked" marker: an earlier run
+  // that silently no-op'd on the Resources-phase or Group regex (they're
+  // anchored to specific hardcoded Xcode object IDs and don't verify their
+  // own match the way the simpler section-marker replacements do) used to
+  // leave the FileReference/BuildFile declared but never actually wired into
+  // anything — Xcode then never copies the file into the .app bundle, but
+  // every later run kept seeing the plain comment string and skipping
+  // entirely, permanently masking the gap (found + hand-fixed 2026-09-21,
+  // after it silently broke three build attempts in a row). Each piece below
+  // is now added independently of the others' presence.
+  const hasBuildFile = pbx.includes(`/* ${name} in Resources */ = {isa = PBXBuildFile;`);
+  const hasFileRef = pbx.includes(`/* ${name} */ = {isa = PBXFileReference;`);
+  const fileRefId = hasFileRef
+    ? pbx.match(/([0-9A-F]{24}) \/\* GoogleService-Info\.plist \*\/ = \{isa = PBXFileReference;/)[1]
+    : makeId('googleservice-info-ref');
+  const buildFileId = hasBuildFile
+    ? pbx.match(/([0-9A-F]{24}) \/\* GoogleService-Info\.plist in Resources \*\/ = \{isa = PBXBuildFile;/)[1]
+    : makeId('googleservice-info-build');
+
+  if (!hasBuildFile) {
+    pbx = pbx.replace(
+      '/* End PBXBuildFile section */',
+      `\t\t${buildFileId} /* ${name} in Resources */ = {isa = PBXBuildFile; fileRef = ${fileRefId} /* ${name} */; };\n/* End PBXBuildFile section */`,
+    );
+  }
+  if (!hasFileRef) {
+    pbx = pbx.replace(
+      '/* End PBXFileReference section */',
+      `\t\t${fileRefId} /* ${name} */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "${name}"; path = "UstadApp/${name}"; sourceTree = "<group>"; };\n/* End PBXFileReference section */`,
+    );
   }
 
-  const fileRefId = makeId('googleservice-info-ref');
-  const buildFileId = makeId('googleservice-info-build');
-  const name = 'GoogleService-Info.plist';
+  const inResourcesPhase = pbx.includes(`${buildFileId} /* ${name} in Resources */,`);
+  if (!inResourcesPhase) {
+    const before = pbx;
+    pbx = pbx.replace(
+      /(13B07F8E1A680F5B00A75B9A \/\* Resources \*\/ = \{[\s\S]*?files = \(\n)([\s\S]*?)(\t\t\t\);)/,
+      `$1$2\t\t\t\t${buildFileId} /* ${name} in Resources */,\n$3`,
+    );
+    if (pbx === before) {
+      console.error(`- ERROR: could not find the Resources build phase to insert ${name} into. Xcode project structure may have changed — check this script's anchor IDs.`);
+      process.exit(1);
+    }
+  }
 
-  pbx = pbx.replace(
-    '/* End PBXBuildFile section */',
-    `\t\t${buildFileId} /* ${name} in Resources */ = {isa = PBXBuildFile; fileRef = ${fileRefId} /* ${name} */; };\n/* End PBXBuildFile section */`,
-  );
-  pbx = pbx.replace(
-    '/* End PBXFileReference section */',
-    `\t\t${fileRefId} /* ${name} */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "${name}"; path = "UstadApp/${name}"; sourceTree = "<group>"; };\n/* End PBXFileReference section */`,
-  );
-  pbx = pbx.replace(
-    /(13B07F8E1A680F5B00A75B9A \/\* Resources \*\/ = \{[\s\S]*?files = \(\n)([\s\S]*?)(\t\t\t\);)/,
-    `$1$2\t\t\t\t${buildFileId} /* ${name} in Resources */,\n$3`,
-  );
-  pbx = pbx.replace(
-    /(13B07FAE1A68108700A75B9A \/\* UstadApp \*\/ = \{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = \(\n)/,
-    `$1\t\t\t\t${fileRefId} /* ${name} */,\n`,
-  );
+  const inGroup = pbx.includes(`${fileRefId} /* ${name} */,`);
+  if (!inGroup) {
+    const before = pbx;
+    pbx = pbx.replace(
+      /(13B07FAE1A68108700A75B9A \/\* UstadApp \*\/ = \{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = \(\n)/,
+      `$1\t\t\t\t${fileRefId} /* ${name} */,\n`,
+    );
+    if (pbx === before) {
+      console.error(`- ERROR: could not find the UstadApp group to insert ${name} into. Xcode project structure may have changed — check this script's anchor IDs.`);
+      process.exit(1);
+    }
+  }
+
+  if (hasBuildFile && hasFileRef && inResourcesPhase && inGroup) {
+    console.log('- Xcode project already fully references GoogleService-Info.plist (build file, file reference, Resources phase, and group).');
+    return;
+  }
 
   fs.writeFileSync(pbxprojPath, pbx);
   console.log('- Linked GoogleService-Info.plist into the Xcode project.');

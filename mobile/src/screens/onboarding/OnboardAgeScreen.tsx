@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usersApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import MascotShadow from '../../components/MascotShadow';
+import BackButton from '../../components/BackButton';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp } from '../../navigation/types';
+import { styles } from './OnboardAgeScreen.styles';
+import { MASCOT } from '../../assets';
+import { useProfileActions } from '../../hooks/api';
 
 interface Props { navigation: RootNavProp }
 
 export default function OnboardAgeScreen({ navigation }: Props) {
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
-  const updateProfileFields = useAuthStore(s => s.updateProfileFields);
+  const { saveAge } = useProfileActions();
+  const isApple = useAuthStore(s => s.user?.provider === 'apple');
   const [age, setAge] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +31,7 @@ export default function OnboardAgeScreen({ navigation }: Props) {
     setLoading(true);
     setError(null);
     try {
-      await usersApi.updateAge(ageNum);
-      updateProfileFields({ age: ageNum });
+      await saveAge(ageNum);
       navigation.navigate('OnboardGender');
     } catch (e) {
       if (e instanceof ApiError && e.code === 'INVALID_AGE') setError(e.message);
@@ -41,9 +44,11 @@ export default function OnboardAgeScreen({ navigation }: Props) {
   return (
     <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('OnboardUsername')}>
-          <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
-        </TouchableOpacity>
+        {/* Apple accounts never see the name screen (App Review guideline 4),
+            so there is nothing to go back to: an empty slot keeps the dots put. */}
+        {isApple
+          ? <View style={styles.backBtn} />
+          : <BackButton onPress={() => navigation.navigate('OnboardUsername')} style={styles.backBtn} size={18} />}
         <View style={styles.dots}>
           <View style={[styles.dot, styles.dotActive]} />
           <View style={styles.dot} />
@@ -52,7 +57,7 @@ export default function OnboardAgeScreen({ navigation }: Props) {
 
       <View style={styles.content}>
         <View style={{ width: 120, height: 120, marginBottom: 10 }}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={120} />
         </View>
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>
@@ -85,38 +90,3 @@ export default function OnboardAgeScreen({ navigation }: Props) {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg },
-  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 6, paddingTop: 4 },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
-    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
-  },
-  backArrow: { width: 18, height: 18, tintColor: colors.darkText },
-  dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
-  dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
-  dotActive: { backgroundColor: colors.primary },
-  content: { flex: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 8 },
-  luma: { width: 120, height: 120, marginBottom: 10 },
-  badge: {
-    fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.primary,
-    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',
-  },
-  heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 6 },
-  sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
-  inputBox: {
-    width: '100%', backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-  },
-  input: { fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText, textAlign: 'center' },
-  error: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.red, marginTop: 8, textAlign: 'center' },
-  footer: { paddingHorizontal: 22, paddingTop: 12, backgroundColor: colors.lightBg },
-  btn: {
-    backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
-    alignItems: 'center',
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4,
-  },
-  btnDisabled: { opacity: 0.4 },
-  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
-});

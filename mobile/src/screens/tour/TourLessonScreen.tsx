@@ -1,18 +1,21 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  CHARACTERS, ExerciseSlide, FeedbackBanner, FillBlankOrNextWord, LessonHeader, ReadAndSpeak,
-} from '../lesson/LessonSessionScreen';
+import { CHARACTERS } from '../lesson/lessonShared';
+import { ExerciseSlide } from '../lesson/components/ExerciseSlide';
+import { FeedbackBanner } from '../lesson/components/FeedbackBanner';
+import { FillBlankOrNextWord } from '../lesson/exercises/FillBlankOrNextWord';
+import { ReadAndSpeak } from '../lesson/exercises/ReadAndSpeak';
+import LessonHeader from '../../components/lesson/LessonHeader';
 import TourOverlay from '../../components/tour/TourOverlay';
 import {
   TOUR_FEEDBACK_RESULT, TOUR_MISTAKES, TOUR_PROGRESS_FRACTION, TOUR_SURAH_NAME, tourExerciseForStep,
 } from '../../components/tour/tourExercises';
 import { FIRST_LESSON_STEP, TOUR_STEPS } from '../../components/tour/tourSteps';
 import { useTourStore } from '../../store/tourStore';
-import { colors } from '../../theme/colors';
 import type { RootNavProp } from '../../navigation/types';
 import { useTourTarget } from '../../components/tour/useTourTarget';
+import { styles } from './TourLessonScreen.styles';
 
 interface Props { navigation: RootNavProp }
 
@@ -54,7 +57,7 @@ export default function TourLessonScreen({ navigation }: Props) {
   //   matches that same clamp-to-circle/pill behaviour for the hole.
   // - lessonExercise's radius is unused: skipHole (in TourOverlay) keeps the
   //   plain uniform dim for it regardless.
-  // - lessonCheck: EX.continueBtn's real borderRadius (16).
+  // - lessonCheck: ExerciseFooterButton's real borderRadius (16).
   // - lessonMic: RAS.micBtn is always exactly circular in both its states
   //   (108/54 and 76/38 both simplify to radius = half the measured side),
   //   so 'round' reproduces the true shape in either state without needing
@@ -168,8 +171,3 @@ export default function TourLessonScreen({ navigation }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.lightBg },
-  exerciseArea: { flex: 1 },
-});

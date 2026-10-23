@@ -2,15 +2,18 @@
 
 export const fonts = {
   // Nunito (loaded from local assets)
-  regular: 'Nunito_400Regular',
-  medium: 'Nunito_400Regular',
-  semiBold: 'Nunito_700Bold',
-  bold: 'Nunito_700Bold',
-  extraBold: 'Nunito_700Bold',
+  regular: 'Nunito-Regular',
+  medium: 'Nunito-Regular',
+  semiBold: 'Nunito-Bold',
+  bold: 'Nunito-Bold',
+  extraBold: 'Nunito-Bold',
 
-  // Arabic (loaded via expo-font from local assets)
-  arabicRegular: 'NotoNaskhArabic_400Regular',
-  arabicBold: 'NotoNaskhArabic_400Regular',
+  // Arabic — native-linked custom fonts (ios/UstadApp/Fonts + android assets/fonts).
+  // Must equal the PostScript name baked into the .ttf itself: iOS resolves
+  // fontFamily via UIFont's family/PostScript-name lookup, not the filename,
+  // so a mismatched string here silently falls back to the system font.
+  arabicRegular: 'NotoNaskhArabic-Regular',
+  arabicBold: 'NotoNaskhArabic-Regular',
 } as const;
 
 export const typography = {

@@ -5,10 +5,14 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { useTourStore } from '../../store/tourStore';
 import { TOUR_STEPS } from './tourSteps';
 import { safeBottomInset } from '../../utils/responsive';
+import {
+  selectTourActive, selectTourStepIndex, selectTourRects, selectTourNext, selectTourPrev, selectTourStop,
+} from '../../store/selectors/tour';
+import { MASCOT } from '../../assets';
 
 // Enough contrast that whatever shows through the cutout below reads as a
 // spotlight, while the rest of the screen stays legible — the point is to
@@ -102,7 +106,13 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
   const window = useWindowDimensions();
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
-  const { active, stepIndex, rects, next, prev, stop } = useTourStore();
+  // Exact values only (store/selectors/tour.ts), never the whole store.
+  const active = useTourStore(selectTourActive);
+  const stepIndex = useTourStore(selectTourStepIndex);
+  const rects = useTourStore(selectTourRects);
+  const next = useTourStore(selectTourNext);
+  const prev = useTourStore(selectTourPrev);
+  const stop = useTourStore(selectTourStop);
 
   // Where this overlay's own top-left sits in window coordinates.
   //
@@ -414,7 +424,7 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
 
           <View style={styles.frame}>
             <Image
-              source={require('../../../assets/images/lumo_kufi.png')}
+              source={MASCOT.lumoKufi}
               style={styles.lumo}
               resizeMode="contain"
             />
@@ -511,7 +521,7 @@ const styles = StyleSheet.create({
   counter: {
     position: 'absolute',
     top: 15, right: 12,
-    fontFamily: 'Nunito_400Regular', fontSize: 11, color: colors.mutedText,
+    fontFamily: 'Nunito-Regular', fontSize: 11, color: colors.mutedText,
   },
   frame: {
     // 40, not 26: the back button occupies y 10..38 inside the card's own
@@ -525,15 +535,15 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   lumo: { width: 32, height: 34, marginBottom: 6 },
-  body: { fontFamily: 'Nunito_400Regular', fontSize: 12.5, color: colors.midText, lineHeight: 18 },
+  body: { fontFamily: 'Nunito-Regular', fontSize: 12.5, color: colors.midText, lineHeight: 18 },
   actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   skipBtn: { paddingVertical: 8, paddingRight: 12 },
-  skipText: { fontFamily: 'Nunito_700Bold', fontSize: 12, color: colors.mutedText },
+  skipText: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.mutedText },
   nextBtn: {
     backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 22,
   },
-  nextText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.white },
+  nextText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.white },
 });

@@ -1,0 +1,99 @@
+import React, { useMemo } from 'react';
+import { Animated, Image, Pressable, View } from 'react-native';
+import { MAP2_IMAGES } from '../assets';
+import { bandContent, type Map2Layout, type Map2NodeData, type Map2Section } from '../map2Model';
+import type { Map2Styles } from '../styles';
+import Map2NodeView, { lookFor } from './Map2NodeView';
+import MapPath from './MapPath';
+import MapDecor from './MapDecor';
+import SurahBoardView from './SurahBoardView';
+
+interface Props {
+  S: Map2Styles;
+  layout: Map2Layout;
+  band: number;
+  nodesBySlot: { section: Map2Section; node: Map2NodeData }[];
+  activeSlot: number | null;
+  shakingNodeId: string | null;
+  shakeAnim: Animated.Value;
+  fetchingSurah: number | null;
+  onNodePress: (section: Map2Section, node: Map2NodeData) => void;
+  // The open level card, when it belongs to a node in this band.
+  overlay?: React.ReactNode;
+  // Fires on a tap that lands on this band's empty background — never on a
+  // node or on the overlay card itself, since those are nested touchables
+  // that claim the responder first. Only passed to the band that currently
+  // holds an open card (see Map2Screen), so the card's own confirm button
+  // and every other band's normal node taps are completely unaffected.
+  onBackgroundPress?: () => void;
+}
+
+// One horizontal slice of the continuous map. Built only while the list
+// keeps it near the screen; everything inside is positioned map-wide and
+// shifted up by the band's top.
+function Map2Band({
+  S, layout, band, nodesBySlot, activeSlot, shakingNodeId, shakeAnim, fetchingSurah, onNodePress, overlay,
+  onBackgroundPress,
+}: Props) {
+  const c = useMemo(() => bandContent(layout, band), [layout, band]);
+  const { s } = layout;
+  const nodes: React.ReactNode[] = [];
+  for (let slot = c.from; slot <= c.to; slot++) {
+    const entry = nodesBySlot[slot];
+    if (!entry) continue;
+    const { section, node } = entry;
+    const look = lookFor(node, activeSlot);
+    nodes.push(
+      <Map2NodeView
+        key={slot}
+        S={S}
+        s={s}
+        section={section}
+        node={node}
+        cx={layout.cx[slot]}
+        cy={layout.cy[slot] - c.top}
+        look={look}
+        label={look === 'current' ? 'START' : look === 'jump' ? 'JUMP HERE?' : undefined}
+        isShaking={shakingNodeId === node.id}
+        shakeAnim={shakeAnim}
+        isFetching={node.status === 'pending' && fetchingSurah === section.surahNum}
+        onPress={onNodePress}
+      />,
+    );
+  }
+  const content = (
+    <>
+      <MapDecor items={c.decor} offsetY={c.top} />
+      <MapPath dashes={c.dashes} len={layout.dashLen} thick={layout.dashThick} offsetY={c.top} />
+      {c.boards.map(b => (
+        <SurahBoardView key={b.surahNum} S={S} s={s} board={b} w={layout.boardW} h={layout.boardH} offsetY={c.top} />
+      ))}
+      {c.lumos.map(l => (
+        // Static: no glow, no animation.
+        <Image
+          key={`lumo-${l.slot}`}
+          source={MAP2_IMAGES.lumo}
+          style={{ position: 'absolute', left: l.x, top: l.y - c.top, width: l.w, height: l.h }}
+          resizeMode="contain"
+          accessibilityLabel={l.slot === activeSlot ? 'Lumo next to your level' : 'Lumo at the start of your journey'}
+        />
+      ))}
+      {nodes}
+      {overlay}
+    </>
+  );
+  // A plain View (zero responder involvement) when nothing needs to catch
+  // background taps — only the band holding an open card gets upgraded to a
+  // Pressable, so normal scrolling/tapping elsewhere is untouched.
+  return onBackgroundPress ? (
+    <Pressable style={{ width: layout.mapW, height: c.height }} onPress={onBackgroundPress}>
+      {content}
+    </Pressable>
+  ) : (
+    <View style={{ width: layout.mapW, height: c.height }}>
+      {content}
+    </View>
+  );
+}
+
+export default React.memo(Map2Band);

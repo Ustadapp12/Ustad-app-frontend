@@ -1,0 +1,81 @@
+import { StyleSheet } from 'react-native';
+import { colors } from '../../theme';
+
+export const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.lightBg },
+  statusBar: { paddingHorizontal: 24, paddingBottom: 6 },
+  time: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText },
+  scroll: { paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' },
+  lumaWrap: { alignItems: 'center', paddingVertical: 20 },
+  luma: { width: 150, height: 150 },
+  heading: { fontFamily: 'Nunito-Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
+  sub: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
+  fieldWrap: { width: '100%', marginBottom: 11 },
+  fieldLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.midText, marginBottom: 5, letterSpacing: 0.4 },
+  inputBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+  },
+  inputIcon: { width: 18, height: 18 },
+  input: { flex: 1, fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.darkText },
+  fieldError: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.red, marginTop: 4 },
+  error: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
+  checklistWrap: { marginTop: 8, marginBottom: 4 },
+  checklistItem: { fontFamily: 'Nunito-Regular', fontSize: 12, marginBottom: 2 },
+  checklistMet: { color: colors.success },
+  checklistUnmet: { color: colors.red },
+  strengthText: { fontFamily: 'Nunito-Bold', fontSize: 12, marginTop: 4 },
+  strengthWeak: { color: colors.red },
+  strengthMedium: { color: colors.warning },
+  strengthStrong: { color: colors.success },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6, marginTop: 6 },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: colors.border,
+    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', marginTop: 1,
+  },
+  checkboxActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkboxError: { borderColor: colors.red },
+  checkmark: { color: '#F5F7FA', fontSize: 12, fontWeight: '700' },
+  termsText: { flex: 1, fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20 },
+  termsLink: { fontFamily: 'Nunito-Bold', color: colors.primary },
+  btn: {
+    backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
+    alignItems: 'center', marginBottom: 16, marginTop: 14,
+    shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
+  },
+  btnDisabled: { opacity: 0.45 },
+  btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText },
+  switchRow: { flexDirection: 'row', justifyContent: 'center' },
+  switchText: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText },
+  switchLink: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary },
+  loadingOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  loadingText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText, marginTop: 4 },
+
+  // ── Password step — matches the onboarding pages (OnboardUsernameScreen
+  // etc.): header with back arrow + progress dots, centered content, CTA
+  // pinned to the footer instead of scrolling with the form.
+  stepScroll: { flexGrow: 1 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 6, paddingTop: 4 },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
+    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
+  },
+  dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
+  dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
+  dotActive: { backgroundColor: colors.primary },
+  stepContent: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 8 },
+  stepLuma: { width: 120, height: 120, marginBottom: 0 },
+  badge: {
+    fontFamily: 'Nunito-Bold', fontSize: 10, color: colors.primary,
+    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',
+  },
+  footer: { paddingHorizontal: 22, paddingTop: 12, backgroundColor: colors.lightBg },
+});

@@ -1,37 +1,28 @@
-import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Animated, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
-import { leaderboardApi } from '../../api';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
 import { isGuest } from '../../utils/guest';
+import { avatarForLeaderboardEntry, characterSrcFor } from '../../utils/avatar';
+import { formatHijriDate } from '../../utils/hijri';
 import GuestGate from '../../components/GuestGate';
-import MascotShadow from '../../components/MascotShadow';
+import BackButton from '../../components/BackButton';
 import LumoInfoModal from '../../components/LumoInfoModal';
 import LoadingStatusText from '../../components/LoadingStatusText';
+import MascotShadow from '../../components/MascotShadow';
+import { useFocusedLoop } from '../../hooks/useFocusedLoop';
+import LeaderboardRow from './LeaderboardRow';
+import { makeStyles, designScale } from './styles';
 import type { LeaderboardEntry } from '../../types/api';
+import { MASCOT } from '../../assets';
+import { useLeaderboard } from '../../hooks/api';
 
-const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
-const MEDAL_COLOR: Record<number, string> = {
-  1: '#F0C040', 2: '#B0B8C8', 3: '#C87840',
-};
-// Same emoji convention as OnboardGenderScreen's male/female picker, so a
-// learner's leaderboard avatar matches the gender they picked during
-// onboarding. Gender is only known for verified accounts (see backend
-// leaderboard/service.py) and may still be unset even then — falls back to
-// a neutral avatar in that case.
-const AVATAR_NEUTRAL = '🧑';
-function avatarForGender(gender: string | null | undefined): string {
-  if (gender === 'female') return '👧';
-  if (gender === 'male') return '👦';
-  return AVATAR_NEUTRAL;
-}
-// Above this, center a phone-proportioned column instead of stretching the
-// podium/rows edge-to-edge (or leaving bare whitespace on the sides) on
-// tablets/wide screens — a no-op on phones, which never exceed this width.
-const MAX_CONTENT_W = 520;
+// The Figma design's "Bronze League" title and mic badge card are left out
+// for now (2026-10-11, user: that feature "isn't for now"); one Lumo sits in
+// their place and the list starts higher.
 
 export default function LeaderboardScreen() {
   const user = useAuthStore(s => s.user);
@@ -42,35 +33,34 @@ export default function LeaderboardScreen() {
 }
 
 function LeaderboardContent() {
-  const rawInsets = useSafeAreaInsets();
-  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
-  const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const bottomInset = safeBottomInset(insets.bottom);
+  const navigation = useNavigation<any>();
+  const user = useAuthStore(s => s.user);
+  const profile = useAuthStore(s => s.profile);
   const sc = useResponsiveScale();
-  const styles = useMemo(() => makeStyles(sc, insets), [sc, insets]);
+  const d = useMemo(() => designScale(sc), [sc]);
+  const styles = useMemo(() => makeStyles(sc, bottomInset), [sc, bottomInset]);
 
-  const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { entries, me, loading, error, load } = useLeaderboard();
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(false);
   const [feedbackVisible, setFeedbackVisible] = useState(false);
+  // Recomputed on each focus so the date rolls over if the app stays open
+  // past midnight on this tab.
+  const [hijriDate, setHijriDate] = useState(() => formatHijriDate());
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setLoading(true);
-    setError(false);
-    try {
-      const data = await leaderboardApi.top();
-      setEntries(data.entries);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => { void load(); }, [load]);
-  // Cheap 60s cache-free refresh on focus — the backend itself caches for
-  // 60s (see leaderboard/router.py), so this never over-fetches in practice.
-  useFocusEffect(useCallback(() => { void load({ silent: true }); }, [load]));
+  // Cheap refresh on focus — the backend itself caches for 60s (see
+  // leaderboard/router.py), so this never over-fetches in practice.
+  useFocusEffect(useCallback(() => {
+    void load({ silent: true });
+    setHijriDate(formatHijriDate());
+  }, [load]));
+
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  useFocusedLoop(floatAnim, 1300);
+  const lumoY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -d(9)] });
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -78,119 +68,96 @@ function LeaderboardContent() {
     setRefreshing(false);
   };
 
-  const floatAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(floatAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
-      Animated.timing(floatAnim, { toValue: 0, duration: 1300, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, []);
-  const lumaY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -9] });
-
-  // "Me" is identified by display_name match — the backend response carries
-  // no user_id/is_me flag (see leaderboard/schemas.py). This misfires if two
-  // users share a display name, and if the user isn't in the top 13 they
-  // simply won't be highlighted anywhere in this list.
+  // The gold row is always the user, and the user is always ranked. The
+  // backend flags their row with is_me (matched by user id, so shared
+  // display names can't misfire) and always sends their standing as `me`;
+  // when they are outside the top entries, that row is shown after the list.
+  // Name matching is only the fallback for an older backend without `me`.
+  const hasMe = !!me;
   const myName = user?.name;
-  const podium = entries?.slice(0, 3) ?? [];
-  const rest = entries?.slice(3) ?? [];
+  const isMeEntry = (p: LeaderboardEntry) =>
+    hasMe ? !!p.is_me : !!myName && p.display_name === myName;
+  const meOutsideList = hasMe && !entries?.some(p => p.is_me) ? me : null;
+  // Your own row always uses the exact avatar Profile shows, saved pick or
+  // not, rather than trusting the (up to 60s cached) leaderboard response.
+  const myAvatar = characterSrcFor(user?.id ?? '', profile?.gender, profile?.avatar_variant);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerLabel}>🏆 TOP LEARNERS</Text>
-          <Text style={styles.headerTitle}>Leaderboard</Text>
+      <View style={styles.contentWrap}>
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <BackButton
+              onPress={() => navigation.navigate('Map')}
+              style={styles.backBtn}
+              size={d(23)}
+            />
+            <Text style={styles.title}>Leaderboard</Text>
+          </View>
+          <Text style={styles.date}>{hijriDate}</Text>
         </View>
-        <View style={{ alignItems: 'center' }}>
+
+        <View style={styles.lumoWrap}>
           <Animated.Image
-            source={require('../../../assets/images/lumo_transparent.png')}
-            style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
+            source={MASCOT.lumoTransparent}
+            style={[styles.lumo, { transform: [{ translateY: lumoY }] }]}
             resizeMode="contain"
           />
-          <MascotShadow width={sc(100)} style={{ position: 'relative', marginTop: -sc(10) }} />
+          <MascotShadow width={d(104)} />
         </View>
-      </View>
 
-      {loading ? (
-        <View style={styles.centerFill}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <LoadingStatusText />
-        </View>
-      ) : error ? (
-        <View style={styles.centerFill}>
-          <Text style={styles.errorText}>Couldn't load the leaderboard.</Text>
-          <Text style={styles.errorRetry} onPress={() => void load()}>Tap to retry</Text>
-          <Text style={styles.feedbackLink} onPress={() => setFeedbackVisible(true)}>Give feedback</Text>
-        </View>
-      ) : !entries?.length ? (
-        <View style={styles.centerFill}>
-          <Text style={styles.errorText}>No rankings yet, be the first to earn XP!</Text>
-        </View>
-      ) : (
-        <View style={styles.contentWrap}>
-          {/* Top 3 podium — only rendered for however many entries actually exist */}
-          {podium.length > 0 && (
-            <View style={styles.podium}>
-              {podium[1] && (
-                <View style={[styles.podiumItem, { marginTop: sc(18) }]}>
-                  <Text style={styles.podiumAvatar}>{avatarForGender(podium[1].gender)}</Text>
-                  <View style={[styles.podiumBadge, { backgroundColor: MEDAL_COLOR[2] }]}>
-                    <Text style={styles.podiumRankText}>2</Text>
-                  </View>
-                  <Text style={styles.podiumName} numberOfLines={1}>{podium[1].display_name.split(' ')[0]}</Text>
-                  <Text style={styles.podiumXP}>{podium[1].xp.toLocaleString()} XP</Text>
-                </View>
-              )}
-              {podium[0] && (
-                <View style={[styles.podiumItem, { marginBottom: sc(10) }]}>
-                  <Text style={styles.podiumCrown}>👑</Text>
-                  <Text style={styles.podiumAvatarLarge}>{avatarForGender(podium[0].gender)}</Text>
-                  <View style={[styles.podiumBadge, styles.podiumBadgeLarge, { backgroundColor: MEDAL_COLOR[1] }]}>
-                    <Text style={styles.podiumRankTextLarge}>1</Text>
-                  </View>
-                  <Text style={styles.podiumName} numberOfLines={1}>{podium[0].display_name.split(' ')[0]}</Text>
-                  <Text style={[styles.podiumXP, { color: colors.gold }]}>{podium[0].xp.toLocaleString()} XP</Text>
-                </View>
-              )}
-              {podium[2] && (
-                <View style={[styles.podiumItem, { marginTop: sc(26) }]}>
-                  <Text style={styles.podiumAvatar}>{avatarForGender(podium[2].gender)}</Text>
-                  <View style={[styles.podiumBadge, { backgroundColor: MEDAL_COLOR[3] }]}>
-                    <Text style={styles.podiumRankText}>3</Text>
-                  </View>
-                  <Text style={styles.podiumName} numberOfLines={1}>{podium[2].display_name.split(' ')[0]}</Text>
-                  <Text style={styles.podiumXP}>{podium[2].xp.toLocaleString()} XP</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* List */}
+        {loading ? (
+          <View style={styles.centerFill}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <LoadingStatusText />
+          </View>
+        ) : error ? (
+          <View style={styles.centerFill}>
+            <Text style={styles.errorText}>Couldn't load the leaderboard.</Text>
+            <Text style={styles.errorRetry} onPress={() => void load()}>Tap to retry</Text>
+            <Text style={styles.feedbackLink} onPress={() => setFeedbackVisible(true)}>Give feedback</Text>
+          </View>
+        ) : !entries?.length ? (
+          <View style={styles.centerFill}>
+            <Text style={styles.errorText}>No rankings yet, be the first to earn XP!</Text>
+          </View>
+        ) : (
           <ScrollView
+            style={{ flex: 1 }}
             contentContainerStyle={styles.scroll}
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           >
-            {rest.map(p => {
-              const isMe = !!myName && p.display_name === myName;
+            {entries.map(p => {
+              const isMe = isMeEntry(p);
               return (
-                <View key={p.rank} style={[styles.row, isMe && styles.rowMe]}>
-                  <Text style={[styles.rowRank, isMe && { color: colors.primary }]}>#{p.rank}</Text>
-                  <View style={styles.rowAvatar}><Text style={{ fontSize: 18 }}>{avatarForGender(p.gender)}</Text></View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.rowName, isMe && { color: colors.primary }]} numberOfLines={1} ellipsizeMode="tail">{isMe ? `${p.display_name} (You)` : p.display_name}</Text>
-                  </View>
-                  <Text style={[styles.rowXP, isMe && { color: colors.primary }]}>{p.xp.toLocaleString()} XP</Text>
-                </View>
+                <LeaderboardRow
+                  key={p.rank}
+                  sc={sc}
+                  rank={p.rank}
+                  name={p.display_name}
+                  xp={p.xp}
+                  avatar={isMe ? myAvatar : avatarForLeaderboardEntry(p)}
+                  isMe={isMe}
+                />
               );
             })}
+            {meOutsideList && (
+              <>
+                <Text style={styles.gapDots}>• • •</Text>
+                <LeaderboardRow
+                  sc={sc}
+                  rank={meOutsideList.rank}
+                  name={meOutsideList.display_name}
+                  xp={meOutsideList.xp}
+                  avatar={myAvatar}
+                  isMe
+                />
+              </>
+            )}
           </ScrollView>
-        </View>
-      )}
+        )}
+      </View>
 
       <LumoInfoModal
         visible={feedbackVisible}
@@ -201,59 +168,4 @@ function LeaderboardContent() {
       />
     </View>
   );
-}
-
-function makeStyles(sc: (n: number) => number, insets: any) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.lightBg },
-    contentWrap: { flex: 1, width: '100%', maxWidth: MAX_CONTENT_W, alignSelf: 'center' },
-    centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sc(32), gap: sc(10) },
-    errorText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.mutedText, textAlign: 'center' },
-    errorRetry: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.primary },
-    feedbackLink: { fontFamily: 'Nunito_400Regular', fontSize: sc(12), color: colors.mutedText, marginTop: sc(4) },
-    header: {
-      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingHorizontal: sc(22), paddingBottom: sc(4),
-    },
-    headerLabel: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: colors.mutedText, letterSpacing: 1.5 },
-    headerTitle: { fontFamily: 'Nunito_700Bold', fontSize: sc(22), color: colors.darkText },
-    lumaImg: { width: sc(100), height: sc(100) },
-    podium: {
-      flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end',
-      paddingHorizontal: sc(20), paddingVertical: sc(14),
-      backgroundColor: 'white', marginHorizontal: sc(16), borderRadius: sc(20), marginBottom: sc(12),
-      shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-    },
-    podiumItem: { flex: 1, alignItems: 'center', gap: 3 },
-    podiumAvatar: { fontSize: sc(28) },
-    podiumAvatarLarge: { fontSize: sc(36) },
-    podiumCrown: {
-      fontSize: sc(26),
-      textShadowColor: '#FFD700',
-      textShadowOffset: { width: 0, height: 0 },
-      textShadowRadius: 12,
-    },
-    podiumBadge: {
-      width: sc(22), height: sc(22), borderRadius: sc(11), alignItems: 'center', justifyContent: 'center', marginTop: -6,
-    },
-    podiumBadgeLarge: { width: sc(28), height: sc(28), borderRadius: sc(14) },
-    podiumRankText: { fontFamily: 'Nunito_700Bold', fontSize: sc(11), color: 'white' },
-    podiumRankTextLarge: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: 'white' },
-    podiumName: { fontFamily: 'Nunito_700Bold', fontSize: sc(11), color: colors.darkText, textAlign: 'center', marginTop: 4 },
-    podiumXP: { fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: colors.mutedText },
-    scroll: { paddingHorizontal: sc(16), paddingBottom: sc(30) + insets.bottom },
-    row: {
-      flexDirection: 'row', alignItems: 'center', gap: sc(12),
-      backgroundColor: colors.white, borderRadius: sc(14), paddingHorizontal: sc(14), paddingVertical: sc(12), marginBottom: sc(8),
-      borderWidth: 1.5, borderColor: colors.border,
-    },
-    rowMe: { borderColor: colors.primary, backgroundColor: '#F0FAF5' },
-    rowRank: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.mutedText, width: sc(28), textAlign: 'center' },
-    rowAvatar: {
-      width: sc(38), height: sc(38), borderRadius: sc(19), backgroundColor: colors.lightBg,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    rowName: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.darkText },
-    rowXP: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.mutedText },
-  });
 }

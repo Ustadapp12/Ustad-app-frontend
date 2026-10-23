@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, BackHandler, Alert, Linking,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, BackHandler, Alert, Linking } from 'react-native';
 import { Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { ApiError } from '../../api/client';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import PasswordInput from '../../components/PasswordInput';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
+import BackButton from '../../components/BackButton';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
+import AppleSignInButton from '../../components/AppleSignInButton';
 import WelcomeBackModal from '../../components/WelcomeBackModal';
 import { PRIVACY_URL, TERMS_URL } from '../../config';
 import { isGuest } from '../../utils/guest';
@@ -26,13 +25,15 @@ import {
 } from '../../utils/validators';
 import { useCyclingMessage } from '../../hooks/useCyclingMessage';
 import { safeBottomInset } from '../../utils/responsive';
+import { styles } from './SignUpScreen.styles';
+import { AUTH_IMAGES, MASCOT } from '../../assets';
 
 interface Props { navigation: RootNavProp }
 
 const SIGNUP_MESSAGES = ['Creating your account…', 'Connecting to the server…', 'Almost there…'];
 
-const MAIL_ICON = require('../../../assets/map/mail.png');
-const PASSWORD_ICON = require('../../../assets/map/password.png');
+const MAIL_ICON = AUTH_IMAGES.mail;
+const PASSWORD_ICON = AUTH_IMAGES.password;
 
 type Step = 'email' | 'password';
 
@@ -133,12 +134,14 @@ export default function SignUpScreen({ navigation }: Props) {
   // Google already asserted the address), but they still need onboarding —
   // except on `restored`, where the returning account went through it long ago
   // and being asked for a username again would look like the progress was lost.
-  function handleGoogleSuccess(action: AccountAction) {
+  // Apple accounts skip the name screen: Apple already shared the name, and
+  // App Review rejected asking for it again (guideline 4, 2026-10-17).
+  function handleSocialSuccess(action: AccountAction, provider: 'google' | 'apple') {
     if (action === 'restored') {
       setShowWelcomeBack(true);
       return;
     }
-    navigation.replace('OnboardUsername');
+    navigation.replace(provider === 'apple' ? 'OnboardAge' : 'OnboardUsername');
   }
 
   async function handleRegister() {
@@ -214,9 +217,7 @@ export default function SignUpScreen({ navigation }: Props) {
       <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.stepScroll} keyboardShouldPersistTaps="handled">
           <View style={styles.headerRow}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => setStep('email')}>
-              <Image source={require('../../../assets/back_arrow.png')} style={styles.backArrow} resizeMode="contain" />
-            </TouchableOpacity>
+            <BackButton onPress={() => setStep('email')} style={styles.backBtn} size={18} />
             <View style={styles.dots}>
               <View style={styles.dot} />
               <View style={[styles.dot, styles.dotActive]} />
@@ -225,7 +226,7 @@ export default function SignUpScreen({ navigation }: Props) {
 
           <View style={styles.stepContent}>
             <View style={{ width: 120, height: 120, marginBottom: 10 }}>
-              <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.stepLuma} resizeMode="contain" />
+              <Image source={MASCOT.lumoTransparent} style={styles.stepLuma} resizeMode="contain" />
               <MascotShadow width={120} />
             </View>
             <Text style={styles.badge}>ALMOST THERE</Text>
@@ -300,7 +301,7 @@ export default function SignUpScreen({ navigation }: Props) {
             onPress={handleRegister}
             disabled={!canSubmit || loading}
           >
-            {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Create Account</Text>}
+            {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Create Account</Text>}
           </TouchableOpacity>
         </View>
 
@@ -318,7 +319,7 @@ export default function SignUpScreen({ navigation }: Props) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.lumaWrap}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={styles.luma} resizeMode="contain" />
+          <Image source={MASCOT.lumoTransparent} style={styles.luma} resizeMode="contain" />
           <MascotShadow width={150} style={{ position: 'relative', marginTop: -15 }} />
         </View>
 
@@ -329,25 +330,10 @@ export default function SignUpScreen({ navigation }: Props) {
             : 'Start your free Hifz journey today'}
         </Text>
 
-        {/* Email */}
-        <View style={styles.fieldWrap}>
-          <Text style={styles.fieldLabel}>EMAIL</Text>
-          <View style={styles.inputBox}>
-            <Image source={MAIL_ICON} style={styles.inputIcon} resizeMode="contain" />
-            <TextInput
-              style={styles.input}
-              placeholder="ahmad@example.com"
-              placeholderTextColor={colors.placeholderText}
-              value={email}
-              onChangeText={handleEmailChange}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-            />
-          </View>
-          {emailError && <Text style={styles.fieldError}>{emailError}</Text>}
-        </View>
-
+        {/* Apple and Google first, so the Apple button shows without
+            scrolling (Apple's HIG, 2026-10-22). The terms checkbox moved up
+            with them: it gates all three ways to sign up, so it must come
+            before the first of them. */}
         {/* Terms — the checkbox itself is the only toggle target now. It used
             to be the whole row, which fought with the Terms/Privacy links
             underneath it (now real, tappable URLs) for the same touch. */}
@@ -378,7 +364,52 @@ export default function SignUpScreen({ navigation }: Props) {
           <Text style={styles.error}>Please agree to the Terms of Service and Privacy Policy to continue.</Text>
         )}
 
+        {/* Still gated on the terms checkbox — signing up through Apple or Google still
+            creates an account, so skipping the agreement here would lose the
+            consent the form deliberately collects. Tapping while unchecked
+            now points at the checkbox instead of doing nothing. */}
+        <AppleSignInButton
+          label="Sign up with Apple"
+          onSuccess={a => handleSocialSuccess(a, 'apple')}
+          onError={setFormError}
+          disabled={loading || !agreedTerms}
+          onBlocked={() => setTermsError(true)}
+        />
+
+        <GoogleSignInButton
+          label="Sign up with Google"
+          onSuccess={a => handleSocialSuccess(a, 'google')}
+          onError={setFormError}
+          disabled={loading || !agreedTerms}
+          onBlocked={() => setTermsError(true)}
+        />
+
         {formError && <Text style={styles.error}>{formError}</Text>}
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Email */}
+        <View style={styles.fieldWrap}>
+          <Text style={styles.fieldLabel}>EMAIL</Text>
+          <View style={styles.inputBox}>
+            <Image source={MAIL_ICON} style={styles.inputIcon} resizeMode="contain" />
+            <TextInput
+              style={styles.input}
+              placeholder="ahmad@example.com"
+              placeholderTextColor={colors.placeholderText}
+              value={email}
+              onChangeText={handleEmailChange}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+            />
+          </View>
+          {emailError && <Text style={styles.fieldError}>{emailError}</Text>}
+        </View>
 
         {/* CTA — advances to the password step; doesn't create the account yet */}
         <TouchableOpacity
@@ -388,24 +419,6 @@ export default function SignUpScreen({ navigation }: Props) {
         >
           <Text style={styles.btnText}>Create Account</Text>
         </TouchableOpacity>
-
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Still gated on the terms checkbox — signing up through Google still
-            creates an account, so skipping the agreement here would lose the
-            consent the form deliberately collects. Tapping while unchecked
-            now points at the checkbox instead of doing nothing. */}
-        <GoogleSignInButton
-          label="Sign up with Google"
-          onSuccess={handleGoogleSuccess}
-          onError={setFormError}
-          disabled={loading || !agreedTerms}
-          onBlocked={() => setTermsError(true)}
-        />
 
         <View style={styles.switchRow}>
           <Text style={styles.switchText}>Already have an account? </Text>
@@ -429,83 +442,3 @@ export default function SignUpScreen({ navigation }: Props) {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg },
-  statusBar: { paddingHorizontal: 24, paddingBottom: 6 },
-  time: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText },
-  scroll: { paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' },
-  lumaWrap: { alignItems: 'center', paddingVertical: 20 },
-  luma: { width: 150, height: 150 },
-  heading: { fontFamily: 'Nunito_700Bold', fontSize: 24, color: colors.darkText, textAlign: 'center', marginBottom: 4 },
-  sub: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
-  fieldWrap: { width: '100%', marginBottom: 11 },
-  fieldLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.midText, marginBottom: 5, letterSpacing: 0.4 },
-  inputBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-  },
-  inputIcon: { width: 18, height: 18 },
-  input: { flex: 1, fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText },
-  fieldError: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.red, marginTop: 4 },
-  error: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
-  checklistWrap: { marginTop: 8, marginBottom: 4 },
-  checklistItem: { fontFamily: 'Nunito_400Regular', fontSize: 12, marginBottom: 2 },
-  checklistMet: { color: colors.success },
-  checklistUnmet: { color: colors.red },
-  strengthText: { fontFamily: 'Nunito_700Bold', fontSize: 12, marginTop: 4 },
-  strengthWeak: { color: colors.red },
-  strengthMedium: { color: colors.warning },
-  strengthStrong: { color: colors.success },
-  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6, marginTop: 6 },
-  checkbox: {
-    width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: colors.border,
-    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', marginTop: 1,
-  },
-  checkboxActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkboxError: { borderColor: colors.red },
-  checkmark: { color: 'white', fontSize: 12, fontWeight: '700' },
-  termsText: { flex: 1, fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20 },
-  termsLink: { fontFamily: 'Nunito_700Bold', color: colors.primary },
-  btn: {
-    backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
-    alignItems: 'center', marginBottom: 16, marginTop: 14,
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
-  },
-  btnDisabled: { opacity: 0.45 },
-  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.mutedText },
-  switchRow: { flexDirection: 'row', justifyContent: 'center' },
-  switchText: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText },
-  switchLink: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary },
-  loadingOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  loadingText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.darkText, marginTop: 4 },
-
-  // ── Password step — matches the onboarding pages (OnboardUsernameScreen
-  // etc.): header with back arrow + progress dots, centered content, CTA
-  // pinned to the footer instead of scrolling with the form.
-  stepScroll: { flexGrow: 1 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 6, paddingTop: 4 },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
-    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
-  },
-  backArrow: { width: 18, height: 18, tintColor: colors.darkText },
-  dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
-  dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
-  dotActive: { backgroundColor: colors.primary },
-  stepContent: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 8 },
-  stepLuma: { width: 120, height: 120, marginBottom: 0 },
-  badge: {
-    fontFamily: 'Nunito_700Bold', fontSize: 10, color: colors.primary,
-    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',
-  },
-  footer: { paddingHorizontal: 22, paddingTop: 12, backgroundColor: colors.lightBg },
-});

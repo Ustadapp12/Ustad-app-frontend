@@ -4,16 +4,16 @@
  * recitation exercise (submit your voice, see the same feedback), then back
  * to the map to send the user off.
  *
- * It runs in two halves. Steps 1 to 7 happen over the live Map, spotlighting
- * the four real tabs and the two real HUD pills one at a time (rather than
- * the tab bar/HUD as one lump) so each callout points at exactly the thing
- * it describes — step 8 is a plain lead-in card, shown before navigating
- * into the lesson half so that screen never just appears without warning.
- * Steps 9 to 18 happen on TourLessonScreen, which renders the genuine lesson
- * components (see LessonHeader in LessonSessionScreen) against fixed Surah
- * An-Nas content, so what a new user is shown is the thing they'll actually
- * meet, not a mock up that quietly rots as the lesson UI changes. Step 19
- * lands back on the map.
+ * It runs in two halves. Steps 1 to 8 happen over the live Map, spotlighting
+ * the five real tabs (Map2BottomBar) and the two real HUD pills (Map2Header)
+ * one at a time (rather than the tab bar/HUD as one lump) so each callout
+ * points at exactly the thing it describes — step 9 is a plain lead-in card,
+ * shown before navigating into the lesson half so that screen never just
+ * appears without warning. Steps 10 to 19 happen on TourLessonScreen, which
+ * renders the genuine lesson components (see components/lesson/LessonHeader)
+ * against fixed Surah An-Nas content, so what a new user is shown is the
+ * thing they'll actually meet, not a mock up that quietly rots as the lesson
+ * UI changes. Step 20 lands back on the map.
  *
  * Steps whose `target` is null dim the screen without a cutout: the feature
  * being described lives inside an exercise component we don't hold a ref into,
@@ -22,6 +22,7 @@
 export type TourTargetKey =
   | 'tabHome'
   | 'tabQuests'
+  | 'tabBuilding'
   | 'tabBoard'
   | 'tabProfile'
   | 'hudStreak'
@@ -70,6 +71,12 @@ export const TOUR_STEPS: TourStep[] = [
     target: 'tabQuests',
     title: 'Quests',
     body: 'Sets you daily goals to aim for.',
+  },
+  {
+    screen: 'map',
+    target: 'tabBuilding',
+    title: 'Prayers',
+    body: 'You can log your prayers here.',
   },
   {
     screen: 'map',

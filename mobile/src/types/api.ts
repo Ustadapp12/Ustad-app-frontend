@@ -24,9 +24,17 @@ export interface User {
    * asks for confirmation rather than skipping it).
    */
   has_password?: boolean;
+  /**
+   * How the account signs in: the backend's users.provider column. Lets
+   * Apple accounts skip the name screen (App Review guideline 4: Apple already
+   * shared the name). Optional: older backends don't send it, so the store
+   * also remembers it locally from the sign-in itself (see authStore).
+   */
+  provider?: 'password' | 'guest' | 'google' | 'apple' | null;
 }
 
-/** What the server did with a Google sign-in. Only `/auth/google` sets it.
+/** What the server did with a Google or Apple sign-in. Only `/auth/google`
+ *  and `/auth/apple` set it.
  *  - `created`  brand new account
  *  - `claimed`  the caller's guest row was filled in, so progress carried over
  *  - `restored` signed into a pre-existing account (the returning-user case,
@@ -38,7 +46,7 @@ export type AccountAction = 'created' | 'claimed' | 'restored';
 export interface AuthResponse {
   user: User;
   tokens: Tokens;
-  // Optional: absent on every endpoint except /auth/google.
+  // Optional: absent on every endpoint except /auth/google and /auth/apple.
   account_action?: AccountAction;
 }
 
@@ -72,10 +80,20 @@ export interface LeaderboardEntry {
   display_name: string;
   xp: number;
   gender?: 'male' | 'female' | null;
+  /** The learner's saved avatar index within their gender's pool (see
+   * utils/avatar.ts). Absent from older/cached backend responses, null when
+   * they never picked; either way the row falls back to a name-keyed pick. */
+  avatar_variant?: number | null;
+  /** The caller's own row (at most one). Absent from older backends. */
+  is_me?: boolean;
 }
 
 export interface LeaderboardOut {
   entries: LeaderboardEntry[];
+  /** The caller's own standing, always sent by current backends so they are
+   * ranked even outside the top entries; same row as the is_me entry when
+   * they are inside. Absent from older backends. */
+  me?: LeaderboardEntry | null;
 }
 
 export interface SurahBrief {
@@ -161,6 +179,13 @@ export interface LessonSessionStart {
   correct_count?: number;
   wrong_count?: number;
   progress_pct?: number;
+  /** True when this reconnects to an already-in-progress session (app was
+   * killed/backgrounded mid-level) instead of starting a fresh one — the
+   * fields below carry what to seed the local XP/hearts/timer state with. */
+  resumed?: boolean;
+  started_at?: string | null;
+  xp_earned_so_far?: number;
+  hearts_lost_half?: number;
 }
 
 /** GET /learning/sessions/active — null when no in-progress session. */
@@ -226,6 +251,11 @@ export interface UserProfile {
   gender: 'male' | 'female' | null;
   age: number | null;
   timezone: string | null;
+  /** Index of the user's avatar within their gender's pool (0..25 male,
+   * 0..18 female; see utils/avatar.ts). Granted at onboarding, changeable
+   * from Profile. null means no saved pick, so characterSrcFor() falls back
+   * to its deterministic hash-of-user-id pick. */
+  avatar_variant: number | null;
   /** Server-side "has this account finished onboarding" flag — the
    * authoritative source SplashScreen's routing checks, unlike the
    * device-local flag in utils/storage.ts which resets on every
@@ -259,6 +289,19 @@ export interface LearningStats {
   freeze_days_remaining?: number;
   repair_levels_required?: number;
   repair_levels_completed?: number;
+}
+
+export interface StreakCalendar {
+  // Local calendar date (YYYY-MM-DD) the account was created — the streak
+  // calendar starts its grid here.
+  start_date: string;
+  // Local dates (YYYY-MM-DD) where a session that day actually advanced the
+  // streak, per the real freeze/repair policy replayed against history.
+  practiced_dates: string[];
+  // Local dates (YYYY-MM-DD) the freeze policy would have shown as frozen
+  // that day (missed but still in the grace window, or a partial repair
+  // attempt that didn't finish).
+  frozen_dates: string[];
 }
 
 export interface RecommendedNext {

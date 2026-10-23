@@ -1,0 +1,270 @@
+// DRAFT — pending user review before shipping. Per the standing rule (see
+// memory feedback_versions_md / feedback-versions-md), every entry here
+// must be drafted, then explicitly reviewed and approved by the user,
+// BEFORE it goes out in a real build — never auto-published unreviewed,
+// even though versions.md (the internal dev log this is drafted from) is
+// fine to append immediately after a verified build.
+//
+// Rewritten from ustadapp/mobile/docs/changelog/versions.md into user-facing language and
+// grouped by change type — that file is the internal source of truth for
+// what actually shipped in each build; this is its public-facing summary,
+// not a duplicate of its own dev-detail content.
+//
+// New entries: append a new ReleaseNoteEntry to the FRONT of the array
+// (newest first) once a build is verified, then get it reviewed before the
+// next actual release includes it.
+
+export type ReleaseNoteCategory = 'New' | 'Improved' | 'Fixed';
+
+export interface ReleaseNoteChange {
+  category: ReleaseNoteCategory;
+  text: string;
+}
+
+export interface ReleaseNoteEntry {
+  version: string;
+  date: string; // YYYY-MM-DD
+  changes: ReleaseNoteChange[];
+}
+
+export const RELEASE_NOTES: ReleaseNoteEntry[] = [
+  {
+    // Reviewed and approved by the user 2026-10-23, before the build that
+    // carries it. The Info.plist and privacy manifest fixes have no note.
+    version: '1.0.45',
+    date: '2026-10-23',
+    changes: [
+      { category: 'Improved', text: 'The arrows on the Jump Here button in Search are now bigger and easier to see.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-22, before the build that
+    // carries it.
+    version: '1.0.44',
+    date: '2026-10-22',
+    changes: [
+      { category: 'New', text: 'Your current level on the map now floats gently, so you can always spot where you are.' },
+      { category: 'New', text: 'A new loading screen while your map is being created, with Lumo letting you know what is happening.' },
+      { category: 'Improved', text: 'The qibla compass now sits on the prayer card next to the time and points to the Kaaba.' },
+      { category: 'Improved', text: 'The Pray tab now scrolls, and the Log Your Salah button has more room.' },
+      { category: 'Improved', text: 'Release notes can now be closed by swiping down.' },
+      { category: 'Improved', text: 'The tab bar is now the same size on every screen.' },
+      { category: 'Improved', text: "When your connection drops, the app first says Connecting… and only shows a message if it can't reconnect. It turns green and says Back online once you're connected again." },
+      { category: 'Improved', text: 'In Search, the Jump Here button is bigger, and surahs you have already started open with a tap anywhere on their card.' },
+      { category: 'Improved', text: 'Back arrows now look the same on every screen.' },
+      { category: 'Improved', text: 'Signing in with Apple no longer asks for your name a second time.' },
+      { category: 'Improved', text: 'We now ask about notifications when you first open the app.' },
+      { category: 'Fixed', text: 'Jump Here in Search now takes you straight to that surah on the map.' },
+      { category: 'Fixed', text: 'When you finish a level, you return to the same spot on the map instead of the bottom.' },
+      { category: 'Fixed', text: 'Your current level no longer goes missing from the map after the app has been open for a while.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-21, before the build that
+    // carries it. Also covers the Pray tab, which first shipped in 20053
+    // without its own notes.
+    version: '1.0.43',
+    date: '2026-10-21',
+    changes: [
+      { category: 'New', text: "A new Pray tab: today's Islamic date, the current prayer and the next prayer time, worked out on your phone for where you are." },
+      { category: 'New', text: 'A live qibla compass that turns with your phone and points to the Kaaba.' },
+      { category: 'Improved', text: 'The prayer card now fills the top of the screen.' },
+      // Added with the user's approval 2026-10-22, for build 20055.
+      { category: 'Improved', text: 'Prayer times now show right away when you open the Pray tab.' },
+      { category: 'Improved', text: 'If location is off, the Pray tab shows a button that takes you straight to turn it on.' },
+      { category: 'Fixed', text: 'A dark strip no longer shows at the very bottom of the screen on iPhone.' },
+    ],
+  },
+  {
+    // Drafted 2026-10-19 and shown to the user in the same session as the
+    // build that carries it, per their own request ("give me release notes
+    // here") — not a prior separate review round-trip like other entries.
+    version: '1.0.42',
+    date: '2026-10-19',
+    changes: [
+      { category: 'New', text: "Tap Gems or Hearts in the top bar to see what they do, and exactly how hearts work during a level." },
+      { category: 'Improved', text: 'The level start/repeat card has a fresh new look, and always opens in the open space above the level instead of sitting on top of it.' },
+      { category: 'Improved', text: 'Tap anywhere else on the map to close an open level card.' },
+      { category: 'Improved', text: 'The guided tour has been rebuilt to match the new map, its five tabs, and your streak and XP.' },
+      { category: 'Fixed', text: 'The tab bar no longer overlaps your Profile or Leaderboard screens.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-16, before the build that
+    // carries it.
+    version: '1.0.41',
+    date: '2026-10-16',
+    changes: [
+      { category: 'Improved', text: 'Clearer levels on the map. Green is where you are, grey is locked, and gold is done. Review levels show a book.' },
+      { category: 'Improved', text: 'More space between levels, so the path is easier to follow.' },
+      { category: 'New', text: 'Lumo now stands next to your current level.' },
+      { category: 'Improved', text: 'Levels press down when you tap them.' },
+      { category: 'Improved', text: 'The arrow that takes you back to your level now sits just below the Feedback button.' },
+      { category: 'Fixed', text: 'A dark strip no longer shows at the corners of the bottom bar.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-16, before the build that
+    // carries it.
+    version: '1.0.40',
+    date: '2026-10-16',
+    changes: [
+      { category: 'New', text: 'A brand new home map. The whole Quran is now one path you scroll, from An-Nas all the way to Al-Fatihah.' },
+      { category: 'New', text: 'Tap Jump here on any surah to go straight to its first level.' },
+      { category: 'New', text: 'A new bottom bar with five tabs.' },
+      { category: 'New', text: 'Scrolled away from your level? Tap the green arrow to go right back.' },
+      { category: 'New', text: 'Coming back to a level you left now asks whether to continue or start over.' },
+      { category: 'Improved', text: "On the Progress screen, surahs you haven't started show an empty bar with the chest at 0%." },
+    ],
+  },
+  {
+    // First two lines approved by the user 2026-10-12; the rest added and
+    // approved 2026-10-13, before the build that carries it.
+    version: '1.0.39',
+    date: '2026-10-13',
+    changes: [
+      { category: 'Improved', text: 'Progress screen refreshed, with glowing progress bars, a tidier layout, and your reward chest at the end of each bar.' },
+      { category: 'Fixed', text: "The \"You're offline\" message no longer shows up when your internet is working." },
+      { category: 'New', text: 'A fresh loading screen with Lumo while your map gets ready.' },
+      { category: 'Improved', text: 'The map uses less memory and responds faster.' },
+      { category: 'Fixed', text: 'The Hint button in lessons works again.' },
+      { category: 'Improved', text: 'Exercises now sit in the middle of the screen, and fill in the blank ayahs read on one line with the blank in place.' },
+      { category: 'Improved', text: 'One matching Hear button across all exercises.' },
+      { category: 'Fixed', text: 'Recording your recitation now stops any audio that is playing, so only your voice is scored.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-11, before the build that
+    // carries it.
+    version: '1.0.38',
+    date: '2026-10-11',
+    changes: [
+      { category: 'New', text: "Leaderboard redesigned, with today's Islamic date, Lumo cheering you on, and medals for the top three." },
+      { category: 'New', text: "You always see your own rank, highlighted in gold, even when you're outside the top learners." },
+      { category: 'New', text: '45 new avatars. Tap the pencil on your Profile picture to choose yours.' },
+      { category: 'New', text: 'New learners get an avatar that matches the gender they pick.' },
+      { category: 'Improved', text: 'The map scrolls and responds more smoothly.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-11, before the build that
+    // carries it.
+    version: '1.0.37',
+    date: '2026-10-11',
+    changes: [
+      { category: 'Fixed', text: 'The Progress screen now groups your surahs the same way as Search: Open, Completed and Closed. A surah counts as open once you finish its first level.' },
+      { category: 'Improved', text: 'Closed surahs on the Progress screen have a Jump Here shortcut to start them.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-10, before the build that
+    // carries it.
+    version: '1.0.36',
+    date: '2026-10-10',
+    changes: [
+      { category: 'New', text: "Search screen redesigned: surahs you've started show your real progress, the rest have a Jump Here shortcut." },
+      { category: 'New', text: 'Progress screen redesigned, with your whole Quran progress on top and your surahs split into In Progress and Completed.' },
+      { category: 'New', text: 'Fresh lesson look: a reward chest marks the end of the progress bar, a new Hint button, and the exercise sits mid screen with Check always at the bottom.' },
+      { category: 'New', text: 'Reward chests are coming soon. Tap one for a sneak peek.' },
+      { category: 'Improved', text: 'New back buttons across the app.' },
+      { category: 'Improved', text: "Clearer messages when you're offline or we can't be reached, plus a popup if the connection stays too slow." },
+      { category: 'Fixed', text: 'The practice calendar arrows are easier to tap.' },
+    ],
+  },
+  {
+    // Reviewed and approved by the user 2026-10-07, before the build that
+    // carries it — the standing rule, back in force after 1.0.34's one-off
+    // exception below.
+    version: '1.0.35',
+    date: '2026-10-07',
+    changes: [
+      { category: 'Fixed', text: "The “you're offline” message no longer shows when you are actually online." },
+      { category: 'New', text: 'Surah search now shows which surahs are open, done or closed, and asks before you open a new one.' },
+      { category: 'Fixed', text: 'The app version shown in your profile is now correct.' },
+    ],
+  },
+  {
+    // Shipped WITHOUT the usual pre-release review: the user explicitly
+    // chose "draft it and ship without review" for this build (2026-10-03),
+    // overriding the standing rule above for this entry only. Treat the rule
+    // as still in force for the next one.
+    version: '1.0.34',
+    date: '2026-10-03',
+    changes: [
+      { category: 'New', text: 'You can now sign in with your Apple ID.' },
+      { category: 'Improved', text: 'The app is a lot lighter to download and opens faster.' },
+      { category: 'Improved', text: 'Animations are smoother and no longer run in the background, so the app uses less battery.' },
+      { category: 'New', text: 'Lumo now sits reading the Quran on the Daily Quests screen.' },
+    ],
+  },
+  {
+    // Approved by the user 2026-09-30.
+    version: '1.0.33',
+    date: '2026-09-30',
+    changes: [
+      { category: 'New', text: 'A Progress button on the map shows how far you are in every surah, with a bar for each one. Tap a surah to jump straight to your next level.' },
+      { category: 'Improved', text: 'Stars now match your accuracy: 3 stars for a perfect lesson, 2 stars for 66% or more.' },
+      { category: 'Fixed', text: 'Mistakes now always count toward your accuracy, including on review levels.' },
+      { category: 'Improved', text: 'The Search button on the map is bigger and sits neatly under your streak.' },
+      { category: 'Fixed', text: 'The mountains on the map show in full and sit cleanly on the grass.' },
+      { category: 'Fixed', text: 'The streak counter on the map no longer stretches out of shape.' },
+      { category: 'Improved', text: 'The leaderboard now shows illustrated characters instead of emoji.' },
+      { category: 'Improved', text: 'If you lose connection, the app shows a clear offline message and keeps you signed in.' },
+    ],
+  },
+  {
+    version: '1.0.30',
+    date: '2026-09-18',
+    changes: [
+      { category: 'New', text: 'The whole Quran is now on the map. All 114 surahs, not just the 21 you had before.' },
+      { category: 'New', text: 'Search for any surah by name or number from the map, then jump straight to it.' },
+      { category: 'New', text: 'Your streak page now has a practice calendar. An orange flame marks every day you practiced, and a blue flame marks a day your streak was frozen.' },
+      { category: 'Improved', text: 'Every surah is open from the start. Seasons no longer need to be unlocked.' },
+      { category: 'Improved', text: 'Refreshed the streak page with a bigger, warmer streak number and a new look.' },
+      { category: 'Improved', text: 'Scrolling the map now closes an open level card instead of leaving it behind.' },
+    ],
+  },
+  {
+    version: '1.0.29',
+    date: '2026-09-13',
+    changes: [
+      { category: 'Fixed', text: 'Arabic script (Usmani/Indo-Pak) now actually changes the font on iPhone. It could silently stay on the default font before.' },
+      { category: 'Fixed', text: 'Reopening the app in the middle of a lesson no longer closes the level after your next answer.' },
+      { category: 'Fixed', text: 'Removed a brief white flash between exercise questions on iPhone.' },
+      { category: 'Fixed', text: 'The correct and incorrect answer sound now actually plays on iPhone.' },
+      { category: 'Fixed', text: 'The map no longer jumps to the recommended level when you tap something else on it.' },
+      { category: 'Fixed', text: 'Text in fill in the blank exercises no longer gets cut off near the edges on some phones.' },
+      { category: 'Fixed', text: 'The correct recitation audio no longer keeps playing into your next attempt after Try Again or Next.' },
+      { category: 'New', text: 'Added reminders: a nudge if you haven’t opened the app in a day, and a heads-up right before a streak is about to run out.' },
+      { category: 'New', text: 'Hold down an answer option to hear it again.' },
+      { category: 'New', text: 'Level cards now show an estimated time to finish.' },
+      { category: 'Improved', text: 'Refreshed the app’s color palette with a softer off-white in place of pure white.' },
+      { category: 'Improved', text: 'Try Again and Next are disabled while recitation audio is playing, and come back automatically once it finishes.' },
+      { category: 'Improved', text: 'Slightly less empty space below the tab bar on iPhone.' },
+    ],
+  },
+  {
+    version: '1.0.28',
+    date: '2026-09-01',
+    changes: [
+      { category: 'Fixed', text: 'The map no longer shows "Continue here" next to a level that still looks locked after reopening the app.' },
+      { category: 'New', text: 'Added a feedback button on the map screen.' },
+      { category: 'New', text: 'Your app version is now shown on your Profile screen.' },
+      { category: 'Improved', text: 'Cleaner, smaller glow around map levels.' },
+    ],
+  },
+  {
+    version: '1.0.27',
+    date: '2026-09-01',
+    changes: [
+      { category: 'New', text: 'Added a custom confirmation screen when leaving the app.' },
+    ],
+  },
+  {
+    version: '1.0.26',
+    date: '2026-09-01',
+    changes: [
+      { category: 'Fixed', text: 'Removed extra empty space at the bottom of the tab bar.' },
+    ],
+  },
+];

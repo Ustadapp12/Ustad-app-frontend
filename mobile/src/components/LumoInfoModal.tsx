@@ -2,8 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Linking,
 } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import MascotShadow from './MascotShadow';
+import { MASCOT } from '../assets';
 
 interface Props {
   visible: boolean;
@@ -50,7 +51,7 @@ export default function LumoInfoModal({
         <View style={styles.card}>
           <View style={{ width: 105, height: 105, marginBottom: 8 }}>
             <Animated.Image
-              source={require('../../assets/images/lumo_transparent.png')}
+              source={MASCOT.lumoTransparent}
               style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatAnim }] }]}
               resizeMode="contain"
             />
@@ -92,15 +93,15 @@ const styles = StyleSheet.create({
   },
   lumo: { width: 105, height: 105 },
   title: {
-    fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText,
+    fontFamily: 'Nunito-Bold', fontSize: 18, color: colors.darkText,
     textAlign: 'center', marginBottom: 8,
   },
   message: {
-    fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText,
+    fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText,
     textAlign: 'center', lineHeight: 20, marginBottom: 6,
   },
   email: {
-    fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.primary,
+    fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.primary,
     textAlign: 'center', marginTop: 4, marginBottom: 18,
   },
   button: {
@@ -112,5 +113,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
-  buttonText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.white },
+  buttonText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
 });

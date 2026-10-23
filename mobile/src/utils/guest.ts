@@ -22,7 +22,12 @@ export function isGuest(user: User | null | undefined): boolean {
 
 /** Name to show for a user, coping with a guest having no email to derive one from. */
 export function displayNameFor(user: User, profileName?: string | null): string {
-  return profileName ?? user.email?.split('@')[0] ?? 'Guest';
+  if (profileName) return profileName;
+  if (!user.email) return 'Guest';
+  // Apple's "Hide My Email" relay address: its prefix is random letters,
+  // never a name, so it must not be shown as one (App Review guideline 4).
+  if (user.email.endsWith('@privaterelay.appleid.com')) return 'Learner';
+  return user.email.split('@')[0];
 }
 
 const KEYS = {

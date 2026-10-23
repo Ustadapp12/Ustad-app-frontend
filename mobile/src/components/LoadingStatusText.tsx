@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Text, StyleSheet, type StyleProp, type TextStyle } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
+import { useScreenVisible } from '../hooks/useScreenVisible';
 
 const DEFAULT_MESSAGES = ['Loading…', 'Working on it…', 'Almost there…'];
 
@@ -21,19 +22,21 @@ export default function LoadingStatusText({
   style,
 }: Props) {
   const [index, setIndex] = useState(0);
+  // Cycles only while its screen is on screen (2026-10-22 audit).
+  const visible = useScreenVisible();
 
   useEffect(() => {
     setIndex(0);
-    if (messages.length < 2) return;
+    if (messages.length < 2 || !visible) return;
     const id = setInterval(() => {
       setIndex(i => (i + 1) % messages.length);
     }, intervalMs);
     return () => clearInterval(id);
-  }, [messages, intervalMs]);
+  }, [messages, intervalMs, visible]);
 
   return <Text style={[styles.text, style]}>{messages[index] ?? messages[0]}</Text>;
 }
 
 const styles = StyleSheet.create({
-  text: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center' },
+  text: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center' },
 });

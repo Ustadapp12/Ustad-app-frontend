@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Image, StyleSheet, type TextInputProps, type StyleProp, type ViewStyle, type TextStyle } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
+import { ICONS } from '../assets';
 
-const EYE_SRC = require('../../assets/images/eye.png');
-const HIDE_SRC = require('../../assets/images/hide.png');
+const EYE_SRC = ICONS.eye;
+const HIDE_SRC = ICONS.hide;
 
 interface Props extends Omit<TextInputProps, 'secureTextEntry' | 'style'> {
   value: string;
@@ -42,6 +43,6 @@ export default function PasswordInput({ value, onChangeText, inputStyle, contain
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
-  input: { flex: 1, fontFamily: 'Nunito_400Regular', fontSize: 15, color: colors.darkText },
+  input: { flex: 1, fontFamily: 'Nunito-Regular', fontSize: 15, color: colors.darkText },
   icon: { width: 20, height: 20, marginLeft: 10 },
 });

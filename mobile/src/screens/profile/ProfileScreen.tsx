@@ -1,23 +1,32 @@
-﻿import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal, ActivityIndicator, Linking } from 'react-native';
+﻿import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Modal, ActivityIndicator, Linking } from 'react-native';
+import LottieView from 'lottie-react-native';
 import Svg, { Circle, Ellipse } from 'react-native-svg';
+import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { useScriptStore } from '../../store/scriptStore';
 import { setScriptPreference } from '../../utils/storage';
 import { scriptFontScale, scriptLineHeightScale } from '../../utils/arabicFont';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { PRIVACY_URL, TERMS_URL } from '../../config';
 import PasswordInput from '../../components/PasswordInput';
 import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
-import { isGuest } from '../../utils/guest';
-import { characterSrcFor } from '../../utils/avatar';
-import { isStreakFrozen, STREAK_ACTIVE_EMOJI, STREAK_FROZEN_ICON, freezeDaysLabel } from '../../utils/streak';
+import { characterSrcFor, avatarSrcsForGender, currentAvatarVariantIndex } from '../../utils/avatar';
+import { ApiError } from '../../api/client';
+import { isStreakFrozen } from '../../utils/streak';
 import AuthRequiredModal from '../../components/AuthRequiredModal';
 import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
+import ReleaseNotesModal from '../../components/ReleaseNotesModal';
+import AvatarPickerModal from '../../components/AvatarPickerModal';
 import type { ScriptPreference } from '../../types/api';
 import type { ProfileNavProp } from '../../navigation/types';
+import { APP_VERSION } from '../../utils/appVersion';
+import { selectUserId, selectUserEmail, selectUserName, selectHasPassword, selectXpTotal, selectCurrentStreak, selectStreakState, selectGender, selectAvatarVariant, selectLogout, selectDeleteAccount, selectIsGuest } from '../../store/selectors/auth';
+import { makeStyles } from './ProfileScreen.styles';
+import { ANIMATIONS, MASCOT } from '../../assets';
+import { useProfileActions } from '../../hooks/api';
 
 interface Props { navigation: ProfileNavProp }
 
@@ -52,12 +61,35 @@ function GuestAvatarIcon({ size }: { size: number }) {
 
 function ProfileContent({ navigation }: Props) {
   const rawInsets = useSafeAreaInsets();
+  // The streak flame is a looping Lottie on a tab screen, so without this it
+  // keeps rendering frames the whole time the user is on the map. Paused on
+  // blur and resumed on focus; the view stays mounted so the row doesn't
+  // reflow when you switch tabs.
+  const isFocused = useIsFocused();
+  const flameRef = useRef<LottieView>(null);
+  useEffect(() => {
+    if (isFocused) flameRef.current?.play();
+    else flameRef.current?.pause();
+  }, [isFocused]);
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
-  const { user, learning, profile, logout, deleteAccount } = useAuthStore();
-  const { script, setScript } = useScriptStore();
+  // Exact values only (store/selectors/auth.ts), never the whole store.
+  const userId = useAuthStore(selectUserId);
+  const userEmail = useAuthStore(selectUserEmail);
+  const userName = useAuthStore(selectUserName);
+  const userHasPassword = useAuthStore(selectHasPassword);
+  const xpTotal = useAuthStore(selectXpTotal);
+  const currentStreak = useAuthStore(selectCurrentStreak);
+  const streakState = useAuthStore(selectStreakState);
+  const profileGender = useAuthStore(selectGender);
+  const profileAvatarVariant = useAuthStore(selectAvatarVariant);
+  const logout = useAuthStore(selectLogout);
+  const deleteAccount = useAuthStore(selectDeleteAccount);
+  const { saveAvatarVariant } = useProfileActions();
+  const script = useScriptStore(s => s.script);
+  const setScript = useScriptStore(s => s.setScript);
   const sc = useResponsiveScale();
   const styles = useMemo(() => makeStyles(sc), [sc]);
-  const isGuestUser = isGuest(user);
+  const isGuestUser = useAuthStore(selectIsGuest);
   const [authPromptVisible, setAuthPromptVisible] = useState(false);
 
   // Guests can look around the whole screen (real name, avatar layout — see
@@ -75,9 +107,9 @@ function ProfileContent({ navigation }: Props) {
     const fontSize = sc(BASE_FONT_SIZE);
     const lineHeight = sc(BASE_LINE_HEIGHT);
     return [
-      { key: 'uthmani' as ScriptPreference, label: 'Usmani', subtitle: 'عثماني', fontFamily: 'NotoNaskhArabic_400Regular', fontSize, lineHeight, accentColor: colors.primary },
+      { key: 'uthmani' as ScriptPreference, label: 'Usmani', subtitle: 'عثماني', fontFamily: 'NotoNaskhArabic-Regular', fontSize, lineHeight, accentColor: colors.primary },
       {
-        key: 'nastaliq' as ScriptPreference, label: 'Indo-Pak', subtitle: 'خط المصحف', fontFamily: 'NotoNastaliqUrdu',
+        key: 'nastaliq' as ScriptPreference, label: 'Indo-Pak', subtitle: 'خط المصحف', fontFamily: 'NotoNastaliqUrdu-Regular',
         fontSize: Math.round(fontSize * scriptFontScale('nastaliq')),
         lineHeight: Math.round(lineHeight * scriptFontScale('nastaliq') * scriptLineHeightScale('nastaliq')),
         accentColor: '#C4A84C',
@@ -89,10 +121,29 @@ function ProfileContent({ navigation }: Props) {
   // characterSrcFor falls back to the male pool rather than always
   // defaulting to one specific character. Same user id it was assigned
   // under at Welcome, so this is always the one they were introduced to,
-  // never a fresh pick.
-  const avatarSrc = characterSrcFor(user?.id ?? '', profile?.gender);
+  // never a fresh pick — unless profileAvatarVariant is set, in which
+  // case that explicit choice always wins.
+  const avatarSrc = characterSrcFor(userId ?? '', profileGender, profileAvatarVariant);
 
-  const displayName = user?.name ?? 'Learner';
+  const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+
+  async function handleSaveAvatarVariant(variant: number) {
+    setAvatarSaving(true);
+    try {
+      await saveAvatarVariant(variant);
+      setAvatarPickerVisible(false);
+    } catch (e) {
+      Alert.alert(
+        'Something went wrong',
+        e instanceof ApiError ? e.message : 'Could not save your avatar. Please try again.',
+      );
+    } finally {
+      setAvatarSaving(false);
+    }
+  }
+
+  const displayName = userName ?? 'Learner';
   const initials = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -100,6 +151,7 @@ function ProfileContent({ navigation }: Props) {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [fontModalVisible, setFontModalVisible] = useState(false);
+  const [releaseNotesVisible, setReleaseNotesVisible] = useState(false);
   const [comingSoonVisible, setComingSoonVisible] = useState(false);
 
   const currentFont = FONT_OPTIONS.find(f => f.key === script) ?? FONT_OPTIONS[0];
@@ -138,7 +190,7 @@ function ProfileContent({ navigation }: Props) {
 
   // Google accounts have no password to confirm with. Absent means an older
   // cached user object, so assume there IS one and keep asking.
-  const needsPasswordToDelete = user?.has_password !== false;
+  const needsPasswordToDelete = userHasPassword !== false;
 
   async function handleDeleteAccount() {
     if (needsPasswordToDelete && !deletePassword.trim()) return;
@@ -157,11 +209,11 @@ function ProfileContent({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         {/* Avatar card */}
         <View style={styles.avatarCard}>
           <View style={styles.avatarWrap}>
-            <View style={[styles.avatar, { backgroundColor: 'transparent', overflow: 'visible' }]}>
+            <View style={styles.avatar}>
               {isGuestUser ? (
                 <GuestAvatarIcon size={sc(86)} />
               ) : (
@@ -172,7 +224,7 @@ function ProfileContent({ navigation }: Props) {
                 />
               )}
             </View>
-            <TouchableOpacity style={styles.editBadge} onPress={() => guarded(comingSoon)}>
+            <TouchableOpacity style={styles.editBadge} onPress={() => guarded(() => setAvatarPickerVisible(true))}>
               <Text style={{ fontSize: sc(18) }}>✏️</Text>
             </TouchableOpacity>
           </View>
@@ -183,7 +235,7 @@ function ProfileContent({ navigation }: Props) {
         {isGuestUser && (
           <View style={styles.guestCard}>
             <Image
-              source={require('../../../assets/images/lumo_kufi.png')}
+              source={MASCOT.lumoKufi}
               style={styles.guestCardLuma}
               resizeMode="contain"
             />
@@ -197,20 +249,35 @@ function ProfileContent({ navigation }: Props) {
 
         {/* Stats grid */}
         <View style={styles.statsGrid}>
-          <View style={styles.statCell}>
-            {isStreakFrozen(learning?.streak_state)
-              ? <Image source={STREAK_FROZEN_ICON} style={styles.statIcon} resizeMode="contain" />
-              : <Text style={styles.statEmoji}>{STREAK_ACTIVE_EMOJI}</Text>}
-            <Text style={styles.statValue}>{isGuestUser ? '—' : (learning?.current_streak ?? 0)}</Text>
+          <TouchableOpacity
+            style={styles.statCell}
+            activeOpacity={0.7}
+            onPress={() => guarded(() => navigation.navigate('Streak'))}
+          >
+            {/* Animated flame, not the old static emoji/frozen-icon — same
+                streak.json/streak_frozen.json Lottie pair StreakScreen's own
+                hero animation uses, just at settings-icon scale. Tappable
+                now too, replacing the separate "Streak & Rewards" row that
+                used to live in the LEARNING section below (removed —
+                redundant with this once it does the same thing). */}
+            <LottieView
+              ref={flameRef}
+              source={isStreakFrozen(streakState)
+                ? ANIMATIONS.streakFrozen
+                : ANIMATIONS.streak}
+              autoPlay loop
+              style={styles.statStreakAnim}
+            />
+            <Text style={styles.statValue}>{isGuestUser ? '—' : (currentStreak ?? 0)}</Text>
             <Text style={styles.statLabel}>Day Streak</Text>
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.statCell, styles.statCellBorder]}
             activeOpacity={0.7}
             onPress={() => guarded(() => navigation.navigate('XP'))}
           >
             <Text style={styles.statEmoji}>⚡</Text>
-            <Text style={[styles.statValue, { color: colors.primary }]}>{isGuestUser ? '—' : (learning?.xp_total ?? 0)}</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{isGuestUser ? '—' : (xpTotal ?? 0)}</Text>
             <Text style={styles.statLabel}>Total XP</Text>
           </TouchableOpacity>
         </View>
@@ -240,22 +307,6 @@ function ProfileContent({ navigation }: Props) {
             </View>
             <Text style={styles.settingArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.settingRow} onPress={() => guarded(() => navigation.navigate('Streak'))}>
-            {isStreakFrozen(learning?.streak_state)
-              ? <Image source={STREAK_FROZEN_ICON} style={styles.settingIcon} resizeMode="contain" />
-              : <Text style={styles.settingEmoji}>{STREAK_ACTIVE_EMOJI}</Text>}
-            <View style={styles.settingContent}>
-              <Text style={styles.settingLabel}>Streak & Rewards</Text>
-              <Text style={styles.settingValue}>
-                {isGuestUser
-                  ? '— day streak'
-                  : isStreakFrozen(learning?.streak_state)
-                  ? `${learning?.current_streak ?? 0} day streak: ${freezeDaysLabel(learning?.freeze_days_remaining ?? 0)}`
-                  : `${learning?.current_streak ?? 0} day streak`}
-              </Text>
-            </View>
-            <Text style={styles.settingArrow}>›</Text>
-          </TouchableOpacity>
           <TouchableOpacity style={styles.settingRow} onPress={() => guarded(comingSoon)}>
             <Text style={styles.settingEmoji}>🎯</Text>
             <View style={styles.settingContent}>
@@ -273,15 +324,19 @@ function ProfileContent({ navigation }: Props) {
             <Text style={styles.settingEmoji}>👤</Text>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Edit Profile</Text>
-              <Text style={styles.settingValue}>{user?.email ?? ''}</Text>
+              <Text style={styles.settingValue}>{userEmail ?? ''}</Text>
             </View>
             <Text style={styles.settingArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.settingRow} onPress={() => guarded(comingSoon)}>
+          {/* Hidden 2026-09-16: this was only ever a "coming soon" stub with no
+              real notification settings behind it — not worth shipping to
+              production. Re-add once there's an actual reminder-hour picker /
+              notification preferences screen to link to. */}
+          {/* <TouchableOpacity style={styles.settingRow} onPress={() => guarded(comingSoon)}>
             <Text style={styles.settingEmoji}>🔔</Text>
             <Text style={styles.settingLabel}>Notifications</Text>
             <Text style={styles.settingArrow}>›</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           <TouchableOpacity style={styles.settingRow} onPress={() => guarded(() => navigation.navigate('ChangePassword'))}>
             <Text style={styles.settingEmoji}>🔒</Text>
             <Text style={styles.settingLabel}>Change Password</Text>
@@ -339,6 +394,15 @@ function ProfileContent({ navigation }: Props) {
           <Text style={styles.deleteText}>Delete Account</Text>
         </TouchableOpacity>
 
+        {/* Dev-only test button removed 2026-09-16 for the first production
+            build, per its own "remove before publishing" note. Real
+            notification scheduling (refreshLocalNotifications) is untouched —
+            this was only a manual preview trigger, not part of the real flow. */}
+
+        <TouchableOpacity onPress={() => setReleaseNotesVisible(true)}>
+          <Text style={[styles.versionText, styles.versionTextLink]}>v{APP_VERSION}</Text>
+        </TouchableOpacity>
+
         <View style={{ height: insets.bottom + 24 }} />
       </ScrollView>
 
@@ -353,9 +417,6 @@ function ProfileContent({ navigation }: Props) {
           <View style={[styles.modalCard, { gap: 0 }]}>
             <View style={styles.fontModalHeader}>
               <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Arabic Font</Text>
-              <TouchableOpacity style={styles.fontModalCloseBtn} onPress={() => setFontModalVisible(false)}>
-                <Text style={styles.fontModalCloseBtnText}>✕</Text>
-              </TouchableOpacity>
             </View>
             <Text style={[styles.modalBody, { marginBottom: 16 }]}>
               Choose how Arabic text appears throughout the app.
@@ -385,7 +446,12 @@ function ProfileContent({ navigation }: Props) {
                 already persists the choice the instant an option is tapped
                 (setScript + setScriptPreference), so this button never had
                 anything left to cancel. It only closes the sheet. */}
-            <TouchableOpacity style={[styles.modalCancel, { marginTop: 8 }]} onPress={() => setFontModalVisible(false)}>
+            {/* flex:0 + alignSelf:'stretch' override styles.modalCancel's own
+                flex:1 — that's meant for sitting beside modalConfirm inside
+                modalBtns' row layout (Logout/Delete modals), which collapses
+                or misrenders its content here since this button stands alone
+                in a plain column container instead. */}
+            <TouchableOpacity style={[styles.modalCancel, { flex: 0, alignSelf: 'stretch', marginTop: 8 }]} onPress={() => setFontModalVisible(false)}>
               <Text style={styles.modalCancelText}>Save and Close</Text>
             </TouchableOpacity>
           </View>
@@ -403,7 +469,7 @@ function ProfileContent({ navigation }: Props) {
           <View style={styles.modalCard}>
             <View style={{ width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) }}>
               <Image
-                source={require('../../../assets/images/lumo_kufi.png')}
+                source={MASCOT.lumoKufi}
                 style={[styles.deleteLumo, { marginBottom: 0 }]}
                 resizeMode="contain"
               />
@@ -434,7 +500,7 @@ function ProfileContent({ navigation }: Props) {
           <View style={styles.modalCard}>
             <View style={{ width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) }}>
               <Image
-                source={require('../../../assets/images/lumo_cry.png')}
+                source={MASCOT.lumoCry}
                 style={[styles.deleteLumo, { marginBottom: 0 }]}
                 resizeMode="contain"
               />
@@ -471,7 +537,7 @@ function ProfileContent({ navigation }: Props) {
                 disabled={(needsPasswordToDelete && !deletePassword.trim()) || deleting}
               >
                 {deleting
-                  ? <ActivityIndicator color="white" size="small" />
+                  ? <ActivityIndicator color="#F5F7FA" size="small" />
                   : <Text style={styles.modalConfirmText}>Delete</Text>}
               </TouchableOpacity>
             </View>
@@ -483,6 +549,22 @@ function ProfileContent({ navigation }: Props) {
         visible={comingSoonVisible}
         onClose={() => setComingSoonVisible(false)}
       />
+
+      <ReleaseNotesModal
+        visible={releaseNotesVisible}
+        onClose={() => setReleaseNotesVisible(false)}
+      />
+
+      {!isGuestUser && (
+        <AvatarPickerModal
+          visible={avatarPickerVisible}
+          variantSrcs={avatarSrcsForGender(profileGender)}
+          initialVariant={currentAvatarVariantIndex(userId ?? '', profileAvatarVariant, profileGender)}
+          saving={avatarSaving}
+          onSave={handleSaveAvatarVariant}
+          onClose={() => setAvatarPickerVisible(false)}
+        />
+      )}
 
       <AuthRequiredModal
         visible={authPromptVisible}
@@ -496,123 +578,3 @@ function ProfileContent({ navigation }: Props) {
     </View>
   );
 }
-
-function makeStyles(sc: (n: number) => number) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.lightBg },
-    statusBar: { paddingHorizontal: sc(24), paddingVertical: sc(6) },
-    time: { fontFamily: 'Nunito_700Bold', fontSize: sc(15), color: colors.darkText },
-    avatarCard: {
-      alignItems: 'center', paddingVertical: sc(14), paddingHorizontal: sc(22),
-      backgroundColor: colors.white, marginHorizontal: sc(16), borderRadius: sc(20), marginBottom: sc(10),
-      shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3,
-    },
-    avatarWrap: { position: 'relative', marginBottom: sc(6) },
-    avatar: {
-      width: sc(80), height: sc(80), borderRadius: sc(40), backgroundColor: colors.primary,
-      alignItems: 'center', justifyContent: 'center',
-      shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
-    },
-    initials: { fontFamily: 'Nunito_700Bold', fontSize: sc(28), color: 'white' },
-    editBadge: {
-      position: 'absolute', right: -4, bottom: -4,
-      width: sc(26), height: sc(26), alignItems: 'center', justifyContent: 'center',
-    },
-    displayName: { fontFamily: 'Nunito_700Bold', fontSize: sc(20), color: colors.darkText, marginBottom: 4 },
-    levelTag: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: colors.mutedText },
-    // Vertical hero layout — same size/shape Lumo gets everywhere else
-    // (Auth/Onboarding/Feedback), not the old cramped horizontal row.
-    guestCard: {
-      backgroundColor: colors.white, borderRadius: sc(18), padding: sc(16),
-      marginHorizontal: sc(16), marginBottom: sc(10),
-      alignItems: 'center',
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
-    },
-    guestCardLuma: { width: sc(100), height: sc(100), marginBottom: sc(8) },
-    guestCardTitle: { fontFamily: 'Nunito_700Bold', fontSize: sc(17), color: colors.darkText, marginBottom: 4, textAlign: 'center' },
-    guestCardBody: { fontFamily: 'Nunito_400Regular', fontSize: sc(13), color: colors.mutedText, lineHeight: sc(19), textAlign: 'center', marginBottom: sc(14) },
-    guestCardBtn: { alignSelf: 'stretch', backgroundColor: colors.primary, borderRadius: sc(14), paddingVertical: sc(13), alignItems: 'center' },
-    guestCardBtnText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.white },
-    statsGrid: {
-      flexDirection: 'row', backgroundColor: colors.white,
-      marginHorizontal: sc(16), borderRadius: sc(18), marginBottom: sc(10), overflow: 'hidden',
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-    },
-    statCell: { flex: 1, alignItems: 'center', paddingVertical: sc(10), gap: 3 },
-    statCellBorder: { borderLeftWidth: 1, borderLeftColor: colors.border },
-    statEmoji: { fontSize: sc(18) },
-    statIcon: { width: sc(18), height: sc(18) },
-    statValue: { fontFamily: 'Nunito_700Bold', fontSize: sc(18), color: colors.darkText },
-    statLabel: { fontFamily: 'Nunito_400Regular', fontSize: sc(9), color: colors.mutedText, letterSpacing: 0.3 },
-    section: {
-      marginHorizontal: sc(16), marginBottom: sc(8),
-      backgroundColor: colors.white, borderRadius: sc(18), overflow: 'hidden',
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-    },
-    sectionTitle: {
-      fontFamily: 'Nunito_700Bold', fontSize: sc(10), color: colors.mutedText,
-      letterSpacing: 1.5, paddingHorizontal: sc(18), paddingTop: sc(10), paddingBottom: sc(4),
-    },
-    settingRow: {
-      flexDirection: 'row', alignItems: 'center', gap: sc(14),
-      paddingHorizontal: sc(18), paddingVertical: sc(10),
-      borderTopWidth: 1, borderTopColor: colors.border,
-    },
-    // Standalone card, not nested inside another rounded/clipped section —
-    // a full, uncut green border on all sides with its own shadow so it
-    // actually pops off the page instead of blending into the row list.
-    // For guests and signed-in users alike, since Feedback is open to both.
-    feedbackCard: {
-      flexDirection: 'row', alignItems: 'center', gap: sc(14),
-      marginHorizontal: sc(16), marginBottom: sc(10),
-      paddingHorizontal: sc(18), paddingVertical: sc(14),
-      borderRadius: sc(16), borderWidth: 2, borderColor: '#05966A', backgroundColor: '#EAF7F1',
-      shadowColor: '#05966A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 6, elevation: 3,
-    },
-    settingEmoji: { fontSize: sc(16) },
-    settingIcon: { width: sc(16), height: sc(16) },
-    settingContent: { flex: 1 },
-    settingLabel: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.darkText },
-    settingValue: { fontFamily: 'Nunito_400Regular', fontSize: sc(11), color: colors.mutedText, marginTop: 1 },
-    settingArrow: { fontSize: sc(18), color: colors.border, fontWeight: '600' },
-    logoutBtn: {
-      marginHorizontal: sc(16), marginBottom: sc(6), borderRadius: sc(16), paddingVertical: sc(13),
-      alignItems: 'center', backgroundColor: colors.redBg, borderWidth: 1.5, borderColor: '#FCA5A5',
-    },
-    logoutText: { fontFamily: 'Nunito_700Bold', fontSize: sc(15), color: colors.red },
-    deleteBtn: {
-      marginHorizontal: sc(16), marginBottom: sc(6), borderRadius: sc(16), paddingVertical: sc(11),
-      alignItems: 'center',
-    },
-    deleteText: { fontFamily: 'Nunito_700Bold', fontSize: sc(13), color: colors.mutedText },
-    // Delete modal
-    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: sc(24) },
-    modalCard: { backgroundColor: colors.white, borderRadius: sc(20), padding: sc(24), width: '100%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
-    deleteLumo: { width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) },
-    modalTitle: { fontFamily: 'Nunito_700Bold', fontSize: sc(18), color: colors.darkText, marginBottom: sc(8), textAlign: 'center' },
-    modalBody: { fontFamily: 'Nunito_400Regular', fontSize: sc(13), color: colors.mutedText, lineHeight: 20, marginBottom: sc(16) },
-    modalInputBox: {
-      borderWidth: 1.5, borderColor: colors.border, borderRadius: sc(12),
-      paddingHorizontal: sc(14), paddingVertical: sc(12),
-      marginBottom: sc(20),
-    },
-    modalBtns: { flexDirection: 'row', gap: sc(10) },
-    modalCancel: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: sc(14), paddingVertical: sc(14), alignItems: 'center' },
-    modalCancelText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.midText },
-    modalConfirm: { flex: 1, backgroundColor: colors.red, borderRadius: sc(14), paddingVertical: sc(14), alignItems: 'center' },
-    modalConfirmText: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: 'white' },
-    // Font picker
-    fontModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    fontModalCloseBtn: {
-      width: sc(30), height: sc(30), borderRadius: sc(15), backgroundColor: colors.lightBg,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    fontModalCloseBtnText: { fontFamily: 'Nunito_700Bold', fontSize: sc(12), color: colors.midText },
-    fontOption: { backgroundColor: colors.lightBg, borderRadius: sc(16), borderWidth: 1.5, borderColor: colors.border, padding: sc(14), marginBottom: sc(10), flexDirection: 'row', alignItems: 'center', gap: sc(12) },
-    fontOptionLabel: { fontFamily: 'Nunito_700Bold', fontSize: sc(14), color: colors.darkText, marginBottom: sc(6) },
-    fontOptionPreview: { textAlign: 'right' },
-    radio: { width: sc(22), height: sc(22), borderRadius: sc(11), borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-    radioDot: { width: sc(11), height: sc(11), borderRadius: sc(6) },
-  });
-}
-

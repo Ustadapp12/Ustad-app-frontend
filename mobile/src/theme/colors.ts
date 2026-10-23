@@ -27,8 +27,8 @@ export const colors = {
 
   // Backgrounds
   lightBg: '#F2F4F8',
-  white: '#FFFFFF',
-  cardBg: '#FFFFFF',
+  white: '#F5F7FA',
+  cardBg: '#F5F7FA',
 
   // Borders
   border: '#E5E7EB',
@@ -43,10 +43,12 @@ export const colors = {
   // Danger / Hearts
   red: '#DC2626',
   redBg: '#FEF2F2',
+  redBorder: '#FECACA',
 
-  // Blue (secondary path)
+  // Blue (secondary path) / Gems
   blue: '#2563EB',
   blueBg: '#EFF6FF',
+  blueBorder: '#BFDBFE',
 
   // Completed node
   nodeGold: '#F0C040',
@@ -69,6 +71,9 @@ export const colors = {
   levelCardOffWhite: '#F5F7FA',
   levelStartAccent: '#00855D',
   levelStartAccentText: '#05966A',
+  // The flat "lip" under the action-card button that gives it a pressed/3D
+  // look (Figma's playcard redesign) -- a solid offset shadow, not a blur.
+  levelStartAccentShadow: '#006949',
   levelRepeatBg: '#FFF4DA',
   levelRepeatBorder: '#FFCC00',
   levelRepeatAccent: '#E9C468',

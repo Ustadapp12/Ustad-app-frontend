@@ -1,20 +1,19 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Image,
-} from 'react-native';
+import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
-import { authApi } from '../../api';
 import { ApiError } from '../../api/client';
 import { setTokens } from '../../utils/storage';
 import { getPasswordChecklist, getPasswordStrength, isPasswordValid } from '../../utils/validators';
-import { colors } from '../../theme/colors';
+import BackButton from '../../components/BackButton';
 import PasswordInput from '../../components/PasswordInput';
 import MascotShadow from '../../components/MascotShadow';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
+import { styles } from './ResetPasswordScreen.styles';
+import { MASCOT } from '../../assets';
+import { useAuthActions } from '../../hooks/api';
 
 interface Props {
   navigation: RootNavProp;
@@ -22,6 +21,7 @@ interface Props {
 }
 
 export default function ResetPasswordScreen({ navigation, route }: Props) {
+  const { resetPassword } = useAuthActions();
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { email, code } = route.params;
@@ -41,7 +41,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
     setLoading(true);
     setError(null);
     try {
-      await authApi.resetPassword(email, code, newPassword);
+      await resetPassword(email, code, newPassword);
       // Backend revokes all existing refresh tokens on a successful reset —
       // this device's old session is dead too, so clear it locally and force
       // a fresh login rather than trying to keep using it.
@@ -65,7 +65,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
       <View style={styles.container}>
         <View style={[styles.content, styles.successContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
           <View style={{ width: 140, height: 140, marginBottom: 20 }}>
-            <Image source={require('../../../assets/images/lumo_xp.png')} style={[styles.lumaSuccess, { marginBottom: 0 }]} resizeMode="contain" />
+            <Image source={MASCOT.lumoXp} style={[styles.lumaSuccess, { marginBottom: 0 }]} resizeMode="contain" />
             <MascotShadow width={140} />
           </View>
           <View style={styles.successBubble}>
@@ -83,18 +83,11 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={[styles.backBtn, { top: insets.top + 12 }]}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Back"
-      >
-        <Image source={require('../../../assets/back_arrow.png')} style={styles.backIcon} resizeMode="contain" />
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 12 }]} />
 
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
         <View style={{ width: 110, height: 110, marginBottom: 8 }}>
-          <Image source={require('../../../assets/images/lumo_transparent.png')} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={110} />
         </View>
 
@@ -161,54 +154,9 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
           onPress={handleSubmit}
           disabled={!canSubmit || loading}
         >
-          {loading ? <LoadingRing size={20} color="#fff" /> : <Text style={styles.btnText}>Reset password</Text>}
+          {loading ? <LoadingRing size={20} color="#F5F7FA" /> : <Text style={styles.btnText}>Reset password</Text>}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightBg, position: 'relative' },
-  backBtn: {
-    position: 'absolute', left: 16, width: 36, height: 36, borderRadius: 18,
-    alignItems: 'center', justifyContent: 'center', zIndex: 10,
-  },
-  backIcon: { width: 20, height: 20, tintColor: colors.darkText },
-  content: { flex: 1, alignItems: 'center', paddingHorizontal: 28 },
-  successContent: { justifyContent: 'center' },
-  luma: { width: 110, height: 110, marginBottom: 8 },
-  lumaSuccess: { width: 140, height: 140, marginBottom: 20 },
-  successBubble: {
-    backgroundColor: colors.primaryBg, borderWidth: 1.5, borderColor: colors.primary,
-    borderRadius: 18, paddingHorizontal: 22, paddingVertical: 18, marginBottom: 32,
-  },
-  successBubbleText: {
-    fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.darkText,
-    textAlign: 'center', lineHeight: 23,
-  },
-  heading: { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.darkText, textAlign: 'center', marginBottom: 8 },
-  sub: { fontFamily: 'Nunito_400Regular', fontSize: 14, color: colors.mutedText, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-  fieldWrap: { width: '100%', marginBottom: 16 },
-  fieldLabel: { fontFamily: 'Nunito_700Bold', fontSize: 11, color: colors.midText, marginBottom: 5, letterSpacing: 0.4 },
-  inputBox: {
-    backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-  },
-  checklistWrap: { marginTop: 8, marginBottom: 4 },
-  checklistItem: { fontFamily: 'Nunito_400Regular', fontSize: 12, marginBottom: 2 },
-  checklistMet: { color: colors.success },
-  checklistUnmet: { color: colors.red },
-  strengthText: { fontFamily: 'Nunito_700Bold', fontSize: 12, marginTop: 4 },
-  strengthWeak: { color: colors.red },
-  strengthMedium: { color: colors.warning },
-  strengthStrong: { color: colors.success },
-  error: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.red, marginBottom: 12, textAlign: 'center' },
-  btn: {
-    width: '100%', backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 17,
-    alignItems: 'center', marginTop: 8, marginBottom: 16,
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
-  },
-  btnDisabled: { opacity: 0.45 },
-  btnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
-});

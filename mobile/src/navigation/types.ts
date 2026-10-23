@@ -1,6 +1,6 @@
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { CompositeNavigationProp, NavigatorScreenParams } from '@react-navigation/native';
 import type { StreakState } from '../types/api';
 
 export type RootStackParamList = {
@@ -19,7 +19,18 @@ export type RootStackParamList = {
   OnboardScript: undefined;
   OnboardPath: undefined;
   OnboardAssessment: undefined;
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<TabParamList> | undefined;
+  // "Building your exercises" page, opened by the map's Journey and Review buttons.
+  ComingSoon: { title: string };
+  // Pray tab's "Tap to log your Salah" page (coming soon, Pray tab highlighted).
+  LogSalah: undefined;
+  // Full 114-surah browse/search list, opened from the map's search button.
+  // Confirming "Start" there navigates back to MainTabs/Map with
+  // params.jumpToSurah set (see TabParamList.Map below).
+  SearchSurahs: undefined;
+  // Per-surah progress list, opened from the map's shield button. Tapping a
+  // surah jumps the map to it (to its next unfinished level when started).
+  SurahProgress: undefined;
   EditProfile: undefined;
   ChangePassword: undefined;
   Feedback: undefined;
@@ -51,6 +62,8 @@ export type RootStackParamList = {
   // Modals
   Streak: { justIncremented?: boolean; currentStreak?: number } | undefined;
   XP: undefined;
+  Gems: undefined;
+  Hearts: undefined;
   // Post-lesson streak celebration — see StreakCelebrationScreen.
   // streakRepaired: true only on the exact completion that unfroze a frozen
   // streak — plays the ice-break-then-fire sequence instead of the plain loop.
@@ -66,8 +79,14 @@ export type RootStackParamList = {
 };
 
 export type TabParamList = {
-  Map: undefined;
+  // jumpToSurah: set once by SearchSurahsScreen's "Start" confirm. The map
+  // reads and clears it to scroll to that surah's first level.
+  // jumpToGroupId/jumpToLevelIdx (optional, set together by
+  // SurahProgressScreen) target a specific level instead of the opener.
+  Map: { jumpToSurah?: number; jumpToGroupId?: string; jumpToLevelIdx?: number } | undefined;
   DailyQuest: undefined;
+  // The 8-point star tab: the "Building your exercises" page for now.
+  Building: undefined;
   Leaderboard: undefined;
   Profile: undefined;
   Help: undefined;

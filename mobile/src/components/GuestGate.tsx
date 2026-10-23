@@ -2,9 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { colors } from '../theme';
 import MascotShadow from './MascotShadow';
+import { useFocusedLoop } from '../hooks/useFocusedLoop';
 import type { RootNavProp } from '../navigation/types';
+import { MASCOT } from '../assets';
 
 interface Props {
   /** What the guest was trying to reach — used to make the pitch specific. */
@@ -36,20 +38,18 @@ export default function GuestGate({ feature, title, body }: Props) {
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(floatAnim, { toValue: -10, duration: 1500, useNativeDriver: true }),
-      Animated.timing(floatAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, [fadeAnim, floatAnim]);
+  }, [fadeAnim]);
+  // Only while this tab is on screen: it replaces the whole Quests and
+  // Leaderboard tabs for guests, and tabs stay mounted (2026-10-22 audit).
+  useFocusedLoop(floatAnim, 1500);
+  const floatY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Animated.View style={[styles.inner, { opacity: fadeAnim }]}>
         <Animated.Image
-          source={require('../../assets/images/lumo_transparent.png')}
-          style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatAnim }] }]}
+          source={MASCOT.lumoTransparent}
+          style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatY }] }]}
           resizeMode="contain"
         />
         <MascotShadow width={165} style={{ position: 'relative', marginTop: -17, marginBottom: 12 }} />
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   title: {
-    fontFamily: 'Nunito_700Bold',
+    fontFamily: 'Nunito-Bold',
     fontSize: 19,
     color: colors.darkText,
     textAlign: 'center',
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   body: {
-    fontFamily: 'Nunito_400Regular',
+    fontFamily: 'Nunito-Regular',
     fontSize: 14,
     color: colors.mutedText,
     textAlign: 'center',
@@ -115,5 +115,5 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
   },
-  buttonText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.white },
+  buttonText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
 });
