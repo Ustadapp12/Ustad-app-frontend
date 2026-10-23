@@ -164,24 +164,26 @@
 			</array>
 		</dict>
 		<!--
-			Precise location (Pray tab), added 2026-10-20. Used on-device only --
-			fed straight into the adhan library to compute that day's prayer
-			times -- and never sent to our backend or any third party, so Linked
-			is false (not tied to the account) and Tracking is false. If this
-			ever starts being sent to the backend (e.g. to cache times server
-			side), this entry must flip to Linked = true and the App Store
-			Connect questionnaire must be updated to match.
+			Precise location (Pray tab), added 2026-10-20. Prayer times and qibla
+			are computed on-device, but the fix IS sent to our backend: every Pray
+			tab fix goes to PATCH /users/me/location (screens/pray/prayerData.ts)
+			and the last fix rides along on usage session start
+			(services/usageSession.ts), both with the bearer token. So Linked =
+			true (corrected 2026-10-23; it said false and "never sent"), with
+			Analytics for the per-session region. Tracking stays false: no third
+			party, no ads. The App Store Connect questionnaire must match.
 		-->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePreciseLocation</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<false/>
+			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
 			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 	</array>

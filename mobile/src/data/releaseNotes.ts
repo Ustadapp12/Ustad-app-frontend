@@ -29,6 +29,15 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Reviewed and approved by the user 2026-10-23, before the build that
+    // carries it. The Info.plist and privacy manifest fixes have no note.
+    version: '1.0.45',
+    date: '2026-10-23',
+    changes: [
+      { category: 'Improved', text: 'The arrows on the Jump Here button in Search are now bigger and easier to see.' },
+    ],
+  },
+  {
     // Reviewed and approved by the user 2026-10-22, before the build that
     // carries it.
     version: '1.0.44',

@@ -50,6 +50,10 @@
 	<string>UstadApp needs microphone access so you can recite ayahs for pronunciation feedback.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>UstadApp uses your location to calculate accurate prayer times and qibla direction for where you are.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>UstadApp uses your location to calculate accurate prayer times and qibla direction for where you are.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>UstadApp uses Face ID to keep your account sign in secure on this device.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>RCTNewArchEnabled</key>

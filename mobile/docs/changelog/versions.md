@@ -883,3 +883,5 @@ approved by the user 2026-10-21 (also cover the Pray tab, which 20053's notes
 missed). Pre-flight on a `git archive HEAD` export: tsc clean, jest 103/103,
 export:embed 7.0MB bundle containing the new strings. Sign in with Apple
 rejection fix NOT included. Not yet verified on an iPhone.
+
+**20059** / 1.0.44 — iOS TestFlight (EAS 378910b5, account ustadapp1, run #59, commit e64d09e) — 2026-10-22 — for App Store review. Approved 1.0.44 release notes; Pray card and Streak hero gradient fix for iOS (GradientBox); lesson audio chains fully stopped by stopAudio (audio epoch); Search jump holds position; Apple review fixes; hooks/api, styles.ts split, assets/theme index. Run #56 failed (ahmad.claf quota), #57 (20057) has the clipped Pray card, #58 cancelled: submit 20059 only.
