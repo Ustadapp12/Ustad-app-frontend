@@ -3,7 +3,9 @@ import { View, Animated } from 'react-native';
 import { useScreenVisible } from '../../../../hooks/useScreenVisible';
 
 // ── Indeterminate loading progress bar ────────────────────────────
-export function LoadingBar({ nodesReady }: { nodesReady: boolean }) {
+// Takes no props: its old `nodesReady` was never read (review M-14); the
+// caller decides when it shows.
+export function LoadingBar() {
   const anim = useRef(new Animated.Value(0)).current;
   // JS-driven (percentage translate), so it costs a JS frame every tick: run
   // it only while the map is on screen. A foreground refresh used to drive it

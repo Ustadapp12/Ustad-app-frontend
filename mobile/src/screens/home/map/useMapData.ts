@@ -5,6 +5,7 @@ import { learningApi } from '../../../api';
 import { captureError } from '../../../services/crashReporter';
 import { getCachedRecommended, getLastRecommended, setCachedRecommended, getCachedLevels, getCachedFirstLevel } from '../../../services/bootCache';
 import { AnalyticsEvents, logAnalyticsEvent } from '../../../services/analytics';
+import { takeMapReturn } from '../../../services/mapReturnRefresh';
 import { useLessonStore } from '../../../store/lessonStore';
 import type { LearningMe, SurahLevel } from '../../../types/api';
 import { SECTIONS_DEF, PHASE_GROUPS, SURAH_TO_CHAPTER, CHAPTER_SEASON_INDICES } from './mapModel';
@@ -168,17 +169,36 @@ export function useMapData(learning: LearningMe | null) {
   // background-to-foreground transition closes that gap. It runs silently
   // (overlay + loading bar only, never the native RefreshControl), see
   // `silentRefreshing` above for why.
+  //
+  // Only while the map is the focused screen (review M-11). The tab never
+  // unmounts, so this used to fire its three calls from inside a lesson or
+  // from another tab too. Coming back to the foreground anywhere else just
+  // marks the refresh as due, and the focus effect below runs it the moment
+  // the map is shown again, so the map is never left on pre-background data.
   const appStateRef = useRef(AppState.currentState);
+  const isFocusedRef = useRef(false);
+  const foregroundRefreshDueRef = useRef(false);
   useEffect(() => {
     const sub = AppState.addEventListener('change', next => {
       const prev = appStateRef.current;
       appStateRef.current = next;
       if (next === 'active' && prev.match(/inactive|background/)) {
-        void runRefresh(true);
+        if (isFocusedRef.current) void runRefresh(true);
+        else foregroundRefreshDueRef.current = true;
       }
     });
     return () => sub.remove();
   }, [runRefresh]);
+  useFocusEffect(
+    useCallback(() => {
+      isFocusedRef.current = true;
+      if (foregroundRefreshDueRef.current) {
+        foregroundRefreshDueRef.current = false;
+        void runRefresh(true);
+      }
+      return () => { isFocusedRef.current = false; };
+    }, [runRefresh]),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -305,71 +325,48 @@ export function useMapData(learning: LearningMe | null) {
       if (leftSurah == null) return;
       let cancelled = false;
       (async () => {
-        let currentSurah = getCachedRecommended()?.surah_number ?? null;
-        if (currentSurah == null) {
-          try {
-            const recommended = await learningApi.recommendedNext();
-            // invalidateLevels() (called on lesson completion) nulls the
-            // shared bootCache recommendation and nothing else ever refills
-            // it for the rest of the app session — write the fresh value
-            // back so getCachedRecommended() (and Lumo's placement below)
-            // stops reading null until the next full app relaunch.
-            setCachedRecommended(recommended ?? null);
-            currentSurah = recommended?.surah_number ?? null;
-          } catch { /* fall back to mvp default below */ }
-        }
-        currentSurah = currentSurah ?? (learning?.mvp_surah_numbers?.[0] ?? SECTIONS_DEF[0]?.surahNum ?? null);
-        if (currentSurah == null || cancelled) return;
+        // Usually already loaded while Lesson Complete was on screen
+        // (services/mapReturnRefresh.ts); otherwise (an abandoned level)
+        // loaded now, in parallel rather than one call after another.
+        const { recommendedSurah, levels } = await takeMapReturn(leftSurah);
+        if (cancelled) return;
+        const currentSurah = recommendedSurah ?? (learning?.mvp_surah_numbers?.[0] ?? SECTIONS_DEF[0]?.surahNum ?? null);
+        if (currentSurah == null) return;
         currentSurahNumRef.current = currentSurah;
-        try {
-          const levels = await learningApi.levels(currentSurah);
-          if (!cancelled) setFullLevels(prev => ({ ...prev, [currentSurah]: sortedLevels(levels) }));
-        } catch (e) { console.warn('[MapScreen] focus refresh failed:', e); }
-
-        // The surah the user just left a lesson session in (completed OR
-        // abandoned) may no longer be `currentSurah` above — finishing a
-        // surah's last level advances the "recommended next" pointer to the
-        // next surah, so without this, whichever surah the user was actually
-        // just looking at never gets refreshed: its last node stays stuck
-        // non-golden, or (the abandon case) it keeps showing whatever was
-        // cached before the session started at all.
-        const visitedSurah = useLessonStore.getState().lastVisitedSurah;
-        if (visitedSurah != null && visitedSurah !== currentSurah && !cancelled) {
-          try {
-            const visitedLevels = await learningApi.levels(visitedSurah);
-            if (!cancelled) setFullLevels(prev => ({ ...prev, [visitedSurah]: sortedLevels(visitedLevels) }));
-            // Re-derives "was this surah actually finished" from the fresh
-            // fetch rather than trusting why the refresh was triggered —
-            // safe to run this check after an abandon too: an abandoned
-            // session's group only reads 'completed' here if it genuinely
-            // was (e.g. abandoning a Retry replay of an already-done level),
-            // never merely because a session existed and was exited.
-            if (!cancelled && visitedLevels.length > 0 && visitedLevels.every(l => l.status === 'completed')) {
-              void logAnalyticsEvent(AnalyticsEvents.SURAH_COMPLETE, { surah_number: visitedSurah });
-            }
-            useLessonStore.getState().clearLastCompletedSurah();
-            useLessonStore.getState().clearLastVisitedSurah();
-          } catch (e) {
-            console.warn('[MapScreen] visited-surah refresh failed:', e);
-            // Clear even on failure. Leaving lastVisitedSurah set here meant a
-            // single failed refetch (one network blip right after a lesson)
-            // left this flag stuck indefinitely -- every later focus regain
-            // (switching tabs and back, opening/closing Streak/XP/Feedback,
-            // backgrounding and returning) re-entered this whole block and
-            // ended in the unconditional setReturnedFromLevelTick below, which
-            // jumps the viewport straight to the recommended node with no
-            // suppression check (unlike the other follow-effect). Reported as
-            // "pressing any other level or button snaps the map back to
-            // recommended, and I have to scroll back" -- this is what made it
-            // keep happening on unrelated taps well after the lesson had
-            // ended, instead of just once.
-            useLessonStore.getState().clearLastCompletedSurah();
-            useLessonStore.getState().clearLastVisitedSurah();
-          }
-        } else if (visitedSurah != null) {
-          useLessonStore.getState().clearLastCompletedSurah();
-          useLessonStore.getState().clearLastVisitedSurah();
+        let currentLevels = levels[currentSurah];
+        if (currentLevels === undefined) {
+          // Only when "recommended next" itself failed and the mvp fallback
+          // is a surah the loader didn't fetch.
+          currentLevels = await learningApi.levels(currentSurah).catch(e => {
+            console.warn('[MapScreen] focus refresh failed:', e);
+            return null;
+          });
+          if (cancelled) return;
         }
+        // The surah the user just left (completed OR abandoned) may no longer
+        // be `currentSurah`: finishing a surah's last level advances "next"
+        // to the next surah, and without refreshing the left one too its last
+        // node stays stuck non-golden. One state update for both, so the new
+        // level and Lumo's move land on the same frame.
+        const leftLevels = levels[leftSurah];
+        setFullLevels(prev => {
+          const next = { ...prev };
+          if (currentLevels) next[currentSurah] = sortedLevels(currentLevels);
+          if (leftSurah !== currentSurah && leftLevels) next[leftSurah] = sortedLevels(leftLevels);
+          return next;
+        });
+        // Re-derives "was this surah actually finished" from the fresh fetch
+        // rather than trusting why the refresh was triggered, so it's safe
+        // after an abandon too (only reads 'completed' if it genuinely was).
+        if (leftSurah !== currentSurah && leftLevels && leftLevels.length > 0 && leftLevels.every(l => l.status === 'completed')) {
+          void logAnalyticsEvent(AnalyticsEvents.SURAH_COMPLETE, { surah_number: leftSurah });
+        }
+        // Cleared even when a fetch failed. Leaving lastVisitedSurah set after
+        // one network blip made every later focus regain re-enter this block
+        // and snap the viewport back to the recommended node via the tick
+        // below ("pressing any other level or button snaps the map back").
+        useLessonStore.getState().clearLastCompletedSurah();
+        useLessonStore.getState().clearLastVisitedSurah();
         if (!cancelled) {
           returnedFromSurahRef.current = leftSurah;
           setReturnedFromLevelTick(t => t + 1);

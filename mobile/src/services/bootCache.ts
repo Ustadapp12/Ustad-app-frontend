@@ -10,7 +10,7 @@
  * the cache.
  */
 
-import { authApi, learningApi } from '../api';
+import { learningApi } from '../api';
 import { setCachedLevelsToDisk, invalidateLevelsFromDisk } from './contentCache';
 import { groupIntoPhases } from '../utils/mapPhases';
 import type {
@@ -18,7 +18,6 @@ import type {
   LearningStats,
   RecommendedNext,
   SurahLevel,
-  UserProfile,
 } from '../types/api';
 
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -30,7 +29,6 @@ type Stamped<T> = { data: T; at: number };
 let _recommended: Stamped<RecommendedNext | null> | null = null;
 const _recommendedListeners = new Set<() => void>();
 let _stats: Stamped<LearningStats> | null = null;
-let _profile: Stamped<UserProfile> | null = null;
 const _levels = new Map<number, Stamped<SurahLevel[]>>();
 // Lightweight first-group-only status, for surahs we haven't full-fetched yet
 const _firstLevels = new Map<number, Stamped<SurahLevel>>();
@@ -86,10 +84,6 @@ export function getCachedStats(): LearningStats | null {
   return alive(_stats) ? _stats.data : null;
 }
 
-export function getCachedProfile(): UserProfile | null {
-  return alive(_profile) ? _profile.data : null;
-}
-
 export function getCachedLevels(surahNumber: number): SurahLevel[] | null {
   const e = _levels.get(surahNumber);
   return alive(e) ? e.data : null;
@@ -111,10 +105,6 @@ export function allLevelsCached(surahNumbers: number[]): boolean {
 }
 
 // ── Setters (exposed so screens can update cache after a save) ────
-
-export function setCachedProfile(profile: UserProfile): void {
-  _profile = stamp(profile);
-}
 
 /** Call after re-fetching recommendedNext() directly (bypassing prefetchAll)
  * so later reads of getCachedRecommended() — e.g. MapScreen's Lumo placement —
@@ -159,7 +149,6 @@ export function invalidateAll(): void {
   _recommended = null;
   notifyRecommended();
   _stats = null;
-  _profile = null;
   _levels.clear();
   _firstLevels.clear();
   _weakSurahs = null;
@@ -189,8 +178,8 @@ export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
     // learningApi.stats()
     //   .then(d => { _stats = stamp(d); }),
 
-    authApi.me()
-      .then(res => { _profile = stamp(res.profile); }),
+    // No authApi.me() here any more (review A-4): hydrate() and login have
+    // just called it, and the profile this stored was never read by anything.
 
     // Fetch weak exercises and derive a set of surah numbers for badge display
     learningApi.weakExercises(50)

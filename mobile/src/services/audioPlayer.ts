@@ -392,43 +392,68 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
 // systemPlaying: it must not be interruptible by stopAudio() (submitAnswer
 // calls that first, then this) and must not drive the exercise waveform/
 // play-icon UI.
-let correctSfx: SoundLike | null = null;
-let wrongSfx: SoundLike | null = null;
+type Sfx = {
+  file: string;
+  sound: SoundLike | null;
+  ready: boolean;
+  // A play asked for before prepare() finished, played the moment it does.
+  playWhenReady: boolean;
+};
+let correctSfx: Sfx | null = null;
+let wrongSfx: Sfx | null = null;
 
-function loadSfx(file: string): SoundLike | null {
+function loadSfx(file: string): Sfx {
+  const sfx: Sfx = { file, sound: null, ready: false, playWhenReady: false };
   try {
     const SoundModule = require('react-native-sound');
     const Sound = SoundModule.default ?? SoundModule;
     Sound.setCategory('Playback');
     const source = Platform.OS === 'android' ? `asset:/${file}` : file;
-    const sound = new Sound(source, Sound.MAIN_BUNDLE, (err: Error | null) => {
-      if (err) logAudioIssue('load', source, err);
-    });
-    return sound as unknown as SoundLike;
+    sfx.sound = new Sound(source, Sound.MAIN_BUNDLE, (err: Error | null) => {
+      if (err) { logAudioIssue('load', source, err); return; }
+      sfx.ready = true;
+      if (sfx.playWhenReady) {
+        sfx.playWhenReady = false;
+        playSfx(sfx);
+      }
+    }) as unknown as SoundLike;
   } catch (err) {
     logAudioIssue('setup', file, err);
-    return null;
   }
+  return sfx;
 }
 
 // react-native-sound's prepare() is async natively — play() silently no-ops
-// if called before it resolves. Load both eagerly at module-import time
-// (well before a user can reach a lesson's first exercise) rather than
-// lazily on first play, so the very first ding never gets dropped.
-correctSfx = loadSfx('correct.wav');
-wrongSfx = loadSfx('wrong.wav');
+// if called before it resolves. These used to load at module import, which
+// is app start (RootNavigator imports this module), so two native players
+// were allocated before the first screen for users who might never open a
+// lesson (review A-3). Now the screens that ding call this on mount (lesson,
+// Lesson Complete, email verified), well before their first ding, and a ding
+// that still beats prepare() is played once it resolves instead of dropped.
+/** Load the correct/wrong chimes if not loaded yet. Safe to call repeatedly. */
+export function preloadFeedbackSounds(): void {
+  if (!correctSfx) correctSfx = loadSfx('correct.wav');
+  if (!wrongSfx) wrongSfx = loadSfx('wrong.wav');
+}
+
+function playSfx(sfx: Sfx): void {
+  try {
+    ensurePlaybackCategory();
+    sfx.sound?.stop();
+    sfx.sound?.setCurrentTime(0);
+    sfx.sound?.play(() => {});
+  } catch (err) {
+    logAudioIssue('play', sfx.file, err);
+  }
+}
 
 /** Play the short correct/wrong feedback chime. Fire-and-forget. */
 export function playFeedbackSound(correct: boolean): void {
-  try {
-    ensurePlaybackCategory();
-    const sfx = correct ? correctSfx : wrongSfx;
-    sfx?.stop();
-    sfx?.setCurrentTime(0);
-    sfx?.play(() => {});
-  } catch (err) {
-    logAudioIssue('play', correct ? 'correct.wav' : 'wrong.wav', err);
-  }
+  preloadFeedbackSounds();
+  const sfx = correct ? correctSfx : wrongSfx;
+  if (!sfx) return;
+  if (sfx.ready) playSfx(sfx);
+  else sfx.playWhenReady = true;
 }
 
 /**

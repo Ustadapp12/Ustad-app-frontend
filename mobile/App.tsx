@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { AppState, StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initAnalytics } from './src/services/analytics';
@@ -11,8 +11,14 @@ import { useLessonStore } from './src/store/lessonStore';
 import RootNavigator from './src/navigation/RootNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import AndroidKeyboardDoneBar from './src/components/AndroidKeyboardDoneBar';
+import { DEFAULT_BAR_STYLE } from './src/hooks/useStatusBarStyle';
 
 const LEARNING_ME_POLL_MS = 60_000;
+
+// The app has no dark mode, so never let the phone's dark mode pick white
+// status bar icons over a light screen. Dark screens opt in to white icons
+// with useStatusBarStyle('light').
+StatusBar.setBarStyle(DEFAULT_BAR_STYLE);
 
 function App() {
   useEffect(() => {

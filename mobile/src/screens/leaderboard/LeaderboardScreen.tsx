@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useMemo,useRef, useState, useCallback } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../theme';
 import { useResponsiveScale, safeBottomInset } from '../../utils/responsive';
@@ -9,7 +9,6 @@ import { isGuest } from '../../utils/guest';
 import { avatarForLeaderboardEntry, characterSrcFor } from '../../utils/avatar';
 import { formatHijriDate } from '../../utils/hijri';
 import GuestGate from '../../components/GuestGate';
-import BackButton from '../../components/BackButton';
 import LumoInfoModal from '../../components/LumoInfoModal';
 import LoadingStatusText from '../../components/LoadingStatusText';
 import MascotShadow from '../../components/MascotShadow';
@@ -35,7 +34,6 @@ export default function LeaderboardScreen() {
 function LeaderboardContent() {
   const insets = useSafeAreaInsets();
   const bottomInset = safeBottomInset(insets.bottom);
-  const navigation = useNavigation<any>();
   const user = useAuthStore(s => s.user);
   const profile = useAuthStore(s => s.profile);
   const sc = useResponsiveScale();
@@ -50,9 +48,11 @@ function LeaderboardContent() {
   const [hijriDate, setHijriDate] = useState(() => formatHijriDate());
 
 
-  useEffect(() => { void load(); }, [load]);
-  // Cheap refresh on focus — the backend itself caches for 60s (see
-  // leaderboard/router.py), so this never over-fetches in practice.
+  // The one load path, first open included. A separate mount useEffect used
+  // to fire the same request alongside this on the first focus (review 5.7).
+  // `loading` already starts true, so a silent first load still shows the
+  // spinner until the list arrives. The backend caches for 60s (see
+  // leaderboard/router.py), so refreshing on every focus never over-fetches.
   useFocusEffect(useCallback(() => {
     void load({ silent: true });
     setHijriDate(formatHijriDate());
@@ -87,11 +87,6 @@ function LeaderboardContent() {
       <View style={styles.contentWrap}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <BackButton
-              onPress={() => navigation.navigate('Map')}
-              style={styles.backBtn}
-              size={d(23)}
-            />
             <Text style={styles.title}>Leaderboard</Text>
           </View>
           <Text style={styles.date}>{hijriDate}</Text>

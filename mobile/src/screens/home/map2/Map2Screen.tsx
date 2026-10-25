@@ -9,6 +9,7 @@ import LumoLoader from '../../../components/LumoLoader';
 import WorldLoading from '../../../components/worldLoading/WorldLoading';
 import { MAP_MESSAGES, MAP_MESSAGE_MS } from '../../../components/worldLoading/messages';
 import { useSlowLoading } from '../../../hooks/useSlowLoading';
+import { useStatusBarStyle } from '../../../hooks/useStatusBarStyle';
 import StreakFrozenModal from '../../../components/StreakFrozenModal';
 import AuthRequiredModal from '../../../components/AuthRequiredModal';
 import StartSurahModal from '../../../components/StartSurahModal';
@@ -55,10 +56,15 @@ export default function Map2Screen({ navigation }: Props) {
   const S = useMemo(() => makeMap2Styles(s), [s]);
   // The level start/repeat card and the "couldn't open" bubble are the current
   // map's own components, styled by its style sheet.
+  // Width only (review M-9): buildMapModel's viewport height feeds just the old
+  // map's sky line, grass edge, clouds and birds, none of which map2 reads.
+  // Keying on height rebuilt the whole model (its decoration placement search)
+  // and the style sheet whenever the window height changed, e.g. the Android
+  // system bars showing or hiding.
   const legacy = useMemo(() => {
-    const M = buildMapModel(width, height, 0);
+    const M = buildMapModel(width, 0, 0);
     return { M, ...makeLegacyStyles(M) };
-  }, [width, height]);
+  }, [width]);
   const headerH = insets.top + SKY_HILL_H * s;
   const bottomClearance = bottomBarClearance(insets.bottom);
   const bottomBarH = BOTTOM_BAR_H * s + bottomClearance;
@@ -147,6 +153,9 @@ export default function Map2Screen({ navigation }: Props) {
 
   const nodesReady = !loadingPaths;
   const slowLoading = useSlowLoading(!nodesReady);
+  // The dark WorldLoading overlay needs white icons; the sky and the white
+  // slow-connection loader need the default dark ones.
+  useStatusBarStyle(!nodesReady && !slowLoading ? 'light' : 'dark');
   // After a lesson: that surah's next unfinished level, or its last one if
   // it's all done. Read from the map's own nodes, so it is whatever the map
   // is showing. Null (land on the active level) when no surah is known.
@@ -473,7 +482,7 @@ export default function Map2Screen({ navigation }: Props) {
       )}
       <Map2BottomBar S={S} s={s} bottomClearance={bottomClearance} active="home" onPress={onBottomBar} />
 
-      {(!nodesReady || reloading) && <LoadingBar nodesReady={nodesReady} />}
+      {(!nodesReady || reloading) && <LoadingBar />}
       {/* While the map is being created: the same "Creating your world…"
           screen as the splash. The sad Lumo loader only when the connection
           is slow (no network, server not answering, or still loading after

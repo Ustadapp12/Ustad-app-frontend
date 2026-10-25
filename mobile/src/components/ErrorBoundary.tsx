@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { colors } from '../theme';
 import { captureError } from '../services/crashReporter';
+import { DEFAULT_BAR_STYLE } from '../hooks/useStatusBarStyle';
 
 interface Props {
   children: React.ReactNode;
@@ -27,9 +28,12 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     captureError(error, { componentStack: info.componentStack });
+    // Dark error screen, outside the navigator, so no hook: set it directly.
+    StatusBar.setBarStyle('light-content', true);
   }
 
   handleReset = () => {
+    StatusBar.setBarStyle(DEFAULT_BAR_STYLE, true);
     this.setState({ hasError: false });
   };
 

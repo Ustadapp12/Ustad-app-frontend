@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { NativeModules, Platform, useWindowDimensions } from 'react-native';
 
 // NOTE: this file used to carry a native nav-bar-height reader
@@ -65,7 +66,10 @@ const MAX_SCALE = 1.3;
 export function useResponsiveScale(): (n: number) => number {
   const { width } = useWindowDimensions();
   const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, width / BASELINE_W));
-  return (n: number) => Math.round(n * scale);
+  // Same function until the width changes. It used to be a new function
+  // every render, so every useMemo keyed on `sc` (screen styles in ~30 files)
+  // rebuilt on every render anyway (supervisor review A-6, 2026-10-25).
+  return useCallback((n: number) => Math.round(n * scale), [scale]);
 }
 
 // The newer Figma screens (Leaderboard, Progress) are drawn on a 440pt

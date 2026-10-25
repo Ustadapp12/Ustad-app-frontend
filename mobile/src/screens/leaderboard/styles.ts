@@ -35,7 +35,6 @@ export function makeStyles(sc: Scale, bottomInset: number) {
 
     header: { paddingHorizontal: d(25), paddingTop: d(12) },
     titleRow: { height: d(27), justifyContent: 'center', alignItems: 'center' },
-    backBtn: { position: 'absolute', left: d(4), top: 0, bottom: 0, justifyContent: 'center' },
     title: { fontFamily: 'Nunito-Bold', fontSize: d(20), color: LB.title },
     date: {
       alignSelf: 'flex-end', marginTop: d(7), fontFamily: 'Nunito-Bold', fontSize: d(11),

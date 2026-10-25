@@ -10,6 +10,7 @@ import LumoInfoModal from '../../components/LumoInfoModal';
 import ChestInfoModal from '../../components/ChestInfoModal';
 import BackButton from '../../components/BackButton';
 import RewardChestButton from '../../components/RewardChestButton';
+import JumpHereLabel from './JumpHereLabel';
 import { makeStyles } from './SearchSurahsScreen.styles';
 import { HOME_IMAGES } from '../../assets';
 import { useSurahStatuses } from '../../hooks/api';
@@ -23,9 +24,11 @@ function normalize(s: string): string {
 
 export default function SearchSurahsScreen({ navigation }: Props) {
   const rawInsets = useSafeAreaInsets();
-  const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
+  // Keyed on the bottom inset number, not an insets object: a fresh object
+  // every render rebuilt the style sheet on every keystroke (review 5.4).
+  const bottomInset = safeBottomInset(rawInsets.bottom);
   const sc = useResponsiveScale();
-  const styles = useMemo(() => makeStyles(sc, insets), [sc, insets]);
+  const styles = useMemo(() => makeStyles(sc, { bottom: bottomInset }), [sc, bottomInset]);
 
   const [query, setQuery] = useState('');
   const [confirmSurah, setConfirmSurah] = useState<SurahListing | null>(null);
@@ -81,7 +84,7 @@ export default function SearchSurahsScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: rawInsets.top }]}>
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} style={styles.backBtn} size={sc(20)} />
         <Text style={styles.headerTitle}>Search Surah</Text>
@@ -203,9 +206,7 @@ export default function SearchSurahsScreen({ navigation }: Props) {
                     // Open, progress still loading: the whole card is the
                     // button, so this is just its label.
                     <View style={styles.jumpHereBtn}>
-                      <Text style={styles.jumpHere} numberOfLines={1}>
-                        JUMP HERE <Text style={styles.jumpArrows}>{'▸▸'}</Text>
-                      </Text>
+                      <JumpHereLabel style={styles.jumpHere} />
                     </View>
                   ) : (
                     <TouchableOpacity
@@ -216,9 +217,7 @@ export default function SearchSurahsScreen({ navigation }: Props) {
                       accessibilityRole="button"
                       accessibilityLabel={`Jump to ${item.name_en}`}
                     >
-                      <Text style={styles.jumpHere} numberOfLines={1}>
-                        JUMP HERE <Text style={styles.jumpArrows}>{'▸▸'}</Text>
-                      </Text>
+                      <JumpHereLabel style={styles.jumpHere} />
                     </TouchableOpacity>
                   )
                 )}

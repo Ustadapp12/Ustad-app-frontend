@@ -2,15 +2,17 @@ import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useLottieWhileVisible } from '../../hooks/useScreenVisible';
+import { useStatusBarStyle } from '../../hooks/useStatusBarStyle';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
 import { addPendingGuestProgress, isGuest } from '../../utils/guest';
-import { playFeedbackSound } from '../../services/audioPlayer';
+import { playFeedbackSound, preloadFeedbackSounds } from '../../services/audioPlayer';
 import { STREAK_FROZEN_ICON } from '../../utils/streak';
 import MascotShadow from '../../components/MascotShadow';
 import { safeBottomInset } from '../../utils/responsive';
+import { throttledCountUpListener } from '../../utils/countUp';
 import type { RootNavProp } from '../../navigation/types';
 import { styles } from './LessonSummaryScreen.styles';
 import { ANIMATIONS, MASCOT } from '../../assets';
@@ -70,6 +72,7 @@ function Star({ filled, delay }: { filled: boolean; delay: number }) {
 // this avoids the earlier full-screen-Lottie perf problem.
 export default function LessonSummaryScreen({ navigation, route }: Props) {
   const rawInsets = useSafeAreaInsets();
+  useStatusBarStyle('light');
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const {
     xp, scorePct, stars, durationSec, streakIncremented, currentStreak, streakRepaired,
@@ -97,10 +100,12 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
       Animated.spring(lumaScaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6, delay: 200 }),
     ]);
     entrance.start();
-    xpCountAnim.addListener(({ value }) => setDisplayedXp(Math.round(value)));
+    xpCountAnim.addListener(throttledCountUpListener(xp, setDisplayedXp));
     const countUp = Animated.timing(xpCountAnim, { toValue: xp, duration: 1000, delay: 500, useNativeDriver: false });
     countUp.start();
     // Ding in sync with the badge starting to fill, not the entrance fade.
+    // Usually loaded already by the lesson; a no-op then.
+    preloadFeedbackSounds();
     const xpSfxTimer = xp > 0 ? setTimeout(() => playFeedbackSound(true), 500) : null;
     return () => {
       entrance.stop();

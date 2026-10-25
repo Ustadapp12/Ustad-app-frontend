@@ -6,6 +6,7 @@ import { isGuest } from '../../utils/guest';
 import { getNextOnboardingScreen, isOnboardingDone } from '../../utils/storage';
 import { healthCheck } from '../../api/client';
 import WorldLoading from '../../components/worldLoading/WorldLoading';
+import { useStatusBarStyle } from '../../hooks/useStatusBarStyle';
 import type { RootNavProp } from '../../navigation/types';
 import { selectUser, selectIsHydrated, selectStartGuestSession, selectOnboardingCompleted } from '../../store/selectors/auth';
 import { styles } from './SplashScreen.styles';
@@ -21,6 +22,7 @@ interface Props {
 
 export default function SplashScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  useStatusBarStyle('light');
   // Exact values only (store/selectors/auth.ts), never the whole store.
   // The whole `user` is genuinely used for routing (email, verified,
   // provider, guest).

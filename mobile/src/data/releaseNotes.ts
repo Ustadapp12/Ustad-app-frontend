@@ -29,6 +29,22 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Reviewed and approved by the user 2026-10-26, before the builds that
+    // carry it (Android AAB and TestFlight).
+    version: '1.0.46',
+    date: '2026-10-26',
+    changes: [
+      { category: 'Improved', text: 'After finishing a level, the map now shows your next level and Lumo much faster.' },
+      { category: 'Improved', text: 'The time, battery and signal icons at the top now stay visible on every screen, including dark ones.' },
+      { category: 'Improved', text: 'Back arrows across the app are now a softer grey.' },
+      { category: 'Improved', text: 'The Jump Here arrows in Search now match the size of the text.' },
+      { category: 'Improved', text: 'The Leaderboard no longer has a back button; use the tab bar to move around.' },
+      { category: 'Improved', text: 'The app does less work in the background, so it runs smoother and saves battery.' },
+      { category: 'Fixed', text: 'The clock on the Pray tab showed up very small on some iPhones.' },
+      { category: 'Fixed', text: 'The Pray tab clock now changes right on the minute.' },
+    ],
+  },
+  {
     // Reviewed and approved by the user 2026-10-23, before the build that
     // carries it. The Info.plist and privacy manifest fixes have no note.
     version: '1.0.45',

@@ -8,6 +8,7 @@ import { buildLessonSteps, buildStepsFromExerciseOut } from '../lesson/buildStep
 import { isListenOnlyLesson } from '../lesson/mergeSteps';
 import { AnalyticsEvents, logAnalyticsEvent } from '../services/analytics';
 import { invalidateLevels } from '../services/bootCache';
+import { prefetchMapReturn } from '../services/mapReturnRefresh';
 import {
   abandonActiveLessonSession,
   abandonLessonSessionById,
@@ -285,6 +286,9 @@ export const useLessonStore = create<LessonState>((set, get) => ({
       // leaving stale pre-completion data for the next cold start to read.
       await invalidateLevels([group.surah_number]);
       set({ lastCompletedSurah: group.surah_number, lastVisitedSurah: group.surah_number });
+      // Lesson Complete is on screen for a few seconds anyway: load the map's
+      // post-lesson data now so it's ready when the user taps Continue.
+      prefetchMapReturn(group.surah_number);
     }
     void logAnalyticsEvent(AnalyticsEvents.LESSON_COMPLETE, { passed: passed ? 1 : 0, score_pct, mistakes });
     // Fire-and-forget, same as the analytics call above: local notifications must

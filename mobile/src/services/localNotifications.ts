@@ -365,11 +365,24 @@ async function cancelLocal(kind: LocalNotificationKind): Promise<void> {
 // flag either way.
 const REAL_NOTIFICATIONS_DISABLED = false;
 
+// The 60s learning poll calls this every minute, and each call was six native
+// cancel/schedule calls even when nothing had changed (supervisor review A-7,
+// 2026-10-25). Skipped when the streak, prefs and local day all match the last
+// run AND that run is under 30 min old. The age cap matters: inactivity_nudge
+// fires 24h after the latest refresh, so it still gets pushed back while the
+// app is in use, now by at most 30 min of drift instead of every minute.
+const REFRESH_MAX_AGE_MS = 30 * 60 * 1000;
+let lastRefresh: { key: string; at: number } | null = null;
+
 export async function refreshLocalNotifications(
   streak: StreakState,
   prefs: ReminderPrefs,
   now: Date = new Date(),
 ): Promise<void> {
+  const key = JSON.stringify([streak, prefs, toLocalDateString(now)]);
+  if (lastRefresh && lastRefresh.key === key && now.getTime() - lastRefresh.at < REFRESH_MAX_AGE_MS) return;
+  lastRefresh = { key, at: now.getTime() };
+
   if (REAL_NOTIFICATIONS_DISABLED) {
     // Actively cancel, not just skip scheduling — anything already scheduled
     // by a previous build before this flag existed is still sitting in the

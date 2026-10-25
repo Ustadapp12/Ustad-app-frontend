@@ -72,11 +72,7 @@ export function makeStyles(sc: (n: number) => number, insets: any) {
     // sharp at any size (2026-10-22, on request).
     jumpHereBtn: { alignSelf: 'flex-end', marginTop: sc(8) },
     jumpHere: { fontFamily: 'Nunito-Black', fontSize: sc(13), letterSpacing: 0.3, color: '#047A56' },
-    // No negative letter spacing: at -2 the two arrows drew on top of each other.
-    // ▸ is a "small" triangle that draws at about half the em, so it needs a
-    // bigger font than the label for the arrows to reach its cap height
-    // (2026-10-23, on request; was sc(11)).
-    jumpArrows: { fontSize: sc(18), letterSpacing: 0 },
+    // The ▸▸ arrows are drawn by JumpHereLabel at this style's cap height.
     progressBlock: { marginTop: sc(8) },
     progressPct: { fontFamily: 'Nunito-Bold', fontSize: sc(10), color: colors.success, textAlign: 'right', marginBottom: sc(4) },
     progressBarRow: { flexDirection: 'row', alignItems: 'center', gap: sc(8) },

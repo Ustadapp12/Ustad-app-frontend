@@ -31,7 +31,7 @@ const FAQS = [
   },
 ];
 
-function FaqCard({ q, a, lumaAnim }: { q: string; a: string; lumaAnim: Animated.Value }) {
+function FaqCard({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
 
   const toggle = () => {
@@ -96,7 +96,7 @@ export default function HelpScreen() {
         {/* FAQ cards */}
         <Text style={styles.sectionLabel}>FREQUENTLY ASKED</Text>
         {FAQS.map((faq, i) => (
-          <FaqCard key={i} q={faq.q} a={faq.a} lumaAnim={lumaY} />
+          <FaqCard key={i} q={faq.q} a={faq.a} />
         ))}
 
         {/* Footer tip */}

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { isGuest } from '../../utils/guest';
 import GuestGate from '../../components/GuestGate';
+import { useStatusBarStyle } from '../../hooks/useStatusBarStyle';
 import MascotShadow from '../../components/MascotShadow';
 import ComingSoonBanner from '../../components/ComingSoonBanner';
 import { styles } from './DailyQuestScreen.styles';
@@ -21,6 +22,7 @@ export default function DailyQuestScreen() {
 
 function DailyQuestContent() {
   const insets = useSafeAreaInsets();
+  useStatusBarStyle('light');
   const floatAnim = useRef(new Animated.Value(0)).current;
 
   // Focus-scoped, not mount-scoped. This is a tab screen, so it stays

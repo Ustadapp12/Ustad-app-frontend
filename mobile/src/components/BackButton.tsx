@@ -1,7 +1,9 @@
 import React from 'react';
 import { Image, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native';
-import { colors } from '../theme';
 import { ICONS } from '../assets';
+
+// Same light grey as the map's locked-node lock icon (map2/art/IconLockArt).
+const BACK_ARROW_GREY = '#AFAFAF';
 
 interface Props {
   onPress: () => void;
@@ -15,12 +17,12 @@ interface Props {
 // The back-arrow icon + require() + resizeMode was copy-pasted across 14+
 // screens; this is the one place that duplication lives now, so swapping
 // the asset or its default styling again only needs one edit. Always the
-// same charcoal (colors.darkText): no colour override, since per-screen
-// tints are how the arrows ended up mixed (2026-10-22).
+// same light grey (BACK_ARROW_GREY, 2026-10-25; was charcoal): no colour
+// override, since per-screen tints are how the arrows ended up mixed.
 export default function BackButton({
   onPress, style, size = 20, accessibilityLabel = 'Back',
 }: Props) {
-  const tintColor = colors.darkText;
+  const tintColor = BACK_ARROW_GREY;
   return (
     <TouchableOpacity
       onPress={onPress}

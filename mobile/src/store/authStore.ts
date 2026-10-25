@@ -10,7 +10,6 @@ import { refreshLocalNotifications } from '../services/localNotifications';
 import { AnalyticsEvents, logAnalyticsEvent, setAnalyticsUserId, setUserProperties } from '../services/analytics';
 import { setCrashUser, addBreadcrumb, captureError } from '../services/crashReporter';
 import { setPendingEntryMethod } from '../services/usageSession';
-import { warmAudioUrlCache } from '../services/audioUrls';
 import { prefetchAll, invalidateAll } from '../services/bootCache';
 import { abandonActiveLessonSession, abandonPendingLessonSessionFromStorage } from '../services/lessonSession';
 import { useLessonStore } from './lessonStore';
@@ -73,11 +72,10 @@ let lastLearningMeFetchAt = 0;
 
 export const useAuthStore = create<AuthState>((set, get) => {
   // Runs the parts of post-auth setup that hit endpoints gated behind email
-  // verification (learning/content data + audio warm-cache + prefetch).
+  // verification (learning/content data + prefetch).
   // Only ever called once `user.email_verified` is known true — see login(),
   // register(), hydrate(), and completeEmailVerification() below.
   const finishAuthSetup = async (user: User, learning: LearningMe) => {
-    void warmAudioUrlCache();
     await setAnalyticsUserId(user.id);
     lastLearningMeFetchAt = Date.now();
     set({ user });

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Alert, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { stopAudio, onPlayingChange, playFeedbackSound } from '../../services/audioPlayer';
+import { useStatusBarStyle } from '../../hooks/useStatusBarStyle';
+import { stopAudio, onPlayingChange, playFeedbackSound, preloadFeedbackSounds } from '../../services/audioPlayer';
 import { useLessonStore } from '../../store/lessonStore';
 import { useAuthStore } from '../../store/authStore';
 import { captureError } from '../../services/crashReporter';
@@ -72,6 +73,8 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   // or a child exercise's) can run and capture a stale value.
   setActiveExerciseId(exercise?.ex_id ?? null);
   const [showBismillah, setShowBismillah] = useState(false);
+  // White icons over the dark Bismillah intro only.
+  useStatusBarStyle(showBismillah && exercise ? 'light' : 'dark');
   const [segments, setSegments] = useState<SegmentStatus[]>([]);
   const [feedback, setFeedback] = useState<FormulaAttemptOut | null>(null);
   const [mistakes, setMistakes] = useState(0);
@@ -229,6 +232,9 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     };
   }, [groupId]);
 
+  // Ready the correct/wrong chimes while the level loads, so the first
+  // answer's ding plays at once (they are no longer loaded at app start).
+  useEffect(() => { preloadFeedbackSounds(); }, []);
 
   // Silently skip any exercise type the app doesn't handle yet — user never sees it
   useEffect(() => {

@@ -7,7 +7,7 @@ import { ApiError } from '../../api/client';
 import { colors } from '../../theme';
 import { LoadingRing } from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
-import { playFeedbackSound } from '../../services/audioPlayer';
+import { playFeedbackSound, preloadFeedbackSounds } from '../../services/audioPlayer';
 import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 import { styles } from './VerifyEmailScreen.styles';
@@ -51,6 +51,10 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
 
   useEffect(() => () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); }, []);
 
+  // The "verified" celebration dings; load the chime while the user types the
+  // code, since it is no longer loaded at app start.
+  useEffect(() => { preloadFeedbackSounds(); }, []);
+
   useEffect(() => {
     if (showCelebration) {
       lumaScaleAnim.setValue(0);
@@ -59,6 +63,9 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
   }, [showCelebration]);
 
   function startCooldown() {
+    // Never two timers ticking the same countdown (review 5.2). Same guard as
+    // VerifyResetCodeScreen.
+    if (cooldownTimer.current) clearInterval(cooldownTimer.current);
     setCooldown(RESEND_COOLDOWN_S);
     cooldownTimer.current = setInterval(() => {
       setCooldown(c => {

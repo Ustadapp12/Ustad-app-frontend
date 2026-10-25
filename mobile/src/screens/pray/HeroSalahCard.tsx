@@ -60,12 +60,17 @@ export default function HeroSalahCard({ currentPrayer, locationDenied, onEnableL
 
   // Only while the Pray tab is focused: the tab stays mounted on other tabs,
   // so a mount-scoped interval kept firing everywhere (animation audit,
-  // 2026-10-22). Refreshed at once on focus so the clock is never stale.
+  // 2026-10-22). Refreshed at once on focus, then on each exact minute
+  // boundary (was every 15s, so it could lag the phone's clock by up to 15s).
   useFocusEffect(
     useCallback(() => {
-      setTime(formatClock(new Date()));
-      const id = setInterval(() => setTime(formatClock(new Date())), 15000);
-      return () => clearInterval(id);
+      let id: ReturnType<typeof setTimeout>;
+      const tick = () => {
+        setTime(formatClock(new Date()));
+        id = setTimeout(tick, 60000 - (Date.now() % 60000) + 50);
+      };
+      tick();
+      return () => clearTimeout(id);
     }, []),
   );
 
@@ -76,7 +81,10 @@ export default function HeroSalahCard({ currentPrayer, locationDenied, onEnableL
       style={styles.card}
     >
       <Text style={styles.now}>NOW</Text>
-      <Text style={styles.time} numberOfLines={1} adjustsFontSizeToFit>{time}</Text>
+      {/* No adjustsFontSizeToFit: on iOS it shrank the clock to a few points
+          (its lineHeight is below Nunito's natural height, so iOS decided it
+          never fit). sc() already sizes it to the screen width. */}
+      <Text style={styles.time} numberOfLines={1}>{time}</Text>
       <View style={styles.pillSlot}>
         {locationDenied ? (
           <Text style={styles.deniedText}>Enable location for prayer times</Text>
@@ -96,7 +104,7 @@ export default function HeroSalahCard({ currentPrayer, locationDenied, onEnableL
           ? onEnableLocation
           : () => navigation.navigate('LogSalah')}
       >
-        <Text style={styles.btnText} numberOfLines={1} adjustsFontSizeToFit>{locationDenied ? 'ENABLE LOCATION' : 'TAP TO LOG YOUR SALAH'}</Text>
+        <Text style={styles.btnText} numberOfLines={1}>{locationDenied ? 'ENABLE LOCATION' : 'TAP TO LOG YOUR SALAH'}</Text>
       </TouchableOpacity>
     </GradientBox>
   );

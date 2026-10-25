@@ -7,6 +7,7 @@ import { safeBottomInset } from '../../utils/responsive';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 import type { RouteProp } from '@react-navigation/native';
 import { useScreenVisible } from '../../hooks/useScreenVisible';
+import { useStatusBarStyle } from '../../hooks/useStatusBarStyle';
 import { styles } from './StreakRepairProgressScreen.styles';
 
 interface Props {
@@ -52,6 +53,7 @@ function Snowflake({ left, top, delay, size }: { left: number; top: number; dela
 // the layout changes between the two states, only what's in the hero. ──
 export default function StreakRepairProgressScreen({ navigation, route }: Props) {
   const rawInsets = useSafeAreaInsets();
+  useStatusBarStyle('light');
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { repairLevelsCompleted, repairLevelsRequired } = route.params;
   const remaining = Math.max(repairLevelsRequired - repairLevelsCompleted, 1);

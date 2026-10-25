@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useLottieWhileVisible } from '../../hooks/useScreenVisible';
+import { useStatusBarStyle } from '../../hooks/useStatusBarStyle';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
@@ -9,6 +10,7 @@ import MascotShadow from '../../components/MascotShadow';
 import { isGuest } from '../../utils/guest';
 import { STREAK_FROZEN_ICON } from '../../utils/streak';
 import { safeBottomInset } from '../../utils/responsive';
+import { throttledCountUpListener } from '../../utils/countUp';
 import type { RootNavProp, RootStackParamList } from '../../navigation/types';
 import type { RouteProp } from '@react-navigation/native';
 import { styles } from './StreakCelebrationScreen.styles';
@@ -36,6 +38,7 @@ function animationFor(streak: number) {
 // only the celebration moment. ────────────────────────────────────────────
 export default function StreakCelebrationScreen({ navigation, route }: Props) {
   const rawInsets = useSafeAreaInsets();
+  useStatusBarStyle('light');
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const { currentStreak, streakRepaired } = route.params;
   const guest = isGuest(useAuthStore(s => s.user));
@@ -100,7 +103,7 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
       Animated.timing(slideAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
     ]);
     entrance.start();
-    countAnim.addListener(({ value }) => setDisplayedStreak(Math.round(value)));
+    countAnim.addListener(throttledCountUpListener(displayStreak, setDisplayedStreak));
     const countUp = Animated.timing(countAnim, { toValue: displayStreak, duration: 1000, delay: 500, useNativeDriver: false });
     countUp.start();
     return () => {

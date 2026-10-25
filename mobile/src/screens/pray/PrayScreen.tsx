@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Linking, ScrollView, StatusBar, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useStatusBarStyle } from '../../hooks/useStatusBarStyle';
 import { useResponsiveScale } from '../../utils/responsive';
 import { getLastKnownCoordinates, loadSavedCoordinates, type Coords } from '../../utils/location';
 import { nextPrayerFromCoords, currentPrayerFromCoords, type NextPrayer } from '../../utils/prayerTimes';
@@ -122,12 +123,7 @@ export default function PrayScreen() {
   // prayer boundary without ever navigating away or re-reading the GPS.
   // The hero card runs up behind the status bar (Figma), so its icons must
   // be light here and go back to dark for every other screen.
-  useFocusEffect(
-    useCallback(() => {
-      StatusBar.setBarStyle('light-content', true);
-      return () => StatusBar.setBarStyle('dark-content', true);
-    }, []),
-  );
+  useStatusBarStyle('light');
 
   useFocusEffect(
     useCallback(() => {
