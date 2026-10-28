@@ -7,7 +7,10 @@ export const styles = StyleSheet.create({
   dots: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   dot: { width: 24, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
-  content: { flex: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 8 },
+  // A ScrollView, so a short screen (iPhone SE, or an iPhone app on the review
+  // iPad) with the keyboard up can still reach the input above the footer.
+  scroll: { flex: 1 },
+  content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 8 },
   luma: { width: 120, height: 120, marginBottom: 10 },
   badge: {
     fontFamily: 'Nunito-Bold', fontSize: 10, color: colors.primary,

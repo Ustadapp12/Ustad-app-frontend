@@ -44,6 +44,4 @@ export const S = StyleSheet.create({
   exitConfirmCancelText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#F5F7FA' },
   exitConfirmLeaveBtn: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
   exitConfirmLeaveText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.midText },
-  waveBar: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  waveLottie: { width: 220, height: 60 },
 });

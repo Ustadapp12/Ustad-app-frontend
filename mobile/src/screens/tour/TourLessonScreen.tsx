@@ -121,8 +121,11 @@ export default function TourLessonScreen({ navigation }: Props) {
         glowTarget={glowTarget}
       />
 
-      <View {...exerciseTarget} collapsable={false} style={styles.exerciseArea} pointerEvents="none">
-        <ExerciseSlide key={exercise.ex_id}>
+      <View ref={exerciseTarget.ref} onLayout={exerciseTarget.onLayout} collapsable={false} style={styles.exerciseArea} pointerEvents="none">
+        <ExerciseSlide
+          key={exercise.ex_id}
+          onSettled={() => { checkTarget.measure(); micTarget.measure(); optionTarget.measure(); }}
+        >
           {exercise.type === 'read_and_speak' ? (
             <ReadAndSpeak
               ex={exercise}

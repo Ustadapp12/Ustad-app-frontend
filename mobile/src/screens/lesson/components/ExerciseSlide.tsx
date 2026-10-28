@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Animated, Easing } from 'react-native';
 
 // ── Exercise slide-in — mounts fresh (via the `key={exercise.ex_id}` on its
@@ -27,14 +27,25 @@ import { Animated, Easing } from 'react-native';
 // is ever delayed by a frame or two regardless, the exercise content is
 // already sitting almost exactly where it belongs instead of fully
 // off-screen — worst case a barely-noticeable shift, never a blank screen.
-export function ExerciseSlide({ children }: { children: React.ReactNode }) {
+//
+// Once the slide ends, the transform is dropped from the style. The native
+// driver moves the real view but never tells React's own layout tree, which
+// keeps the starting 40px; on the new architecture measureInWindow reads that
+// tree, so the guided tour's mic spotlight sat 40px right of the mic for good.
+// `onSettled` then fires (after that commit) so the tour measures its targets
+// (Check, mic, option) where they really are.
+export function ExerciseSlide({ children, onSettled }: { children: React.ReactNode; onSettled?: () => void }) {
   const SLIDE_OFFSET = 40;
   const translateX = useRef(new Animated.Value(SLIDE_OFFSET)).current;
+  const [settled, setSettled] = useState(false);
   useLayoutEffect(() => {
     translateX.setValue(SLIDE_OFFSET);
     Animated.timing(translateX, {
       toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true,
-    }).start();
+    }).start(({ finished }) => { if (finished) setSettled(true); });
   }, []);
-  return <Animated.View style={{ flex: 1, transform: [{ translateX }] }}>{children}</Animated.View>;
+  useEffect(() => { if (settled) onSettled?.(); }, [settled]);
+  return <Animated.View style={settled ? SETTLED : { flex: 1, transform: [{ translateX }] }}>{children}</Animated.View>;
 }
+
+const SETTLED = { flex: 1 } as const;

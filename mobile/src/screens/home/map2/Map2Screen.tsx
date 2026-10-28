@@ -31,7 +31,7 @@ import { LumaFloat } from '../map/components/LumaFloat';
 import { LoadingBar } from '../map/components/LoadingBar';
 import { SKY_HILL_H } from './art/SkyHillArt';
 import { FIGMA_W } from './map2Theme';
-import { SLOT_OF, SLOT_SURAH, bandOfY, bandSlotRange, buildMap2Layout, type Map2NodeData } from './map2Model';
+import { SLOT_OF, SLOT_SURAH, bandOfY, bandSlotRange, buildMap2Layout, feedbackCoversRestingBoard, type Map2NodeData } from './map2Model';
 import { useEnrichedSections } from './useEnrichedSections';
 import { useMap2Jump } from './useMap2Jump';
 import { makeMap2Styles } from './styles';
@@ -200,9 +200,16 @@ export default function Map2Screen({ navigation }: Props) {
   const showBackTo = arrowDir != null && nodesReady;
   const feedbackLiftBy = (BACK_TO_LEVEL_H + 12) * s;
   const feedbackLift = useRef(new Animated.Value(0)).current;
+  // Short screens: Feedback moves up under Review when the active surah's
+  // sign would rest under its corner spot (and then has nothing to dodge).
+  const feedbackInColumn = useMemo(
+    () => feedbackCoversRestingBoard(layout, activeSlot, height, bottomBarH),
+    [layout, activeSlot, height, bottomBarH],
+  );
   useEffect(() => {
-    Animated.timing(feedbackLift, { toValue: showBackTo ? -feedbackLiftBy : 0, duration: 180, useNativeDriver: true }).start();
-  }, [showBackTo, feedbackLiftBy, feedbackLift]);
+    const lift = showBackTo && !feedbackInColumn;
+    Animated.timing(feedbackLift, { toValue: lift ? -feedbackLiftBy : 0, duration: 180, useNativeDriver: true }).start();
+  }, [showBackTo, feedbackInColumn, feedbackLiftBy, feedbackLift]);
   // The jump hook also brings the view back on these; the arrow follows.
   useEffect(() => { setArrowDir(null); }, [activeId]);
   // After a lesson the view may land on another surah than the learner's
@@ -474,7 +481,7 @@ export default function Map2Screen({ navigation }: Props) {
         onReview={onReview}
       />
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: feedbackLift }] }]} pointerEvents="box-none">
-        <Map2FeedbackButton S={S} s={s} bottom={bottomBarH + 21 * s} onPress={onFeedback} />
+        <Map2FeedbackButton S={S} s={s} bottom={bottomBarH + 21 * s} topInset={insets.top} inColumn={feedbackInColumn} onPress={onFeedback} />
       </Animated.View>
       {showBackTo && arrowDir != null && (
         // In Feedback's own spot, centred under it (Feedback is 60.7pt wide).

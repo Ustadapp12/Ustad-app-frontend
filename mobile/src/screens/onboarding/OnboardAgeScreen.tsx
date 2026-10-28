@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
@@ -55,7 +55,7 @@ export default function OnboardAgeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={{ width: 120, height: 120, marginBottom: 10 }}>
           <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
           <MascotShadow width={120} />
@@ -76,7 +76,7 @@ export default function OnboardAgeScreen({ navigation }: Props) {
           />
         </View>
         {error && <Text style={styles.error}>{error}</Text>}
-      </View>
+      </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         <TouchableOpacity

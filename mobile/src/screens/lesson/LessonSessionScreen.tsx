@@ -20,7 +20,8 @@ import { SpeakResultBanner, type SpeakResult } from './components/SpeakResultBan
 import { SubmittingSpinner } from './components/SubmittingSpinner';
 import ExerciseSwitch from './components/ExerciseSwitch';
 import { LessonLoadError, LessonNotReady, LessonLoading } from './components/LessonStates';
-import { NoHeartsModal, ExitConfirmModal, ConfettiOverlay, AudioWaveBar } from './components/LessonOverlays';
+import { NoHeartsModal, ExitConfirmModal, ConfettiOverlay } from './components/LessonOverlays';
+import { ExerciseWaveContext } from '../../components/lesson/ExerciseWave';
 import { stopRecording, setActiveExerciseId } from './lessonAudio';
 import { HANDLED_EXERCISE_TYPES, CHARACTERS, shuffleIndices, characterForIndex, accuracyPct } from './lessonShared';
 import { S } from './styles';
@@ -609,7 +610,8 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const character = characterForIndex(charOrderRef.current, exerciseIndexRef.current);
   const hintAyah = group?.ayahs.find(a => a.ayah_number === exercise.ayah_no);
   const showHint = exercise.type !== 'ayah_display' && exercise.type !== 'hear_and_select' && exercise.type !== 'sequence';
-  // The wave bar is suppressed where the exercise already shows its own
+  // The wave (drawn by ExerciseLayout in the gap between the options and the
+  // Check button, see ExerciseWave) is suppressed where the exercise already shows its own
   // playing state: recitation (SpeakResultBanner's waveform), audio_fill
   // (each option's play circle) and hear_and_select (its big speaker button
   // turns into pause + "Playing…"; user 2026-08-28: "not needed").
@@ -634,6 +636,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           button at the true bottom of the screen, since S.screen only
           reserves insets.top. */}
       <View style={[S.exerciseArea, { paddingBottom: insets.bottom }]}>
+        <ExerciseWaveContext.Provider value={showWaveBar}>
         <ExerciseSlide key={exercise.ex_id}>
           <ExerciseSwitch
             exercise={exercise}
@@ -653,6 +656,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
             onSpeakSkip={() => { void submitAnswer(null, false, 'skipped'); }}
           />
         </ExerciseSlide>
+        </ExerciseWaveContext.Provider>
       </View>
 
       {submitting && !feedback && (
@@ -715,7 +719,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         message="Heart refills will be available soon. Stay tuned!"
       />
 
-      {showWaveBar && <AudioWaveBar bottom={insets.bottom + 8} />}
     </View>
   );
 }

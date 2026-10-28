@@ -317,7 +317,8 @@ export default function SignUpScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      {/* paddingTop: same short-screen reason as LoginScreen's scroll. */}
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top }]} keyboardShouldPersistTaps="handled">
         <View style={styles.lumaWrap}>
           <Image source={MASCOT.lumoTransparent} style={styles.luma} resizeMode="contain" />
           <MascotShadow width={150} style={{ position: 'relative', marginTop: -15 }} />

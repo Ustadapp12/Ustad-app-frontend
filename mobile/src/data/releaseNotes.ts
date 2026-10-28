@@ -29,6 +29,18 @@ export interface ReleaseNoteEntry {
 
 export const RELEASE_NOTES: ReleaseNoteEntry[] = [
   {
+    // Reviewed and approved by the user 2026-10-28, before the TestFlight
+    // build that carries it.
+    version: '1.0.47',
+    date: '2026-10-28',
+    changes: [
+      { category: 'Fixed', text: 'On smaller screens, Lumo no longer sits under the clock on the Log in and Create account screens.' },
+      { category: 'Fixed', text: 'In the guided tour, the highlight now sits exactly on the mic button.' },
+      { category: 'Fixed', text: 'On smaller screens, the Feedback button no longer covers the surah sign on the map.' },
+      { category: 'Fixed', text: 'The name and age screens now scroll, so the box stays visible above the keyboard on smaller screens.' },
+    ],
+  },
+  {
     // Reviewed and approved by the user 2026-10-26, before the builds that
     // carry it (Android AAB and TestFlight).
     version: '1.0.46',

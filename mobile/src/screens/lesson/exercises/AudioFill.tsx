@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { preloadAudioUrls, evictPreloadedUrls, onPlayingChange } from '../../../services/audioPlayer';
+import { preloadAudioUrls, evictPreloadedUrls, onPlayingChange, isAudioPlaying } from '../../../services/audioPlayer';
 import { colors } from '../../../theme';
 import type { ExerciseDict } from '../../../types/api';
 import ExerciseLayout from '../../../components/lesson/ExerciseLayout';
@@ -25,22 +25,26 @@ export function AudioFill({
   onSubmit: (ans: string) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const [playingIdx, setPlayingIdx] = useState<number | null>(null);
+  // The option the user last started, and whether audio is audibly playing
+  // right now. A circle shows pause exactly while both hold, so it follows
+  // the real sound: it goes back to play the moment the clip ends, is
+  // paused, or is stopped (Check, another tap, leaving).
+  //
+  // This used to be one playingIdx set on tap and cleared on any "stopped"
+  // event. But playUrl() calls stopAudio() before it plays, and that stop
+  // fired the clear right after the tap set it, so a playing option showed
+  // the play icon for its whole clip.
+  const [startedIdx, setStartedIdx] = useState<number | null>(null);
+  const [audioPlaying, setAudioPlaying] = useState(isAudioPlaying());
+  const playingIdx = audioPlaying ? startedIdx : null;
   const mountedRef = useRef(true);
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  // See PlayPauseBtn's identical subscription — an external stopAudio() call
-  // (Check press) doesn't reliably fire playUrl's completion callback on
-  // Android, so a play circle can keep showing its pause icon after the
-  // sound has actually stopped.
-  useEffect(() => onPlayingChange(isPlaying => {
-    if (!isPlaying && mountedRef.current) setPlayingIdx(null);
-  }), []);
+  useEffect(() => onPlayingChange(p => { if (mountedRef.current) setAudioPlaying(p); }), []);
 
   useEffect(() => {
     setSelected(null);
-    setPlayingIdx(null);
+    setStartedIdx(null);
 
     // Preload all audio for this exercise in the background so taps play instantly.
     // Options first, segment audio after: preloadAudioUrls loads BATCH=4 at a
@@ -64,10 +68,10 @@ export function AudioFill({
     setSelected(ar);
     if (playingIdx === idx) {
       await pauseCurrentAudio();
-      if (mountedRef.current) setPlayingIdx(null);
+      if (mountedRef.current) setStartedIdx(null);
     } else {
-      if (mountedRef.current) setPlayingIdx(idx);
-      await playUrl(audioUrl, () => { if (mountedRef.current) setPlayingIdx(null); });
+      setStartedIdx(idx);
+      await playUrl(audioUrl);
     }
   };
 
@@ -88,7 +92,7 @@ export function AudioFill({
 
       {/* "Hear the word" button — user must press to hear; not auto-played */}
       {ex.segment_audio_urls?.length ? (
-        <HearButton label="Hear the word" onPress={() => void playUrlSequence(ex.segment_audio_urls!)} />
+        <HearButton label="Hear the word" onPress={() => { setStartedIdx(null); void playUrlSequence(ex.segment_audio_urls!); }} />
       ) : null}
 
       {/* Options are audio-only, so a pick shows "?" rather than the word */}

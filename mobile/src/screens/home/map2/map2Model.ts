@@ -239,6 +239,34 @@ export function buildMap2Layout({ width, headerH, bottomBarH, activeSlot }: Layo
   };
 }
 
+// Feedback's corner spot (Map2FeedbackButton), in Figma points.
+export const FEEDBACK_W = 60.7;
+export const FEEDBACK_H = 67.68;
+export const FEEDBACK_RIGHT = 23;
+export const FEEDBACK_ABOVE_BAR = 21;
+
+/** True when, with the map at rest on the active level (useMap2Jump centres
+ * it, and the list clamps at the map's ends), that surah's sign sits on or
+ * within 8pt of Feedback's corner spot. Only short screens hit this (iPhone
+ * SE, or the iPhone app on Apple's review iPad): the first surahs rest at the
+ * bottom end of the map, low enough to reach the button. */
+export function feedbackCoversRestingBoard(L: Map2Layout, activeSlot: number | null, height: number, bottomBarH: number): boolean {
+  if (activeSlot == null) return false;
+  let board: Board | undefined;
+  for (const b of L.boards) if (b.firstSlot <= activeSlot && (!board || b.firstSlot > board.firstSlot)) board = b;
+  if (!board) return false;
+  const s = L.s;
+  const offset = Math.min(Math.max(0, L.cy[activeSlot] - height / 2), Math.max(0, L.contentH - height));
+  const gap = 8 * s;
+  const sign = { x: board.cx - L.boardW / 2 - gap, y: board.cy - offset - L.boardH / 2 - gap, w: L.boardW + 2 * gap, h: L.boardH + 2 * gap };
+  const button = {
+    x: L.mapW - (FEEDBACK_RIGHT + FEEDBACK_W) * s,
+    y: height - bottomBarH - (FEEDBACK_ABOVE_BAR + FEEDBACK_H) * s,
+    w: FEEDBACK_W * s, h: FEEDBACK_H * s,
+  };
+  return overlaps(sign, button);
+}
+
 // ── Per-band content, built only for bands the list actually renders ──
 
 export interface BandContent {

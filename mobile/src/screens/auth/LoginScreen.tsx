@@ -128,7 +128,10 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 40 + insets.bottom }]} keyboardShouldPersistTaps="handled">
+      {/* paddingTop: on a short screen (iPhone SE, or an iPhone app on the
+          review iPad) the content is taller than the window, so centering
+          stops working and Lumo would start under the status bar. */}
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top, paddingBottom: 40 + insets.bottom }]} keyboardShouldPersistTaps="handled">
         {/* Luma */}
         <View style={styles.lumaWrap}>
           <Image source={MASCOT.lumoTransparent} style={styles.luma} resizeMode="contain" />

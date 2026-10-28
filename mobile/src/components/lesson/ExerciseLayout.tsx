@@ -1,6 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useContext, useRef, useState } from 'react';
 import { View, ScrollView, StyleSheet, useWindowDimensions, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ExerciseWave, { ExerciseWaveContext } from './ExerciseWave';
 
 // Height of the tallest answer-feedback sheet (FeedbackBanner's "Incorrect"
 // variant with the correct answer shown), measured from the screen bottom.
@@ -57,6 +58,10 @@ export default function ExerciseLayout({ children, footer, contentStyle }: Props
   const centredOffset = free / 2;
   const offsetClearingSheet = free - (sheetClearance - CONTENT_PADDING);
   const extraTop = Math.max(0, Math.min(centredOffset, offsetClearingSheet));
+  // The empty gap between the content's bottom and the footer: where the
+  // playing wave goes. Zero or less when the content fills or scrolls.
+  const showWave = useContext(ExerciseWaveContext);
+  const contentBottom = CONTENT_PADDING + extraTop + contentHeight;
 
   return (
     <View style={S.root}>
@@ -73,6 +78,7 @@ export default function ExerciseLayout({ children, footer, contentStyle }: Props
             {children}
           </View>
         </ScrollView>
+        {showWave && measured && <ExerciseWave gapTop={contentBottom} gapHeight={viewportHeight - contentBottom} />}
       </View>
       {footer ? <View style={S.footer}>{footer}</View> : null}
     </View>

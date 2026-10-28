@@ -88,16 +88,3 @@ export function ConfettiOverlay() {
     </View>
   );
 }
-
-/** Wave shown exactly while system audio is audibly playing. */
-export function AudioWaveBar({ bottom }: { bottom: number }) {
-  return (
-    <View pointerEvents="none" style={[S.waveBar, { bottom }]}>
-      <LottieView
-        source={ANIMATIONS.wave}
-        autoPlay loop
-        style={S.waveLottie}
-      />
-    </View>
-  );
-}
