@@ -9,12 +9,15 @@ import type { LearningMe } from '../../../types/api';
 // not just on first mount.
 export function useStreakFrozenPopup(learning: LearningMe | null) {
   const [frozenPopupVisible, setFrozenPopupVisible] = useState(false);
+  // Only the state itself, not the whole learning object (a new one arrives
+  // on every poll). null until learning has loaded.
+  const streakState = learning ? (learning.streak_state ?? 'active') : null;
   useEffect(() => {
-    if (!learning) return;
+    if (!streakState) return;
     void (async () => {
-      const shouldShow = await checkStreakFrozenPopup(learning.streak_state ?? 'active');
+      const shouldShow = await checkStreakFrozenPopup(streakState);
       if (shouldShow) setFrozenPopupVisible(true);
     })();
-  }, [learning?.streak_state]);
+  }, [streakState]);
   return [frozenPopupVisible, setFrozenPopupVisible] as const;
 }

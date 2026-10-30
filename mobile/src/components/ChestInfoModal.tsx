@@ -32,7 +32,7 @@ export default function ChestInfoModal({ visible, onClose }: Props) {
     ]));
     loop.start();
     return () => loop.stop();
-  }, [visible]);
+  }, [visible, bounceAnim]);
 
   const chestTranslateY = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
 

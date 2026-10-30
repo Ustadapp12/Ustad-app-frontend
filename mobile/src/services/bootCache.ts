@@ -14,8 +14,6 @@ import { learningApi } from '../api';
 import { setCachedLevelsToDisk, invalidateLevelsFromDisk } from './contentCache';
 import { groupIntoPhases } from '../utils/mapPhases';
 import type {
-  ExerciseOut,
-  LearningStats,
   RecommendedNext,
   SurahLevel,
 } from '../types/api';
@@ -28,12 +26,9 @@ type Stamped<T> = { data: T; at: number };
 
 let _recommended: Stamped<RecommendedNext | null> | null = null;
 const _recommendedListeners = new Set<() => void>();
-let _stats: Stamped<LearningStats> | null = null;
 const _levels = new Map<number, Stamped<SurahLevel[]>>();
 // Lightweight first-group-only status, for surahs we haven't full-fetched yet
 const _firstLevels = new Map<number, Stamped<SurahLevel>>();
-// Set of surah numbers that have at least one weak exercise due
-let _weakSurahs: Stamped<Set<number>> | null = null;
 
 // In-flight dedup so two callers racing for the same surah's data (e.g.
 // prefetchAll() during hydrate and MapScreen's own mount effect) share one
@@ -80,10 +75,6 @@ export function subscribeRecommended(listener: () => void): () => void {
   return () => { _recommendedListeners.delete(listener); };
 }
 
-export function getCachedStats(): LearningStats | null {
-  return alive(_stats) ? _stats.data : null;
-}
-
 export function getCachedLevels(surahNumber: number): SurahLevel[] | null {
   const e = _levels.get(surahNumber);
   return alive(e) ? e.data : null;
@@ -92,16 +83,6 @@ export function getCachedLevels(surahNumber: number): SurahLevel[] | null {
 export function getCachedFirstLevel(surahNumber: number): SurahLevel | null {
   const e = _firstLevels.get(surahNumber);
   return alive(e) ? e.data : null;
-}
-
-/** Returns the set of surah numbers with at least one weak exercise due. */
-export function getCachedWeakSurahs(): Set<number> | null {
-  return alive(_weakSurahs) ? _weakSurahs.data : null;
-}
-
-/** True when every surah in the list has a live cache entry. */
-export function allLevelsCached(surahNumbers: number[]): boolean {
-  return surahNumbers.length > 0 && surahNumbers.every(n => alive(_levels.get(n)));
 }
 
 // ── Setters (exposed so screens can update cache after a save) ────
@@ -148,10 +129,8 @@ export async function invalidateLevels(mvpSurahNumbers?: number[]): Promise<void
 export function invalidateAll(): void {
   _recommended = null;
   notifyRecommended();
-  _stats = null;
   _levels.clear();
   _firstLevels.clear();
-  _weakSurahs = null;
 }
 
 // ── Prefetch ──────────────────────────────────────────────────────
@@ -174,19 +153,8 @@ export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
     learningApi.recommendedNext()
       .then(d => { _recommended = stamp(d); notifyRecommended(); return d; }),
 
-    // TODO: stats() currently unused on frontend — re-enable if needed for profile/dashboard
-    // learningApi.stats()
-    //   .then(d => { _stats = stamp(d); }),
-
     // No authApi.me() here any more (review A-4): hydrate() and login have
     // just called it, and the profile this stored was never read by anything.
-
-    // Fetch weak exercises and derive a set of surah numbers for badge display
-    learningApi.weakExercises(50)
-      .then((exercises: ExerciseOut[]) => {
-        const surahSet = new Set(exercises.map(e => e.surah_no));
-        _weakSurahs = stamp(surahSet);
-      }),
   ]);
 
   const recommended = recommendedResult.status === 'fulfilled' ? recommendedResult.value : null;
@@ -262,4 +230,3 @@ export async function prefetchPhase(surahNumbers: number[]): Promise<void> {
     ...waitOnly.map(n => _firstLevelInFlight.get(n)),
   ]);
 }
-

@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Animated, Easing } from 'react-native';
+import { Animated, Easing, StyleSheet } from 'react-native';
 
 // ── Exercise slide-in — mounts fresh (via the `key={exercise.ex_id}` on its
 // parent) every time the current exercise changes, so each new exercise
@@ -43,9 +43,16 @@ export function ExerciseSlide({ children, onSettled }: { children: React.ReactNo
     Animated.timing(translateX, {
       toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true,
     }).start(({ finished }) => { if (finished) setSettled(true); });
-  }, []);
-  useEffect(() => { if (settled) onSettled?.(); }, [settled]);
-  return <Animated.View style={settled ? SETTLED : { flex: 1, transform: [{ translateX }] }}>{children}</Animated.View>;
+  }, [translateX]);
+  // Through a ref so a new onSettled from a parent re-render can't fire it twice.
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
+  useEffect(() => { if (settled) onSettledRef.current?.(); }, [settled]);
+  return <Animated.View style={settled ? SETTLED : [styles.sliding, { transform: [{ translateX }] }]}>{children}</Animated.View>;
 }
 
 const SETTLED = { flex: 1 } as const;
+
+const styles = StyleSheet.create({
+  sliding: { flex: 1 },
+});

@@ -40,7 +40,7 @@ export function SegmentPlayBtn({ url, urls }: { url?: string | null; urls?: stri
     } else {
       pulseAnims.forEach(a => a.setValue(1));
     }
-  }, [playing]);
+  }, [playing, pulseAnims]);
 
   const handle = async () => {
     if (!hasAudio) return;
@@ -61,7 +61,7 @@ export function SegmentPlayBtn({ url, urls }: { url?: string | null; urls?: stri
 
   return (
     <TouchableOpacity style={SPB.row} onPress={handle} disabled={!hasAudio}>
-      <View style={[SPB.btn, !hasAudio && { opacity: 0.4 }]}>
+      <View style={[SPB.btn, !hasAudio && SPB.btnDisabled]}>
         <PlayPauseIcon playing={playing} size={11} color="#F5F7FA" />
       </View>
       {/* Waveform signal bars — always visible, animate when playing */}
@@ -82,4 +82,5 @@ export const SPB = StyleSheet.create({
   btn:      { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   waveform: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   bar:      { width: 4, backgroundColor: colors.primary, borderRadius: 2 },
+  btnDisabled: { opacity: 0.4 },
 });

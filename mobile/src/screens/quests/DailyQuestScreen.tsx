@@ -55,10 +55,10 @@ function DailyQuestContent() {
             165x165 contain box identically and MascotShadow still lines up. */}
         <Animated.Image
           source={QUEST_IMAGES.mascot}
-          style={[styles.luma, { marginBottom: 0, transform: [{ translateY: lumaY }] }]}
+          style={[styles.luma, styles.mascotImgFlush, { transform: [{ translateY: lumaY }] }]}
           resizeMode="contain"
         />
-        <MascotShadow width={165} style={{ position: 'relative', marginTop: -17, marginBottom: 20 }} />
+        <MascotShadow width={165} style={styles.mascotShadow} />
         <View style={styles.bubble}>
           <Text style={styles.bubbleText}>We're building quests, check back soon!</Text>
         </View>

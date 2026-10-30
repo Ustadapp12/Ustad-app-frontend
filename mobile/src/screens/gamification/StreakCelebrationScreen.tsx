@@ -94,7 +94,7 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
     ]);
     seq.start(() => setBreakDone(true));
     return () => seq.stop();
-  }, []);
+  }, [bloomOpacity, bloomScale, iceOpacity, iceScale, iceShake, streakRepaired]);
 
   useEffect(() => {
     if (!breakDone) return;
@@ -111,7 +111,7 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
       countUp.stop();
       countAnim.removeAllListeners();
     };
-  }, [breakDone]);
+  }, [breakDone, countAnim, displayStreak, fadeAnim, slideAnim]);
 
   return (
     // Background split from content: a full-bleed LinearGradient sibling
@@ -129,7 +129,7 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
     // the edge; this one is about the background itself falling short of
     // the edge) — content below still uses insets.bottom for its own
     // clearance, that part is unaffected by this split.
-    <View style={{ flex: 1 }}>
+    <View style={styles.fill}>
     <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={StyleSheet.absoluteFill} />
     <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
@@ -178,7 +178,7 @@ export default function StreakCelebrationScreen({ navigation, route }: Props) {
 
           {streakRepaired && (
             <View style={styles.repairedRow}>
-              <View style={{ width: 56, height: 56, marginRight: 10 }}>
+              <View style={styles.heroIconBox}>
                 <Image
                   source={MASCOT.lumoXp}
                   style={styles.repairedLuma}

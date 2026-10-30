@@ -69,10 +69,10 @@ export default function FeedbackScreen({ navigation }: Props) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.sentWrap}>
-          <View style={{ width: 110, height: 110, marginBottom: 18 }}>
+          <View style={styles.mascotBox}>
             <Image
               source={MASCOT.lumoXp}
-              style={{ width: 110, height: 110 }}
+              style={styles.mascotImg}
               resizeMode="contain"
             />
             <MascotShadow width={110} />
@@ -97,10 +97,10 @@ export default function FeedbackScreen({ navigation }: Props) {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ width: 100, height: 100, marginBottom: 14 }}>
+        <View style={styles.thanksMascotBox}>
           <Image
             source={MASCOT.lumoTransparent}
-            style={{ width: 100, height: 100 }}
+            style={styles.thanksMascotImg}
             resizeMode="contain"
           />
           <MascotShadow width={100} />

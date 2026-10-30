@@ -61,6 +61,9 @@ export default function SplashScreen({ navigation }: Props) {
   // Auto-navigate once both hydration and the minimum brand delay are done
   useEffect(() => {
     if (isHydrated && minDelayDone) void navigate();
+    // navigate is rebuilt every render; listing it would navigate again on
+    // every re-render after both flags are set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHydrated, minDelayDone]);
 
   // navigate() is also reachable by tapping the screen, and on first launch it

@@ -124,14 +124,6 @@ export function setCrashContext(partial: Partial<LessonContext>): void {
   } catch { /* Crashlytics may not be ready yet */ }
 }
 
-/** Clear lesson context — call when the user exits the lesson flow. */
-export function clearCrashContext(): void {
-  _ctx = {};
-  try {
-    ignore(crashlytics().setAttributes({ screen: '', exercise_type: '', surah_id: '' }));
-  } catch { /* ignore */ }
-}
-
 /**
  * Capture a caught JS error with the current lesson context.
  * Use for errors that are non-fatal but worth tracking.

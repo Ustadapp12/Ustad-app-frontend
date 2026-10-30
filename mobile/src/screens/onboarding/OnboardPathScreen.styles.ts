@@ -3,8 +3,6 @@ import { colors } from '../../theme';
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg },
-  statusBar: { paddingHorizontal: 24, paddingVertical: 6 },
-  time: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText },
   headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 6, paddingTop: 4 },
   backBtn: {
     width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border,
@@ -40,4 +38,9 @@ export const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.4 },
   btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
+  mascotBox: { width: 100, height: 100, alignSelf: 'center', marginBottom: 4 },
+  mascotImgFlush: { marginBottom: 0 },
+  cardIconEmoji: { fontSize: 22 },
+  fill: { flex: 1 },
+  badgeEmoji: { fontSize: 12 },
 });

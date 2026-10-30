@@ -17,4 +17,6 @@ export const styles = StyleSheet.create({
   repairedBubbleText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#F5F7FA', lineHeight: 19 },
   continueBtn:    { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
   continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
+  fill: { flex: 1 },
+  heroIconBox: { width: 56, height: 56, marginRight: 10 },
 });

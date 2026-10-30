@@ -29,4 +29,6 @@ export const S = StyleSheet.create({
   footer: { paddingHorizontal: 22, paddingTop: 12 },
   beginBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
   beginBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
+  mascotBox: { width: 140, height: 140, marginBottom: 24 },
+  mascotImgFlush: { marginBottom: 0 },
 });

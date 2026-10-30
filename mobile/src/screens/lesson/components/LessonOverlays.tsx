@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Image, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
 import MascotShadow from '../../../components/MascotShadow';
 import { S } from '../styles';
@@ -13,10 +13,10 @@ export function NoHeartsModal({ onBuyHearts, onRetry }: { onBuyHearts: () => voi
   return (
     <View style={S.noHeartsOverlay}>
       <View style={S.noHeartsCard}>
-        <View style={{ width: 120, height: 120, marginBottom: 8 }}>
+        <View style={styles.mascotBox}>
           <Image
             source={MASCOT.lumoCry}
-            style={[S.noHeartsLumo, { marginBottom: 0 }]}
+            style={[S.noHeartsLumo, styles.mascotImgFlush]}
             resizeMode="contain"
           />
           <MascotShadow width={120} />
@@ -47,10 +47,10 @@ export function ExitConfirmModal({ visible, onLeave, onStay }: {
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onStay}>
       <View style={S.noHeartsOverlay}>
         <View style={S.noHeartsCard}>
-          <View style={{ width: 90, height: 90, marginBottom: 8 }}>
+          <View style={styles.mascotBoxSmall}>
             <Image
               source={MASCOT.lumoKufi}
-              style={[S.exitConfirmLumo, { marginBottom: 0 }]}
+              style={[S.exitConfirmLumo, styles.mascotImgFlush]}
               resizeMode="contain"
             />
             <MascotShadow width={90} />
@@ -88,3 +88,9 @@ export function ConfettiOverlay() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  mascotBox: { width: 120, height: 120, marginBottom: 8 },
+  mascotImgFlush: { marginBottom: 0 },
+  mascotBoxSmall: { width: 90, height: 90, marginBottom: 8 },
+});

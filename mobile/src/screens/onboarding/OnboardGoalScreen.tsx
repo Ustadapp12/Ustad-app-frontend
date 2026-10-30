@@ -46,8 +46,8 @@ export default function OnboardGoalScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ width: 100, height: 100, alignSelf: 'center', marginBottom: 4 }}>
-          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+        <View style={styles.mascotBox}>
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, styles.mascotImgFlush]} resizeMode="contain" />
           <MascotShadow width={100} />
         </View>
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>

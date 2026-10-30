@@ -40,13 +40,13 @@ export default function StreakFrozenModal({
       ]),
     ]).start();
     Animated.timing(cardOpacity, { toValue: 1, duration: 500, delay: 500, useNativeDriver: true }).start();
-  }, []);
+  }, [cardOpacity, fireOpacity, fireScale, iceOpacity, iceScale]);
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={{ width: 110, height: 110, marginBottom: 8 }}>
+          <View style={styles.mascotBox}>
             <Image
               source={MASCOT.lumoCry}
               style={styles.luma}
@@ -111,4 +111,5 @@ const styles = StyleSheet.create({
   freezeCardBody: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.midText, textAlign: 'center' },
   button: { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   buttonText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
+  mascotBox: { width: 110, height: 110, marginBottom: 8 },
 });

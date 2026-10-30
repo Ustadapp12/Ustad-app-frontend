@@ -57,8 +57,8 @@ export default function OnboardGenderScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.content}>
-        <View style={{ width: 120, height: 120, marginBottom: 10 }}>
-          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+        <View style={styles.mascotBox}>
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, styles.mascotImgFlush]} resizeMode="contain" />
           <MascotShadow width={120} />
         </View>
         <Text style={styles.badge}>GETTING TO KNOW YOU</Text>

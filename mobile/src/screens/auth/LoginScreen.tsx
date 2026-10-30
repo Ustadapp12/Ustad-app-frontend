@@ -135,7 +135,7 @@ export default function LoginScreen({ navigation }: Props) {
         {/* Luma */}
         <View style={styles.lumaWrap}>
           <Image source={MASCOT.lumoTransparent} style={styles.luma} resizeMode="contain" />
-          <MascotShadow width={130} style={{ position: 'relative', marginTop: -13 }} />
+          <MascotShadow width={130} style={styles.mascotShadow} />
         </View>
 
         <Text style={styles.heading}>Welcome back!</Text>
@@ -170,7 +170,7 @@ export default function LoginScreen({ navigation }: Props) {
               onChangeText={handlePasswordChange}
               placeholder="••••••••"
               autoComplete="password"
-              containerStyle={{ flex: 1 }}
+              containerStyle={styles.passwordField}
             />
           </View>
         </View>

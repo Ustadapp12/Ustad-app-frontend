@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, TouchableOpacity, View } from 'react-native';
+import { Platform, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useTourTarget } from '../../../../components/tour/useTourTarget';
 import BottomBarBgArt, { BOTTOM_BAR_BG_H, BOTTOM_BAR_BG_W } from '../art/BottomBarBgArt';
 import BottomBarBgSolidArt from '../art/BottomBarBgSolidArt';
@@ -77,14 +77,11 @@ function Map2BottomBar({ S, s, bottomClearance, active, solid, onPress }: Props)
     home: homeTarget.ref, chest: chestTarget.ref, star: starTarget.ref, trophy: trophyTarget.ref, profile: profileTarget.ref,
   };
   return (
-    <View style={[S.bottomBar, { height: BOTTOM_BAR_H * s + bottomClearance, backgroundColor: 'transparent' }]}>
-      <Bg width={BOTTOM_BAR_BG_W * s} style={{ position: 'absolute', left: -1 * s, top: -1 * s }} />
+    <View style={[S.bottomBar, styles.bar, { height: BOTTOM_BAR_H * s + bottomClearance }]}>
+      <Bg width={BOTTOM_BAR_BG_W * s} style={[styles.bg, { left: -1 * s, top: -1 * s }]} />
       {bottomClearance > 0 && (
         <View
-          style={{
-            position: 'absolute', left: 0, right: 0, bottom: 0, height: bottomClearance + 1,
-            backgroundColor: solid ? '#F5F7FA' : 'rgba(252,249,235,0.4)',
-          }}
+          style={[styles.insetFill, solid ? styles.insetFillSolid : styles.insetFillMap, { height: bottomClearance + 1 }]}
         />
       )}
       <View style={[S.bottomBarIcons, { left: 32.5 * s, top: 13 * s }]}>
@@ -107,3 +104,11 @@ function Map2BottomBar({ S, s, bottomClearance, active, solid, onPress }: Props)
 }
 
 export default React.memo(Map2BottomBar);
+
+const styles = StyleSheet.create({
+  bar: { backgroundColor: 'transparent' },
+  bg: { position: 'absolute' },
+  insetFill: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  insetFillSolid: { backgroundColor: '#F5F7FA' },
+  insetFillMap: { backgroundColor: 'rgba(252,249,235,0.4)' },
+});

@@ -2,8 +2,6 @@ import { useMemo } from 'react';
 import { useScriptStore } from '../store/scriptStore';
 import type { ScriptPreference } from '../types/api';
 
-export type ArabicFontKey = 'naskh' | 'amiri';
-
 /** Map script preference → actual RN fontFamily string */
 export function scriptToFontFamily(script: ScriptPreference | null | undefined): string {
   // 'nastaliq' is the "Indo-Pak" onboarding/profile option — it now points at

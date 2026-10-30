@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import SkyHillArt, { SKY_HILL_H, SKY_HILL_W } from '../art/SkyHillArt';
 import IconDumbbellArt from '../art/IconDumbbellArt';
@@ -73,11 +73,11 @@ function Map2Header({
   return (
     <View style={[S.header, { height: topInset + HEADER_REACH * s }]}>
       <View style={[S.headerSkyFill, { height: topInset + 1 }]} />
-      <SkyHillArt width={SKY_HILL_W * s} style={{ position: 'absolute', left: -41 * s, top: topInset }} />
+      <SkyHillArt width={SKY_HILL_W * s} style={[styles.hill, { left: -41 * s, top: topInset }]} />
       <LinearGradient
         pointerEvents="none"
         colors={['#F9F0D7', 'rgba(249,240,215,0)']}
-        style={{ position: 'absolute', left: 0, right: 0, top: hillBottom - 1, height: FADE_H * s }}
+        style={[styles.fade, { top: hillBottom - 1, height: FADE_H * s }]}
       />
       {/* Nudged up by one stat pill's own height (35pt, see StatPillBgArt)
           on request (2026-10-20), so the row sits tighter against the sky. */}
@@ -93,14 +93,22 @@ function Map2Header({
       <FeatureButton S={S} s={s} topInset={topInset} spec={SEARCH} onPress={onSearch} />
       <FeatureButton S={S} s={s} topInset={topInset} spec={PROGRESS} onPress={onProgress} />
       <FeatureButton S={S} s={s} topInset={topInset} spec={JOURNEY} onPress={onJourney}>
-        <IconDumbbellArt width={35 * s} style={{ position: 'absolute', left: 25 * s, top: 27 * s }} />
+        <IconDumbbellArt width={35 * s} style={[styles.dumbbell, { left: 25 * s, top: 27 * s }]} />
       </FeatureButton>
       <FeatureButton S={S} s={s} topInset={topInset} spec={REVIEW} onPress={onReview}>
-        <IconDumbbellShadowArt width={37 * s} style={{ position: 'absolute', left: 20 * s, top: 23 * s }} />
-        <IconDumbbellArt width={35 * s} height={26 * s} style={{ position: 'absolute', left: 21 * s, top: 24 * s }} />
+        <IconDumbbellShadowArt width={37 * s} style={[styles.dumbbellShadow, { left: 20 * s, top: 23 * s }]} />
+        <IconDumbbellArt width={35 * s} height={26 * s} style={[styles.dumbbellRaised, { left: 21 * s, top: 24 * s }]} />
       </FeatureButton>
     </View>
   );
 }
 
 export default React.memo(Map2Header);
+
+const styles = StyleSheet.create({
+  hill: { position: 'absolute' },
+  fade: { position: 'absolute', left: 0, right: 0 },
+  dumbbell: { position: 'absolute' },
+  dumbbellShadow: { position: 'absolute' },
+  dumbbellRaised: { position: 'absolute' },
+});

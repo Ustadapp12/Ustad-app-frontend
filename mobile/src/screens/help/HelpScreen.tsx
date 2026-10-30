@@ -62,7 +62,7 @@ export default function HelpScreen() {
     ]));
     loop.start();
     return () => loop.stop();
-  }, []);
+  }, [lumaY]);
 
   return (
     <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D3B26']} style={styles.container}>
@@ -89,7 +89,7 @@ export default function HelpScreen() {
               style={[styles.lumaImg, { transform: [{ translateY: lumaY }] }]}
               resizeMode="contain"
             />
-            <MascotShadow width={105} style={{ position: 'relative', marginTop: -11 }} />
+            <MascotShadow width={105} style={styles.mascotShadow} />
           </View>
         </View>
 
@@ -101,7 +101,7 @@ export default function HelpScreen() {
 
         {/* Footer tip */}
         <View style={styles.tipCard}>
-          <Text style={{ fontSize: 20 }}>💡</Text>
+          <Text style={styles.tipIcon}>💡</Text>
           <Text style={styles.tipText}>
             Practise a little every day, even 5 minutes builds a powerful habit.
           </Text>
@@ -159,4 +159,6 @@ const styles = StyleSheet.create({
     padding: 16, marginTop: 8,
   },
   tipText: { flex: 1, fontFamily: 'Nunito-Bold', fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 20 },
+  mascotShadow: { position: 'relative', marginTop: -11 },
+  tipIcon: { fontSize: 20 },
 });

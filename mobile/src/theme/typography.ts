@@ -1,5 +1,4 @@
-﻿import { Platform } from 'react-native';
-
+﻿
 export const fonts = {
   // Nunito (loaded from local assets)
   regular: 'Nunito-Regular',

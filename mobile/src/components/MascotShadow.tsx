@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, type ViewStyle, type StyleProp } from 'react-native';
+import { View, type ViewStyle, type StyleProp, StyleSheet } from 'react-native';
 
 // Ground shadow for Lumo (and any similar standalone mascot art) — sized off
 // the character's own width so it scales consistently whether he's a 32px
@@ -48,7 +48,7 @@ export default function MascotShadow({ width, style }: { width: number; style?: 
     <View
       pointerEvents="none"
       style={[
-        { position: 'absolute', bottom: -width * 0.03, alignSelf: 'center', flexDirection: 'row' },
+        styles.shadowRow, { bottom: -width * 0.03 },
         style,
       ]}
     >
@@ -58,3 +58,7 @@ export default function MascotShadow({ width, style }: { width: number; style?: 
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  shadowRow: { position: 'absolute', alignSelf: 'center', flexDirection: 'row' },
+});

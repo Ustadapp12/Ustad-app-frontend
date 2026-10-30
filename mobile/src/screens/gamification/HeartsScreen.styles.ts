@@ -34,4 +34,5 @@ export const styles = StyleSheet.create({
   vizHeart: { width: 40, height: 36 },
   vizArrow: { fontFamily: 'Nunito-Bold', fontSize: 18, color: colors.mutedText },
   vizCaption: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center' },
+  mascotBox: { width: 110, height: 110, marginBottom: 4 },
 });

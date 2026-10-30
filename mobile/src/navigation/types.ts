@@ -93,7 +93,6 @@ export type TabParamList = {
 };
 
 export type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
-export type TabNavProp = BottomTabNavigationProp<TabParamList>;
 
 export type MapNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, 'Map'>,
@@ -104,4 +103,3 @@ export type ProfileNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, 'Profile'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
-

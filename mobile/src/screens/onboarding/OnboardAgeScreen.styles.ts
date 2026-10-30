@@ -36,4 +36,6 @@ export const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.4 },
   btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
+  mascotBox: { width: 120, height: 120, marginBottom: 10 },
+  mascotImgFlush: { marginBottom: 0 },
 });

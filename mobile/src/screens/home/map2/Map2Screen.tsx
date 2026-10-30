@@ -21,7 +21,7 @@ import TourOfferModal from '../../../components/tour/TourOfferModal';
 import { getLastRecommended, subscribeRecommended } from '../../../services/bootCache';
 import { addBreadcrumb, setCrashContext } from '../../../services/crashReporter';
 import type { MapNavProp, TabParamList } from '../../../navigation/types';
-import { SURAH_TO_SEASON, buildMapModel, estimateAyahRange, type Section, type SectionNode } from '../map/mapModel';
+import { SURAH_TO_SEASON, buildMapScale, estimateAyahRange, type Section, type SectionNode } from '../map/mapModel';
 import { makeStyles as makeLegacyStyles } from '../map/mapStyles';
 import { useMapData } from '../map/useMapData';
 import { createLevelLaunchHandlers, type StartPrompt } from '../map/levelLaunch';
@@ -56,13 +56,9 @@ export default function Map2Screen({ navigation }: Props) {
   const S = useMemo(() => makeMap2Styles(s), [s]);
   // The level start/repeat card and the "couldn't open" bubble are the current
   // map's own components, styled by its style sheet.
-  // Width only (review M-9): buildMapModel's viewport height feeds just the old
-  // map's sky line, grass edge, clouds and birds, none of which map2 reads.
-  // Keying on height rebuilt the whole model (its decoration placement search)
-  // and the style sheet whenever the window height changed, e.g. the Android
-  // system bars showing or hiding.
+  // Width only: nothing here depends on the window height.
   const legacy = useMemo(() => {
-    const M = buildMapModel(width, 0, 0);
+    const M = buildMapScale(width);
     return { M, ...makeLegacyStyles(M) };
   }, [width]);
   const headerH = insets.top + SKY_HILL_H * s;
@@ -359,7 +355,7 @@ export default function Map2Screen({ navigation }: Props) {
     const top = fitsAbove ? nodeTopInBand - vMargin - ch : nodeBottomInBand + vMargin;
     if (startPrompt) {
       overlay = (
-        <View style={{ position: 'absolute', left, top, zIndex: 5 }}>
+        <View style={[S.popupAnchor, { left, top }]}>
           <LevelActionCard
             variant="start"
             surahName={startPrompt.section.name}
@@ -375,7 +371,7 @@ export default function Map2Screen({ navigation }: Props) {
       const { section, node } = retryTarget;
       const estimate = estimateAyahRange(node.levelNum ?? 1, section.ayahCount, node.isSpecial);
       overlay = (
-        <View style={{ position: 'absolute', left, top, zIndex: 5 }}>
+        <View style={[S.popupAnchor, { left, top }]}>
           <LevelActionCard
             variant="repeat"
             surahName={section.name}
@@ -389,7 +385,7 @@ export default function Map2Screen({ navigation }: Props) {
       );
     } else if (notReadyTap) {
       overlay = (
-        <View style={{ position: 'absolute', left, top, zIndex: 5, alignItems: 'center' }}>
+        <View style={[S.popupAnchorCentered, { left, top }]}>
           <LumaFloat
             speech={`Couldn't open ${notReadyTap.section.name} just now. Please try again!`}
             S={legacy.S}
@@ -410,7 +406,7 @@ export default function Map2Screen({ navigation }: Props) {
   overlayBandRef.current = overlayBand;
   const CellRenderer = useCallback(
     ({ index, style, onLayout, children }: CellRendererProps<number>) => (
-      <View style={[style, index === overlayBandRef.current ? { zIndex: 2, elevation: 2 } : null]} onLayout={onLayout}>
+      <View style={[style, index === overlayBandRef.current ? cellStyles.raised : null]} onLayout={onLayout}>
         {children}
       </View>
     ),
@@ -536,3 +532,9 @@ export default function Map2Screen({ navigation }: Props) {
     </View>
   );
 }
+
+// Static, outside makeMap2Styles: CellRenderer must keep one identity for the
+// list's whole life, so it can't depend on the width-scaled sheet.
+const cellStyles = StyleSheet.create({
+  raised: { zIndex: 2, elevation: 2 },
+});

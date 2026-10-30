@@ -27,4 +27,6 @@ export const styles = StyleSheet.create({
   resendWrap: { marginBottom: 24 },
   resend: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.primary },
   resendDisabled: { color: colors.mutedText },
+  mascotBox: { width: 120, height: 120, marginBottom: 8 },
+  mascotImgFlush: { marginBottom: 0 },
 });

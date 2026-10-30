@@ -65,11 +65,11 @@ export default function Map2TabBar({ state, navigation, insets }: BottomTabBarPr
           sliver at the right edge, let the backing show through as a hairline
           -- invisible on light tabs, a black-looking line on DailyQuest's
           dark green. Light backing below the corners hides every such gap. */}
-      <View style={{ position: 'absolute', left: 0, right: 0, top: CORNER_OVERLAP * s, bottom: 0, backgroundColor: '#F5F7FA' }} />
+      <View style={[S.tabBarCornerFill, { top: CORNER_OVERLAP * s }]} />
       <Map2BottomBar S={S} s={s} bottomClearance={bottomClearance} active={KEY_OF[current] ?? 'home'} solid onPress={onPress} />
       {/* Paints past the box's own bottom edge, so nothing dark can ever
           show beneath the bar whatever the rest of the inset resolves to. */}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: -insets.bottom, height: insets.bottom, backgroundColor: '#F5F7FA' }} />
+      <View style={[S.tabBarInsetFill, { bottom: -insets.bottom, height: insets.bottom }]} />
     </View>
   );
 }

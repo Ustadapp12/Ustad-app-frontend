@@ -40,7 +40,7 @@ export default function ComingSoonPage({ title, active, label }: Props) {
     <View style={styles.root} accessibilityLabel={`${title}, being built`}>
       <BackButton
         onPress={() => navigation.goBack()}
-        style={{ position: 'absolute', left: 29 * s, top: insets.top + 13 * s, zIndex: 1 }}
+        style={[styles.backButton, { left: 29 * s, top: insets.top + 13 * s }]}
         size={23 * s}
       />
       <BuildingContent label={label} />
@@ -51,4 +51,5 @@ export default function ComingSoonPage({ title, active, label }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F5F7FA' },
+  backButton: { position: 'absolute', zIndex: 1 },
 });

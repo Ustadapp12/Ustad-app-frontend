@@ -40,7 +40,7 @@ export function FillBlankOrNextWord({
   useEffect(() => {
     if (ex.word_audio_url) { void playUrl(ex.word_audio_url); }
     setSelected(previewSelected ?? null);
-  }, [ex.ex_id, previewSelected]);
+  }, [ex.ex_id, ex.word_audio_url, previewSelected]);
 
   // Show "Hear words" only when the blank is the first or last token (corner position)
   const blankIdx = ex.tokens?.findIndex(t => t.blank) ?? -1;
@@ -96,7 +96,7 @@ export function FillBlankOrNextWord({
                 // Tour-only: glow the auto-picked option so it's obvious why
                 // Check is enabled, since no real tap ever lands here.
                 isPreviewPick && EX.optionGlow,
-                locked && { opacity: 0.7 },
+                locked && EX.locked,
               ]}
               // Re-enabled 2026-09-13 (was removed 2026-08-28 — see git
               // history for the original comment). The original removal was

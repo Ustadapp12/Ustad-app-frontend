@@ -20,7 +20,7 @@ export default function StreakLostModal({ priorStreak, onDismiss }: Props) {
     <Modal visible transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={{ width: 110, height: 110, marginBottom: 12 }}>
+          <View style={styles.mascotBox}>
             <Image
               source={MASCOT.lumoCry}
               style={styles.luma}
@@ -47,4 +47,5 @@ const styles = StyleSheet.create({
   body: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 20, textAlign: 'center' },
   button: { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   buttonText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
+  mascotBox: { width: 110, height: 110, marginBottom: 12 },
 });

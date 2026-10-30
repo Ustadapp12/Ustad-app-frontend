@@ -12,9 +12,7 @@ const KEYS = {
   appleUserId: '@ustadapp/appleUserId',
   onboarding: '@ustadapp/onboarding/v1',
   onboardingDone: '@ustadapp/onboarding/done',
-  reciterId: '@ustadapp/reciter',
   script: '@ustadapp/script',
-  seasonsUnlocked: '@ustadapp/map/seasonsUnlocked',
   lastEmailHint: '@ustadapp/auth/lastEmailHint',
   tourSeen: '@ustadapp/tour/seen',
   lastActiveLocalDate: '@ustadapp/notifications/lastActiveLocalDate',
@@ -204,21 +202,6 @@ export async function setOnboardingDone(done: boolean): Promise<void> {
   await AsyncStorage.setItem(KEYS.onboardingDone, done ? 'true' : 'false');
 }
 
-// Season 0 is never stored — it's always implicitly unlocked. Only explicit
-// user-confirmed unlocks (Season 2, Season 3) live here.
-export async function getUnlockedSeasons(): Promise<number[]> {
-  const raw = await AsyncStorage.getItem(KEYS.seasonsUnlocked);
-  const parsed = safeJsonParse<number[]>(raw);
-  return Array.isArray(parsed) ? parsed : [];
-}
-
-export async function unlockSeason(seasonIdx: number): Promise<number[]> {
-  const current = await getUnlockedSeasons();
-  if (current.includes(seasonIdx)) return current;
-  const next = [...current, seasonIdx];
-  await AsyncStorage.setItem(KEYS.seasonsUnlocked, JSON.stringify(next));
-  return next;
-}
 
 // Whether the guided tour has been offered. Set on *either* answer — being
 // asked a second time reads as the app having forgotten you said no.
@@ -237,10 +220,6 @@ export async function setTourOffered(): Promise<void> {
 // seen" state. Called wherever a brand-new account is minted.
 export async function resetTourOffered(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.tourSeen);
-}
-
-export async function getReciterId(): Promise<string> {
-  return (await AsyncStorage.getItem(KEYS.reciterId)) ?? 'husary';
 }
 
 /**
@@ -299,25 +278,13 @@ export async function getNextOnboardingScreen(
   return skipUsername ? 'OnboardAge' : 'OnboardUsername';
 }
 
-export async function setReciterId(id: string): Promise<void> {
-  await AsyncStorage.setItem(KEYS.reciterId, id);
-}
-
 let scriptPreferenceCache: ScriptPreference = 'uthmani';
-
-export function getScriptPreferenceSync(): ScriptPreference {
-  return scriptPreferenceCache;
-}
 
 export async function hydrateScriptPreference(): Promise<ScriptPreference> {
   const raw = await AsyncStorage.getItem(KEYS.script);
   scriptPreferenceCache = (raw as ScriptPreference) ?? 'uthmani';
   useScriptStore.getState().setScript(scriptPreferenceCache);
   return scriptPreferenceCache;
-}
-
-export async function getScriptPreference(): Promise<ScriptPreference> {
-  return hydrateScriptPreference();
 }
 
 export async function setScriptPreference(script: ScriptPreference): Promise<void> {
@@ -387,4 +354,3 @@ export async function getStoredStreakSnapshot(): Promise<StoredStreakSnapshot | 
 export async function setStoredStreakSnapshot(snapshot: StoredStreakSnapshot): Promise<void> {
   await AsyncStorage.setItem(KEYS.streakSnapshot, JSON.stringify(snapshot));
 }
-

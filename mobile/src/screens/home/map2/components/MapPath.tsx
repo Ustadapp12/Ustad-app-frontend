@@ -12,10 +12,7 @@ function MapPath({ dashes, len, thick, offsetY }: { dashes: Dash[]; len: number;
       {dashes.map((d, i) => (
         <View
           key={i}
-          style={{
-            position: 'absolute', left: d.x - len / 2, top: d.y - offsetY - thick / 2, width: len, height: thick,
-            backgroundColor: DAY.pathDash, transform: [{ rotate: `${d.angle}deg` }],
-          }}
+          style={[styles.dash, { left: d.x - len / 2, top: d.y - offsetY - thick / 2, width: len, height: thick, backgroundColor: DAY.pathDash, transform: [{ rotate: `${d.angle}deg` }] }]}
         />
       ))}
     </View>
@@ -23,3 +20,7 @@ function MapPath({ dashes, len, thick, offsetY }: { dashes: Dash[]; len: number;
 }
 
 export default React.memo(MapPath);
+
+const styles = StyleSheet.create({
+  dash: { position: 'absolute' },
+});

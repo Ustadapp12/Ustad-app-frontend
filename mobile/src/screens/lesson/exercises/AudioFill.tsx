@@ -61,6 +61,8 @@ export function AudioFill({
     void preloadAudioUrls(allUrls);
 
     return () => { evictPreloadedUrls(allUrls); };
+    // Keyed on the exercise id on purpose: a reset per exercise, not per render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex.ex_id]);
 
   const handleOptionTap = async (ar: string, audioUrl: string | null | undefined, idx: number) => {
@@ -74,10 +76,6 @@ export function AudioFill({
       await playUrl(audioUrl);
     }
   };
-
-  const blankIdx = ex.tokens?.findIndex(t => t.blank) ?? -1;
-  const isCorner = blankIdx === 0 || (ex.tokens != null && blankIdx === ex.tokens.length - 1);
-  const wordAudioUrls = isCorner && ex.segment_audio_urls?.length ? ex.segment_audio_urls : null;
 
   return (
     <ExerciseLayout
@@ -105,14 +103,14 @@ export function AudioFill({
         {(ex.options ?? []).map((o, i) => (
           <TouchableOpacity
             key={i}
-            style={[AF.optionBtn, selected === o.ar && AF.optionSelected, locked && { opacity: 0.7 }]}
+            style={[AF.optionBtn, selected === o.ar && AF.optionSelected, locked && EX.locked]}
             onPress={() => { void handleOptionTap(o.ar, o.audio_url, i); }}
             activeOpacity={0.8}
           >
             <View style={[AF.playCircle, selected === o.ar && AF.playCircleSelected, playingIdx === i && AF.playCirclePlaying]}>
               {playingIdx === i
                 ? <View style={AF.pauseRow}><View style={AF.pauseBar} /><View style={AF.pauseBar} /></View>
-                : <Text style={[AF.playIcon, selected === o.ar && { color: '#F5F7FA' }]}>▶</Text>
+                : <Text style={[AF.playIcon, selected === o.ar && AF.playIconSelected]}>▶</Text>
               }
             </View>
             <Text style={[AF.optionNum, selected === o.ar && { color: colors.primary }]}>{i + 1}</Text>
@@ -134,4 +132,5 @@ export const AF = StyleSheet.create({
   pauseRow:          { flexDirection: 'row', gap: 4 },
   pauseBar:          { width: 4, height: 14, backgroundColor: '#F5F7FA', borderRadius: 2 },
   optionNum:         { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.mutedText },
+  playIconSelected: { color: '#F5F7FA' },
 });

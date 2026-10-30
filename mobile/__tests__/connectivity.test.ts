@@ -3,12 +3,10 @@ import { useConnectivityStore, connectivity } from '../src/store/connectivitySto
 import {
   startConnectivityWatch,
   stopConnectivityWatch,
-  fetchIsDeviceOffline,
   describeConnection,
 } from '../src/services/connectivity';
 
 const addEventListener = NetInfo.addEventListener as unknown as jest.Mock;
-const fetchState = NetInfo.fetch as unknown as jest.Mock;
 
 /** Hand the watcher a netinfo state and return what it wrote to the store. */
 function emit(state: Record<string, unknown>): boolean {
@@ -85,20 +83,6 @@ describe('device-offline detection', () => {
     startConnectivityWatch();
     startConnectivityWatch();
     expect(addEventListener).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('fetchIsDeviceOffline', () => {
-  it('reports offline when netinfo says there is no network', async () => {
-    fetchState.mockResolvedValueOnce({ type: 'none', isInternetReachable: false });
-    await expect(fetchIsDeviceOffline()).resolves.toBe(true);
-  });
-
-  it('assumes online if the native module throws', async () => {
-    // Better to show nothing than to block the user behind a banner we can't
-    // substantiate.
-    fetchState.mockRejectedValueOnce(new Error('native module unavailable'));
-    await expect(fetchIsDeviceOffline()).resolves.toBe(false);
   });
 });
 

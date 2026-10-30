@@ -39,7 +39,7 @@ export function SegmentRecall({
         {rawOptions.map((o, i) => (
           <TouchableOpacity
             key={i}
-            style={[EX.optionBtnFull, selected === o.ar && EX.optionSelected, locked && { opacity: 0.7 }]}
+            style={[EX.optionBtnFull, selected === o.ar && EX.optionSelected, locked && EX.locked]}
             onPress={() => { if (!locked) setSelected(o.ar); }}
           >
             <Text style={[arabicTextStyle(EX.optionTextArabic as any, arabicFont) as any, selected === o.ar && EX.optionTextSelected]}>{o.ar}</Text>

@@ -10,7 +10,7 @@ import { safeBottomInset } from '../../utils/responsive';
 import { starsFromAccuracy } from '../../utils/stars';
 import LumoInfoModal from '../../components/LumoInfoModal';
 import ResumeLevelModal from '../../components/ResumeLevelModal';
-import type { ExerciseDict, FormulaAttemptOut, SegmentStatus } from '../../types/api';
+import type { ExerciseDict, FormulaAttemptOut } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
 import LessonHeader, { MAX_MISTAKES } from '../../components/lesson/LessonHeader';
 import { BismillahIntro } from './components/BismillahIntro';
@@ -76,7 +76,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const [showBismillah, setShowBismillah] = useState(false);
   // White icons over the dark Bismillah intro only.
   useStatusBarStyle(showBismillah && exercise ? 'light' : 'dark');
-  const [segments, setSegments] = useState<SegmentStatus[]>([]);
   const [feedback, setFeedback] = useState<FormulaAttemptOut | null>(null);
   const [mistakes, setMistakes] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
@@ -115,7 +114,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
   const [resumePromptVisible, setResumePromptVisible] = useState(false);
   const [exitConfirmVisible, setExitConfirmVisible] = useState(false);
   const [heartRefillInfoVisible, setHeartRefillInfoVisible] = useState(false);
-  const [exercisesCompleted, setExercisesCompleted] = useState(0);
   const [progressPct, setProgressPct] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [speakResult, setSpeakResult] = useState<SpeakResult | null>(null);
@@ -231,7 +229,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       void stopRecording().catch(() => {});
       if (confettiTimerRef.current) clearTimeout(confettiTimerRef.current);
     };
-  }, [groupId]);
+  }, [groupId, reset, loadGroup, startSession]);
 
   // Ready the correct/wrong chimes while the level loads, so the first
   // answer's ding plays at once (they are no longer loaded at app start).
@@ -242,6 +240,9 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
     if (exercise && !HANDLED_EXERCISE_TYPES.has(exercise.type) && !submitting) {
       void submitAnswer(null);
     }
+    // Once per exercise: re-running on submitting/submitAnswer changes could
+    // submit the same skipped exercise twice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercise?.ex_id]);
 
   // Stop audio and reset playing state immediately when navigating away
@@ -291,6 +292,9 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         setShowBismillah(true);
       }
     }
+    // Seeds once per session start. The store values are read as they are at
+    // that moment; re-running on them could re-seed the first exercise later.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstExercise, storeGroupId]);
 
   // Resumed into a session that already answered every exercise before the
@@ -369,7 +373,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       if (!effectiveCorrect && !isNoMistake) setMistakes(snapMistakes);
       else if (effectiveCorrect) {
         setCorrectCount(snapCorrect);
-        setExercisesCompleted(prev => prev + 1);
         // Confetti: XP awarded on normal questions only (not listen steps, speak exercises, or session end)
         const isSpeakExercise = exercise.type === 'read_ayah_and_speak' || exercise.type === 'read_and_speak';
         if ((result.xp_awarded ?? 0) > 0 && exercise.type !== 'ayah_display' && !isSpeakExercise && !result.done) {
@@ -378,8 +381,6 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
           confettiTimerRef.current = setTimeout(() => setShowConfetti(false), 1500);
         }
       }
-
-      if (result.segments.length) setSegments(result.segments);
 
       // Hearts exhausted — end attempt immediately (skip in no-mistake phases)
       if (!effectiveCorrect && !isNoMistake && snapMistakes >= MAX_MISTAKES) {
@@ -520,12 +521,12 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
         );
       }
     }
-  }, [sessionId, exercise, submitting, correctCount, mistakes, isSpecial, finishLevel]);
+  }, [sessionId, exercise, submitting, correctCount, mistakes, isSpecial, finishLevel, abandonSession, navigation, submitAttempt]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     abandonSession({ silent: true }).catch(() => {});
     navigation.goBack();
-  };
+  }, [abandonSession, navigation]);
 
   // Resume prompt's "Start over": end the unfinished session on the server
   // first (awaited, or the server would just resume it again), then reopen
@@ -562,7 +563,7 @@ export default function LessonSessionScreen({ navigation, route }: Props) {
       return true;
     });
     return () => sub.remove();
-  }, [noHeartsVisible]);
+  }, [noHeartsVisible, handleBack]);
 
   // Shared by the error and not-ready states.
   const retryLoad = () => {

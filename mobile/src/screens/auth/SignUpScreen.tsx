@@ -225,7 +225,7 @@ export default function SignUpScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.stepContent}>
-            <View style={{ width: 120, height: 120, marginBottom: 10 }}>
+            <View style={styles.mascotBox}>
               <Image source={MASCOT.lumoTransparent} style={styles.stepLuma} resizeMode="contain" />
               <MascotShadow width={120} />
             </View>
@@ -243,7 +243,7 @@ export default function SignUpScreen({ navigation }: Props) {
                   placeholder="Min 8 characters"
                   autoComplete="new-password"
                   autoFocus
-                  containerStyle={{ flex: 1 }}
+                  containerStyle={styles.passwordField}
                 />
               </View>
               {password.length > 0 && (
@@ -286,7 +286,7 @@ export default function SignUpScreen({ navigation }: Props) {
                   onChangeText={handleConfirmPasswordChange}
                   placeholder="Re-enter password"
                   autoComplete="new-password"
-                  containerStyle={{ flex: 1 }}
+                  containerStyle={styles.passwordField}
                 />
               </View>
             </View>
@@ -321,7 +321,7 @@ export default function SignUpScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top }]} keyboardShouldPersistTaps="handled">
         <View style={styles.lumaWrap}>
           <Image source={MASCOT.lumoTransparent} style={styles.luma} resizeMode="contain" />
-          <MascotShadow width={150} style={{ position: 'relative', marginTop: -15 }} />
+          <MascotShadow width={150} style={styles.mascotShadow} />
         </View>
 
         <Text style={styles.heading}>Create account</Text>

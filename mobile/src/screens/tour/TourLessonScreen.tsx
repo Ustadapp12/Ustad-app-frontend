@@ -58,10 +58,8 @@ export default function TourLessonScreen({ navigation }: Props) {
   // - lessonExercise's radius is unused: skipHole (in TourOverlay) keeps the
   //   plain uniform dim for it regardless.
   // - lessonCheck: ExerciseFooterButton's real borderRadius (16).
-  // - lessonMic: RAS.micBtn is always exactly circular in both its states
-  //   (108/54 and 76/38 both simplify to radius = half the measured side),
-  //   so 'round' reproduces the true shape in either state without needing
-  //   to know which one is currently mounted.
+  // - lessonMic: the mic button (exercises/speak/styles.ts micBtn, 108/54)
+  //   is exactly circular, so 'round' reproduces its true shape.
   // - lessonOption: AF.optionBtn's real borderRadius (16).
   // - lessonFeedback: FB.sheet's real top-corner borderRadius (24); its
   //   flush-bottom position (see TourOverlay) zeroes the bottom two corners,
@@ -106,7 +104,7 @@ export default function TourLessonScreen({ navigation }: Props) {
   const previewSelected = useMemo(() => {
     const correctAr = exercise.tokens?.find(t => t.blank)?.ar;
     return exercise.options?.find(o => o.ar === correctAr)?.ar ?? exercise.options?.[0]?.ar;
-  }, [exercise.ex_id]);
+  }, [exercise]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>

@@ -50,4 +50,8 @@ export const styles = StyleSheet.create({
     fontFamily: 'Nunito-Regular', fontSize: 14, color: colors.mutedText,
     textAlign: 'center', lineHeight: 21, marginBottom: 26,
   },
+  mascotBox: { width: 110, height: 110, marginBottom: 18 },
+  mascotImg: { width: 110, height: 110 },
+  thanksMascotBox: { width: 100, height: 100, marginBottom: 14 },
+  thanksMascotImg: { width: 100, height: 100 },
 });

@@ -355,17 +355,6 @@ export interface VoiceAttemptResponse {
 
 // ─────────────────────────────────────────────────────────────────
 
-export interface SurahStage {
-  stage_num: number;
-  stage_type: 'listening' | 'recognition' | 'building' | 'recall' | 'mastery';
-  title_en: string;
-  status: 'completed' | 'available' | 'in_progress' | 'locked';
-  stars: number | null;
-  lesson_group_ids: string[];
-  xp_reward: number;
-  min_pass_pct: number;
-}
-
 export interface SurahPath {
   surah_number: number;
   surah_name_en: string;
@@ -537,4 +526,3 @@ export interface OnboardingAnswers {
   completedAt?: string;
   currentStep?: 'goal' | 'script' | 'path' | 'assessment';
 }
-

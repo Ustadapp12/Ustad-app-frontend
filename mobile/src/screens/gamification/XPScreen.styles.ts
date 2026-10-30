@@ -46,4 +46,6 @@ export const styles = StyleSheet.create({
   comingSoonEmoji: { fontSize: 22 },
   comingSoonTitle: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.darkText, marginBottom: 2 },
   comingSoonBody: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText, lineHeight: 17 },
+  mascotBox: { width: 110, height: 110, marginBottom: 4 },
+  fill: { flex: 1 },
 });

@@ -106,8 +106,8 @@ export default function VerifyResetCodeScreen({ navigation, route }: Props) {
       <BackButton onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 12 }]} />
 
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
-        <View style={{ width: 120, height: 120, marginBottom: 8 }}>
-          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+        <View style={styles.mascotBox}>
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, styles.mascotImgFlush]} resizeMode="contain" />
           <MascotShadow width={120} />
         </View>
 

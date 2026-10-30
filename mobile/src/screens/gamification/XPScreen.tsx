@@ -38,7 +38,7 @@ export default function XPScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ width: 110, height: 110, marginBottom: 4 }}>
+        <View style={styles.mascotBox}>
           <Image
             source={MASCOT.lumoXp}
             style={styles.luma}
@@ -76,7 +76,7 @@ export default function XPScreen({ navigation }: Props) {
 
         <View style={styles.comingSoonCard}>
           <Text style={styles.comingSoonEmoji}>🚧</Text>
-          <View style={{ flex: 1 }}>
+          <View style={styles.fill}>
             <Text style={styles.comingSoonTitle}>Coming soon</Text>
             <Text style={styles.comingSoonBody}>
               Daily quests are on the way, giving you even more ways to earn XP.

@@ -17,7 +17,7 @@ export function RecitationScoringFeedback() {
   }, []);
   return (
     <View style={RSF.container}>
-      <View style={{ width: 90, height: 90 }}>
+      <View style={RSF.mascotBox}>
         <Image
           source={MASCOT.lumoKufi}
           style={RSF.lumo}
@@ -41,4 +41,5 @@ export const RSF = StyleSheet.create({
   lumo: { width: 90, height: 90 },
   hourglass: { width: 70, height: 70 },
   text: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.mutedText, marginTop: 4 },
+  mascotBox: { width: 90, height: 90 },
 });

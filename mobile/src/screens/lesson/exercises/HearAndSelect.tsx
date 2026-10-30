@@ -88,7 +88,7 @@ export function HearAndSelect({
           ? <View style={HAS.pauseIcon}><View style={HAS.pauseBar} /><View style={HAS.pauseBar} /></View>
           : <Image source={SPEAKER_ICON} style={HAS.speakerIcon} resizeMode="contain" />
         }
-        <Text style={[HAS.speakerLabel, playing && { color: 'rgba(255,255,255,0.85)' }]}>
+        <Text style={[HAS.speakerLabel, playing && HAS.speakerLabelPlaying]}>
           {playing ? 'Playing…' : 'Tap to hear'}
         </Text>
       </TouchableOpacity>
@@ -98,7 +98,7 @@ export function HearAndSelect({
         {(ex.options ?? []).map((o, i) => (
           <Pressable
             key={i}
-            style={[EX.optionBtnFull, selected === o.ar && EX.optionSelected, locked && { opacity: 0.7 }]}
+            style={[EX.optionBtnFull, selected === o.ar && EX.optionSelected, locked && EX.locked]}
             // Re-enabled 2026-09-13 alongside the identical change in
             // FillBlankOrNextWord's options above — see that one's full
             // comment. Switched to Pressable (rather than restoring
@@ -130,4 +130,5 @@ export const HAS = StyleSheet.create({
   speakerLabel: { fontFamily: 'Nunito-Bold', fontSize: 11, color: colors.primary, marginTop: 6, textAlign: 'center' },
   pauseIcon:    { flexDirection: 'row', gap: 7, alignItems: 'center' },
   pauseBar:     { width: 7, height: 30, backgroundColor: '#F5F7FA', borderRadius: 3 },
+  speakerLabelPlaying: { color: 'rgba(255,255,255,0.85)' },
 });

@@ -37,4 +37,7 @@ export const styles = StyleSheet.create({
   celebXp: { fontFamily: 'Nunito-Bold', fontSize: 22, color: colors.gold, marginBottom: 20 },
   celebBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   celebBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
+  mascotBox: { width: 130, height: 130, marginBottom: 8 },
+  mascotImgFlush: { marginBottom: 0 },
+  celebMascotBox: { width: 84, height: 84, marginBottom: 12 },
 });

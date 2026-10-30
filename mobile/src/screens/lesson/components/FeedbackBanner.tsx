@@ -30,7 +30,7 @@ export function FeedbackBanner({
       <View ref={bannerRef} collapsable={false} style={[FB.sheet, glow && TOUR_GLOW]}>
         <View style={FB.correctRow}>
           <View style={FB.correctBadge}><Text style={FB.correctBadgeText}>✓</Text></View>
-          <View style={{ flex: 1 }}>
+          <View style={FB.fill}>
             <Text style={FB.correctTitle}>Correct!</Text>
             <Text style={FB.correctSub}>YOU'RE GOING STRONG!</Text>
           </View>
@@ -52,7 +52,7 @@ export function FeedbackBanner({
     <View ref={bannerRef} collapsable={false} style={[FB.sheet, FB.wrongSheet, glow && TOUR_GLOW]}>
       <View style={FB.wrongRow}>
         <View style={FB.wrongBadge}><Text style={FB.wrongBadgeText}>✕</Text></View>
-        <Text style={[FB.wrongTitle, { flex: 1 }]}>Incorrect</Text>
+        <Text style={[FB.wrongTitle, FB.fill]}>Incorrect</Text>
       </View>
       {showAnswer && (
         <>
@@ -91,4 +91,5 @@ export const FB = StyleSheet.create({
   correctAnswerText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 22, color: colors.darkText, textAlign: 'center' },
   gotItBtn: { backgroundColor: '#DC2626', borderRadius: 16, paddingVertical: 17, alignItems: 'center', shadowColor: '#DC2626', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   gotItBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#F5F7FA', letterSpacing: 0.5 },
+  fill: { flex: 1 },
 });

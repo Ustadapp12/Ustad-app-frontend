@@ -43,4 +43,7 @@ export const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.45 },
   btnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.white },
+  mascotBox: { width: 140, height: 140, marginBottom: 20 },
+  mascotImgFlush: { marginBottom: 0 },
+  mascotBoxSmall: { width: 110, height: 110, marginBottom: 8 },
 });

@@ -51,5 +51,6 @@ export function makeStyles(sc: Scale, bottomInset: number) {
       color: LB.subtle, marginTop: d(2), marginBottom: d(10),
     },
     scroll: { paddingHorizontal: d(25), paddingTop: d(10), paddingBottom: d(30) + bottomInset },
+    scrollFill: { flex: 1 },
   });
 }

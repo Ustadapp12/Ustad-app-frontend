@@ -1,5 +1,5 @@
 ﻿import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Modal, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Modal, ActivityIndicator, Linking, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
 import Svg, { Circle, Ellipse } from 'react-native-svg';
 import { useIsFocused } from '@react-navigation/native';
@@ -50,7 +50,7 @@ export default function ProfileScreen(props: Props) {
 // character before the user has actually chosen who they are.
 function GuestAvatarIcon({ size }: { size: number }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', backgroundColor: '#D9DEE3' }}>
+    <View style={[avatarStyles.guestAvatar, { width: size, height: size, borderRadius: size / 2 }]}>
       <Svg width={size} height={size} viewBox="0 0 100 100">
         <Circle cx="50" cy="38" r="18" fill="#9AA5B1" />
         <Ellipse cx="50" cy="92" rx="32" ry="28" fill="#9AA5B1" />
@@ -144,7 +144,6 @@ function ProfileContent({ navigation }: Props) {
   }
 
   const displayName = userName ?? 'Learner';
-  const initials = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
@@ -209,7 +208,7 @@ function ProfileContent({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.fill} showsVerticalScrollIndicator={false}>
         {/* Avatar card */}
         <View style={styles.avatarCard}>
           <View style={styles.avatarWrap}>
@@ -414,11 +413,11 @@ function ProfileContent({ navigation }: Props) {
         onRequestClose={() => setFontModalVisible(false)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { gap: 0 }]}>
+          <View style={[styles.modalCard, styles.modalCardTight]}>
             <View style={styles.fontModalHeader}>
-              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Arabic Font</Text>
+              <Text style={[styles.modalTitle, styles.modalTitleFlush]}>Arabic Font</Text>
             </View>
-            <Text style={[styles.modalBody, { marginBottom: 16 }]}>
+            <Text style={[styles.modalBody, styles.modalBodySpaced]}>
               Choose how Arabic text appears throughout the app.
             </Text>
             {FONT_OPTIONS.map(f => {
@@ -426,11 +425,11 @@ function ProfileContent({ navigation }: Props) {
               return (
                 <TouchableOpacity
                   key={f.key}
-                  style={[styles.fontOption, active && { borderColor: f.accentColor, borderWidth: 2 }]}
+                  style={[styles.fontOption, active && [styles.fontOptionSelected, { borderColor: f.accentColor }]]}
                   onPress={() => handleSelectFont(f.key)}
                   activeOpacity={0.85}
                 >
-                  <View style={{ flex: 1 }}>
+                  <View style={styles.fill}>
                     <Text style={styles.fontOptionLabel}>{f.label}</Text>
                     <Text style={[styles.fontOptionPreview, { fontFamily: f.fontFamily, fontSize: f.fontSize, lineHeight: f.lineHeight, color: active ? f.accentColor : colors.darkText }]}>
                       {PREVIEW}
@@ -451,7 +450,7 @@ function ProfileContent({ navigation }: Props) {
                 modalBtns' row layout (Logout/Delete modals), which collapses
                 or misrenders its content here since this button stands alone
                 in a plain column container instead. */}
-            <TouchableOpacity style={[styles.modalCancel, { flex: 0, alignSelf: 'stretch', marginTop: 8 }]} onPress={() => setFontModalVisible(false)}>
+            <TouchableOpacity style={[styles.modalCancel, styles.modalCancelFull]} onPress={() => setFontModalVisible(false)}>
               <Text style={styles.modalCancelText}>Save and Close</Text>
             </TouchableOpacity>
           </View>
@@ -467,10 +466,10 @@ function ProfileContent({ navigation }: Props) {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <View style={{ width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) }}>
+            <View style={styles.mascotBox}>
               <Image
                 source={MASCOT.lumoKufi}
-                style={[styles.deleteLumo, { marginBottom: 0 }]}
+                style={[styles.deleteLumo, styles.mascotImgFlush]}
                 resizeMode="contain"
               />
               <MascotShadow width={sc(72)} />
@@ -498,10 +497,10 @@ function ProfileContent({ navigation }: Props) {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <View style={{ width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) }}>
+            <View style={styles.mascotBox}>
               <Image
                 source={MASCOT.lumoCry}
-                style={[styles.deleteLumo, { marginBottom: 0 }]}
+                style={[styles.deleteLumo, styles.mascotImgFlush]}
                 resizeMode="contain"
               />
               <MascotShadow width={sc(72)} />
@@ -532,7 +531,7 @@ function ProfileContent({ navigation }: Props) {
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalConfirm, ((needsPasswordToDelete && !deletePassword.trim()) || deleting) && { opacity: 0.5 }]}
+                style={[styles.modalConfirm, ((needsPasswordToDelete && !deletePassword.trim()) || deleting) && styles.modalConfirmDisabled]}
                 onPress={handleDeleteAccount}
                 disabled={(needsPasswordToDelete && !deletePassword.trim()) || deleting}
               >
@@ -578,3 +577,7 @@ function ProfileContent({ navigation }: Props) {
     </View>
   );
 }
+
+const avatarStyles = StyleSheet.create({
+  guestAvatar: { overflow: 'hidden', backgroundColor: '#D9DEE3' },
+});

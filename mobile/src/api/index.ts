@@ -506,25 +506,3 @@ export const usageApi = {
       body: JSON.stringify(body),
     }),
 };
-
-// ── Helpers ──────────────────────────────────────────────────────
-
-/** Map client exercise step types to API logging keys. */
-export function exerciseTypeForApi(clientType: string): string {
-  switch (clientType) {
-    case 'listen':
-    case 'ayah_display':
-      return 'listen';
-    case 'fill_blank':
-    case 'next_word':
-      return 'fill_blank';
-    case 'reorder':
-    case 'segment_recall':
-      return 'recall';
-    case 'hear_and_select':
-      return 'hear_and_select';
-    default:
-      return clientType;
-  }
-}
-

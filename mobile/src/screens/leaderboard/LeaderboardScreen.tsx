@@ -118,7 +118,7 @@ function LeaderboardContent() {
           </View>
         ) : (
           <ScrollView
-            style={{ flex: 1 }}
+            style={styles.scrollFill}
             contentContainerStyle={styles.scroll}
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}

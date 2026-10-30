@@ -1,7 +1,9 @@
 import type { AyahOut, ExerciseOut, WordOut } from '../types/api';
 import type { ExerciseStep, ExerciseType } from './types';
 import { wordsInAyahOrder } from './wordOrder';
-import { BLANK_PLACEHOLDER } from './exerciseHelpers';
+
+/** Shown in place of the hidden word in a fill-the-blank ayah. */
+const BLANK_PLACEHOLDER = 'ــــ';
 
 export function buildLessonSteps(ayahs: AyahOut[]): ExerciseStep[] {
   const steps: ExerciseStep[] = [];

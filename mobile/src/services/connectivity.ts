@@ -130,16 +130,3 @@ export function stopConnectivityWatch(): void {
   }
 }
 
-/**
- * One-shot check, for the rare caller that needs an answer before the
- * listener has delivered its first event. Never throws.
- */
-export async function fetchIsDeviceOffline(): Promise<boolean> {
-  try {
-    return isOffline(await NetInfo.fetch());
-  } catch {
-    // Treat an unavailable native module as "assume online" rather than
-    // blocking the user behind a banner we can't substantiate.
-    return false;
-  }
-}

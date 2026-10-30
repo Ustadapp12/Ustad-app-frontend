@@ -384,7 +384,7 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
           { left: cardLeft, width: cardW, top: cardTop },
           // Hidden until its real height is known, so it can never paint one
           // frame at a position computed from a height of 0.
-          { opacity: cardH > 0 ? fade : 0 },
+          cardH > 0 ? { opacity: fade } : styles.hidden,
         ]}
       >
         {/* Tail — only when there's a real target to point at. Points up
@@ -394,7 +394,7 @@ export default function TourOverlay({ screen, onFinish, onEnterLesson, onBack, o
             (a slightly larger gold one behind a white one) fake a bordered
             look with the same 2px the card's own border uses. */}
         {rect && tailCenter != null && (
-          <View pointerEvents="none" style={[styles.tailWrap, cardBelow ? { top: 0 } : { bottom: 0 }]}>
+          <View pointerEvents="none" style={[styles.tailWrap, cardBelow ? styles.tailWrapTop : styles.tailWrapBottom]}>
             <View style={[cardBelow ? styles.tailBorderUp : styles.tailBorderDown, { left: tailCenter - TAIL_SIZE - 2 }]} />
             <View style={[cardBelow ? styles.tailFillUp : styles.tailFillDown, { left: tailCenter - TAIL_SIZE }]} />
           </View>
@@ -546,4 +546,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   nextText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.white },
+  tailWrapTop: { top: 0 },
+  tailWrapBottom: { bottom: 0 },
+  // Hidden until the card's real height is known (see the card).
+  hidden: { opacity: 0 },
 });

@@ -48,6 +48,10 @@ export function makeMap2Styles(s: number) {
     feedback: { position: 'absolute', width: f(60.7), height: f(67.68) },
 
     overlay: { ...StyleSheet.absoluteFill, backgroundColor: DAY.ground, zIndex: 20 },
+    tabBarCornerFill: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#F5F7FA' },
+    tabBarInsetFill: { position: 'absolute', left: 0, right: 0, backgroundColor: '#F5F7FA' },
+    popupAnchor: { position: 'absolute', zIndex: 5 },
+    popupAnchorCentered: { position: 'absolute', zIndex: 5, alignItems: 'center' },
   });
 }
 

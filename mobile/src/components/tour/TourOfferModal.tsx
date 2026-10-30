@@ -20,10 +20,10 @@ export default function TourOfferModal({ visible, onAccept, onDecline }: Props) 
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDecline}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={{ width: 112, height: 112, marginBottom: 4 }}>
+          <View style={styles.mascotBox}>
             <Image
               source={MASCOT.lumoTransparent}
-              style={[styles.lumo, { marginBottom: 0 }]}
+              style={[styles.lumo, styles.mascotImgFlush]}
               resizeMode="contain"
             />
             <MascotShadow width={112} />
@@ -88,4 +88,6 @@ const styles = StyleSheet.create({
   primaryText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
   secondaryBtn: { paddingVertical: 13, alignSelf: 'stretch', alignItems: 'center', marginTop: 2 },
   secondaryText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText },
+  mascotBox: { width: 112, height: 112, marginBottom: 4 },
+  mascotImgFlush: { marginBottom: 0 },
 });

@@ -275,10 +275,10 @@ function IntroScreen({
 
       <ScrollView contentContainerStyle={S.introScroll} showsVerticalScrollIndicator={false}>
         <View style={S.introContent}>
-          <View style={{ width: 140, height: 140, marginBottom: 24 }}>
+          <View style={S.mascotBox}>
             <Image
               source={MASCOT.lumoTransparent}
-              style={[S.lumoIntro, { marginBottom: 0 }]}
+              style={[S.lumoIntro, S.mascotImgFlush]}
               resizeMode="contain"
             />
             <MascotShadow width={140} />

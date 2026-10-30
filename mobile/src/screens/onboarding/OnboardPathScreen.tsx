@@ -64,8 +64,8 @@ export default function OnboardPathScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ width: 100, height: 100, alignSelf: 'center', marginBottom: 4 }}>
-          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+        <View style={styles.mascotBox}>
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, styles.mascotImgFlush]} resizeMode="contain" />
           <MascotShadow width={100} />
         </View>
         <Text style={styles.badge}>SETUP · STEP 2 OF 3</Text>
@@ -80,15 +80,15 @@ export default function OnboardPathScreen({ navigation }: Props) {
         >
           <View style={styles.cardTop}>
             <View style={[styles.cardIcon, { backgroundColor: colors.primaryBg }]}>
-              <Text style={{ fontSize: 22 }}>🌱</Text>
+              <Text style={styles.cardIconEmoji}>🌱</Text>
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={styles.fill}>
               <Text style={styles.cardTitle}>Learning Quran for the first time?</Text>
               <Text style={styles.cardDesc}>Start from Alif Baa · Complete beginner. We'll guide you step by step.</Text>
             </View>
           </View>
           <View style={[styles.badge2, { backgroundColor: colors.primaryBg }]}>
-            <Text style={{ fontSize: 12 }}>⚡</Text>
+            <Text style={styles.badgeEmoji}>⚡</Text>
             <Text style={[styles.badge2Text, { color: colors.primary }]}>+30 XP</Text>
           </View>
         </TouchableOpacity>
@@ -101,15 +101,15 @@ export default function OnboardPathScreen({ navigation }: Props) {
         >
           <View style={styles.cardTop}>
             <View style={[styles.cardIcon, { backgroundColor: colors.blueBg }]}>
-              <Text style={{ fontSize: 22 }}>📚</Text>
+              <Text style={styles.cardIconEmoji}>📚</Text>
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={styles.fill}>
               <Text style={styles.cardTitle}>Already know some Surahs?</Text>
               <Text style={styles.cardDesc}>Test your level · Find your starting point with a short test.</Text>
             </View>
           </View>
           <View style={[styles.badge2, { backgroundColor: colors.blueBg }]}>
-            <Text style={{ fontSize: 12 }}>⚡</Text>
+            <Text style={styles.badgeEmoji}>⚡</Text>
             <Text style={[styles.badge2Text, { color: colors.blue }]}>+50 XP if you attempt</Text>
           </View>
         </TouchableOpacity>

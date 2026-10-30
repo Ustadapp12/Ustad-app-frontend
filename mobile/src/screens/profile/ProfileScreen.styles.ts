@@ -4,8 +4,6 @@ import { colors } from '../../theme';
 export function makeStyles(sc: (n: number) => number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.lightBg },
-    statusBar: { paddingHorizontal: sc(24), paddingVertical: sc(6) },
-    time: { fontFamily: 'Nunito-Bold', fontSize: sc(15), color: colors.darkText },
     avatarCard: {
       alignItems: 'center', paddingVertical: sc(14), paddingHorizontal: sc(22),
       backgroundColor: colors.white, marginHorizontal: sc(16), borderRadius: sc(20), marginBottom: sc(10),
@@ -14,7 +12,6 @@ export function makeStyles(sc: (n: number) => number) {
     avatarWrap: { position: 'relative', marginBottom: sc(6) },
     // The avatar art sits as-is: no circle, no clip, no colored disc behind it.
     avatar: { width: sc(86), height: sc(86), alignItems: 'center', justifyContent: 'center' },
-    initials: { fontFamily: 'Nunito-Bold', fontSize: sc(28), color: '#F5F7FA' },
     editBadge: {
       position: 'absolute', right: -4, bottom: -4,
       width: sc(26), height: sc(26), alignItems: 'center', justifyContent: 'center',
@@ -73,7 +70,6 @@ export function makeStyles(sc: (n: number) => number) {
       shadowColor: '#05966A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 6, elevation: 3,
     },
     settingEmoji: { fontSize: sc(16) },
-    settingIcon: { width: sc(16), height: sc(16) },
     settingContent: { flex: 1 },
     settingLabel: { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.darkText },
     settingValue: { fontFamily: 'Nunito-Regular', fontSize: sc(11), color: colors.mutedText, marginTop: 1 },
@@ -113,5 +109,14 @@ export function makeStyles(sc: (n: number) => number) {
     fontOptionPreview: { textAlign: 'right' },
     radio: { width: sc(22), height: sc(22), borderRadius: sc(11), borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     radioDot: { width: sc(11), height: sc(11), borderRadius: sc(6) },
+    modalCardTight: { gap: 0 },
+    modalTitleFlush: { marginBottom: 0 },
+    modalBodySpaced: { marginBottom: 16 },
+    fontOptionSelected: { borderWidth: 2 },
+    fill: { flex: 1 },
+    modalCancelFull: { flex: 0, alignSelf: 'stretch', marginTop: 8 },
+    mascotBox: { width: sc(72), height: sc(72), alignSelf: 'center', marginBottom: sc(4) },
+    mascotImgFlush: { marginBottom: 0 },
+    modalConfirmDisabled: { opacity: 0.5 },
   });
 }

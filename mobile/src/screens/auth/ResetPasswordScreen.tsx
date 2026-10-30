@@ -64,8 +64,8 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
     return (
       <View style={styles.container}>
         <View style={[styles.content, styles.successContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
-          <View style={{ width: 140, height: 140, marginBottom: 20 }}>
-            <Image source={MASCOT.lumoXp} style={[styles.lumaSuccess, { marginBottom: 0 }]} resizeMode="contain" />
+          <View style={styles.mascotBox}>
+            <Image source={MASCOT.lumoXp} style={[styles.lumaSuccess, styles.mascotImgFlush]} resizeMode="contain" />
             <MascotShadow width={140} />
           </View>
           <View style={styles.successBubble}>
@@ -86,8 +86,8 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
       <BackButton onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 12 }]} />
 
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
-        <View style={{ width: 110, height: 110, marginBottom: 8 }}>
-          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+        <View style={styles.mascotBoxSmall}>
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, styles.mascotImgFlush]} resizeMode="contain" />
           <MascotShadow width={110} />
         </View>
 

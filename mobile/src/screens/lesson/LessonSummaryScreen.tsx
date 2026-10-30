@@ -55,9 +55,9 @@ function Star({ filled, delay }: { filled: boolean; delay: number }) {
       Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 100, friction: 6 }).start();
     }, delay);
     return () => clearTimeout(timer);
-  }, []);
+  }, [delay, scaleAnim]);
   return (
-    <Animated.Text style={[styles.star, { transform: [{ scale: scaleAnim }] }, !filled && { opacity: 0.25 }]}>
+    <Animated.Text style={[styles.star, { transform: [{ scale: scaleAnim }] }, !filled && styles.starDim]}>
       ⭐
     </Animated.Text>
   );
@@ -113,7 +113,7 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
       xpCountAnim.removeAllListeners();
       if (xpSfxTimer) clearTimeout(xpSfxTimer);
     };
-  }, []);
+  }, [fadeAnim, lumaScaleAnim, slideAnim, xp, xpCountAnim]);
 
   // A guest was shown this XP but the server never banked it (see
   // utils/guest.ts). Park it locally so claiming the account can hand it back;
@@ -140,7 +140,7 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
   // a known React Navigation timing gap on a freshly-pushed 'fade' screen)
   // leaving a gap that exposed the Stack.Navigator's own fallback color.
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.fill}>
     <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={StyleSheet.absoluteFill} />
     <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
@@ -180,10 +180,10 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
         )}
 
         {/* Congratulating Lumo — static image, not a second Lottie */}
-        <View style={{ width: 84, height: 84, marginBottom: 12 }}>
+        <View style={styles.mascotBox}>
           <Animated.Image
             source={MASCOT.lumoXp}
-            style={[styles.lumaImg, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
+            style={[styles.lumaImg, styles.mascotImgFlush, { transform: [{ scale: lumaScaleAnim }] }]}
             resizeMode="contain"
           />
           <MascotShadow width={84} />

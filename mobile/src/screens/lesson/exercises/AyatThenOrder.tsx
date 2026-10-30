@@ -28,6 +28,8 @@ export function AyatThenOrder({
     tiles.forEach(t => { tileAudio.current[t.ar] = t.audio_url ?? null; });
     setBank(tiles.map(t => t.ar));
     setPlaced([]);
+    // Keyed on the exercise id on purpose: a reset per exercise, not per render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex.ex_id]);
 
   const tapFromBank = (ar: string, idx: number) => {
@@ -69,7 +71,7 @@ export function AyatThenOrder({
           ? <Text style={EX.answerPlaceholder}>Tap words below to build the next ayah</Text>
           : placed.map((ar, i) => (
               <TouchableOpacity
-                key={i} style={[EX.placedTile, locked && { opacity: 0.7 }]}
+                key={i} style={[EX.placedTile, locked && EX.locked]}
                 onPress={() => { if (!locked) tapFromPlaced(ar, i); }}
                 onLongPress={() => { void playUrl(tileAudio.current[ar]); }}
                 delayLongPress={400}
@@ -84,7 +86,7 @@ export function AyatThenOrder({
       <View style={EX.tileBank}>
         {bank.map((ar, i) => (
           <TouchableOpacity
-            key={i} style={[EX.bankTile, locked && { opacity: 0.7 }]}
+            key={i} style={[EX.bankTile, locked && EX.locked]}
             onPress={() => { if (!locked) tapFromBank(ar, i); }}
             onLongPress={() => { void playUrl(tileAudio.current[ar]); }}
             delayLongPress={400}

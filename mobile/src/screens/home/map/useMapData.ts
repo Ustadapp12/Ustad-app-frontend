@@ -273,6 +273,9 @@ export function useMapData(learning: LearningMe | null) {
       }
     })();
     return () => { cancelled = true; };
+    // Mount only: fetchPhase is rebuilt every render, so listing it would
+    // restart this whole background fetch on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-fetch the current surah's levels when the map regains focus after a

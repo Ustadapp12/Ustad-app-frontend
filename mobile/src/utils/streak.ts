@@ -8,7 +8,6 @@ import { FIRE } from '../assets';
 export const STREAK_ACTIVE_COLOR = '#EA580C';
 export const STREAK_FROZEN_COLOR = '#2E90E5';
 export const STREAK_NONE_COLOR = '#9CA3AF';
-export const STREAK_ACTIVE_EMOJI = '🔥';
 // Real ice-cube artwork (product-provided 2026-08-11) — the frozen-streak
 // representation everywhere it's shown, replacing the old 🧊 placeholder.
 export const STREAK_FROZEN_ICON = FIRE.frozen;
@@ -19,9 +18,7 @@ export const STREAK_FROZEN_ICON = FIRE.frozen;
 // unchanged everywhere else it renders: the Streak page hero, the freeze
 // popup, and the repair-progress screen.
 export const STREAK_ACTIVE_ICON_SMALL = FIRE.orangeFire30;
-export const STREAK_ACTIVE_ICON_LARGE = FIRE.orangeFire60;
 export const STREAK_FROZEN_ICON_SMALL = FIRE.blueFire30;
-export const STREAK_FROZEN_ICON_LARGE = FIRE.blueFire60;
 export const STREAK_BLANK_ICON = FIRE.blankFire;
 
 export function isStreakFrozen(state: StreakState | undefined): boolean {

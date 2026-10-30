@@ -4,7 +4,7 @@ import { captureError } from './crashReporter';
 // Sounds pre-loaded for the active lesson — not released between steps
 const preloadedSounds = new Map<string, unknown>();
 let activeSoundIsPreloaded = false;
-let currentSpeed = 1;
+const currentSpeed = 1;
 
 type SoundLike = {
   stop: () => void;
@@ -86,11 +86,6 @@ export function onPlayingChange(listener: PlayingListener): () => void {
 
 export function isAudioPlaying(): boolean {
   return systemPlaying;
-}
-
-/** Set the playback speed for all subsequent play() calls. 0.75 / 1 / 1.25. */
-export function setPlaybackSpeed(speed: number): void {
-  currentSpeed = speed;
 }
 
 /**
@@ -454,31 +449,4 @@ export function playFeedbackSound(correct: boolean): void {
   if (!sfx) return;
   if (sfx.ready) playSfx(sfx);
   else sfx.playWhenReady = true;
-}
-
-/**
- * Returns the duration (seconds) of a URL.
- * Reads from preloaded cache if available; otherwise loads briefly to inspect.
- * Returns 0 on any error.
- */
-export async function getAudioDuration(url: string): Promise<number> {
-  if (!url) return 0;
-  const preloaded = preloadedSounds.get(url) as SoundLike | undefined;
-  if (preloaded) {
-    return preloaded.getDuration();
-  }
-  return new Promise<number>(resolve => {
-    try {
-      const SoundModule = require('react-native-sound');
-      const Sound = SoundModule.default ?? SoundModule;
-      const s = new Sound(url, '', (err: Error | null) => {
-        if (err) { resolve(0); return; }
-        const dur = (s as SoundLike).getDuration();
-        s.release();
-        resolve(dur > 0 ? dur : 0);
-      });
-    } catch {
-      resolve(0);
-    }
-  });
 }

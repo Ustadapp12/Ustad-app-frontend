@@ -100,4 +100,11 @@ export const styles = StyleSheet.create({
   guestCardBody: { fontFamily: 'Nunito-Regular', fontSize: 11, color: colors.mutedText, lineHeight: 15 },
   guestCardBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
   guestCardBtnText: { fontFamily: 'Nunito-Bold', fontSize: 12, color: colors.white },
+  mascotBox: { width: 105, height: 105, marginBottom: 4 },
+  mascotImgFlush: { marginBottom: 0 },
+  flameWrap: { marginTop: -36, marginBottom: 16 },
+  milestoneEmoji: { fontSize: 18 },
+  milestoneCheck: { fontSize: 10, color: '#F5F7FA' },
+  modalCardTall: { maxHeight: '80%' },
+  helpSectionLast: { marginBottom: 0 },
 });

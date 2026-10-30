@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Text, TouchableOpacity, View, type ImageSourcePropType } from 'react-native';
+import { Image, Text, TouchableOpacity, View, type ImageSourcePropType, StyleSheet } from 'react-native';
 import type { Map2Styles } from '../styles';
 
 // One of the four corner buttons (Search, Journey, Review x2). Every box is in
@@ -41,10 +41,7 @@ function FeatureButton({ S, s, topInset, spec, onPress, children }: Props) {
       {spec.labelUnderImage && labelEl}
       <Image
         source={image.src}
-        style={{
-          position: 'absolute', left: image.left * s, top: image.top * s,
-          width: image.size * s, height: image.size * s, transform: [{ rotate: `${image.rotate}deg` }],
-        }}
+        style={[styles.image, { left: image.left * s, top: image.top * s, width: image.size * s, height: image.size * s, transform: [{ rotate: `${image.rotate}deg` }] }]}
         resizeMode="contain"
       />
       {!spec.labelUnderImage && labelEl}
@@ -54,3 +51,7 @@ function FeatureButton({ S, s, topInset, spec, onPress, children }: Props) {
 }
 
 export default React.memo(FeatureButton);
+
+const styles = StyleSheet.create({
+  image: { position: 'absolute' },
+});

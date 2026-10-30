@@ -5,9 +5,6 @@ export const EX = StyleSheet.create({
   instruction: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText, textAlign: 'center', marginBottom: 12 },
   // Question card
   questionCard: { backgroundColor: '#FFFBF0', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1.5, borderColor: 'rgba(196,168,76,0.4)', alignItems: 'center' },
-  ayahCard: { backgroundColor: '#F5F7FA', borderRadius: 18, padding: 22, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  ayahAr: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 28, color: colors.darkText, textAlign: 'right', lineHeight: 52, marginBottom: 10 },
-  ayahTrans: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', lineHeight: 20 },
   // lineHeight is required: Naskh harakat sit outside the font's own
   // ascent/descent box, so with no reserved clearance the diacritics get
   // clipped by the row above or below. Ratio matches ayahAr/ayahText's
@@ -33,8 +30,6 @@ export const EX = StyleSheet.create({
   bankTile: { backgroundColor: '#F5F7FA', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
   placedTile: { backgroundColor: colors.primaryBg, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
   tileText: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: colors.darkText },
-  listenBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.primaryBg, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 16 },
-  listenBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.primary },
   // Sequence (ayah ordering) exercise styles
   seqAnswerZone: { flexDirection: 'column' as const, gap: 12, marginVertical: 20, paddingHorizontal: 16 },
   seqBank:       { flexDirection: 'column' as const, gap: 12, paddingHorizontal: 16 },
@@ -46,4 +41,5 @@ export const EX = StyleSheet.create({
   seqBoxEmpty:   { borderStyle: 'dashed' as const, borderColor: 'rgba(55,161,104,0.4)', backgroundColor: 'rgba(55,161,104,0.03)' },
   seqSlotNum:    { fontFamily: 'Nunito-Bold', fontSize: 18, color: 'rgba(55,161,104,0.25)' },
   seqTileText:   { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 20, color: '#1A3A2A', textAlign: 'right' as const, lineHeight: 32 },
+  locked: { opacity: 0.7 },
 });

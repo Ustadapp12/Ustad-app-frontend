@@ -18,7 +18,7 @@ export default function ExitAppModal({ visible, onStay, onLeave }: Props) {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onStay}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={{ width: 90, height: 90, marginBottom: 8 }}>
+          <View style={styles.mascotBox}>
             <Image
               source={MASCOT.lumoKufi}
               style={styles.luma}
@@ -53,4 +53,5 @@ const styles = StyleSheet.create({
   leaveText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
   stayBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   stayText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
+  mascotBox: { width: 90, height: 90, marginBottom: 8 },
 });

@@ -161,7 +161,7 @@ export function SpeakResultBanner({ result, onAdvance, onRetry }: { result: Spea
         </View>
       ) : (
         <TouchableOpacity
-          style={[SRB.btn, { marginTop: 18 }, !passed && SRB.btnFail, audioPlaying && SRB.btnDisabled]}
+          style={[SRB.btn, SRB.btnSpaced, !passed && SRB.btnFail, audioPlaying && SRB.btnDisabled]}
           onPress={handleAdvance}
           disabled={audioPlaying}
         >
@@ -219,4 +219,5 @@ export const SRB = StyleSheet.create({
   btnFlex:         { flex: 1 },
   btnSecondary:    { backgroundColor: '#F5F7FA', borderWidth: 2, borderColor: '#F97316', shadowOpacity: 0 },
   btnTextSecondary:{ color: '#F97316' },
+  btnSpaced: { marginTop: 18 },
 });

@@ -47,8 +47,6 @@ export const BI = StyleSheet.create({
   surahLabel: { fontFamily: 'Nunito-Bold', fontSize: 12, color: 'rgba(224,188,78,0.8)', marginBottom: 12, letterSpacing: 0.5 },
   bismillah: { fontFamily: 'NotoNaskhArabic-Regular', fontSize: 32, color: '#E0BC4E', textAlign: 'center', lineHeight: 52 },
   translation: { fontFamily: 'Nunito-Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 10, lineHeight: 18 },
-  listenBtn: { marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(224,188,78,0.15)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20 },
-  listenBtnText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#E0BC4E' },
   beginBtn: { marginTop: 28, backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 18, paddingHorizontal: 60, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 6 },
   beginBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
 });

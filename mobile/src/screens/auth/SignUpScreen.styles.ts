@@ -3,8 +3,6 @@ import { colors } from '../../theme';
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightBg },
-  statusBar: { paddingHorizontal: 24, paddingBottom: 6 },
-  time: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.darkText },
   scroll: { paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' },
   lumaWrap: { alignItems: 'center', paddingVertical: 20 },
   luma: { width: 150, height: 150 },
@@ -78,4 +76,7 @@ export const styles = StyleSheet.create({
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, textAlign: 'center',
   },
   footer: { paddingHorizontal: 22, paddingTop: 12, backgroundColor: colors.lightBg },
+  mascotBox: { width: 120, height: 120, marginBottom: 10 },
+  passwordField: { flex: 1 },
+  mascotShadow: { position: 'relative', marginTop: -15 },
 });

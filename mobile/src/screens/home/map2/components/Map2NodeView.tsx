@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated, Pressable, TouchableOpacity, View } from 'react-native';
+import { Animated, Pressable, TouchableOpacity, View, StyleSheet } from 'react-native';
 import IconStarArt from '../art/IconStarArt';
 import IconLockArt from '../art/IconLockArt';
 import IconBookArt from '../art/IconBookArt';
@@ -79,7 +79,7 @@ function Map2NodeView({
     <>
       {look === 'current' && (
         // Centred on the whole node (57pt face + 8pt lip), so the gap inside the ring is even all round.
-        <View style={{ position: 'absolute', left: -14 * s, top: -16.5 * s }} pointerEvents="none">
+        <View style={[styles.ring, { left: -14 * s, top: -16.5 * s }]} pointerEvents="none">
           <ProgressRing size={98 * s} />
         </View>
       )}
@@ -91,14 +91,14 @@ function Map2NodeView({
         )}
       </Pressable>
       {look === 'completed' && (
-        <View style={{ position: 'absolute', left: -1.5 * s, top: 68.5 * s }} pointerEvents="none">
+        <View style={[styles.stars, { left: -1.5 * s, top: 68.5 * s }]} pointerEvents="none">
           <StarRow width={73 * s} earned={node.stars} />
         </View>
       )}
       {label != null && look === 'current' && (
         // Sits just clear of the progress ring's top edge.
         <View
-          style={{ position: 'absolute', left: -100 * s, right: -100 * s, bottom: 84 * s, alignItems: 'center' }}
+          style={[styles.nameTag, { left: -100 * s, right: -100 * s, bottom: 84 * s }]}
           pointerEvents="none"
         >
           <NodeLabel S={S} text={label} />
@@ -107,7 +107,7 @@ function Map2NodeView({
       {label != null && look === 'jump' && (
         // Tappable like the node itself.
         <View
-          style={{ position: 'absolute', left: -60 * s, right: -60 * s, bottom: 69 * s, alignItems: 'center' }}
+          style={[styles.beginTag, { left: -60 * s, right: -60 * s, bottom: 69 * s }]}
           pointerEvents="box-none"
         >
           <TouchableOpacity activeOpacity={0.8} onPress={() => onPress(section, node)} accessibilityLabel={`Jump to ${section.name}`}>
@@ -119,10 +119,10 @@ function Map2NodeView({
   );
   return (
     <Animated.View
-      style={{
-        position: 'absolute', left: cx - w / 2, top: cy - faceH / 2, width: w, height: faceH + lip,
-        opacity: isFetching ? 0.6 : 1, transform: [{ translateX }], zIndex: label != null ? 2 : 1,
-      }}
+      style={[
+        styles.nodeBox, isFetching && styles.nodeBoxFetching, label != null && styles.nodeBoxRaised,
+        { left: cx - w / 2, top: cy - faceH / 2, width: w, height: faceH + lip, transform: [{ translateX }] },
+      ]}
     >
       {/* The current node bobs like Lumo on the Leaderboard, ring and tag
           with it, so it stands out (user, 2026-10-22). */}
@@ -134,3 +134,13 @@ function Map2NodeView({
 }
 
 export default React.memo(Map2NodeView);
+
+const styles = StyleSheet.create({
+  ring: { position: 'absolute' },
+  stars: { position: 'absolute' },
+  nameTag: { position: 'absolute', alignItems: 'center' },
+  beginTag: { position: 'absolute', alignItems: 'center' },
+  nodeBox: { position: 'absolute', zIndex: 1 },
+  nodeBoxFetching: { opacity: 0.6 },
+  nodeBoxRaised: { zIndex: 2 },
+});

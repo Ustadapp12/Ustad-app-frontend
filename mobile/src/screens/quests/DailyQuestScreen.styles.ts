@@ -17,4 +17,6 @@ export const styles = StyleSheet.create({
     fontFamily: 'Nunito-Bold', fontSize: 15, color: '#F5F7FA',
     textAlign: 'center', lineHeight: 22,
   },
+  mascotImgFlush: { marginBottom: 0 },
+  mascotShadow: { position: 'relative', marginTop: -17, marginBottom: 20 },
 });

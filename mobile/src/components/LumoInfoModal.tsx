@@ -38,7 +38,7 @@ export default function LumoInfoModal({
     ]));
     loop.start();
     return () => loop.stop();
-  }, [visible]);
+  }, [visible, floatAnim]);
 
   function handleEmailPress() {
     if (!contactEmail) return;
@@ -49,10 +49,10 @@ export default function LumoInfoModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={{ width: 105, height: 105, marginBottom: 8 }}>
+          <View style={styles.mascotBox}>
             <Animated.Image
               source={MASCOT.lumoTransparent}
-              style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatAnim }] }]}
+              style={[styles.lumo, styles.mascotImgFlush, { transform: [{ translateY: floatAnim }] }]}
               resizeMode="contain"
             />
             <MascotShadow width={105} />
@@ -114,4 +114,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   buttonText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
+  mascotBox: { width: 105, height: 105, marginBottom: 8 },
+  mascotImgFlush: { marginBottom: 0 },
 });

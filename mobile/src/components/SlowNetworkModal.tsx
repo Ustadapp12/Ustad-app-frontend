@@ -63,7 +63,7 @@ export default function SlowNetworkModal() {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={{ width: 90, height: 90, marginBottom: 8 }}>
+          <View style={styles.mascotBox}>
             <Image
               source={MASCOT.lumoKufi}
               style={styles.luma}
@@ -92,4 +92,5 @@ const styles = StyleSheet.create({
   body: { fontFamily: 'Nunito-Regular', fontSize: 13, color: colors.mutedText, lineHeight: 20, marginBottom: 20, textAlign: 'center' },
   okBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   okText: { fontFamily: 'Nunito-Bold', fontSize: 14, color: colors.white },
+  mascotBox: { width: 90, height: 90, marginBottom: 8 },
 });

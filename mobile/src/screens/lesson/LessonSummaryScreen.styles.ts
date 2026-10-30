@@ -24,4 +24,8 @@ export const styles = StyleSheet.create({
   statLabel:    { fontFamily: 'Nunito-Bold', fontSize: 10.5, color: colors.gold, letterSpacing: 0.5, marginTop: 3, opacity: 0.85 },
   continueBtn:  { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
   continueBtnText: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#F5F7FA' },
+  starDim: { opacity: 0.25 },
+  fill: { flex: 1 },
+  mascotBox: { width: 84, height: 84, marginBottom: 12 },
+  mascotImgFlush: { marginBottom: 0 },
 });

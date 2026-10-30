@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, Animated, TouchableOpacity, Image } from 'react-native';
+import { View, Text, Animated, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { formatAyahRange } from '../mapModel';
 import type { Styles } from '../mapStyles';
 import { MASCOT } from '../../../../assets';
@@ -46,7 +46,7 @@ export function LevelActionCard({
   const closingRef = useRef(false);
   useEffect(() => {
     Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 7, tension: 60 }).start();
-  }, []);
+  }, [anim]);
 
   // Guarded so a close-then-confirm double-tap during the 140ms shrink can't
   // fire both actions — only the first tap's action ever runs.
@@ -76,7 +76,7 @@ export function LevelActionCard({
         </Text>
       </View>
       <View style={S.actionCardSubtitleBox}>
-        <Text style={[S.actionCardSubtitle, { flexShrink: 1 }]} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={[S.actionCardSubtitle, styles.shrink]} numberOfLines={1} adjustsFontSizeToFit>
           {formatAyahRange(ayahFrom, ayahTo)}
         </Text>
         <Text style={[S.actionCardSubtitle, S.actionCardTimeEstimate]} numberOfLines={1}>
@@ -97,3 +97,7 @@ export function LevelActionCard({
     </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  shrink: { flexShrink: 1 },
+});

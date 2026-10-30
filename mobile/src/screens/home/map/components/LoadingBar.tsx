@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Animated } from 'react-native';
+import { View, Animated, StyleSheet } from 'react-native';
 import { useScreenVisible } from '../../../../hooks/useScreenVisible';
 
 // ── Indeterminate loading progress bar ────────────────────────────
@@ -30,19 +30,15 @@ export function LoadingBar() {
   });
 
   return (
-    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.2)', overflow: 'hidden' }}>
+    <View style={styles.track}>
       <Animated.View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 3,
-          backgroundColor: '#F5F7FA',
-          transform: [{ translateX }],
-          width: '50%',
-        }}
+        style={[styles.bar, { transform: [{ translateX }] }]}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  track: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.2)', overflow: 'hidden' },
+  bar: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: '#F5F7FA', width: '50%' },
+});

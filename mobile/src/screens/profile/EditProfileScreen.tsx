@@ -99,8 +99,8 @@ export default function EditProfileScreen({ navigation }: Props) {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ width: 90, height: 90, marginBottom: 18 }}>
-          <Image source={avatarSrc} style={{ width: 90, height: 90 }} resizeMode="contain" />
+        <View style={styles.mascotBox}>
+          <Image source={avatarSrc} style={styles.mascotImg} resizeMode="contain" />
           <MascotShadow width={90} />
         </View>
 

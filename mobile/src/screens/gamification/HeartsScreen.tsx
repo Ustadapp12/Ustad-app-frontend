@@ -33,7 +33,7 @@ export default function HeartsScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ width: 110, height: 110, marginBottom: 4 }}>
+        <View style={styles.mascotBox}>
           <Image
             source={MASCOT.lumoTransparent}
             style={styles.luma}

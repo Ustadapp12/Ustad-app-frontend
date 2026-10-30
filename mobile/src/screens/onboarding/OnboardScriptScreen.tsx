@@ -79,8 +79,8 @@ export default function OnboardScriptScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ width: sc(100), height: sc(100), alignSelf: 'center', marginBottom: sc(4) }}>
-          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+        <View style={styles.mascotBox}>
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, styles.mascotImgFlush]} resizeMode="contain" />
           <MascotShadow width={sc(100)} />
         </View>
         <Text style={styles.badge}>SETUP · STEP 3 OF 3</Text>
@@ -92,13 +92,13 @@ export default function OnboardScriptScreen({ navigation }: Props) {
           return (
             <TouchableOpacity
               key={s.key}
-              style={[styles.card, active && { borderColor: s.accentColor, borderWidth: 2.5 }]}
+              style={[styles.card, active && [styles.cardSelected, { borderColor: s.accentColor }]]}
               onPress={() => setSelected(s.key)}
               activeOpacity={0.85}
             >
               {/* Header row */}
               <View style={styles.cardHeader}>
-                <View style={[styles.cardTitleWrap, { flex: 1 }]}>
+                <View style={[styles.cardTitleWrap, styles.fill]}>
                   <Text style={styles.cardTitle}>{s.title}</Text>
                   <Text style={[styles.cardSubtitle, { color: s.accentColor }]}>{s.subtitle}</Text>
                   <Text style={styles.cardDesc}>{s.desc}</Text>

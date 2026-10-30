@@ -7,9 +7,6 @@ export const PRODUCTION_API_BASE = 'https://ustad-app-backend-six.vercel.app';
 
 export const API_BASE = PRODUCTION_API_BASE;
 
-/** MVP: 21 surahs 93–114 (excluding 96) from API (`mvp_only=true`). Set true for full Juz 30. */
-export const FULL_JUZ_AMMA = false;
-
 export const API_PREFIX = '/api/v1';
 
 /** Legal documents. Hosted on the web rather than bundled in the app for two
@@ -30,5 +27,3 @@ export const PRIVACY_URL = 'https://ustadapp.com/privacy';
  * is useless without a matching signing fingerprint registered in Firebase. */
 export const GOOGLE_WEB_CLIENT_ID =
   '537760681130-ovvm4uklrb2e331b7vvu40sj9n0jqfj7.apps.googleusercontent.com';
-
-

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { colors } from '../../../theme';
 import LumoInfoModal from '../../../components/LumoInfoModal';
@@ -25,18 +25,18 @@ export function LessonLoadError({ insetTop, error, onRetry, onBack }: {
       <LottieView
         source={ANIMATIONS.n404}
         autoPlay loop
-        style={{ width: 200, height: 200 }}
+        style={styles.lottieLarge}
       />
       <Text style={S.errorTitle}>Couldn't load the lesson</Text>
       <Text style={S.errorMsg}>{error}</Text>
       <TouchableOpacity style={S.retryBtn} onPress={onRetry}>
         <Text style={S.retryBtnText}>Try again</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onBack} style={{ marginTop: 12 }}>
-        <Text style={{ color: colors.mutedText, fontFamily: 'Nunito-Regular' }}>Go back</Text>
+      <TouchableOpacity onPress={onBack} style={styles.secondaryBtn}>
+        <Text style={styles.secondaryBtnText}>Go back</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => setFeedbackVisible(true)} style={{ marginTop: 16 }}>
-        <Text style={{ color: colors.primary, fontFamily: 'Nunito-Bold', fontSize: 13 }}>Give feedback</Text>
+      <TouchableOpacity onPress={() => setFeedbackVisible(true)} style={styles.feedbackBtn}>
+        <Text style={styles.feedbackBtnText}>Give feedback</Text>
       </TouchableOpacity>
       <LumoInfoModal
         visible={feedbackVisible}
@@ -60,7 +60,7 @@ export function LessonNotReady({ insetTop, onRetry, onBackToMap }: {
       <LottieView
         source={ANIMATIONS.loading}
         autoPlay loop
-        style={{ width: 140, height: 140 }}
+        style={styles.lottie}
       />
       <Text style={S.errorTitle}>Creating your custom environment</Text>
       <LoadingStatusText
@@ -70,8 +70,8 @@ export function LessonNotReady({ insetTop, onRetry, onBackToMap }: {
       <TouchableOpacity style={S.retryBtn} onPress={onRetry}>
         <Text style={S.retryBtnText}>Try Again</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onBackToMap} style={{ marginTop: 12 }}>
-        <Text style={{ color: colors.mutedText, fontFamily: 'Nunito-Regular' }}>Back to Map</Text>
+      <TouchableOpacity onPress={onBackToMap} style={styles.secondaryBtn}>
+        <Text style={styles.secondaryBtnText}>Back to Map</Text>
       </TouchableOpacity>
     </View>
   );
@@ -92,10 +92,19 @@ export function LessonLoading({ insetTop, onBackToMap }: { insetTop: number; onB
       <LottieView
         source={ANIMATIONS.loading}
         autoPlay loop
-        style={{ width: 140, height: 140 }}
+        style={styles.lottie}
       />
       <Text style={S.errorTitle}>Creating your custom environment</Text>
       <LoadingStatusText style={S.errorMsg} />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  lottieLarge: { width: 200, height: 200 },
+  secondaryBtn: { marginTop: 12 },
+  secondaryBtnText: { color: colors.mutedText, fontFamily: 'Nunito-Regular' },
+  feedbackBtn: { marginTop: 16 },
+  feedbackBtnText: { color: colors.primary, fontFamily: 'Nunito-Bold', fontSize: 13 },
+  lottie: { width: 140, height: 140 },
+});

@@ -122,7 +122,7 @@ export default function StreakScreen({ navigation, route }: Props) {
       return () => { clearTimeout(timer); };
     }
     return undefined;
-  }, []);
+  }, [justIncremented, lumaScaleAnim, numberScaleAnim, scaleAnim, streak]);
   // The bob and the flame run only while this screen is on screen; they used
   // to keep going under SignUp and under the tabs (2026-10-22 audit).
   useFocusedLoop(floatAnim, 1200);
@@ -145,10 +145,10 @@ export default function StreakScreen({ navigation, route }: Props) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {justIncremented && (
-          <View style={{ width: 105, height: 105, marginBottom: 4 }}>
+          <View style={styles.mascotBox}>
             <Animated.Image
               source={MASCOT.lumoTransparent}
-              style={[styles.celebrationLuma, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
+              style={[styles.celebrationLuma, styles.mascotImgFlush, { transform: [{ scale: lumaScaleAnim }] }]}
               resizeMode="contain"
             />
             <MascotShadow width={105} />
@@ -201,7 +201,7 @@ export default function StreakScreen({ navigation, route }: Props) {
                 so it doesn't crowd the card's bottom edge now that it's
                 sitting higher. floatAnim's own bob (0 to -8) rides on top
                 of this. */}
-            <Animated.View style={{ marginTop: -36, marginBottom: 16, transform: [{ translateY: floatY }, { scale: scaleAnim }] }}>
+            <Animated.View style={[styles.flameWrap, { transform: [{ translateY: floatY }, { scale: scaleAnim }] }]}>
               <LottieView
                 ref={flameRef}
                 source={frozen
@@ -259,10 +259,10 @@ export default function StreakScreen({ navigation, route }: Props) {
               { days: 30, emoji: '🏆', label: '30-day streak', reward: '+250 XP', done: streak >= 30 },
             ].map(m => (
               <View key={m.days} style={[styles.milestoneRow, m.done && styles.milestoneRowDone]}>
-                <Text style={{ fontSize: 18 }}>{m.emoji}</Text>
+                <Text style={styles.milestoneEmoji}>{m.emoji}</Text>
                 <Text style={[styles.milestoneLabel, m.done && { color: colors.primary }]}>{m.label}</Text>
                 <Text style={styles.milestoneReward}>{m.reward}</Text>
-                {m.done && <View style={styles.milestoneDone}><Text style={{ fontSize: 10, color: '#F5F7FA' }}>✓</Text></View>}
+                {m.done && <View style={styles.milestoneDone}><Text style={styles.milestoneCheck}>✓</Text></View>}
               </View>
             ))}
           </View>
@@ -307,7 +307,7 @@ export default function StreakScreen({ navigation, route }: Props) {
 
       <Modal visible={helpVisible} transparent animationType="fade" onRequestClose={() => setHelpVisible(false)}>
         <View style={styles.helpBackdrop}>
-          <View style={[styles.helpCard, { maxHeight: '80%' }]}>
+          <View style={[styles.helpCard, styles.modalCardTall]}>
             <View style={styles.helpCardHeader}>
               <Text style={styles.helpCardTitle}>How streaks work</Text>
               <TouchableOpacity style={styles.helpCloseBtn} onPress={() => setHelpVisible(false)}>
@@ -332,7 +332,7 @@ export default function StreakScreen({ navigation, route }: Props) {
               </View>
 
               {/* Ice — the frozen/grace state */}
-              <View style={[styles.helpSection, { marginBottom: 0 }]}>
+              <View style={[styles.helpSection, styles.helpSectionLast]}>
                 <View style={styles.helpSectionHeader}>
                   <Image source={STREAK_FROZEN_ICON_SMALL} style={styles.helpSectionIcon} resizeMode="contain" />
                   <Text style={styles.helpSectionTitle}>Frozen streak</Text>

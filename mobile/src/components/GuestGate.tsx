@@ -49,10 +49,10 @@ export default function GuestGate({ feature, title, body }: Props) {
       <Animated.View style={[styles.inner, { opacity: fadeAnim }]}>
         <Animated.Image
           source={MASCOT.lumoTransparent}
-          style={[styles.lumo, { marginBottom: 0, transform: [{ translateY: floatY }] }]}
+          style={[styles.lumo, styles.mascotImgFlush, { transform: [{ translateY: floatY }] }]}
           resizeMode="contain"
         />
-        <MascotShadow width={165} style={{ position: 'relative', marginTop: -17, marginBottom: 12 }} />
+        <MascotShadow width={165} style={styles.mascotShadow} />
 
         <View style={styles.card}>
           <Text style={styles.title}>{title ?? 'Create an account to save your progress'}</Text>
@@ -116,4 +116,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
+  mascotImgFlush: { marginBottom: 0 },
+  mascotShadow: { position: 'relative', marginTop: -17, marginBottom: 12 },
 });

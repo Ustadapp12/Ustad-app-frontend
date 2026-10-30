@@ -23,10 +23,9 @@ function getModule(): GoogleSigninModule | null {
   if (_mod === false) return null;
   if (_mod) return _mod;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     _mod = require('@react-native-google-signin/google-signin') as GoogleSigninModule;
     return _mod;
-  } catch (e) {
+  } catch {
     _mod = false;
     return null;
   }

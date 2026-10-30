@@ -32,5 +32,9 @@ export function makeStyles(sc: (n: number) => number) {
   btnText:      { fontFamily: 'Nunito-Bold', fontSize: sc(16), color: colors.white },
   skipBtn:      { paddingVertical: sc(6), alignItems: 'center' },
   skipText:     { fontFamily: 'Nunito-Bold', fontSize: sc(14), color: colors.placeholderText },
+  mascotBox: { width: sc(100), height: sc(100), alignSelf: 'center', marginBottom: sc(4) },
+  mascotImgFlush: { marginBottom: 0 },
+  cardSelected: { borderWidth: 2.5 },
+  fill: { flex: 1 },
   });
 }

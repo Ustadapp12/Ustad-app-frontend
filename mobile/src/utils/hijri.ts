@@ -56,5 +56,3 @@ export function formatHijriDate(date: Date = new Date()): string {
   const h = fromIntl(date) ?? tabular(date);
   return `${h.day} ${HIJRI_MONTHS[h.month - 1]} ${h.year} AH`;
 }
-
-export const __test__ = { tabular, fromIntl };

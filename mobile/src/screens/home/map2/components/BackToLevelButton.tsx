@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { DAY } from '../map2Theme';
 import FaceOnLip from './FaceOnLip';
@@ -19,7 +19,7 @@ function BackToLevelButton({ s, right, bottom, direction, onPress }: {
       onPress={onPress}
       accessibilityLabel="Back to my level"
       hitSlop={8}
-      style={{ position: 'absolute', bottom, right }}
+      style={[styles.button, { bottom, right }]}
     >
       {({ pressed }) => (
         <FaceOnLip
@@ -40,3 +40,7 @@ function BackToLevelButton({ s, right, bottom, direction, onPress }: {
 }
 
 export default React.memo(BackToLevelButton);
+
+const styles = StyleSheet.create({
+  button: { position: 'absolute' },
+});

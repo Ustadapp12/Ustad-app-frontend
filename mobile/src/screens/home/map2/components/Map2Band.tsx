@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Animated, Image, Pressable, View } from 'react-native';
+import { Animated, Image, Pressable, View, StyleSheet } from 'react-native';
 import { MAP2_IMAGES } from '../assets';
 import { bandContent, type Map2Layout, type Map2NodeData, type Map2Section } from '../map2Model';
 import type { Map2Styles } from '../styles';
@@ -73,7 +73,7 @@ function Map2Band({
         <Image
           key={`lumo-${l.slot}`}
           source={MAP2_IMAGES.lumo}
-          style={{ position: 'absolute', left: l.x, top: l.y - c.top, width: l.w, height: l.h }}
+          style={[styles.lumo, { left: l.x, top: l.y - c.top, width: l.w, height: l.h }]}
           resizeMode="contain"
           accessibilityLabel={l.slot === activeSlot ? 'Lumo next to your level' : 'Lumo at the start of your journey'}
         />
@@ -97,3 +97,7 @@ function Map2Band({
 }
 
 export default React.memo(Map2Band);
+
+const styles = StyleSheet.create({
+  lumo: { position: 'absolute' },
+});

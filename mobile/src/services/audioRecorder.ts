@@ -113,30 +113,3 @@ export async function stopRecording(): Promise<string> {
     setPlaybackBlocked(false);
   }
 }
-
-type PlaybackUpdate = { currentPosition: number; duration: number };
-
-/** Play back a local recording URI. Returns a cleanup function. */
-export function playRecording(
-  uri: string,
-  onProgress: (pos: number, dur: number) => void,
-  onEnd: () => void,
-): () => void {
-  const rec = getRecorder();
-  const sub = rec.addPlayBackListener((e: PlaybackUpdate) => {
-    onProgress(e.currentPosition / 1000, e.duration / 1000);
-    if (e.currentPosition >= e.duration && e.duration > 0) {
-      void rec.stopPlayer();
-      onEnd();
-    }
-  });
-  void rec.startPlayer(uri);
-  return () => {
-    sub.remove();
-    void rec.stopPlayer().catch(() => {});
-  };
-}
-
-export async function stopPlayback(): Promise<void> {
-  await getRecorder().stopPlayer().catch(() => {});
-}

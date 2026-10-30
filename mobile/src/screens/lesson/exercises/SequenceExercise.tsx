@@ -25,6 +25,8 @@ export function SequenceExercise({
   useEffect(() => {
     setBank([...rawTiles]);
     setPlaced(Array(answerLen).fill(null));
+    // Keyed on the exercise id on purpose: a reset per exercise, not per render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex.ex_id]);
 
   function tapTile(text: string) {

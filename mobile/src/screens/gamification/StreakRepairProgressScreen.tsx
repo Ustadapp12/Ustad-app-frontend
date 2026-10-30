@@ -27,7 +27,7 @@ function Snowflake({ left, top, delay, size }: { left: number; top: number; dela
     ]));
     loop.start();
     return () => { loop.stop(); floatAnim.setValue(0); };
-  }, [onScreen]);
+  }, [onScreen, delay, floatAnim]);
   return (
     <Animated.Text
       style={[
@@ -68,7 +68,7 @@ export default function StreakRepairProgressScreen({ navigation, route }: Props)
       Animated.timing(slideAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
       Animated.spring(iceScale, { toValue: 1, useNativeDriver: true, tension: 90, friction: 7, delay: 150 }),
     ]).start();
-  }, []);
+  }, [fadeAnim, iceScale, slideAnim]);
 
   // Background split from content — see StreakCelebrationScreen's identical
   // comment: a full-bleed LinearGradient sibling (no insets dependency)
@@ -77,7 +77,7 @@ export default function StreakRepairProgressScreen({ navigation, route }: Props)
   // a known React Navigation timing gap on a freshly-pushed 'fade' screen)
   // leaving a gap that exposed the Stack.Navigator's own fallback color.
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.fill}>
     <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={StyleSheet.absoluteFill} />
     <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       <View style={{ paddingTop: insets.top + 10 }} />

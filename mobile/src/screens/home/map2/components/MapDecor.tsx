@@ -29,7 +29,7 @@ function MapDecor({ items, offsetY }: { items: Decor[]; offsetY: number }) {
             key={d.key}
             width={d.w}
             height={d.h}
-            style={{ position: 'absolute', left: d.x, top: d.y - offsetY, transform: d.flip ? [{ scaleX: -1 }] : undefined }}
+            style={[styles.decor, { left: d.x, top: d.y - offsetY, transform: d.flip ? [{ scaleX: -1 }] : undefined }]}
           />
         );
       })}
@@ -38,3 +38,7 @@ function MapDecor({ items, offsetY }: { items: Decor[]; offsetY: number }) {
 }
 
 export default React.memo(MapDecor);
+
+const styles = StyleSheet.create({
+  decor: { position: 'absolute' },
+});

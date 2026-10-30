@@ -47,7 +47,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
     // `email` is null only for a guest, who can never reach this screen —
     // claiming the account sets it before we navigate here.
     void fetchOwnEmail().then(setEmail);
-  }, [email]);
+  }, [email, fetchOwnEmail]);
 
   useEffect(() => () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); }, []);
 
@@ -60,7 +60,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
       lumaScaleAnim.setValue(0);
       Animated.spring(lumaScaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6, delay: 200 }).start();
     }
-  }, [showCelebration]);
+  }, [showCelebration, lumaScaleAnim]);
 
   function startCooldown() {
     // Never two timers ticking the same countdown (review 5.2). Same guard as
@@ -137,8 +137,8 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
         <Text style={styles.closeIcon}>✕</Text>
       </TouchableOpacity>
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom }]}>
-        <View style={{ width: 130, height: 130, marginBottom: 8 }}>
-          <Image source={MASCOT.lumoTransparent} style={[styles.luma, { marginBottom: 0 }]} resizeMode="contain" />
+        <View style={styles.mascotBox}>
+          <Image source={MASCOT.lumoTransparent} style={[styles.luma, styles.mascotImgFlush]} resizeMode="contain" />
           <MascotShadow width={130} />
         </View>
 
@@ -191,10 +191,10 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
     >
       <View style={styles.celebBackdrop}>
         <View style={styles.celebCard}>
-          <View style={{ width: 84, height: 84, marginBottom: 12 }}>
+          <View style={styles.celebMascotBox}>
             <Animated.Image
               source={MASCOT.lumoXp}
-              style={[styles.celebLuma, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
+              style={[styles.celebLuma, styles.mascotImgFlush, { transform: [{ scale: lumaScaleAnim }] }]}
               resizeMode="contain"
             />
             <MascotShadow width={84} />

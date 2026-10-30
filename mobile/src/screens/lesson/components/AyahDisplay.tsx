@@ -89,9 +89,6 @@ export function AyahDisplay({
 
 export const AD = StyleSheet.create({
   container: { alignItems: 'center' },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF8E7', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 16, borderWidth: 1, borderColor: '#E0BC4E' },
-  badgeIcon: { fontSize: 14 },
-  badgeText: { fontFamily: 'Nunito-Bold', fontSize: 11, color: '#9A7A20', letterSpacing: 0.8 },
   verseTitle: { fontFamily: 'Nunito-Bold', fontSize: 16, color: colors.darkText, marginBottom: 4, textAlign: 'center' },
   subInstruction: { fontFamily: 'Nunito-Regular', fontSize: 12, color: colors.mutedText, textAlign: 'center', marginBottom: 20 },
   ayahCard: { width: '100%', backgroundColor: '#FFFBF0', borderRadius: 18, borderWidth: 1.5, borderColor: '#E8D8A0', padding: 24, alignItems: 'center', marginBottom: 24 },
