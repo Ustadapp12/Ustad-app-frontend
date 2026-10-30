@@ -14,6 +14,7 @@ import type {
   JuzOut,
   LearningMe,
   LearningStats,
+  StreakCalendar,
   LeaderboardOut,
   LessonGroupDetail,
   LessonGroupExercises,
@@ -80,6 +81,24 @@ export const authApi = {
       { method: 'POST', body: JSON.stringify(body) },
       true,
       { retryOnNetworkError: true },
+    ),
+
+  // Sign in with Apple, same one-endpoint design and auth: true reasoning as
+  // google() above. No retryOnNetworkError: the authorization_code inside is
+  // single use, so a retry after a request that actually reached the server
+  // would fail the code exchange (sign-in still works, revocation would not).
+  apple: (body: {
+    identity_token: string;
+    nonce: string | null;
+    authorization_code: string | null;
+    full_name: string | null;
+    pending_xp: number;
+    pending_streak: number;
+  }) =>
+    api<AuthResponse>(
+      '/auth/apple',
+      { method: 'POST', body: JSON.stringify(body) },
+      true,
     ),
 
   // Claims the *current* guest account by attaching credentials to the same
@@ -176,6 +195,18 @@ export const usersApi = {
       method: 'PATCH',
       body: JSON.stringify({ name }),
     }),
+
+  updateAvatarVariant: (avatar_variant: number) =>
+    api<{ avatar_variant: number }>('/users/me/avatar-variant', {
+      method: 'PATCH',
+      body: JSON.stringify({ avatar_variant }),
+    }),
+
+  updateLocation: (latitude: number, longitude: number) =>
+    api<{ latitude: number; longitude: number }>('/users/me/location', {
+      method: 'PATCH',
+      body: JSON.stringify({ latitude, longitude }),
+    }),
 };
 
 /** PATCH profile only when logged in — safe during pre-auth onboarding. */
@@ -255,6 +286,8 @@ export const learningApi = {
     ),
 
   stats: () => api<LearningStats>('/learning/stats'),
+
+  streakCalendar: () => api<StreakCalendar>('/learning/streak/calendar'),
 
   recommendedNext: () =>
     api<RecommendedNext | null>('/learning/recommended-next'),
@@ -458,10 +491,10 @@ export const feedbackApi = {
 
 // Redeclared rather than imported from usageSession.ts, which imports
 // usageApi from this file — importing the type back would be circular.
-type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'resume';
+type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'apple_login' | 'apple_signup' | 'resume';
 
 export const usageApi = {
-  startSession: (body: { platform: string; app_version?: string; device_model?: string; os_version?: string; entry_method?: EntryMethod }) =>
+  startSession: (body: { platform: string; app_version?: string; device_model?: string; os_version?: string; entry_method?: EntryMethod; latitude?: number; longitude?: number }) =>
     api<{ session_id: string }>('/usage/sessions', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -473,25 +506,3 @@ export const usageApi = {
       body: JSON.stringify(body),
     }),
 };
-
-// ── Helpers ──────────────────────────────────────────────────────
-
-/** Map client exercise step types to API logging keys. */
-export function exerciseTypeForApi(clientType: string): string {
-  switch (clientType) {
-    case 'listen':
-    case 'ayah_display':
-      return 'listen';
-    case 'fill_blank':
-    case 'next_word':
-      return 'fill_blank';
-    case 'reorder':
-    case 'segment_recall':
-      return 'recall';
-    case 'hear_and_select':
-      return 'hear_and_select';
-    default:
-      return clientType;
-  }
-}
-

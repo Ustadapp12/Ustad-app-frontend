@@ -1,0 +1,75 @@
+import React, { useCallback, useMemo } from 'react';
+import { View, useWindowDimensions } from 'react-native';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import Map2BottomBar, { BOTTOM_BAR_H, bottomBarClearance, type BottomBarKey } from '../screens/home/map2/components/Map2BottomBar';
+import { FIGMA_W } from '../screens/home/map2/map2Theme';
+import { makeMap2Styles } from '../screens/home/map2/styles';
+import type { TabParamList } from './types';
+
+const KEY_OF: Partial<Record<keyof TabParamList, BottomBarKey>> = {
+  Map: 'home', DailyQuest: 'chest', Building: 'star', Leaderboard: 'trophy', Profile: 'profile',
+};
+const CORNER_OVERLAP = 13;
+const ROUTE_OF: Record<BottomBarKey, keyof TabParamList> = {
+  home: 'Map', chest: 'DailyQuest', star: 'Building', trophy: 'Leaderboard', profile: 'Profile',
+};
+
+// The Figma bar's top corners cut away to reveal whatever sits behind them
+// (see Map2NodeView.tsx... Map2BottomBar's Bg art). That used to mean "the
+// real screen behind it, pixel-aligned" — fragile on iOS, where the overlap
+// below is a fractional (`* s`) value, so independent layout rounding on the
+// tab bar's box vs. the screen's box could leave a sub-pixel gap exposing
+// the navigator's own dark backdrop instead of blending. Baking each
+// screen's own background into this component removes that dependency
+// entirely: the corners now reveal a colour this component paints itself, in
+// the same box, so there is nothing left to misalign. DailyQuest's is its
+// gradient's own edge stop (the gradient is near-flat over the ~70-90pt this
+// corner spans, so the flat colour reads as the same gradient continuing).
+const SCREEN_BG: Partial<Record<keyof TabParamList, string>> = {
+  // Building: PrayScreen's own container colour (colors.lightBg).
+  DailyQuest: '#0D3B26', Building: '#F2F4F8', Leaderboard: '#F5F7FA', Profile: '#F2F4F8',
+};
+
+// The Figma bottom bar as the app's tab bar. On Home it draws nothing: the map
+// renders its own translucent bar over the scrolling map. Elsewhere it is the
+// solid bar, in the layout so screens end above it.
+export default function Map2TabBar({ state, navigation, insets }: BottomTabBarProps) {
+  const { width } = useWindowDimensions();
+  const s = width / FIGMA_W;
+  const S = useMemo(() => makeMap2Styles(s), [s]);
+  const current = state.routes[state.index].name as keyof TabParamList;
+  // Same clearance as the map's own bar (see bottomBarClearance), so the
+  // icons sit at one height on every tab. The full-inset version of this
+  // (2026-10-21, a fix for a black strip under the bar on iOS) raised the
+  // whole bar ~15pt on every tab but Home; the strip is instead covered by
+  // the light fill below the bar's box (see the return below).
+  const bottomClearance = bottomBarClearance(insets.bottom);
+
+  const onPress = useCallback((key: BottomBarKey) => {
+    const name = ROUTE_OF[key];
+    const route = state.routes.find(r => r.name === name);
+    if (!route) return;
+    const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+    if (current !== name && !event.defaultPrevented) navigation.navigate(name);
+  }, [current, navigation, state.routes]);
+
+  if (current === 'Map') return null;
+  return (
+    // The bar's top corners curve down 12.3pt. Pulling it up over the screen's
+    // last 13pt puts the screen's own background behind those corners; without
+    // it they showed the navigator's dark backdrop.
+    <View style={{ height: BOTTOM_BAR_H * s + bottomClearance, marginTop: -CORNER_OVERLAP * s, backgroundColor: SCREEN_BG[current] }}>
+      {/* The screen colour is only meant to show in the curved corners. The
+          bar is two light shapes meeting edge to edge (art + home-indicator
+          strip) at fractional pixels, so their anti-aliased seam, plus a 1pt
+          sliver at the right edge, let the backing show through as a hairline
+          -- invisible on light tabs, a black-looking line on DailyQuest's
+          dark green. Light backing below the corners hides every such gap. */}
+      <View style={[S.tabBarCornerFill, { top: CORNER_OVERLAP * s }]} />
+      <Map2BottomBar S={S} s={s} bottomClearance={bottomClearance} active={KEY_OF[current] ?? 'home'} solid onPress={onPress} />
+      {/* Paints past the box's own bottom edge, so nothing dark can ever
+          show beneath the bar whatever the rest of the inset resolves to. */}
+      <View style={[S.tabBarInsetFill, { bottom: -insets.bottom, height: insets.bottom }]} />
+    </View>
+  );
+}

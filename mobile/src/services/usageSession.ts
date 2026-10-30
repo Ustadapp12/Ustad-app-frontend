@@ -11,13 +11,25 @@
 import { Platform } from 'react-native';
 import { usageApi } from '../api';
 import { getLastScreens } from './screenHistory';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { version: APP_VERSION } = require('../../package.json') as { version: string };
+import { getLastKnownCoordinates } from '../utils/location';
+// Shared with the Profile screen's version label, deliberately. This used to
+// read package.json directly while utils/appVersion.ts read the VERSION_NAME
+// env var, so analytics and the UI could report two different versions for
+// the same build. One source now.
+import { APP_VERSION } from '../utils/appVersion';
+
+// Android reports manufacturer + model code (e.g. "samsung SM-S938B" for a
+// Galaxy S25 Ultra) with no extra native dependency. iOS exposes no model
+// without one, so it reports the device class only. Stored in
+// usage_sessions.device_model (the backend truncates to 64 chars).
+const DEVICE_MODEL: string = Platform.OS === 'android'
+  ? `${(Platform.constants as any).Manufacturer ?? ''} ${(Platform.constants as any).Model ?? ''}`.trim()
+  : ((Platform as any).isPad ? 'iPad' : 'iPhone');
 
 let activeSessionId: string | null = null;
 let starting: Promise<void> | null = null;
 
-export type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'resume';
+export type EntryMethod = 'login' | 'register' | 'guest' | 'guest_upgrade' | 'google_login' | 'google_signup' | 'apple_login' | 'apple_signup' | 'resume';
 
 // Sessions are started by a generic useAuthStore.subscribe() listener in
 // App.tsx (any user becoming truthy), not by each auth method directly — so
@@ -38,11 +50,18 @@ export async function startUsageSession(): Promise<void> {
   pendingEntryMethod = 'resume';
   starting = (async () => {
     try {
+      // Never trigger a fresh GPS read or permission prompt just to start a
+      // session -- only ever send a coordinate the app already has (e.g.
+      // from the Pray tab, earlier this run). Sessions start on login/
+      // register/guest/hydrate, often before the user has seen that tab.
+      const cached = getLastKnownCoordinates();
       const { session_id } = await usageApi.startSession({
         platform: Platform.OS,
         app_version: APP_VERSION,
+        device_model: DEVICE_MODEL || undefined,
         os_version: String(Platform.Version),
         entry_method: entryMethod,
+        ...(cached ? { latitude: cached.latitude, longitude: cached.longitude } : {}),
       });
       activeSessionId = session_id;
     } catch {

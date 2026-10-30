@@ -4,7 +4,7 @@ import { captureError } from './crashReporter';
 // Sounds pre-loaded for the active lesson — not released between steps
 const preloadedSounds = new Map<string, unknown>();
 let activeSoundIsPreloaded = false;
-let currentSpeed = 1;
+const currentSpeed = 1;
 
 type SoundLike = {
   stop: () => void;
@@ -47,6 +47,22 @@ let activeSound: SoundLike | null = null;
 // for staleness to develop.
 let playToken = 0;
 
+// ── Recording lock ───────────────────────────────────────────────────
+// While the mic is recording a recitation, nothing may play: any reference
+// audio (word chips, "Hear", the hint modal's "Hear the Ayah") would be
+// picked up by the mic and scored as the learner's own recitation. Set by
+// services/audioRecorder.ts around every recording, so every button on every
+// screen is covered at this one choke point instead of per call site. It also
+// keeps the per-play iOS setCategory('Playback') from switching the shared
+// audio session out of PlayAndRecord mid-recording.
+let playbackBlocked = false;
+
+/** Stop anything playing and refuse new playback until unblocked. */
+export function setPlaybackBlocked(blocked: boolean): void {
+  playbackBlocked = blocked;
+  if (blocked) stopAudio();
+}
+
 // ── System-audio playing state ──────────────────────────────────────
 // A simple pub-sub so UI (e.g. the wave animation) can react to actual
 // playback start/stop without every call site having to thread state
@@ -70,11 +86,6 @@ export function onPlayingChange(listener: PlayingListener): () => void {
 
 export function isAudioPlaying(): boolean {
   return systemPlaying;
-}
-
-/** Set the playback speed for all subsequent play() calls. 0.75 / 1 / 1.25. */
-export function setPlaybackSpeed(speed: number): void {
-  currentSpeed = speed;
 }
 
 /**
@@ -138,7 +149,8 @@ export async function preloadAudioUrls(urls: string[]): Promise<void> {
   try {
     const SoundModule = require('react-native-sound');
     const Sound = SoundModule.default ?? SoundModule;
-    Sound.setCategory('Playback');
+    // Mid-recording this would pull the session out of PlayAndRecord.
+    if (!playbackBlocked) Sound.setCategory('Playback');
 
     const pending = urls.filter(url => url && !preloadedSounds.has(url));
     const BATCH = 4;
@@ -173,7 +185,20 @@ export const playAudio = playAudioUrl;
  * right now stops, but three other buffering clips are still queued up." */
 export function stopAudio(): void {
   playToken++;
+  audioEpoch++;
   stopActiveSound();
+}
+
+// Bumped by every stopAudio(). playToken only cancels the ONE clip loading
+// right now, and each step of a word-by-word sequence takes a fresh token,
+// so a stop used to kill the current word while the sequence's loop simply
+// went on to the next one. Repeated taps on a slow load stacked several such
+// loops, which kept playing through recording, Try Again and screen changes
+// (2026-10-22). Sequence loops capture this when they start and quit as soon
+// as it moves (see lessonAudio.ts runSequence).
+let audioEpoch = 0;
+export function getAudioEpoch(): number {
+  return audioEpoch;
 }
 
 /** Pause currently playing audio (no-op if nothing playing). */
@@ -185,7 +210,7 @@ export function pauseAudio(): void {
 
 /** Resume a paused sound (no-op if nothing paused). */
 export function resumeAudio(): void {
-  if (!activeSound) return;
+  if (!activeSound || playbackBlocked) return;
   ensurePlaybackCategory();
   try { activeSound.play(() => {}); } catch { /* ignore */ }
   setSystemPlaying(true);
@@ -235,7 +260,7 @@ function safeDurationMs(sound: SoundLike): number {
  * starts.
  */
 export async function playAudioUrl(url: string, onStart?: () => void): Promise<void> {
-  if (!url) return;
+  if (!url || playbackBlocked) return;
   // Stamped before ANY async work (including preloadedSounds.get, which is
   // sync, but the point is this must be the very first thing that happens)
   // so a later call -- or an explicit stopAudio() -- can invalidate this one
@@ -362,68 +387,66 @@ export async function playAudioUrl(url: string, onStart?: () => void): Promise<v
 // systemPlaying: it must not be interruptible by stopAudio() (submitAnswer
 // calls that first, then this) and must not drive the exercise waveform/
 // play-icon UI.
-let correctSfx: SoundLike | null = null;
-let wrongSfx: SoundLike | null = null;
+type Sfx = {
+  file: string;
+  sound: SoundLike | null;
+  ready: boolean;
+  // A play asked for before prepare() finished, played the moment it does.
+  playWhenReady: boolean;
+};
+let correctSfx: Sfx | null = null;
+let wrongSfx: Sfx | null = null;
 
-function loadSfx(file: string): SoundLike | null {
+function loadSfx(file: string): Sfx {
+  const sfx: Sfx = { file, sound: null, ready: false, playWhenReady: false };
   try {
     const SoundModule = require('react-native-sound');
     const Sound = SoundModule.default ?? SoundModule;
     Sound.setCategory('Playback');
     const source = Platform.OS === 'android' ? `asset:/${file}` : file;
-    const sound = new Sound(source, Sound.MAIN_BUNDLE, (err: Error | null) => {
-      if (err) logAudioIssue('load', source, err);
-    });
-    return sound as unknown as SoundLike;
+    sfx.sound = new Sound(source, Sound.MAIN_BUNDLE, (err: Error | null) => {
+      if (err) { logAudioIssue('load', source, err); return; }
+      sfx.ready = true;
+      if (sfx.playWhenReady) {
+        sfx.playWhenReady = false;
+        playSfx(sfx);
+      }
+    }) as unknown as SoundLike;
   } catch (err) {
     logAudioIssue('setup', file, err);
-    return null;
   }
+  return sfx;
 }
 
 // react-native-sound's prepare() is async natively — play() silently no-ops
-// if called before it resolves. Load both eagerly at module-import time
-// (well before a user can reach a lesson's first exercise) rather than
-// lazily on first play, so the very first ding never gets dropped.
-correctSfx = loadSfx('correct.wav');
-wrongSfx = loadSfx('wrong.wav');
+// if called before it resolves. These used to load at module import, which
+// is app start (RootNavigator imports this module), so two native players
+// were allocated before the first screen for users who might never open a
+// lesson (review A-3). Now the screens that ding call this on mount (lesson,
+// Lesson Complete, email verified), well before their first ding, and a ding
+// that still beats prepare() is played once it resolves instead of dropped.
+/** Load the correct/wrong chimes if not loaded yet. Safe to call repeatedly. */
+export function preloadFeedbackSounds(): void {
+  if (!correctSfx) correctSfx = loadSfx('correct.wav');
+  if (!wrongSfx) wrongSfx = loadSfx('wrong.wav');
+}
 
-/** Play the short correct/wrong feedback chime. Fire-and-forget. */
-export function playFeedbackSound(correct: boolean): void {
+function playSfx(sfx: Sfx): void {
   try {
     ensurePlaybackCategory();
-    const sfx = correct ? correctSfx : wrongSfx;
-    sfx?.stop();
-    sfx?.setCurrentTime(0);
-    sfx?.play(() => {});
+    sfx.sound?.stop();
+    sfx.sound?.setCurrentTime(0);
+    sfx.sound?.play(() => {});
   } catch (err) {
-    logAudioIssue('play', correct ? 'correct.wav' : 'wrong.wav', err);
+    logAudioIssue('play', sfx.file, err);
   }
 }
 
-/**
- * Returns the duration (seconds) of a URL.
- * Reads from preloaded cache if available; otherwise loads briefly to inspect.
- * Returns 0 on any error.
- */
-export async function getAudioDuration(url: string): Promise<number> {
-  if (!url) return 0;
-  const preloaded = preloadedSounds.get(url) as SoundLike | undefined;
-  if (preloaded) {
-    return preloaded.getDuration();
-  }
-  return new Promise<number>(resolve => {
-    try {
-      const SoundModule = require('react-native-sound');
-      const Sound = SoundModule.default ?? SoundModule;
-      const s = new Sound(url, '', (err: Error | null) => {
-        if (err) { resolve(0); return; }
-        const dur = (s as SoundLike).getDuration();
-        s.release();
-        resolve(dur > 0 ? dur : 0);
-      });
-    } catch {
-      resolve(0);
-    }
-  });
+/** Play the short correct/wrong feedback chime. Fire-and-forget. */
+export function playFeedbackSound(correct: boolean): void {
+  preloadFeedbackSounds();
+  const sfx = correct ? correctSfx : wrongSfx;
+  if (!sfx) return;
+  if (sfx.ready) playSfx(sfx);
+  else sfx.playWhenReady = true;
 }

@@ -91,8 +91,4 @@ export async function abandonPendingLessonSessionFromStorage(): Promise<void> {
   }
 }
 
-/** Best-effort abandon-active (never throws). For AppState / fire-and-forget. */
-export function abandonActiveLessonSessionSilent(): void {
-  void abandonActiveLessonSession().catch(() => {});
-}
 

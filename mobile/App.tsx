@@ -1,21 +1,37 @@
 import React, { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { AppState, StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initAnalytics } from './src/services/analytics';
 import { syncDeviceTimezone } from './src/api';
-import { abandonActiveLessonSessionSilent } from './src/services/lessonSession';
 import { startUsageSession, endUsageSession } from './src/services/usageSession';
+import { startConnectivityWatch, stopConnectivityWatch } from './src/services/connectivity';
 import { useAuthStore } from './src/store/authStore';
 import { useLessonStore } from './src/store/lessonStore';
 import RootNavigator from './src/navigation/RootNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import AndroidKeyboardDoneBar from './src/components/AndroidKeyboardDoneBar';
+import { DEFAULT_BAR_STYLE } from './src/hooks/useStatusBarStyle';
 
 const LEARNING_ME_POLL_MS = 60_000;
+
+// The app has no dark mode, so never let the phone's dark mode pick white
+// status bar icons over a light screen. Dark screens opt in to white icons
+// with useStatusBarStyle('light').
+StatusBar.setBarStyle(DEFAULT_BAR_STYLE);
 
 function App() {
   useEffect(() => {
     void initAnalytics();
+  }, []);
+
+  useEffect(() => {
+    // The single writer of connectivityStore.isDeviceOffline. Started here,
+    // once, above the navigator, so a signed-out or guest launch is covered
+    // too — the old healthCheck-based detection only ran on Splash and could
+    // never clear itself mid-session for an unverified user.
+    startConnectivityWatch();
+    return stopConnectivityWatch;
   }, []);
 
   useEffect(() => {
@@ -47,17 +63,29 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Momentary transitions to 'background'/'inactive' — the mic permission
-    // dialog, pulling the notification shade, a call banner, the app
-    // switcher — must NOT kill an in-progress lesson session. Only abandon
-    // if the app stays away for a real amount of time without coming back.
-    const ABANDON_GRACE_MS = 60_000;
-    let graceTimer: ReturnType<typeof setTimeout> | null = null;
+    // This used to abandon any in-progress lesson session 60s after the app
+    // backgrounded (mic permission dialog, notification shade, a call
+    // banner, the app switcher, or genuinely switching to another app for a
+    // bit all count as "background" on iOS). That's exactly the case the
+    // 2026-09-06 session-resume fix (store/lessonStore.ts startSession()) was
+    // built to protect: reconnect to the SAME in-progress session and pick up
+    // where the user left off, no matter how long they were away. A 60s
+    // timer that silently calls abandon-active in the background defeats
+    // that outright — by the time the user returns and answers one more
+    // question, the session is already gone server-side, submitAnswer's
+    // formulaAttempt gets back a 404, and LessonSessionScreen's own error
+    // handling (its `e?.status === 404` branch) force-navigates straight to
+    // LessonComplete with 0 XP / 0% / 1 star, discarding whatever real
+    // progress had been made — this is the "level closes after one more
+    // answer" bug. The backend already has its own generous backstop for
+    // sessions that are genuinely abandoned (expire_stale_active_sessions,
+    // lesson_session_stale_minutes = 120), so the client has no need to
+    // abandon proactively at all — just let a real return-from-background
+    // resume normally through the existing mechanism.
     let wasBackgrounded = false;
 
     const sub = AppState.addEventListener('change', state => {
       if (state === 'active') {
-        if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
         // Re-sync the device timezone on a real background→active return —
         // users travel, and their streak day boundary should follow them.
         if (wasBackgrounded) {
@@ -72,36 +100,34 @@ function App() {
       }
       if ((state === 'background' || state === 'inactive') && !wasBackgrounded) {
         wasBackgrounded = true;
-        // End the usage session right away instead of deferring it into the
-        // setTimeout below — a JS timer scheduled while backgrounded is not
-        // reliable in React Native (the engine gets throttled/suspended once
-        // the app actually leaves the foreground), so a delayed
-        // endUsageSession() call here almost never fires in practice, which
-        // left duration_s/last_screen NULL on nearly every real session. A
-        // quick app-switcher glance now produces two short session rows
-        // instead of one merged row, but that beats losing the data outright.
+        // End the usage session right away instead of deferring it — a JS
+        // timer scheduled while backgrounded is not reliable in React Native
+        // (the engine gets throttled/suspended once the app actually leaves
+        // the foreground), so a delayed endUsageSession() call here almost
+        // never fires in practice, which left duration_s/last_screen NULL on
+        // nearly every real session. A quick app-switcher glance now produces
+        // two short session rows instead of one merged row, but that beats
+        // losing the data outright.
         void endUsageSession();
-        graceTimer = setTimeout(() => {
-          abandonActiveLessonSessionSilent();
-          graceTimer = null;
-        }, ABANDON_GRACE_MS);
       }
     });
-    return () => {
-      sub.remove();
-      if (graceTimer) clearTimeout(graceTimer);
-    };
+    return () => sub.remove();
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <ErrorBoundary>
           <RootNavigator />
+          <AndroidKeyboardDoneBar />
         </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});
 
 export default App;

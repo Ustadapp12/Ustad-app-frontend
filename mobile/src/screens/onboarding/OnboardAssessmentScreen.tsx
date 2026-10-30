@@ -1,34 +1,29 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { learningApi, usersApi } from '../../api';
 import { saveOnboarding, setOnboardingDone } from '../../utils/storage';
-import { useAuthStore } from '../../store/authStore';
-import { colors } from '../../theme/colors';
 import { stopAudio } from '../../services/audioPlayer';
 import { JUZ30_SURAHS } from '../../data/juz30Surahs';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import MascotShadow from '../../components/MascotShadow';
 import LumoInfoModal from '../../components/LumoInfoModal';
-import {
-  CHARACTERS,
-  characterForIndex,
-  shuffleIndices,
-  ProgressBar,
-  ExerciseSlide,
-  FillBlankOrNextWord,
-  ReorderOrSequence,
-  SequenceExercise,
-  SegmentRecall,
-  AudioFill,
-  HearAndSelect,
-  AyatThenOrder,
-  type Character,
-} from '../lesson/LessonSessionScreen';
+import { CHARACTERS, characterForIndex, shuffleIndices, type Character } from '../lesson/lessonShared';
+import { ExerciseSlide } from '../lesson/components/ExerciseSlide';
+import { FillBlankOrNextWord } from '../lesson/exercises/FillBlankOrNextWord';
+import { ReorderOrSequence } from '../lesson/exercises/ReorderOrSequence';
+import { SequenceExercise } from '../lesson/exercises/SequenceExercise';
+import { SegmentRecall } from '../lesson/exercises/SegmentRecall';
+import { AudioFill } from '../lesson/exercises/AudioFill';
+import { HearAndSelect } from '../lesson/exercises/HearAndSelect';
+import { AyatThenOrder } from '../lesson/exercises/AyatThenOrder';
+import LessonProgressBar from '../../components/lesson/LessonProgressBar';
 import { safeBottomInset } from '../../utils/responsive';
 import type { ExerciseDict } from '../../types/api';
 import type { RootNavProp } from '../../navigation/types';
+import { S } from './OnboardAssessmentScreen.styles';
+import { MASCOT } from '../../assets';
+import { useHifzAssessment, useProfileActions } from '../../hooks/api';
 
 interface Props { navigation: RootNavProp }
 
@@ -54,6 +49,8 @@ function surahNameFor(surahNo: number): string {
 }
 
 export default function OnboardAssessmentScreen({ navigation }: Props) {
+  const { saveProfile } = useProfileActions();
+  const assessment = useHifzAssessment();
   const rawInsets = useSafeAreaInsets();
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
 
@@ -77,7 +74,7 @@ export default function OnboardAssessmentScreen({ navigation }: Props) {
     setPhase('loading');
     await saveOnboarding({ currentStep: 'assessment' });
     try {
-      const res = await learningApi.hifzAssessmentStart();
+      const res = await assessment.start();
       if (!res.exercises?.length) { setPhase('error'); return; }
       answersRef.current = [];
       finishingRef.current = false;
@@ -122,7 +119,7 @@ export default function OnboardAssessmentScreen({ navigation }: Props) {
     let correctCount = 0;
     let scorePct = 0;
     try {
-      const res = await learningApi.hifzAssessmentSubmit({
+      const res = await assessment.submit({
         answers: answersRef.current,
         total_time_seconds: totalTimeSeconds,
       });
@@ -138,8 +135,7 @@ export default function OnboardAssessmentScreen({ navigation }: Props) {
     // OnboardPathScreen's beginner branch. Best effort: never trap the user
     // in onboarding over a network failure here.
     try {
-      await usersApi.updateProfile({ onboarding_completed: true });
-      useAuthStore.getState().updateProfileFields({ onboarding_completed: true });
+      await saveProfile({ onboarding_completed: true });
     } catch {
       // ignored — see comment above
     }
@@ -209,7 +205,7 @@ export default function OnboardAssessmentScreen({ navigation }: Props) {
         <TouchableOpacity style={S.backBtn} onPress={handleClose}>
           <Text style={S.backText}>✕</Text>
         </TouchableOpacity>
-        <ProgressBar fraction={progress} />
+        <LessonProgressBar fraction={progress} />
       </View>
 
       <View style={S.exerciseArea}>
@@ -279,10 +275,10 @@ function IntroScreen({
 
       <ScrollView contentContainerStyle={S.introScroll} showsVerticalScrollIndicator={false}>
         <View style={S.introContent}>
-          <View style={{ width: 140, height: 140, marginBottom: 24 }}>
+          <View style={S.mascotBox}>
             <Image
-              source={require('../../../assets/images/lumo_transparent.png')}
-              style={[S.lumoIntro, { marginBottom: 0 }]}
+              source={MASCOT.lumoTransparent}
+              style={[S.lumoIntro, S.mascotImgFlush]}
               resizeMode="contain"
             />
             <MascotShadow width={140} />
@@ -299,33 +295,3 @@ function IntroScreen({
     </View>
   );
 }
-
-const S = StyleSheet.create({
-  // Session chrome — mirrors LessonSessionScreen's header/screen so the
-  // assessment looks like a real lesson session (minus hearts + hint).
-  screen: { flex: 1, backgroundColor: colors.lightBg },
-  center: { alignItems: 'center', justifyContent: 'center', padding: 28 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 8 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
-  backText: { fontSize: 14, color: colors.mutedText },
-  exerciseArea: { flex: 1 },
-
-  errorTitle: { fontFamily: 'Nunito_700Bold', fontSize: 18, color: colors.darkText, marginBottom: 8, textAlign: 'center' },
-  errorMsg: { fontFamily: 'Nunito_400Regular', fontSize: 13, color: colors.mutedText, textAlign: 'center', marginBottom: 24 },
-  retryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 },
-  retryBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.white },
-  skipBtn: { marginTop: 14, paddingVertical: 10, paddingHorizontal: 20 },
-  skipBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 14, color: colors.mutedText },
-
-  // Intro screen
-  introHeaderRow: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 6 },
-  closeBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  closeBtnText: { fontSize: 16, color: colors.darkText, fontWeight: '700' },
-  introScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 22 },
-  introContent: { alignItems: 'center' },
-  lumoIntro: { width: 140, height: 140, marginBottom: 24 },
-  introText: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, textAlign: 'center', lineHeight: 28 },
-  footer: { paddingHorizontal: 22, paddingTop: 12 },
-  beginBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
-  beginBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: colors.white },
-});

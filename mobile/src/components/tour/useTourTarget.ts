@@ -80,5 +80,8 @@ export function useTourTarget(key: TourTargetKey, radius: number | 'round', extr
     return () => { cancelAnimationFrame(raf); clearTimeout(settle); };
   }, [active, stepIndex, measure]);
 
-  return { ref, onLayout };
+  // `measure` is exposed for ExerciseSlide's onSettled (TourLessonScreen):
+  // until the slide has ended AND dropped its transform, measureInWindow
+  // still reports the slide's 40px start offset (see ExerciseSlide).
+  return { ref, onLayout, measure };
 }

@@ -10,15 +10,12 @@
  * the cache.
  */
 
-import { authApi, learningApi } from '../api';
+import { learningApi } from '../api';
 import { setCachedLevelsToDisk, invalidateLevelsFromDisk } from './contentCache';
 import { groupIntoPhases } from '../utils/mapPhases';
 import type {
-  ExerciseOut,
-  LearningStats,
   RecommendedNext,
   SurahLevel,
-  UserProfile,
 } from '../types/api';
 
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -29,13 +26,9 @@ type Stamped<T> = { data: T; at: number };
 
 let _recommended: Stamped<RecommendedNext | null> | null = null;
 const _recommendedListeners = new Set<() => void>();
-let _stats: Stamped<LearningStats> | null = null;
-let _profile: Stamped<UserProfile> | null = null;
 const _levels = new Map<number, Stamped<SurahLevel[]>>();
 // Lightweight first-group-only status, for surahs we haven't full-fetched yet
 const _firstLevels = new Map<number, Stamped<SurahLevel>>();
-// Set of surah numbers that have at least one weak exercise due
-let _weakSurahs: Stamped<Set<number>> | null = null;
 
 // In-flight dedup so two callers racing for the same surah's data (e.g.
 // prefetchAll() during hydrate and MapScreen's own mount effect) share one
@@ -63,18 +56,23 @@ export function getCachedRecommended(): RecommendedNext | null {
   return alive(_recommended) ? _recommended.data : null;
 }
 
+/**
+ * The last recommendation fetched, however old. For DISPLAY (which node is
+ * current, where Lumo stands); the TTL above only says when it's worth
+ * fetching again. The map used to read getCachedRecommended() on every
+ * render, so any redraw more than TTL_MS after the last fetch (a poll, a
+ * connectivity change) dropped the current node, its ring, START and Lumo
+ * until the next fetch (emulator test, 2026-10-22). Null only when nothing
+ * was ever fetched or it was deliberately cleared (lesson completed, logout).
+ */
+export function getLastRecommended(): RecommendedNext | null {
+  return _recommended?.data ?? null;
+}
+
 /** Subscribe to changes to the recommended-next cache. Returns an unsubscribe fn. */
 export function subscribeRecommended(listener: () => void): () => void {
   _recommendedListeners.add(listener);
   return () => { _recommendedListeners.delete(listener); };
-}
-
-export function getCachedStats(): LearningStats | null {
-  return alive(_stats) ? _stats.data : null;
-}
-
-export function getCachedProfile(): UserProfile | null {
-  return alive(_profile) ? _profile.data : null;
 }
 
 export function getCachedLevels(surahNumber: number): SurahLevel[] | null {
@@ -87,21 +85,7 @@ export function getCachedFirstLevel(surahNumber: number): SurahLevel | null {
   return alive(e) ? e.data : null;
 }
 
-/** Returns the set of surah numbers with at least one weak exercise due. */
-export function getCachedWeakSurahs(): Set<number> | null {
-  return alive(_weakSurahs) ? _weakSurahs.data : null;
-}
-
-/** True when every surah in the list has a live cache entry. */
-export function allLevelsCached(surahNumbers: number[]): boolean {
-  return surahNumbers.length > 0 && surahNumbers.every(n => alive(_levels.get(n)));
-}
-
 // ── Setters (exposed so screens can update cache after a save) ────
-
-export function setCachedProfile(profile: UserProfile): void {
-  _profile = stamp(profile);
-}
 
 /** Call after re-fetching recommendedNext() directly (bypassing prefetchAll)
  * so later reads of getCachedRecommended() — e.g. MapScreen's Lumo placement —
@@ -145,11 +129,8 @@ export async function invalidateLevels(mvpSurahNumbers?: number[]): Promise<void
 export function invalidateAll(): void {
   _recommended = null;
   notifyRecommended();
-  _stats = null;
-  _profile = null;
   _levels.clear();
   _firstLevels.clear();
-  _weakSurahs = null;
 }
 
 // ── Prefetch ──────────────────────────────────────────────────────
@@ -172,19 +153,8 @@ export async function prefetchAll(mvpSurahNumbers: number[]): Promise<void> {
     learningApi.recommendedNext()
       .then(d => { _recommended = stamp(d); notifyRecommended(); return d; }),
 
-    // TODO: stats() currently unused on frontend — re-enable if needed for profile/dashboard
-    // learningApi.stats()
-    //   .then(d => { _stats = stamp(d); }),
-
-    authApi.me()
-      .then(res => { _profile = stamp(res.profile); }),
-
-    // Fetch weak exercises and derive a set of surah numbers for badge display
-    learningApi.weakExercises(50)
-      .then((exercises: ExerciseOut[]) => {
-        const surahSet = new Set(exercises.map(e => e.surah_no));
-        _weakSurahs = stamp(surahSet);
-      }),
+    // No authApi.me() here any more (review A-4): hydrate() and login have
+    // just called it, and the profile this stored was never read by anything.
   ]);
 
   const recommended = recommendedResult.status === 'fulfilled' ? recommendedResult.value : null;
@@ -260,4 +230,3 @@ export async function prefetchPhase(surahNumbers: number[]): Promise<void> {
     ...waitOnly.map(n => _firstLevelInFlight.get(n)),
   ]);
 }
-

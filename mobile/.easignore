@@ -1,0 +1,95 @@
+# EAS Build's upload archive falls back to .gitignore when this file is
+# absent — which was silently excluding ios/UstadApp/GoogleService-Info.plist
+# from every direct (non-CI) build this session, since it's deliberately
+# gitignored (never committed) but IS needed inside the archive for Xcode to
+# read at build time. The GitHub Actions workflow never hit this because it
+# writes the file into the checkout AFTER cloning but the archive step there
+# behaves the same way — this project just never did a direct `eas build`
+# from a local checkout before to notice. This file mirrors .gitignore
+# exactly, minus the two GoogleService-Info.plist lines, so it's still never
+# committed to git but IS included in what gets uploaded to EAS.
+
+# OSX
+.DS_Store
+
+# Xcode
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+**/.xcode.env.local
+
+# Android/IntelliJ
+.idea
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+*.keystore
+!debug.keystore
+.kotlin/
+
+# node.js — EAS reinstalls this on the build machine regardless
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# fastlane
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+
+# Release signing (never commit, and no reason to upload either)
+android/keystore.properties
+*.jks
+android/RELEASE_SIGNING_SECRETS.env
+.env
+.env.*
+!.env.example
+
+# App Store Connect API key — only needed locally for `eas submit`, not the
+# build archive itself; keep excluded here same as git.
+*.p8
+
+# EAS local iOS signing credentials — eas-cli reads these directly off local
+# disk for the "local" credentialsSource, not from the uploaded archive.
+credentials.json
+*.p12
+*.mobileprovision
+
+# Metro / Gradle JS bundles
+*.jsbundle
+*.bundle
+
+# Ruby / CocoaPods — regenerated fresh on the build machine
+**/Pods/
+/vendor/bundle/
+
+.metro-health-check*
+
+/coverage
+
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# NOTE: ios/GoogleService-Info.plist and ios/UstadApp/GoogleService-Info.plist
+# are intentionally NOT listed here (unlike .gitignore) — they must be in the
+# EAS upload archive for Xcode to find GOOGLE_APP_ID at build time.

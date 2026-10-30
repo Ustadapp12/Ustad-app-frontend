@@ -19,7 +19,7 @@ export interface TourRect {
   radius: number | 'round';
 }
 
-interface TourState {
+export interface TourState {
   active: boolean;
   stepIndex: number;
   /**

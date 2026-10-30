@@ -1,7 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import MascotShadow from '../MascotShadow';
+import { MASCOT } from '../../assets';
 
 interface Props {
   visible: boolean;
@@ -19,10 +20,10 @@ export default function TourOfferModal({ visible, onAccept, onDecline }: Props) 
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDecline}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={{ width: 112, height: 112, marginBottom: 4 }}>
+          <View style={styles.mascotBox}>
             <Image
-              source={require('../../../assets/images/lumo_transparent.png')}
-              style={[styles.lumo, { marginBottom: 0 }]}
+              source={MASCOT.lumoTransparent}
+              style={[styles.lumo, styles.mascotImgFlush]}
               resizeMode="contain"
             />
             <MascotShadow width={112} />
@@ -68,9 +69,9 @@ const styles = StyleSheet.create({
     elevation: 14,
   },
   lumo: { width: 112, height: 112, marginBottom: 4 },
-  title: { fontFamily: 'Nunito_700Bold', fontSize: 20, color: colors.darkText, marginBottom: 8 },
+  title: { fontFamily: 'Nunito-Bold', fontSize: 20, color: colors.darkText, marginBottom: 8 },
   body: {
-    fontFamily: 'Nunito_400Regular',
+    fontFamily: 'Nunito-Regular',
     fontSize: 14,
     color: colors.mutedText,
     textAlign: 'center',
@@ -84,7 +85,9 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
   },
-  primaryText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: colors.white },
+  primaryText: { fontFamily: 'Nunito-Bold', fontSize: 15, color: colors.white },
   secondaryBtn: { paddingVertical: 13, alignSelf: 'stretch', alignItems: 'center', marginTop: 2 },
-  secondaryText: { fontFamily: 'Nunito_700Bold', fontSize: 13, color: colors.mutedText },
+  secondaryText: { fontFamily: 'Nunito-Bold', fontSize: 13, color: colors.mutedText },
+  mascotBox: { width: 112, height: 112, marginBottom: 4 },
+  mascotImgFlush: { marginBottom: 0 },
 });

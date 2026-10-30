@@ -1,16 +1,21 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
 import LottieView from 'lottie-react-native';
+import { useLottieWhileVisible } from '../../hooks/useScreenVisible';
+import { useStatusBarStyle } from '../../hooks/useStatusBarStyle';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
+import { colors } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
 import { addPendingGuestProgress, isGuest } from '../../utils/guest';
-import { playFeedbackSound } from '../../services/audioPlayer';
-import { STREAK_FROZEN_COLOR, STREAK_FROZEN_ICON } from '../../utils/streak';
+import { playFeedbackSound, preloadFeedbackSounds } from '../../services/audioPlayer';
+import { STREAK_FROZEN_ICON } from '../../utils/streak';
 import MascotShadow from '../../components/MascotShadow';
 import { safeBottomInset } from '../../utils/responsive';
+import { throttledCountUpListener } from '../../utils/countUp';
 import type { RootNavProp } from '../../navigation/types';
+import { styles } from './LessonSummaryScreen.styles';
+import { ANIMATIONS, MASCOT } from '../../assets';
 
 interface Props {
   navigation: RootNavProp;
@@ -50,9 +55,9 @@ function Star({ filled, delay }: { filled: boolean; delay: number }) {
       Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 100, friction: 6 }).start();
     }, delay);
     return () => clearTimeout(timer);
-  }, []);
+  }, [delay, scaleAnim]);
   return (
-    <Animated.Text style={[styles.star, { transform: [{ scale: scaleAnim }] }, !filled && { opacity: 0.25 }]}>
+    <Animated.Text style={[styles.star, { transform: [{ scale: scaleAnim }] }, !filled && styles.starDim]}>
       ⭐
     </Animated.Text>
   );
@@ -67,6 +72,7 @@ function Star({ filled, delay }: { filled: boolean; delay: number }) {
 // this avoids the earlier full-screen-Lottie perf problem.
 export default function LessonSummaryScreen({ navigation, route }: Props) {
   const rawInsets = useSafeAreaInsets();
+  useStatusBarStyle('light');
   const insets = { ...rawInsets, bottom: safeBottomInset(rawInsets.bottom) };
   const {
     xp, scorePct, stars, durationSec, streakIncremented, currentStreak, streakRepaired,
@@ -79,6 +85,9 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
     && (repairLevelsCompleted ?? 0) > 0 && (repairLevelsCompleted ?? 0) < (repairLevelsRequired ?? 0);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  // Paused whenever this screen isn't on screen (2026-10-22 audit).
+  const medalRef = useRef<LottieView>(null);
+  useLottieWhileVisible(medalRef);
   const slideAnim = useRef(new Animated.Value(40)).current;
   const lumaScaleAnim = useRef(new Animated.Value(0)).current;
   const xpCountAnim = useRef(new Animated.Value(0)).current;
@@ -91,10 +100,12 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
       Animated.spring(lumaScaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6, delay: 200 }),
     ]);
     entrance.start();
-    xpCountAnim.addListener(({ value }) => setDisplayedXp(Math.round(value)));
+    xpCountAnim.addListener(throttledCountUpListener(xp, setDisplayedXp));
     const countUp = Animated.timing(xpCountAnim, { toValue: xp, duration: 1000, delay: 500, useNativeDriver: false });
     countUp.start();
     // Ding in sync with the badge starting to fill, not the entrance fade.
+    // Usually loaded already by the lesson; a no-op then.
+    preloadFeedbackSounds();
     const xpSfxTimer = xp > 0 ? setTimeout(() => playFeedbackSound(true), 500) : null;
     return () => {
       entrance.stop();
@@ -102,7 +113,7 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
       xpCountAnim.removeAllListeners();
       if (xpSfxTimer) clearTimeout(xpSfxTimer);
     };
-  }, []);
+  }, [fadeAnim, lumaScaleAnim, slideAnim, xp, xpCountAnim]);
 
   // A guest was shown this XP but the server never banked it (see
   // utils/guest.ts). Park it locally so claiming the account can hand it back;
@@ -117,21 +128,28 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
     void addPendingGuestProgress(xp);
   }, [isGuestUser, xp, currentStreak]);
 
-  const grade = scorePct >= 90 ? 'Excellent!' : scorePct >= 70 ? 'Great job!' : scorePct >= 50 ? 'Good effort!' : 'Keep practicing!';
-  const gradeColor = scorePct >= 90 ? colors.gold : scorePct >= 70 ? colors.primary : scorePct >= 50 ? colors.blue : colors.mutedText;
+  // Same tiers as the stars (utils/stars.ts), so the heading never praises
+  // a run the stars don't.
+  const grade = stars >= 3 ? 'Excellent!' : stars === 2 ? 'Great job!' : scorePct >= 33 ? 'Good effort!' : 'Keep practicing!';
+  const gradeColor = stars >= 3 ? colors.gold : stars === 2 ? colors.primary : scorePct >= 33 ? colors.blue : colors.mutedText;
 
-  // paddingBottom, not a shorter gradient — see StreakCelebrationScreen's
-  // identical comment: padding is inside the border box, so the gradient
-  // still bleeds to the true edge and only the centered content lifts.
+  // Background split from content — see StreakCelebrationScreen's identical
+  // comment: a full-bleed LinearGradient sibling (no insets dependency)
+  // guarantees the screen's own color always reaches the true edge, instead
+  // of a possibly-stale insets.bottom (0 on this screen's very first render,
+  // a known React Navigation timing gap on a freshly-pushed 'fade' screen)
+  // leaving a gap that exposed the Stack.Navigator's own fallback color.
   return (
-    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <View style={styles.fill}>
+    <LinearGradient colors={['#0D3B26', '#1A5C3A', '#0D2B1C']} style={StyleSheet.absoluteFill} />
+    <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       <View style={{ paddingTop: insets.top + 10 }} />
 
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         {/* Medal animation — big and continuously looping. */}
         <LottieView
-          renderMode="SOFTWARE"
-          source={require('../../../assets/animations/congrats.json')}
+          ref={medalRef}
+          source={ANIMATIONS.congrats}
           autoPlay
           loop
           resizeMode="contain"
@@ -162,10 +180,10 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
         )}
 
         {/* Congratulating Lumo — static image, not a second Lottie */}
-        <View style={{ width: 84, height: 84, marginBottom: 12 }}>
+        <View style={styles.mascotBox}>
           <Animated.Image
-            source={require('../../../assets/images/lumo_xp.png')}
-            style={[styles.lumaImg, { marginBottom: 0, transform: [{ scale: lumaScaleAnim }] }]}
+            source={MASCOT.lumoXp}
+            style={[styles.lumaImg, styles.mascotImgFlush, { transform: [{ scale: lumaScaleAnim }] }]}
             resizeMode="contain"
           />
           <MascotShadow width={84} />
@@ -204,37 +222,14 @@ export default function LessonSummaryScreen({ navigation, route }: Props) {
                 repairLevelsRequired: repairLevelsRequired ?? 0,
               });
             } else {
-              navigation.navigate('MainTabs');
+              navigation.popTo('MainTabs');
             }
           }}
         >
           <Text style={styles.continueBtnText}>Continue  →</Text>
         </TouchableOpacity>
       </Animated.View>
-    </LinearGradient>
+    </View>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content:      { alignItems: 'center', paddingHorizontal: 28, width: '100%' },
-  medal:        { width: '100%', aspectRatio: 300 / 180, marginBottom: -10 },
-  starsRow:     { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  star:         { fontSize: 52 },
-  grade:        { fontFamily: 'Nunito_700Bold', fontSize: 30, marginBottom: 14 },
-  streakSavedBadge: {
-    backgroundColor: 'rgba(0,0,0,0.40)', borderRadius: 20, borderWidth: 2, borderColor: STREAK_FROZEN_COLOR,
-    paddingHorizontal: 18, paddingVertical: 8, marginBottom: 14, maxWidth: '100%',
-  },
-  streakSavedBadgeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  streakSavedBadgeIcon: { width: 18, height: 18 },
-  streakSavedBadgeText: { fontFamily: 'Nunito_700Bold', fontSize: 15, color: STREAK_FROZEN_COLOR, textAlign: 'center' },
-  lumaImg:      { width: 84, height: 84, marginBottom: 12 },
-  statsRow:     { flexDirection: 'row', width: '100%', gap: 10, marginBottom: 14 },
-  statBox:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.40)',
-                  borderRadius: 16, borderWidth: 2, borderColor: colors.gold, paddingVertical: 12, paddingHorizontal: 4 },
-  statValue:    { fontFamily: 'Nunito_700Bold', fontSize: 22, color: colors.gold, lineHeight: 26 },
-  statLabel:    { fontFamily: 'Nunito_700Bold', fontSize: 10.5, color: colors.gold, letterSpacing: 0.5, marginTop: 3, opacity: 0.85 },
-  continueBtn:  { width: '100%', backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  continueBtnText: { fontFamily: 'Nunito_700Bold', fontSize: 17, color: 'white' },
-});

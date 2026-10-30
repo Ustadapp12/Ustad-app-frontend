@@ -75,6 +75,25 @@ jest.mock('@react-native-firebase/analytics', () => () => ({
 // Native module, so it can't load under Jest. services/googleAuth.ts already
 // degrades gracefully when the require fails, but mocking it keeps the failure
 // out of the test output and lets tests drive the sign-in flow.
+// Same reasoning for Sign in with Apple. services/appleAuth.ts returns early
+// off iOS anyway, but tests can set Platform.OS = 'ios' and drive it.
+jest.mock('@invertase/react-native-apple-authentication', () => ({
+  appleAuth: {
+    isSupported: true,
+    performRequest: jest.fn().mockResolvedValue({
+      identityToken: 'test-apple-token',
+      nonce: 'test-nonce',
+      authorizationCode: 'test-code',
+      fullName: { givenName: 'Test', familyName: 'User' },
+      email: null,
+      user: 'test-apple-user',
+    }),
+    Operation: { LOGIN: 1 },
+    Scope: { EMAIL: 0, FULL_NAME: 1 },
+    Error: { CANCELED: '1001' },
+  },
+}));
+
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {
     configure: jest.fn(),
@@ -88,3 +107,60 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
     PLAY_SERVICES_NOT_AVAILABLE: 'PLAY_SERVICES_NOT_AVAILABLE',
   },
 }));
+
+// netinfo is a native module: without this, anything importing
+// services/connectivity.ts (transitively App.tsx) fails to load under jest.
+// Defaults to a healthy wifi connection so tests see an online device, which
+// is what every existing test assumed back when connectivity was a plain
+// `isOffline: false` default on authStore.
+jest.mock('@react-native-community/netinfo', () => {
+  const state = {
+    type: 'wifi',
+    isConnected: true,
+    isInternetReachable: true,
+    details: { strength: 99, isConnectionExpensive: false },
+  };
+  return {
+    __esModule: true,
+    default: {
+      configure: jest.fn(),
+      fetch: jest.fn(() => Promise.resolve(state)),
+      refresh: jest.fn(() => Promise.resolve(state)),
+      // Hand the listener the initial state the way the real module does,
+      // then return the unsubscribe function callers store.
+      addEventListener: jest.fn(listener => {
+        listener(state);
+        return jest.fn();
+      }),
+    },
+  };
+});
+
+// Both are native modules: without these, anything importing utils/location.ts
+// or screens/pray/QiblaCompass.tsx (transitively services/usageSession.ts,
+// App.tsx) fails to load under jest, same class of issue as netinfo above.
+jest.mock('@react-native-community/geolocation', () => ({
+  __esModule: true,
+  default: {
+    setRNConfiguration: jest.fn(),
+    requestAuthorization: jest.fn(),
+    getCurrentPosition: jest.fn(),
+    watchPosition: jest.fn(),
+    clearWatch: jest.fn(),
+    stopObserving: jest.fn(),
+  },
+}));
+
+jest.mock('react-native-compass-heading', () => ({
+  __esModule: true,
+  default: { start: jest.fn(), stop: jest.fn() },
+}));
+
+// Ships raw ESM, which transformIgnorePatterns above doesn't transform, so
+// any test importing a screen that renders it (e.g. HeroSalahCard.tsx,
+// DailyQuestScreen.tsx) fails on its `import` syntax without this. A plain
+// View passthrough is enough -- no test asserts on the gradient itself.
+jest.mock('react-native-linear-gradient', () => {
+  const { View } = require('react-native');
+  return { __esModule: true, default: View };
+});

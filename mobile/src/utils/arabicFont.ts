@@ -1,7 +1,6 @@
+import { useMemo } from 'react';
 import { useScriptStore } from '../store/scriptStore';
 import type { ScriptPreference } from '../types/api';
-
-export type ArabicFontKey = 'naskh' | 'amiri';
 
 /** Map script preference → actual RN fontFamily string */
 export function scriptToFontFamily(script: ScriptPreference | null | undefined): string {
@@ -9,9 +8,14 @@ export function scriptToFontFamily(script: ScriptPreference | null | undefined):
   // the real Nastaliq typeface (previously AmiriQuran, a Naskh-style font
   // mislabeled as Nastaliq). 'nastaliq_urdu' is kept as a synonym for old
   // persisted preferences from before the two keys were unified.
-  if (script === 'nastaliq' || script === 'nastaliq_urdu') return 'NotoNastaliqUrdu';
-  if (script === 'amiri') return 'AmiriRegular';
-  return 'NotoNaskhArabic_400Regular'; // uthmani + simple + default
+  // These must equal each font's actual embedded PostScript name (not its
+  // filename): iOS resolves fontFamily via UIFont's family/PostScript-name
+  // lookup, so a mismatch here silently falls back to the system font
+  // instead of throwing — which is why this broke silently on iOS while
+  // looking fine on Android's more forgiving filename-based lookup.
+  if (script === 'nastaliq' || script === 'nastaliq_urdu') return 'NotoNastaliqUrdu-Regular';
+  if (script === 'amiri') return 'Amiri-Regular';
+  return 'NotoNaskhArabic-Regular'; // uthmani + simple + default
 }
 
 // NotoNastaliqUrdu's letterforms cascade diagonally and stack diacritics
@@ -43,11 +47,12 @@ export function scriptLineHeightScale(script: ScriptPreference | null | undefine
 /** Hook: returns { fontFamily, scale, lineHeightScale } derived from the global script store. */
 export function useArabicFont(): { fontFamily: string; scale: number; lineHeightScale: number } {
   const script = useScriptStore(s => s.script);
-  return {
+  // Same object until the script changes, so callers can memoize on it.
+  return useMemo(() => ({
     fontFamily: scriptToFontFamily(script),
     scale: scriptFontScale(script),
     lineHeightScale: scriptLineHeightScale(script),
-  };
+  }), [script]);
 }
 
 /** Convenience: inline style object for an Arabic Text element. */

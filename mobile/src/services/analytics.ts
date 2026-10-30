@@ -37,8 +37,6 @@ export const AnalyticsEvents = {
   REVISION_COMPLETED: 'revision_completed',
 } as const;
 
-export type AnalyticsEventName = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];
-
 type ParamValue = string | number | boolean | undefined;
 type EventParams = Record<string, ParamValue>;
 
@@ -50,7 +48,6 @@ function getAnalytics(): AnalyticsFactory | null {
   if (_analytics === false) return null;
   if (_analytics) return _analytics;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     _analytics = require('@react-native-firebase/analytics').default as AnalyticsFactory;
     return _analytics;
   } catch {
@@ -75,7 +72,6 @@ function sanitizeParams(params?: EventParams): Record<string, string | number> |
 /** In dev: print every event to the console. In prod: no-op. */
 function devLog(eventName: string, params?: EventParams): void {
   if (__DEV__) {
-    // eslint-disable-next-line no-console
     console.log(`[Analytics] ${eventName}`, params ?? {});
   }
 }
@@ -150,26 +146,4 @@ export async function logScreenView(screenName: string): Promise<void> {
   try {
     await a().logScreenView({ screen_name: screenName, screen_class: screenName });
   } catch { /* ignore */ }
-}
-
-/**
- * Fire when a user shows signs of difficulty on a specific exercise.
- * Triggers when:
- *   - attempts >= 3 wrong answers on the same step, OR
- *   - time spent on one step > 120 seconds
- */
-export async function logUserStruggling(params: {
-  exercise_type: string;
-  ayah_id: string;
-  surah_id: number;
-  reason: 'high_attempts' | 'slow_completion' | 'both';
-  attempts?: number;
-  time_spent_ms?: number;
-}): Promise<void> {
-  void logAnalyticsEvent(AnalyticsEvents.USER_STRUGGLING, {
-    ...params,
-    time_spent_s: params.time_spent_ms != null
-      ? Math.round(params.time_spent_ms / 1000)
-      : undefined,
-  });
 }

@@ -22,7 +22,7 @@ npm start
 # npm run android   # or npm run ios (macOS)
 ```
 
-Full setup: [mobile/README.md](mobile/README.md) · Windows: [mobile/SETUP_WINDOWS.md](mobile/SETUP_WINDOWS.md)
+Full setup: [mobile/README.md](mobile/README.md) · Windows: [mobile/docs/SETUP_WINDOWS.md](mobile/docs/SETUP_WINDOWS.md)
 
 **API:** production host is configured in `mobile/src/config.ts` ([`https://ustad-app-backend.vercel.app`](https://ustad-app-backend.vercel.app)).
 

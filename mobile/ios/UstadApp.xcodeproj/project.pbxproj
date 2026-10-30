@@ -12,12 +12,18 @@
 		2507B0DCA558C0D952E2E79A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		45AB66FCC0D4FBAF5395D62E /* NotoNaskhArabic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C7C434C831E75ED24940B1C6 /* NotoNaskhArabic.ttf */; };
 		61B82A41C588B00A108729C6 /* Amiri-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3A851339A247B4468917FC78 /* Amiri-Regular.ttf */; };
+		B677B5452C74860AB3823717 /* correct.wav in Resources */ = {isa = PBXBuildFile; fileRef = 11392973627665A749569411 /* correct.wav */; };
+		3CA13BE18B61A54E7AE29239 /* wrong.wav in Resources */ = {isa = PBXBuildFile; fileRef = AB147718BBF694B5D7C9D387 /* wrong.wav */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		8A7C1528BF2C56346E655299 /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5700E93174867D050DF841B7 /* Nunito-Bold.ttf */; };
 		A9268A410B221F7B9383684A /* AmiriQuran.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 419411F824406AA2C10B7AF8 /* AmiriQuran.ttf */; };
 		C356D0B158B477118BDDA832 /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7E190A811ABDB1D928FDC20A /* Nunito-Regular.ttf */; };
 		F6D2DE8882DD672A7DF17C14 /* NotoNastaliqUrdu.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 07ACEC82197F1148EE0CC2D6 /* NotoNastaliqUrdu.ttf */; };
+		9F1A2B3C4D5E6F7081920B01 /* Nunito-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9F1A2B3C4D5E6F7081920A01 /* Nunito-ExtraBold.ttf */; };
+		9F1A2B3C4D5E6F7081920B02 /* Nunito-Black.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9F1A2B3C4D5E6F7081920A02 /* Nunito-Black.ttf */; };
+		9F1A2B3C4D5E6F7081920B03 /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9F1A2B3C4D5E6F7081920A03 /* Inter-Bold.ttf */; };
+		DEFAFF021E15F8E180AF36A9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C8437614D9AD6D3470579952 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +33,8 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = UstadApp/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = UstadApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		3A851339A247B4468917FC78 /* Amiri-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Amiri-Regular.ttf"; path = "Amiri-Regular.ttf"; sourceTree = "<group>"; };
+		11392973627665A749569411 /* correct.wav */ = {isa = PBXFileReference; lastKnownFileType = file; name = correct.wav; path = correct.wav; sourceTree = "<group>"; };
+		AB147718BBF694B5D7C9D387 /* wrong.wav */ = {isa = PBXFileReference; lastKnownFileType = file; name = wrong.wav; path = wrong.wav; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-UstadApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-UstadApp.debug.xcconfig"; path = "Target Support Files/Pods-UstadApp/Pods-UstadApp.debug.xcconfig"; sourceTree = "<group>"; };
 		419411F824406AA2C10B7AF8 /* AmiriQuran.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = AmiriQuran.ttf; path = AmiriQuran.ttf; sourceTree = "<group>"; };
 		41B8EBC898567EF627619487 /* Pods_UstadApp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_UstadApp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -36,7 +44,11 @@
 		7E190A811ABDB1D928FDC20A /* Nunito-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Nunito-Regular.ttf"; path = "Nunito-Regular.ttf"; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = UstadApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		C7C434C831E75ED24940B1C6 /* NotoNaskhArabic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = NotoNaskhArabic.ttf; path = NotoNaskhArabic.ttf; sourceTree = "<group>"; };
+		9F1A2B3C4D5E6F7081920A01 /* Nunito-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Nunito-ExtraBold.ttf"; path = "Nunito-ExtraBold.ttf"; sourceTree = "<group>"; };
+		9F1A2B3C4D5E6F7081920A02 /* Nunito-Black.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Nunito-Black.ttf"; path = "Nunito-Black.ttf"; sourceTree = "<group>"; };
+		9F1A2B3C4D5E6F7081920A03 /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-Bold.ttf"; path = "Inter-Bold.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		C8437614D9AD6D3470579952 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "UstadApp/GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,7 +66,9 @@
 		13B07FAE1A68108700A75B9A /* UstadApp */ = {
 			isa = PBXGroup;
 			children = (
+				C8437614D9AD6D3470579952 /* GoogleService-Info.plist */,
 				51EAA09B791DF8EE6718883C /* Fonts */,
+				08A82F98EE395D207019BCFE /* Sounds */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -82,9 +96,22 @@
 				419411F824406AA2C10B7AF8 /* AmiriQuran.ttf */,
 				C7C434C831E75ED24940B1C6 /* NotoNaskhArabic.ttf */,
 				07ACEC82197F1148EE0CC2D6 /* NotoNastaliqUrdu.ttf */,
+				9F1A2B3C4D5E6F7081920A01 /* Nunito-ExtraBold.ttf */,
+				9F1A2B3C4D5E6F7081920A02 /* Nunito-Black.ttf */,
+				9F1A2B3C4D5E6F7081920A03 /* Inter-Bold.ttf */,
 			);
 			name = Fonts;
 			path = UstadApp/Fonts;
+			sourceTree = "<group>";
+		};
+		08A82F98EE395D207019BCFE /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				11392973627665A749569411 /* correct.wav */,
+				AB147718BBF694B5D7C9D387 /* wrong.wav */,
+			);
+			name = Sounds;
+			path = UstadApp/Sounds;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -195,7 +222,13 @@
 				A9268A410B221F7B9383684A /* AmiriQuran.ttf in Resources */,
 				45AB66FCC0D4FBAF5395D62E /* NotoNaskhArabic.ttf in Resources */,
 				F6D2DE8882DD672A7DF17C14 /* NotoNastaliqUrdu.ttf in Resources */,
+				9F1A2B3C4D5E6F7081920B01 /* Nunito-ExtraBold.ttf in Resources */,
+				9F1A2B3C4D5E6F7081920B02 /* Nunito-Black.ttf in Resources */,
+				9F1A2B3C4D5E6F7081920B03 /* Inter-Bold.ttf in Resources */,
+				B677B5452C74860AB3823717 /* correct.wav in Resources */,
+				3CA13BE18B61A54E7AE29239 /* wrong.wav in Resources */,
 				2507B0DCA558C0D952E2E79A /* PrivacyInfo.xcprivacy in Resources */,
+				DEFAFF021E15F8E180AF36A9 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -324,7 +357,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CODE_SIGN_ENTITLEMENTS = UstadApp/UstadApp.entitlements;
+				CURRENT_PROJECT_VERSION = 10042;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = UstadApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -332,7 +366,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.47;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -356,14 +390,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CODE_SIGN_ENTITLEMENTS = UstadApp/UstadApp.entitlements;
+				CURRENT_PROJECT_VERSION = 10042;
 				INFOPLIST_FILE = UstadApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.47;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

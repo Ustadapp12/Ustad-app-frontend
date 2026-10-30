@@ -1,18 +1,21 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  CHARACTERS, ExerciseSlide, FeedbackBanner, FillBlankOrNextWord, LessonHeader, ReadAndSpeak,
-} from '../lesson/LessonSessionScreen';
+import { CHARACTERS } from '../lesson/lessonShared';
+import { ExerciseSlide } from '../lesson/components/ExerciseSlide';
+import { FeedbackBanner } from '../lesson/components/FeedbackBanner';
+import { FillBlankOrNextWord } from '../lesson/exercises/FillBlankOrNextWord';
+import { ReadAndSpeak } from '../lesson/exercises/ReadAndSpeak';
+import LessonHeader from '../../components/lesson/LessonHeader';
 import TourOverlay from '../../components/tour/TourOverlay';
 import {
   TOUR_FEEDBACK_RESULT, TOUR_MISTAKES, TOUR_PROGRESS_FRACTION, TOUR_SURAH_NAME, tourExerciseForStep,
 } from '../../components/tour/tourExercises';
 import { FIRST_LESSON_STEP, TOUR_STEPS } from '../../components/tour/tourSteps';
 import { useTourStore } from '../../store/tourStore';
-import { colors } from '../../theme/colors';
 import type { RootNavProp } from '../../navigation/types';
 import { useTourTarget } from '../../components/tour/useTourTarget';
+import { styles } from './TourLessonScreen.styles';
 
 interface Props { navigation: RootNavProp }
 
@@ -54,11 +57,9 @@ export default function TourLessonScreen({ navigation }: Props) {
   //   matches that same clamp-to-circle/pill behaviour for the hole.
   // - lessonExercise's radius is unused: skipHole (in TourOverlay) keeps the
   //   plain uniform dim for it regardless.
-  // - lessonCheck: EX.continueBtn's real borderRadius (16).
-  // - lessonMic: RAS.micBtn is always exactly circular in both its states
-  //   (108/54 and 76/38 both simplify to radius = half the measured side),
-  //   so 'round' reproduces the true shape in either state without needing
-  //   to know which one is currently mounted.
+  // - lessonCheck: ExerciseFooterButton's real borderRadius (16).
+  // - lessonMic: the mic button (exercises/speak/styles.ts micBtn, 108/54)
+  //   is exactly circular, so 'round' reproduces its true shape.
   // - lessonOption: AF.optionBtn's real borderRadius (16).
   // - lessonFeedback: FB.sheet's real top-corner borderRadius (24); its
   //   flush-bottom position (see TourOverlay) zeroes the bottom two corners,
@@ -103,7 +104,7 @@ export default function TourLessonScreen({ navigation }: Props) {
   const previewSelected = useMemo(() => {
     const correctAr = exercise.tokens?.find(t => t.blank)?.ar;
     return exercise.options?.find(o => o.ar === correctAr)?.ar ?? exercise.options?.[0]?.ar;
-  }, [exercise.ex_id]);
+  }, [exercise]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -118,8 +119,11 @@ export default function TourLessonScreen({ navigation }: Props) {
         glowTarget={glowTarget}
       />
 
-      <View {...exerciseTarget} collapsable={false} style={styles.exerciseArea} pointerEvents="none">
-        <ExerciseSlide key={exercise.ex_id}>
+      <View ref={exerciseTarget.ref} onLayout={exerciseTarget.onLayout} collapsable={false} style={styles.exerciseArea} pointerEvents="none">
+        <ExerciseSlide
+          key={exercise.ex_id}
+          onSettled={() => { checkTarget.measure(); micTarget.measure(); optionTarget.measure(); }}
+        >
           {exercise.type === 'read_and_speak' ? (
             <ReadAndSpeak
               ex={exercise}
@@ -168,8 +172,3 @@ export default function TourLessonScreen({ navigation }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.lightBg },
-  exerciseArea: { flex: 1 },
-});
